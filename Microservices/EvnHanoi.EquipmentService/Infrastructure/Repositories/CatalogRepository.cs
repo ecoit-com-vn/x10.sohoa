@@ -1,5 +1,6 @@
 using System.Data;
 using Dapper;
+using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
 
@@ -136,6 +137,181 @@ public class CatalogRepository : ICatalogRepository
         var items = await _connection.QueryAsync<Catalog>(pagedSql, parameters);
 
         return (items, totalCount);
+    }
+
+    public async Task<CatalogHierarchyPage> GetMucLucHierarchyPagedAsync(
+        int page,
+        int pageSize,
+        long catalogTypeId,
+        string? keyword = null,
+        int? status = null,
+        long? unitId = null,
+        bool includeAllUnits = false)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        page = Math.Max(1, page);
+        pageSize = Math.Max(1, pageSize);
+
+        if (!includeAllUnits && !unitId.HasValue)
+            return new CatalogHierarchyPage([], 0, 0);
+
+        var unitFilter = includeAllUnits
+            ? string.Empty
+            : $" AND c.{nameof(Catalog.UnitId)} = :UnitId";
+        var sql = $@"
+            SELECT c.*,
+                   ou.Name AS {nameof(Catalog.UnitName)},
+                   COALESCE(
+                       creatorById.FullName,
+                       creatorByUserName.FullName,
+                       c.{nameof(Catalog.CreatedBy)}
+                   ) AS {nameof(Catalog.CreatedByName)}
+              FROM {nameof(Catalog)} c
+              LEFT JOIN ORGANIZATION_UNIT ou
+                ON ou.Id = c.{nameof(Catalog.UnitId)}
+              LEFT JOIN (
+                    SELECT Id, MAX(FullName) AS FullName
+                      FROM APP_USER
+                     WHERE IsDeleted = 0
+                     GROUP BY Id
+              ) creatorById ON creatorById.Id = c.{nameof(Catalog.CreatedBy)}
+              LEFT JOIN (
+                    SELECT UPPER(TRIM(UserName)) AS NormalizedUserName,
+                           MAX(FullName) AS FullName
+                      FROM APP_USER
+                     WHERE IsDeleted = 0
+                     GROUP BY UPPER(TRIM(UserName))
+              ) creatorByUserName
+                ON creatorByUserName.NormalizedUserName = UPPER(TRIM(c.{nameof(Catalog.CreatedBy)}))
+             WHERE c.{nameof(Catalog.IsDeleted)} = 0
+               AND c.{nameof(Catalog.CatalogTypeId)} = :CatalogTypeId
+               {unitFilter}";
+
+        var source = (await _connection.QueryAsync<CatalogHierarchyItemDto>(sql, new
+        {
+            CatalogTypeId = catalogTypeId,
+            UnitId = unitId
+        })).ToList();
+
+        if (source.Count == 0)
+            return new CatalogHierarchyPage([], 0, 0);
+
+        static int CompareItems(CatalogHierarchyItemDto left, CatalogHierarchyItemDto right)
+        {
+            var priorityComparison = left.Priority.CompareTo(right.Priority);
+            return priorityComparison != 0 ? priorityComparison : left.Id.CompareTo(right.Id);
+        }
+
+        var itemsById = source.ToDictionary(item => item.Id);
+        var childrenByParent = source
+            .Where(item => item.ParentId.HasValue &&
+                           itemsById.TryGetValue(item.ParentId.Value, out var parent) &&
+                           parent.UnitId == item.UnitId)
+            .GroupBy(item => item.ParentId!.Value)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderBy(item => item, Comparer<CatalogHierarchyItemDto>.Create(CompareItems)).ToList());
+
+        var normalizedKeyword = keyword?.Trim();
+        var hasKeyword = !string.IsNullOrWhiteSpace(normalizedKeyword);
+        var hasFilter = hasKeyword || status.HasValue;
+        bool IsDirectMatch(CatalogHierarchyItemDto item) =>
+            (!hasKeyword ||
+             item.Code.Contains(normalizedKeyword!, StringComparison.OrdinalIgnoreCase) ||
+             item.Name.Contains(normalizedKeyword!, StringComparison.OrdinalIgnoreCase)) &&
+            (!status.HasValue || item.Status == status.Value);
+
+        var directMatchIds = source.Where(IsDirectMatch).Select(item => item.Id).ToHashSet();
+        var visibleIds = hasFilter ? new HashSet<long>() : source.Select(item => item.Id).ToHashSet();
+
+        if (hasFilter)
+        {
+            foreach (var matchId in directMatchIds)
+            {
+                var currentId = (long?)matchId;
+                var visited = new HashSet<long>();
+                while (currentId.HasValue && visited.Add(currentId.Value) &&
+                       itemsById.TryGetValue(currentId.Value, out var current))
+                {
+                    visibleIds.Add(current.Id);
+                    if (!current.ParentId.HasValue ||
+                        !itemsById.TryGetValue(current.ParentId.Value, out var parent) ||
+                        parent.UnitId != current.UnitId)
+                        break;
+                    currentId = parent.Id;
+                }
+            }
+        }
+
+        if (visibleIds.Count == 0)
+            return new CatalogHierarchyPage([], 0, 0);
+
+        var roots = source
+            .Where(item => visibleIds.Contains(item.Id) &&
+                           (!item.ParentId.HasValue ||
+                            !visibleIds.Contains(item.ParentId.Value) ||
+                            !itemsById.TryGetValue(item.ParentId.Value, out var parent) ||
+                            parent.UnitId != item.UnitId))
+            .ToList();
+
+        var reachableIds = new HashSet<long>();
+        void MarkReachable(long id, HashSet<long> path)
+        {
+            if (!visibleIds.Contains(id) || !path.Add(id)) return;
+            reachableIds.Add(id);
+            if (childrenByParent.TryGetValue(id, out var children))
+                foreach (var child in children)
+                    MarkReachable(child.Id, path);
+            path.Remove(id);
+        }
+
+        foreach (var root in roots)
+            MarkReachable(root.Id, []);
+
+        // Keep malformed/orphaned cycle components visible instead of silently dropping them.
+        // Select one synthetic root per disconnected component so pagination stays stable.
+        foreach (var candidate in source
+                     .Where(item => visibleIds.Contains(item.Id))
+                     .OrderBy(item => item.Id))
+        {
+            if (reachableIds.Contains(candidate.Id)) continue;
+            roots.Add(candidate);
+            MarkReachable(candidate.Id, []);
+        }
+        roots = roots
+            .DistinctBy(item => item.Id)
+            .OrderBy(item => includeAllUnits ? item.UnitName ?? string.Empty : string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => includeAllUnits ? item.UnitId ?? 0 : 0)
+            .ThenBy(item => item, Comparer<CatalogHierarchyItemDto>.Create(CompareItems))
+            .ToList();
+
+        var totalRootCount = roots.Count;
+        var pageRoots = roots.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        var pageItems = new List<CatalogHierarchyItemDto>();
+        var emittedIds = new HashSet<long>();
+
+        void Flatten(CatalogHierarchyItemDto item, int level, HashSet<long> path)
+        {
+            if (!visibleIds.Contains(item.Id) || !path.Add(item.Id) || !emittedIds.Add(item.Id)) return;
+
+            var visibleChildren = childrenByParent.TryGetValue(item.Id, out var children)
+                ? children.Where(child => visibleIds.Contains(child.Id)).ToList()
+                : [];
+            item.Level = level;
+            item.HasChildren = visibleChildren.Count > 0;
+            item.IsContextOnly = hasFilter && !directMatchIds.Contains(item.Id);
+            pageItems.Add(item);
+
+            foreach (var child in visibleChildren)
+                Flatten(child, level + 1, path);
+            path.Remove(item.Id);
+        }
+
+        foreach (var root in pageRoots)
+            Flatten(root, 0, []);
+
+        return new CatalogHierarchyPage(pageItems, totalRootCount, visibleIds.Count);
     }
 
     public async Task<(IEnumerable<Catalog> Items, int TotalCount)> GetPhongPagedAsync(
