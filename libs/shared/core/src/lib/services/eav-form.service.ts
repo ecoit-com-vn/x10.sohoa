@@ -82,7 +82,7 @@ export class EavFormService {
     return this.api.get<EavFormTemplate>(`${this.apiUrl}/${id}`);
   }
 
-  createTemplate(name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, createdBy: string = 'admin', gridTypeId?: number, equipmentTypeId?: string, extractionProcess?: string, extractionPosition?: string): Observable<EavFormTemplate> {
+  createTemplate(name: string, code: string, category: string, description: string, descriptionInfo: string, formSchema: string, createdBy?: string, gridTypeId?: number, equipmentTypeId?: string, extractionProcess?: string, extractionPosition?: string): Observable<EavFormTemplate> {
     return this.api.post<EavFormTemplate>(this.apiUrl, {
       name,
       code,
@@ -92,7 +92,7 @@ export class EavFormService {
       extractionProcess,
       extractionPosition,
       formSchema,
-      createdBy,
+      ...(createdBy ? { createdBy } : {}),
       gridTypeId,
       equipmentTypeId
     });

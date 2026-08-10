@@ -80,7 +80,9 @@
 
                         <tr *ngFor="let form of paginatedForms(); let i = index">
                             <td style="text-align: center;">{{ first() + i + 1 }}</td>
-                            <td>{{ form.code || '' }}</td>
+                            <td>
+                                <a class="form-code-link" [routerLink]="['/equipment/completed-forms', form.id]">{{ form.code || '' }}</a>
+                            </td>
                             <td>{{ form.name }}</td>
                             <td>
                                 <span class="badge">

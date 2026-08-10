@@ -1,5 +1,5 @@
 import { inject } from '@angular/core';
-import { CanActivateFn, Router, UrlTree } from '@angular/router';
+import { ActivatedRouteSnapshot, CanActivateFn, Router, RouterStateSnapshot, UrlTree } from '@angular/router';
 import { map } from 'rxjs/operators';
 import { AuthService } from '../services/auth.service';
 
@@ -44,14 +44,14 @@ function resolvePublisherAccess(auth: AuthService, router: Router): boolean | Ur
 }
 
 function withPermissionsLoaded(
-  resolver: (auth: AuthService, router: Router) => boolean | UrlTree
+  resolver: (auth: AuthService, router: Router, route?: ActivatedRouteSnapshot) => boolean | UrlTree
 ): CanActivateFn {
-  return () => {
+  return (route: ActivatedRouteSnapshot, _state: RouterStateSnapshot) => {
     const router = inject(Router);
     const auth = inject(AuthService);
 
     return auth.ensurePermissionsLoaded().pipe(
-      map(() => resolver(auth, router))
+      map(() => resolver(auth, router, route))
     );
   };
 }
@@ -79,10 +79,17 @@ function resolveEquipmentLookupAccess(auth: AuthService, router: Router): boolea
 /** Menu Tra cứu hồ sơ thiết bị */
 export const dossierEquipmentLookupGuard = withPermissionsLoaded(resolveEquipmentLookupAccess);
 
-function resolveWarehouseSearchAccess(auth: AuthService, router: Router): boolean | UrlTree {
+function resolveWarehouseSearchAccess(auth: AuthService, router: Router, route?: ActivatedRouteSnapshot): boolean | UrlTree {
   if (
     auth.hasPermission('SUPER_ADMIN') ||
     auth.hasPermission('SEARCH_DOSSIERS_IN_WAREHOUSE_VIEW')
+  ) {
+    return true;
+  }
+
+  if (
+    route?.queryParamMap.get('from') === 'report' &&
+    auth.hasPermission('REPORT_STATISTICS_VIEW')
   ) {
     return true;
   }

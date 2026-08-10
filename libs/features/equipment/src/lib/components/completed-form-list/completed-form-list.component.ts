@@ -6,7 +6,7 @@ import {
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ToastModule } from 'primeng/toast';
 import { Menu, MenuModule } from 'primeng/menu';
@@ -44,6 +44,7 @@ import {
         DatePickerModule,
         WfBreadcrumbComponent,
         DeleteConfirmDialogComponent,
+        RouterLink,
     ],
     providers: [MessageService],
     templateUrl: './completed-form-list.component.html',

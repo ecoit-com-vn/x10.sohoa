@@ -156,9 +156,12 @@
   <!-- ==================== DETAIL VIEW STATE ==================== -->
   <ng-container *ngIf="viewState() === 'detail'">
     <!-- Breadcrumb -->
-    <div class="list-toolbar">
+    <div class="list-toolbar standard-page-toolbar">
       <div class="toolbar-left">
-        <wf-breadcrumb />
+        <wf-breadcrumb
+          matchUrl="/equipment/form-template"
+          suffix="Xem chi tiết"
+          (listClick)="goToList()" />
       </div>
       <div class="toolbar-right">
         <button class="btn-save btn-tim" (click)="goToList()" style="background-color: #002D72 !important; border-color: #002D72 !important; display: inline-flex; align-items: center; gap: 6px; color: white;">

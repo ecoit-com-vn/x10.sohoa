@@ -35,8 +35,12 @@
       <ng-template pTemplate="body" let-item>
         <tr>
           <td class="text-center font-medium">{{ item.stt }}</td>
-          <td><span class="equipment-code">{{ item.equipmentCode || '-' }}</span></td>
-          <td class="font-medium text-gray-800">{{ item.equipmentName || '-' }}</td>
+          <td>
+            <span class="equipment-code">{{ item.equipmentCode || '-' }}</span>
+          </td>
+          <td class="font-medium text-gray-800">
+            {{ item.equipmentName || '-' }}
+          </td>
           <td>{{ item.infrastructureName || '-' }}</td>
           <td>{{ item.equipmentStatusName || '-' }}</td>
           <td class="text-center font-semibold">{{ item.totalDossiers }}</td>

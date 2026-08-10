@@ -351,4 +351,12 @@ export class ReportDossierByEquipmentTypeComponent implements OnInit, AfterViewI
       detail
     });
   }
+
+  onResetSearch(): void {
+    this.selectedObjectType.set(0);
+    this.selectedEquipmentTypeIds.set([]);
+    this.selectedYear.set(new Date().getFullYear());
+    this.applyDefaultUnitFilter();
+    this.onFilter();
+  }
 }

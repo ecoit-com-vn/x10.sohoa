@@ -57,6 +57,13 @@ export const SEARCH_ROUTES: Route[] = [
     loadComponent: () => import('./components/dossier-lookup/dossier-lookup.component').then(m => m.DossierLookupComponent)
   },
   {
+    path: 'dossier-by-equipment/:dossierId/equipment/:id',
+    loadComponent: () =>
+      import('@sohoa.frontend/features/equipment').then(m => m.EquipmentComponent),
+    canActivate: [dossierEquipmentLookupGuard],
+    data: { searchReadOnly: true }
+  },
+  {
     path: 'dossier-by-equipment/:id',
     loadComponent: () => import('./components/dossier-lookup-detail/dossier-lookup-detail.component').then(m => m.DossierLookupDetailComponent),
     canActivate: [dossierEquipmentLookupGuard]

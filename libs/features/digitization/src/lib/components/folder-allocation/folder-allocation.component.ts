@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoInputDateComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -26,6 +27,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
     FolderAllocationDialogComponent,
     WfBreadcrumbComponent,
     DeleteConfirmDialogComponent,
+    EcoInputDateComponent,
   ],
   providers: [MessageService],
   templateUrl: './folder-allocation.component.html',

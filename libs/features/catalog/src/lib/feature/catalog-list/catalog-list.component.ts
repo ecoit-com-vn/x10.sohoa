@@ -143,6 +143,13 @@ export class CatalogListComponent implements OnInit {
 
   isPhongCatalog = computed(() => this.catalogType() === 'PHONG');
   isMucLucCatalog = computed(() => this.catalogType() === 'MUC_LUC');
+  usesStandardCatalogTableStyle = computed(() => [
+    'PROCESSING_CATEGORY',
+    'PHONG',
+    'CHUC_VU',
+    'LINH_VUC',
+    'TINH_TRANG_VAT_LY'
+  ].includes(this.catalogType()));
   isUnitScopedCatalog = computed(() => this.isPhongCatalog() || this.isMucLucCatalog());
   usesStandardAuditColumns = computed(() => [
     'PROCESSING_CATEGORY',
