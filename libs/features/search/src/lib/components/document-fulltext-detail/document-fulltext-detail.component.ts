@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { of, catchError, switchMap } from 'rxjs';
+import { of, catchError, switchMap, Observable } from 'rxjs';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import {
@@ -134,28 +134,33 @@ export class DocumentFulltextDetailComponent implements OnDestroy {
     this.loading.set(true);
     this.loadingTemplate.set(true);
 
-    this.searchService.getDetail(versionId).pipe(
-      switchMap((res) => {
-        this.detail.set(res);
-        this.documentFormData = { ...parseFormDataJson(res.mergedDataJson ?? null) };
+    const processResponse = (detail$: Observable<DocumentFulltextDetail>) => {
+      return detail$.pipe(
+        switchMap((res) => {
+          this.detail.set(res);
+          this.documentFormData = { ...parseFormDataJson(res.mergedDataJson ?? null) };
 
-        const dossierId = (res.dossierId || '').trim();
-        const template$ = dossierId
-          ? this.searchService.getDocumentFormTemplate(dossierId, versionId).pipe(catchError(() => of(null)))
-          : of(null);
+          const dossierId = (res.dossierId || '').trim();
+          const template$ = dossierId
+            ? this.searchService.getDocumentFormTemplate(dossierId, versionId).pipe(catchError(() => of(null)))
+            : of(null);
 
-        return template$.pipe(
-          switchMap((template) => {
-            this.applyDocumentTemplate(template);
-            this.loadingTemplate.set(false);
-            if (!dossierId) {
-              return of(null);
-            }
-            this.loadingDossier.set(true);
-            return this.searchService.getDossier(dossierId).pipe(catchError(() => of(null)));
-          })
-        );
-      }),
+          return template$.pipe(
+            switchMap((template) => {
+              this.applyDocumentTemplate(template);
+              this.loadingTemplate.set(false);
+              if (!dossierId) {
+                return of(null);
+              }
+              this.loadingDossier.set(true);
+              return this.searchService.getDossier(dossierId).pipe(catchError(() => of(null)));
+            })
+          );
+        })
+      );
+    };
+
+    processResponse(this.searchService.getDetail(versionId)).pipe(
       catchError((err) => {
         const msg = err?.error?.message || 'Không thể tải chi tiết tài liệu';
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: msg });

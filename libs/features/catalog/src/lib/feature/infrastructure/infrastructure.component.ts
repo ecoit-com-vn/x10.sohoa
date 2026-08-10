@@ -150,6 +150,16 @@ export class InfrastructureComponent implements OnInit {
     this.filterOrgTree(this.buildOrgTree(this.transferOrganizationUnits()), this.transferOrgSearchKeyword())
   );
 
+  onSearchKeywordChange(value: string) {
+    this.searchKeyword.set(value);
+    this.currentPage.set(1);
+  }
+
+  onSearchStatusChange(value: string) {
+    this.searchStatus.set(value);
+    this.currentPage.set(1);
+  }
+
   // Pagination Computeds
   paginatedItems = computed(() => {
     return this.items();
@@ -364,8 +374,8 @@ export class InfrastructureComponent implements OnInit {
     event.stopPropagation();
     this.actionMenuItems = [
       { label: 'Xem chi tiết', title: 'Xem chi tiết', icon: 'pi pi-eye color-teal', command: () => this.onViewDetail(item) },
-      ...(this.canManage() ? [{ label: (item.isActive === 1 || item.isActive === true) ? 'Khóa bản ghi' : 'Mở khóa bản ghi', title: (item.isActive === 1 || item.isActive === true) ? 'Khóa bản ghi' : 'Mở khóa bản ghi', icon: (item.isActive === 1 || item.isActive === true) ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatus(item) }] : []),
       ...(this.canEdit() ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
+      ...(this.canManage() ? [{ label: (item.isActive === 1 || item.isActive === true) ? 'Khóa bản ghi' : 'Mở khóa bản ghi', title: (item.isActive === 1 || item.isActive === true) ? 'Khóa bản ghi' : 'Mở khóa bản ghi', icon: (item.isActive === 1 || item.isActive === true) ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatus(item) }] : []),
       ...(this.canDelete() ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(item) }] : []),
     ];
     menu.toggle(event);
