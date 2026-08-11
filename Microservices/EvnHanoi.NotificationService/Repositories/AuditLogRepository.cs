@@ -69,6 +69,59 @@ namespace EvnHanoi.NotificationService.Repositories
             return response.Hits.Select(MapHit).ToList();
         }
 
+        public async Task<long> GetDashboardDownloadCountAsync(DateTime? fromDate = null, DateTime? toDate = null)
+        {
+            var mustQueries = new List<Query>
+            {
+                new QueryDescriptor<AuditLogDocument>().Wildcard(w => w
+                    .Field("requestPath")
+                    .Value("*download*")
+                    .CaseInsensitive(true))
+            };
+            var mustNotQueries = new List<Query>
+            {
+                new QueryDescriptor<AuditLogDocument>().Term(t => t
+                    .Field("isDeleted")
+                    .Value(true))
+            };
+
+            foreach (var actorId in AuditUserActionGuard.NonUserActorIds)
+            {
+                mustNotQueries.Add(new QueryDescriptor<AuditLogDocument>().Wildcard(w => w
+                    .Field("actorUserId")
+                    .Value(actorId)
+                    .CaseInsensitive(true)));
+            }
+
+            if (fromDate.HasValue || toDate.HasValue)
+            {
+                mustQueries.Add(new QueryDescriptor<AuditLogDocument>().Range(r => r.DateRange(dr =>
+                {
+                    dr.Field("occurredAt");
+                    if (fromDate.HasValue)
+                        dr.Gte(FormatEsDate(fromDate.Value));
+                    if (toDate.HasValue)
+                        dr.Lte(FormatEsDate(toDate.Value));
+                })));
+            }
+
+            var response = await _elasticsearchClient.CountAsync<AuditLogDocument>(c => c
+                .Indices($"{AuditMessaging.IndexPrefix}-*")
+                .Query(q => q.Bool(b => b
+                    .Must(mustQueries)
+                    .MustNot(mustNotQueries))));
+
+            if (!response.IsValidResponse)
+            {
+                Log.Error(
+                    "Dashboard download count query failed: {Error}",
+                    response.ElasticsearchServerError?.Error?.Reason ?? response.DebugInformation);
+                throw new Exception("Failed to query Elasticsearch audit logs");
+            }
+
+            return response.Count;
+        }
+
         public async Task<IReadOnlyList<AuditLogItemDto>> ExportAuditLogsAsync(
             string? keyword = null,
             string? action = null,

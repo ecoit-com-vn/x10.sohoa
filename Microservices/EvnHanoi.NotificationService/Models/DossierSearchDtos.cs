@@ -22,6 +22,18 @@ public class CreatorInfoDto
     public string Name { get; set; } = string.Empty;
 }
 
+public class DossierInfrastructureDto
+{
+    public Guid InfrastructureId { get; set; }
+    public string InfrastructureCode { get; set; } = string.Empty;
+    public string InfrastructureName { get; set; } = string.Empty;
+}
+
+public class DossierInfrastructureAssignmentDto : DossierInfrastructureDto
+{
+    public Guid DossierId { get; set; }
+}
+
 public class DossierListItemDto
 {
     public Guid Id { get; set; }
@@ -30,6 +42,7 @@ public class DossierListItemDto
     public Guid? InfrastructureId { get; set; }
     public string? InfrastructureName { get; set; }
     public string? InfrastructureCode { get; set; }
+    public List<DossierInfrastructureDto> Infrastructures { get; set; } = new();
     public long? UnitId { get; set; }
     public string? UnitName { get; set; }
     public string? EquipmentName { get; set; }
