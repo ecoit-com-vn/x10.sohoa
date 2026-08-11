@@ -64,6 +64,16 @@ export class EquipmentService {
     return this.http.get<any>(`${this.base}/${id}`);
   }
 
+  getSubstationSearchById(id: string): Observable<any> {
+    return this.http.get<any>(`${this.config.apiGatewayUrl}/api/catalog/substation-search/equipments/${id}`);
+  }
+
+  getDossierEquipmentSearchById(dossierId: string, equipmentId: string): Observable<any> {
+    return this.http.get<any>(
+      `${this.config.apiGatewayUrl}/api/v1/dossiers-by-equipment/${dossierId}/equipments/${equipmentId}`
+    );
+  }
+
   confirmEquipment(id: string): Observable<any> {
     return this.http.put<any>(`${this.base}/${id}/confirm`, null);
   }
