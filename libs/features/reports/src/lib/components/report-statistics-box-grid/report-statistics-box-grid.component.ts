@@ -6,6 +6,7 @@ import {
   signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
 import { TableModule } from 'primeng/table';
 import { ReportStatisticsBoxGridConfig } from '../../data-access/report-statistics.config';
 import {
@@ -17,7 +18,7 @@ import { finalize } from 'rxjs';
 @Component({
   selector: 'app-report-statistics-box-grid',
   standalone: true,
-  imports: [CommonModule, TableModule],
+  imports: [CommonModule, TableModule, EcoPaginatorComponent],
   templateUrl: './report-statistics-box-grid.component.html',
   styleUrl: './report-statistics-box-grid.component.scss'
 })

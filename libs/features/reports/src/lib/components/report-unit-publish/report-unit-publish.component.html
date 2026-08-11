@@ -1,28 +1,28 @@
 <!-- sohoa.frontend/libs/features/reports/src/lib/components/report-unit-publish/report-unit-publish.component.html -->
-<p-toast></p-toast>
 <div class="wf-page">
+  <p-toast></p-toast>
   <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
       <wf-breadcrumb></wf-breadcrumb>
     </div>
   </div>
 
-  <div class="wf-card mt-3">
-    <!-- Filters Toolbar -->
-    <div class="dossier-search-bar unit-search-bar">
-      <div class="search-form-grid unit-search-grid">
-        <div class="search-form-item">
+  <div class="animate-fade-in">
+    <div class="standard-search-card">
+      <div class="standard-search-grid">
+        <div class="standard-search-field">
           <label class="search-field-label">Từ khóa</label>
           <input
             type="text"
-            class="wf-input"
+            class="wf-search-input"
             [ngModel]="searchKeyword()"
             (ngModelChange)="searchKeyword.set($event)"
+            (keyup.enter)="onSearch()"
             placeholder="Tìm theo tên hoặc mã báo cáo..."
           />
         </div>
 
-        <div class="search-form-item">
+        <div class="standard-search-field">
           <label class="search-field-label">Trạng thái</label>
           <select
             class="wf-input"
@@ -36,7 +36,7 @@
           </select>
         </div>
       </div>
-      <div class="standard-search-actions audit-filter-actions">
+      <div class="standard-search-actions">
         <button type="button" class="btn-outlined" (click)="onResetSearch()">
           <i class="pi pi-refresh"></i> Làm mới
         </button>
@@ -46,7 +46,6 @@
       </div>
     </div>
 
-    <!-- Table Grid -->
     <div class="wf-card">
       <div class="wf-table-wrap" *ngIf="!loading(); else loadingTemplate">
         <table class="wf-table">

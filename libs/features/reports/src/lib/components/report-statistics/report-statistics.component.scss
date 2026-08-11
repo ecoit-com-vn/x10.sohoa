@@ -145,3 +145,47 @@
     background: white;
     border: 1px solid #d1d5db;
 }
+
+/* Đồng bộ khung tìm kiếm với các màn hình dùng standard-search-card. */
+.standard-page-toolbar {
+    flex-direction: row;
+    padding-bottom: 5px;
+    margin-bottom: 3px;
+    border: 1px solid #e2e8f0;
+}
+
+.standard-search-card {
+    margin-bottom: 3px;
+    padding: 8px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.standard-search-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    align-items: initial;
+}
+
+.standard-search-field {
+    gap: 6px;
+    min-width: 0;
+}
+
+.standard-search-field > label {
+    margin: 0 0 4px;
+    font-size: 0.8rem;
+}
+
+.standard-search-actions {
+    grid-column: 1 / -1;
+    margin-top: 16px;
+    gap: 8px;
+}
+
+.standard-search-actions button {
+    height: 32px;
+    padding: 0 14px;
+}
