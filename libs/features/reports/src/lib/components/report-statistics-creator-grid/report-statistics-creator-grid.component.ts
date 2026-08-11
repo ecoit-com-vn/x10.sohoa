@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TableModule } from 'primeng/table';
+import { EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
 import { ReportStatisticsCreatorGridConfig } from '../../data-access/report-statistics.config';
 import {
   ReportStatisticsCreatorGridItem,
@@ -17,7 +18,7 @@ import { finalize } from 'rxjs';
 @Component({
   selector: 'app-report-statistics-creator-grid',
   standalone: true,
-  imports: [CommonModule, TableModule],
+  imports: [CommonModule, TableModule, EcoPaginatorComponent],
   templateUrl: './report-statistics-creator-grid.component.html',
   styleUrl: './report-statistics-creator-grid.component.scss'
 })
@@ -47,11 +48,6 @@ export class ReportStatisticsCreatorGridComponent {
 
       queueMicrotask(() => this.loadData());
     });
-  }
-
-  onPageChange(event: { first: number; rows: number }): void {
-    this.page.set(Math.floor(event.first / event.rows) + 1);
-    this.pageSize.set(event.rows);
   }
 
   resetPagination(): void {

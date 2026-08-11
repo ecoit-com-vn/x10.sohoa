@@ -265,6 +265,13 @@ export class ReportDossierByFloorComponent implements OnInit, AfterViewInit {
     return roots;
   }
 
+  onResetSearch(): void {
+    this.applyDefaultUnitFilter();
+    this.selectedFloorNodeKeys.set([]);
+    this.selectedYear.set(new Date().getFullYear());
+    this.onFilter();
+  }
+  
   onFilter(): void {
     this.filterVersion.update((v) => v + 1);
     this.dossierList?.resetPagination();

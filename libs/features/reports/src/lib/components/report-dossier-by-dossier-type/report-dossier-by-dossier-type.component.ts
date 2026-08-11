@@ -217,6 +217,15 @@ export class ReportDossierByDossierTypeComponent implements OnInit, AfterViewIni
     return roots;
   }
 
+  onResetSearch(): void {
+    this.applyDefaultUnitFilter();
+    this.selectedDossierTypeIds.set([]);
+    const currentYear = new Date().getFullYear();
+    const years = this.years();
+    this.selectedYear.set(years.includes(currentYear) ? currentYear : years[0] ?? currentYear);
+    this.onFilter();
+  }
+
   onFilter(): void {
     this.filterVersion.update((v) => v + 1);
     this.dossierList?.resetPagination();

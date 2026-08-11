@@ -131,7 +131,7 @@
           <select
             class="wf-input"
             [ngModel]="searchStatus()"
-            (ngModelChange)="searchStatus.set($event); onSearch()"
+            (ngModelChange)="onSearchStatusChange($event); onSearch()"
           >
             <option value="">-- Trạng thái --</option>
             <option value="1">Hoạt động</option>
@@ -200,9 +200,12 @@
                 </td>
                 <td>
                   <span *ngIf="canEdit(); else viewOnlyName">
-                    <b class="wf-name-link" (click)="onEdit(item)">{{
-                      item.name
-                    }}</b>
+                    <b
+                      class="wf-name-link"
+                      style="color: #374151"
+                      (click)="onEdit(item)"
+                      >{{ item.name }}</b
+                    >
                   </span>
                   <ng-template #viewOnlyName>
                     <b>{{ item.name }}</b>
@@ -286,9 +289,12 @@
                 </td>
                 <td>
                   <span *ngIf="canEdit(); else viewOnlyName">
-                    <b class="wf-name-link" (click)="onEdit(item)">{{
-                      item.name
-                    }}</b>
+                    <b
+                      class="wf-name-link"
+                      style="color: #374151"
+                      (click)="onEdit(item)"
+                      >{{ item.name }}</b
+                    >
                   </span>
                   <ng-template #viewOnlyName>
                     <b>{{ item.name }}</b>
@@ -296,12 +302,37 @@
                 </td>
                 <td>{{ item.address || '-' }}</td>
                 <td>
-                  <span class="status-pill"
-                    [style.background-color]="item.gridTypeId === 1 ? '#eff6ff' : (item.gridTypeId === 2 ? '#f5f3ff' : '#f9fafb')"
-                    [style.color]="item.gridTypeId === 1 ? '#1e40af' : (item.gridTypeId === 2 ? '#5b21b6' : '#6b7280')"
-                    [style.border-color]="item.gridTypeId === 1 ? '#bfdbfe' : (item.gridTypeId === 2 ? '#ddd6fe' : '#e5e7eb')"
+                  <span
+                    class="status-pill"
+                    [style.background-color]="
+                      item.gridTypeId === 1
+                        ? '#eff6ff'
+                        : item.gridTypeId === 2
+                          ? '#f5f3ff'
+                          : '#f9fafb'
+                    "
+                    [style.color]="
+                      item.gridTypeId === 1
+                        ? '#1e40af'
+                        : item.gridTypeId === 2
+                          ? '#5b21b6'
+                          : '#6b7280'
+                    "
+                    [style.border-color]="
+                      item.gridTypeId === 1
+                        ? '#bfdbfe'
+                        : item.gridTypeId === 2
+                          ? '#ddd6fe'
+                          : '#e5e7eb'
+                    "
                   >
-                    {{ item.gridTypeId === 1 ? 'Cao áp' : (item.gridTypeId === 2 ? 'Trung áp' : '-') }}
+                    {{
+                      item.gridTypeId === 1
+                        ? 'Cao áp'
+                        : item.gridTypeId === 2
+                          ? 'Trung áp'
+                          : '-'
+                    }}
                   </span>
                 </td>
                 <td>
@@ -355,7 +386,10 @@
               </tr>
             </ng-container>
             <tr *ngIf="items().length === 0">
-              <td [attr.colspan]="infraTypeId() === 1 ? 8 : 7" class="empty-row">
+              <td
+                [attr.colspan]="infraTypeId() === 1 ? 8 : 7"
+                class="empty-row"
+              >
                 <i class="pi pi-inbox"></i>
                 <div>Không tìm thấy bản ghi nào.</div>
               </td>
@@ -1258,25 +1292,42 @@
                       </div>
                     </div>
                   </div>
-                  </td>
-                </tr>
-                <tr *ngIf="equipmentItems().length === 0">
-                  <td colspan="7" class="empty-row" style="text-align: center; padding: 32px; color: #64748b;">
-                    <i class="pi pi-inbox" style="font-size: 2rem; margin-bottom: 8px; display: block;"></i>
-                    <div>Không có thiết bị nào thuộc {{ infraTypeId() === 1 ? 'trạm' : 'đường dây' }} này.</div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            
-            <app-eco-paginator
-              [first]="(equipmentPage() - 1) * equipmentPageSize()"
-              [rows]="equipmentPageSize()"
-              [totalRecords]="equipmentTotalCount()"
-              [rowsPerPageOptions]="[10, 20, 50]"
-              recordLabel="thiết bị"
-              (onPageChange)="onEquipmentPaginatorChange($event)">
-            </app-eco-paginator>
+                </td>
+              </tr>
+              <tr *ngIf="equipmentItems().length === 0">
+                <td
+                  colspan="7"
+                  class="empty-row"
+                  style="text-align: center; padding: 32px; color: #64748b"
+                >
+                  <i
+                    class="pi pi-inbox"
+                    style="font-size: 2rem; margin-bottom: 8px; display: block"
+                  ></i>
+                  <div>
+                    Không có thiết bị nào thuộc
+                    {{ infraTypeId() === 1 ? 'trạm' : 'đường dây' }} này.
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Equipment Pagination -->
+          <div class="table-footer" *ngIf="equipmentTotalCount() > 0">
+            <span class="record-count"
+              >Tổng số: <b>{{ equipmentTotalCount() }}</b> thiết bị.</span
+            >
+            <div class="pagination mb-1">
+              <app-eco-paginator
+                [first]="(equipmentPage() - 1) * equipmentPageSize()"
+                [rows]="equipmentPageSize()"
+                [totalRecords]="equipmentTotalCount()"
+                [rowsPerPageOptions]="[10, 20, 50]"
+                dropdownAppendTo="body"
+                (onPageChange)="onEquipmentPageChange($event)"
+              ></app-eco-paginator>
+            </div>
           </div>
         </div>
       </div>
@@ -1329,28 +1380,82 @@
           <i class="pi pi-spin pi-spinner"></i> Đang tải tài liệu đính kèm...
         </div>
 
-          <div *ngIf="false" class="attachment-pagination">
-            <span>Hiển thị {{ pagedAttachmentDocuments().length }} trên tổng số {{ selectedAttachmentDocuments().length }} bản ghi</span>
-            <div class="attachment-pagination-controls">
-              <button type="button" (click)="changeAttachmentDocumentPage(attachmentDocumentPage() - 1)" [disabled]="attachmentDocumentPage() === 1"><i class="pi pi-angle-left"></i></button>
-              <button type="button" *ngFor="let page of getVisibleDocumentPages(attachmentDocumentPage(), attachmentDocumentTotalPages())"
-                [class.active]="page === attachmentDocumentPage()" (click)="changeAttachmentDocumentPage(page)">{{ page }}</button>
-              <button type="button" (click)="changeAttachmentDocumentPage(attachmentDocumentPage() + 1)" [disabled]="attachmentDocumentPage() === attachmentDocumentTotalPages()"><i class="pi pi-angle-right"></i></button>
-              <select [ngModel]="attachmentDocumentPageSize()" (change)="onAttachmentDocumentPageSizeChange($event)">
-                <option [value]="10">10</option><option [value]="20">20</option><option [value]="50">50</option>
-              </select>
-            </div>
-          </div>
-          <app-eco-paginator
+        <div
+          *ngIf="!loadingAttachmentDocuments()"
+          class="attachment-table-wrap"
+        >
+          <table
+            class="wf-table attachment-table"
             *ngIf="selectedAttachmentDocuments().length > 0"
-            [first]="(attachmentDocumentPage() - 1) * attachmentDocumentPageSize()"
-            [rows]="attachmentDocumentPageSize()"
-            [totalRecords]="selectedAttachmentDocuments().length"
-            [rowsPerPageOptions]="[10, 20, 50]"
-            recordLabel="tài liệu"
-            (onPageChange)="onAttachmentPaginatorChange($event)">
-          </app-eco-paginator>
-        </section>
+          >
+            <thead>
+              <tr>
+                <th>STT</th>
+                <th>Tên tài liệu</th>
+                <th>Thiết bị</th>
+                <th>Ngày tài liệu</th>
+                <th>Người tạo</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                *ngFor="let item of pagedAttachmentDocuments(); let i = index"
+              >
+                <td>
+                  {{
+                    (attachmentDocumentPage() - 1) *
+                      attachmentDocumentPageSize() +
+                      i +
+                      1
+                  }}
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    class="attachment-document-link"
+                    (click)="
+                      openTechnicalDocumentPreview(
+                        item.dossier.id,
+                        item.document
+                      )
+                    "
+                    title="Xem trước tài liệu"
+                  >
+                    <i class="pi pi-file-pdf"></i>
+                    {{
+                      item.document.name ||
+                        item.document.fileName ||
+                        'Tài liệu chưa đặt tên'
+                    }}
+                  </button>
+                </td>
+                <td>{{ getAttachmentEquipmentName(item) }}</td>
+                <td>
+                  {{
+                    item.document.createdDate
+                      ? (item.document.createdDate | date: 'dd/MM/yyyy')
+                      : '-'
+                  }}
+                </td>
+                <td>
+                  {{
+                    item.document.createdByName ||
+                      item.document.createdBy ||
+                      '-'
+                  }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div
+            *ngIf="selectedAttachmentDocuments().length === 0"
+            class="attachment-list-empty"
+          >
+            Chọn một thư mục để xem danh sách tài liệu.
+          </div>
+        </div>
+
         <div
           *ngIf="selectedAttachmentDocuments().length > 0"
           class="attachment-pagination"
@@ -1403,6 +1508,8 @@
             </select>
           </div>
         </div>
+      </section>
+
       <aside class="attachment-tree-pane">
         <div class="attachment-tree-title">
           <i class="pi pi-folder"></i> TÀI LIỆU ĐÍNH KÈM
@@ -1789,67 +1896,19 @@
           </div>
         </div>
 
-          <!-- Dossier Table -->
-          <div *ngIf="!isLoadingRelatedDossiers()">
-            <table class="wf-table" style="width: 100%; border-collapse: collapse; margin-top: 16px;">
-              <thead>
-                <tr style="border-bottom: 1px solid #cbd5e1;">
-                  <th class="col-stt">STT</th>
-                  <th>Mã hồ sơ</th>
-                  <th>Tiêu đề hồ sơ</th>
-                  <th>Loại hồ sơ</th>
-                  <th style="width: 120px; text-align: center;">Số tài liệu</th>
-                  <th class="col-hd" style="width: 100px; text-align: center;">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let doc of relatedDossiers(); let i = index">
-                  <td class="col-stt text-muted">{{ (relatedDossiersPage() - 1) * relatedDossiersPageSize() + i + 1 }}</td>
-                  <td>
-                    <a class="wf-link" 
-                       (click)="onViewDossier(doc)">{{ getDossierCode(doc) }}</a>
-                  </td>
-                  <td>
-                    <a class="wf-name-link" 
-                       (click)="onViewDossier(doc)">{{ getDossierTitle(doc) }}</a>
-                  </td>
-                  <td>{{ doc.dossierTypeName || '-' }}</td>
-                  <td style="text-align: center;">{{ doc.documentCount ?? 0 }}</td>
-                  <td class="col-hd">
-                    <div class="action-buttons-group" style="justify-content: center;">
-                      <button class="act-btn" style="background-color: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;"
-                        title="Xem chi tiết hồ sơ" (click)="onViewDossier(doc)">
-                        <i class="pi pi-eye"></i>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                <tr *ngIf="relatedDossiers().length === 0">
-                  <td colspan="6" class="empty-row" style="text-align: center; padding: 32px; color: #64748b;">
-                    <i class="pi pi-inbox" style="font-size: 2rem; margin-bottom: 8px; display: block;"></i>
-                    <div>Không có hồ sơ nào thuộc {{ infraTypeId() === 1 ? 'trạm' : 'đường dây' }} này đã được xuất bản.</div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            <!-- Pagination -->
-            <div *ngIf="false" class="legacy-infrastructure-pagination" style="display: flex; justify-content: center; align-items: center; gap: 20px; padding: 24px 0; margin-top: 16px; font-size: 0.875rem; color: #64748b;">
-              <span>Hiển thị {{ relatedDossiers().length }} trên tổng số {{ relatedDossiersTotalCount() }} bản ghi</span>
-
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <!-- First Page « -->
-                <button (click)="goToRelatedDossiersPage(1)" [disabled]="relatedDossiersPage() === 1"
-                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1rem; font-weight: bold;"
-                  [style.opacity]="relatedDossiersPage() === 1 ? '0.4' : '1'">
-                  «
-                </button>
-                <!-- Prev Page ‹ -->
-                <button (click)="relatedDossiersPrevPage()" [disabled]="relatedDossiersPage() === 1"
-                  style="border: none; background: none; color: #64748b; cursor: pointer; padding: 4px 8px; font-size: 1.1rem; font-weight: bold;"
-                  [style.opacity]="relatedDossiersPage() === 1 ? '0.4' : '1'">
-                  ‹
-                </button>
+        <!-- Loading -->
+        <div
+          *ngIf="isLoadingRelatedDossiers()"
+          style="text-align: center; padding: 30px 0"
+        >
+          <i
+            class="pi pi-spin pi-spinner"
+            style="font-size: 1.8rem; color: #002d72"
+          ></i>
+          <div style="margin-top: 8px; color: #64748b">
+            Đang tải danh sách hồ sơ liên quan...
+          </div>
+        </div>
 
         <!-- Dossier Table -->
         <div *ngIf="!isLoadingRelatedDossiers()">
@@ -2025,16 +2084,52 @@
                 </button>
               </ng-container>
 
-              <!-- Page size select dropdown -->
-              <app-eco-paginator
-                *ngIf="relatedDossiers().length > 0"
-                [first]="(relatedDossiersPage() - 1) * relatedDossiersPageSize()"
-                [rows]="relatedDossiersPageSize()"
-                [totalRecords]="relatedDossiersTotalCount()"
-                [rowsPerPageOptions]="[10, 20, 50]"
-                recordLabel="hồ sơ"
-                (onPageChange)="onRelatedPaginatorChange($event)">
-              </app-eco-paginator>
+              <!-- Next Page › -->
+              <button
+                (click)="relatedDossiersNextPage()"
+                [disabled]="
+                  relatedDossiersPage() >= relatedDossiersTotalPages()
+                "
+                style="
+                  border: none;
+                  background: none;
+                  color: #64748b;
+                  cursor: pointer;
+                  padding: 4px 8px;
+                  font-size: 1.1rem;
+                  font-weight: bold;
+                "
+                [style.opacity]="
+                  relatedDossiersPage() >= relatedDossiersTotalPages()
+                    ? '0.4'
+                    : '1'
+                "
+              >
+                ›
+              </button>
+              <!-- Last Page » -->
+              <button
+                (click)="goToRelatedDossiersPage(relatedDossiersTotalPages())"
+                [disabled]="
+                  relatedDossiersPage() >= relatedDossiersTotalPages()
+                "
+                style="
+                  border: none;
+                  background: none;
+                  color: #64748b;
+                  cursor: pointer;
+                  padding: 4px 8px;
+                  font-size: 1rem;
+                  font-weight: bold;
+                "
+                [style.opacity]="
+                  relatedDossiersPage() >= relatedDossiersTotalPages()
+                    ? '0.4'
+                    : '1'
+                "
+              >
+                »
+              </button>
             </div>
 
             <!-- Page size select dropdown -->

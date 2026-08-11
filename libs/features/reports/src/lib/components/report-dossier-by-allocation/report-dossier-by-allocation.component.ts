@@ -239,6 +239,16 @@ export class ReportDossierByAllocationComponent implements OnInit {
     this.applySearch();
   }
 
+  onResetSearch(): void {
+    this.applyDefaultUnitFilter();
+    this.selectedObjectType.set(0);
+    this.selectedCreatedBy.set(null);
+    const currentYear = new Date().getFullYear();
+    const years = this.years();
+    this.selectedYear.set(years.includes(currentYear) ? currentYear : years[0] ?? currentYear);
+    this.applySearch();
+  }
+
   switchTab(tab: MainTabMode): void {
     this.activeTab.set(tab);
     queueMicrotask(() => {
