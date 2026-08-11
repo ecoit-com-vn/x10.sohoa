@@ -79,7 +79,7 @@ export class EcoInputDateComponent
   @Input() maxDateLabel: string = '';
   @Input() maxDateFromNowType: 'days' | 'weeks' | 'months' | 'years' = 'days';
   @Input() minDateLabel: string = '';
-  @Input() dateFormat: 'dd/mm/yy' | 'mm/yy' = 'dd/mm/yy';
+  @Input() dateFormat: 'dd/MM/yyyy' | 'MM/yyyy' | 'dd/mm/yy' | 'mm/yy' = 'dd/MM/yyyy';
   @Input() disabled: boolean = true;
   @Input() border: boolean = true;
   @Input() showTime: boolean = false;
@@ -89,6 +89,12 @@ export class EcoInputDateComponent
   @ViewChild('calendar') calendarInput?: Calendar;
   control = new FormControl<any>(null);
   ngControl?: NgControl;
+
+  get primeNgDateFormat(): 'dd/mm/yy' | 'mm/yy' {
+    return this.dateFormat === 'MM/yyyy' || this.dateFormat === 'mm/yy'
+      ? 'mm/yy'
+      : 'dd/mm/yy';
+  }
   viLocale = {
     firstDayOfWeek: 1,
     dayNames: [

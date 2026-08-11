@@ -375,7 +375,13 @@ export class InfrastructureComponent implements OnInit {
     this.actionMenuItems = [
       { label: 'Xem chi tiết', title: 'Xem chi tiết', icon: 'pi pi-eye color-teal', command: () => this.onViewDetail(item) },
       ...(this.canEdit() ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
-      ...(this.canManage() ? [{ label: (item.isActive === 1 || item.isActive === true) ? 'Khóa bản ghi' : 'Mở khóa bản ghi', title: (item.isActive === 1 || item.isActive === true) ? 'Khóa bản ghi' : 'Mở khóa bản ghi', icon: (item.isActive === 1 || item.isActive === true) ? 'pi pi-lock color-red' : 'pi pi-lock-open color-teal', command: () => this.onToggleStatus(item) }] : []),
+      ...(this.canManage() 
+      ? [{ label: (item.isActive === 1 || item.isActive === true) 
+        ? 'Khóa' 
+        : 'Mở khóa', title: (item.isActive === 1 || item.isActive === true) 
+        ? 'Khóa bản ghi' : 'Mở khóa bản ghi', icon: (item.isActive === 1 || item.isActive === true) 
+        ? 'pi pi-lock color-red' 
+        : 'pi pi-lock-open color-teal', command: () => this.onToggleStatus(item) }] : []),
       ...(this.canDelete() ? [{ label: 'Xóa', title: 'Xóa', icon: 'pi pi-trash color-red', command: () => this.onDelete(item) }] : []),
     ];
     menu.toggle(event);
@@ -1040,11 +1046,17 @@ export class InfrastructureComponent implements OnInit {
     }
   }
 
-  onEquipmentPaginatorChange(event: { first: number; rows: number }): void {
-    const rows = Number(event.rows) || 10;
+  onEquipmentPageSizeChange(event: any) {
+    this.equipmentPageSize.set(Number(event.target.value));
+    this.equipmentPage.set(1);
+    this.loadEquipments();
+  }
+
+  onEquipmentPageChange(event: { first?: number; rows?: number }) {
+    const rows = Number(event.rows) || this.equipmentPageSize();
     const first = Number(event.first) || 0;
     this.equipmentPageSize.set(rows);
-    this.equipmentPage.set(first === 0 ? 1 : Math.floor(first / rows) + 1);
+    this.equipmentPage.set(Math.floor(first / rows) + 1);
     this.loadEquipments();
   }
 
@@ -1510,19 +1522,9 @@ export class InfrastructureComponent implements OnInit {
     this.attachmentDocumentPage.set(1);
   }
 
-  onAttachmentPaginatorChange(event: { first: number; rows: number }): void {
-    this.attachmentDocumentPageSize.set(event.rows);
-    this.attachmentDocumentPage.set(Math.floor(event.first / event.rows) + 1);
-  }
-
   onTechnicalDocumentPageSizeChange(event: Event) {
     this.technicalDocumentPageSize.set(Number((event.target as HTMLSelectElement).value) || 10);
     this.technicalDocumentPage.set(1);
-  }
-
-  onTechnicalPaginatorChange(event: { first: number; rows: number }): void {
-    this.technicalDocumentPageSize.set(event.rows);
-    this.technicalDocumentPage.set(Math.floor(event.first / event.rows) + 1);
   }
 
   getVisibleDocumentPages(currentPage: number, totalPages: number): number[] {
@@ -1619,12 +1621,6 @@ export class InfrastructureComponent implements OnInit {
   onRelatedDossiersPageSizeChange(event: any) {
     this.relatedDossiersPageSize.set(Number(event.target.value));
     this.relatedDossiersPage.set(1);
-    this.loadRelatedDossiers();
-  }
-
-  onRelatedPaginatorChange(event: { first: number; rows: number }): void {
-    this.relatedDossiersPageSize.set(event.rows);
-    this.relatedDossiersPage.set(Math.floor(event.first / event.rows) + 1);
     this.loadRelatedDossiers();
   }
 

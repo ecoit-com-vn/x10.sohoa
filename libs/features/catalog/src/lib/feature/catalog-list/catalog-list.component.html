@@ -2,22 +2,10 @@
     <p-toast></p-toast>
     <div class="list-toolbar standard-page-toolbar">
         <div class="toolbar-left">
-            <div class="breadcrumb" style="margin-bottom: 0;" *ngIf="isUnitScopedCatalog(); else defaultCatalogBreadcrumb">
-                <i class="pi pi-home bc-icon"></i>
-                <a class="bc-text bc-link" href="#/dashboard">Trang chủ</a>
-                <span class="bc-sep">/</span>
-                <span class="bc-text">Quản lý danh mục</span>
-                <span class="bc-sep">/</span>
-                <span class="bc-current" *ngIf="currentView() === 'list'; else phongActionBreadcrumb">{{ catalogTitle() }}</span>
-                <ng-template #phongActionBreadcrumb>
-                    <span class="bc-text bc-link" (click)="currentView.set('list')">{{ catalogTitle() }}</span>
-                    <span class="bc-sep">/</span>
-                    <span class="bc-current">{{ currentView() === 'add' ? 'Thêm mới' : 'Chỉnh sửa' }}</span>
-                </ng-template>
-            </div>
-            <ng-template #defaultCatalogBreadcrumb>
-                <wf-breadcrumb [viewMode]="currentView()" (listClick)="currentView.set('list')" />
-            </ng-template>
+            <wf-breadcrumb
+                [viewMode]="currentView()"
+                [customItems]="sharedCatalogBreadcrumbItems()"
+                (listClick)="currentView.set('list')" />
         </div>
         <div class="toolbar-right" *ngIf="canCreate()">
             <button class="btn-green" (click)="onAddNew()">
@@ -110,10 +98,12 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr *ngFor="let item of paginatedItems(); let i = index">
+                        <tr *ngFor="let item of paginatedItems(); let i = index"
+                            [class.catalog-tree-row-child]="isMucLucCatalog() && getCatalogTreeLevel(item) > 0"
+                            [class.catalog-tree-context]="isMucLucCatalog() && item.isContextOnly">
                             <td class="col-stt" [class.text-muted]="!usesStandardCatalogTableStyle()"
                                 [style.color]="usesStandardCatalogTableStyle() ? '#111827' : null">
-                                {{ (currentPage() - 1) * pageSize() + i + 1 }}
+                                {{ isMucLucCatalog() ? i + 1 : (currentPage() - 1) * pageSize() + i + 1 }}
                             </td>
                             <td>
                                 <ng-container *ngIf="usesStandardCatalogTableStyle(); else defaultCatalogCode">
@@ -133,6 +123,27 @@
                                 </ng-template>
                             </td>
                             <td>
+                                <div *ngIf="isMucLucCatalog(); else nonTreeCatalogName"
+                                    class="catalog-tree-name"
+                                    [style.padding-left.px]="getCatalogTreeLevel(item) * 20">
+                                    <button *ngIf="item.hasChildren; else catalogTreeLeafPlaceholder"
+                                        type="button"
+                                        class="catalog-tree-toggle"
+                                        [attr.aria-label]="isCatalogExpanded(item.id) ? 'Thu gọn danh mục con' : 'Mở danh mục con'"
+                                        (click)="toggleCatalogNode(item, $event)">
+                                        <i class="pi"
+                                            [class.pi-angle-down]="isCatalogExpanded(item.id)"
+                                            [class.pi-angle-right]="!isCatalogExpanded(item.id)"></i>
+                                    </button>
+                                    <ng-template #catalogTreeLeafPlaceholder>
+                                        <span class="catalog-tree-toggle-placeholder"></span>
+                                    </ng-template>
+                                    <span *ngIf="canEdit(); else treeViewOnlyName">
+                                        <b class="wf-name-link" (click)="onEdit(item)">{{ item.name }}</b>
+                                    </span>
+                                    <ng-template #treeViewOnlyName><b>{{ item.name }}</b></ng-template>
+                                </div>
+                                <ng-template #nonTreeCatalogName>
                                 <span *ngIf="usesStandardCatalogTableStyle(); else defaultCatalogName"
                                     style="color: #111827;">{{ item.name }}</span>
                                 <ng-template #defaultCatalogName>
@@ -142,6 +153,7 @@
                                     <ng-template #viewOnlyName>
                                         <b>{{ item.name }}</b>
                                     </ng-template>
+                                </ng-template>
                                 </ng-template>
                             </td>
                             <td *ngIf="isUnitScopedCatalog()" [style.color]="usesStandardCatalogTableStyle() ? '#111827' : null">
@@ -182,7 +194,7 @@
 
             <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
 
-            <app-eco-paginator *ngIf="totalCount() > 0" [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalCount()" (pageChange)="goToPage($event)" (pageSizeChange)="onPageSizeChange($event)" />
+            <app-eco-paginator *ngIf="totalCount() > 0" [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalCount()" [recordLabel]="isMucLucCatalog() ? 'nhóm mục lục' : 'bản ghi'" (pageChange)="goToPage($event)" (pageSizeChange)="onPageSizeChange($event)" />
         </div>
     </div>
 

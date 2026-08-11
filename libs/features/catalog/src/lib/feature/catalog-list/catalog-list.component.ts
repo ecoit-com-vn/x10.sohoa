@@ -33,7 +33,14 @@ import { finalize } from 'rxjs/operators';
     DeleteConfirmDialogComponent
   ],
   providers: [MessageService],
-  templateUrl: './catalog-list.component.html'
+  templateUrl: './catalog-list.component.html',
+  styles: [`
+    .catalog-tree-name { display: flex; align-items: center; gap: 7px; min-height: 24px; }
+    .catalog-tree-toggle { width: 18px; height: 18px; padding: 0; border: 0; background: transparent; color: #64748b; cursor: pointer; }
+    .catalog-tree-toggle-placeholder { display: inline-block; width: 18px; flex: 0 0 18px; }
+    .catalog-tree-row-child { background: #fbfdff; }
+    .catalog-tree-context { opacity: .78; }
+  `]
 })
 export class CatalogListComponent implements OnInit {
   private catalogService = inject(CatalogService);
@@ -58,6 +65,7 @@ export class CatalogListComponent implements OnInit {
   searchUnitNode = signal<TreeNode | null>(null);
   searchUnitNodes = computed<TreeNode[]>(() => this.searchUnitNode() ? [this.searchUnitNode()!] : []);
   totalCount = signal<number>(0);
+  expandedCatalogIds = signal<Set<number>>(new Set<number>());
 
   currentView = signal<'list' | 'add' | 'edit'>('list');
   currentItem = signal<any>({});
@@ -157,7 +165,7 @@ export class CatalogListComponent implements OnInit {
     'LINH_VUC',
     'TINH_TRANG_VAT_LY'
   ].includes(this.catalogType()));
-  showParentColumn = computed(() => this.hasParent() && !this.usesStandardAuditColumns());
+  showParentColumn = computed(() => this.hasParent() && !this.usesStandardAuditColumns() && !this.isMucLucCatalog());
   organizationUnitTree = computed<TreeNode[]>(() => {
     const activeUnits = this.organizationUnits().filter(unit =>
       unit.isActive !== false && unit.isActive !== 0 && unit.isDeleted !== true && unit.isDeleted !== 1);
@@ -190,17 +198,69 @@ export class CatalogListComponent implements OnInit {
   });
   isAdmin = computed(() => this.authService.getUserRoles().some(role =>
     ['ADMIN', 'SUPER_ADMIN'].includes(role.toUpperCase())));
-  customBreadcrumbItems = computed(() => this.isPhongCatalog()
+  sharedCatalogBreadcrumbItems = computed(() => this.isUnitScopedCatalog()
     ? [
         { label: 'Quản lý danh mục' },
-        { label: 'Danh mục phông' }
+        { label: this.catalogTitle() }
       ]
     : null);
 
   // Paginated items
   paginatedItems = computed(() => {
-    return this.items();
+    if (!this.isMucLucCatalog()) return this.items();
+
+    const pageItems = this.items();
+    const itemsById = new Map<number, any>(pageItems.map(item => [Number(item.id), item]));
+    return pageItems.filter(item => {
+      let parentId = item.parentId == null ? null : Number(item.parentId);
+      const visited = new Set<number>();
+      while (parentId != null && itemsById.has(parentId) && visited.add(parentId)) {
+        if (!this.expandedCatalogIds().has(parentId)) return false;
+        const parent = itemsById.get(parentId);
+        parentId = parent?.parentId == null ? null : Number(parent.parentId);
+      }
+      return true;
+    });
   });
+
+  isCatalogExpanded(id: number): boolean {
+    return this.expandedCatalogIds().has(Number(id));
+  }
+
+  toggleCatalogNode(item: any, event?: Event): void {
+    event?.stopPropagation();
+    if (!item?.hasChildren) return;
+    this.expandedCatalogIds.update(current => {
+      const next = new Set(current);
+      const id = Number(item.id);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  getCatalogTreeLevel(item: any): number {
+    const level = Number(item?.level ?? 0);
+    return Number.isFinite(level) && level > 0 ? level : 0;
+  }
+
+  private syncExpandedCatalogs(): void {
+    if (!this.isMucLucCatalog()) return;
+    const pageItems = this.items();
+    const validIds = new Set(pageItems.map(item => Number(item.id)));
+    const expandAll = Boolean(this.searchName().trim() || this.searchCode().trim() || this.searchStatus());
+    this.expandedCatalogIds.update(current => {
+      const next = new Set<number>();
+      current.forEach(id => {
+        if (validIds.has(id)) next.add(id);
+      });
+      pageItems.forEach(item => {
+        if (item.hasChildren && (expandAll || this.getCatalogTreeLevel(item) === 0)) {
+          next.add(Number(item.id));
+        }
+      });
+      return next;
+    });
+  }
 
   totalPages = computed(() => {
     return Math.ceil(this.totalCount() / this.pageSize());
@@ -359,6 +419,7 @@ export class CatalogListComponent implements OnInit {
         next: (res) => {
           this.items.set(res?.items || []);
           this.totalCount.set(res?.totalCount || 0);
+          this.syncExpandedCatalogs();
           this.loadParentsList();
         },
         error: () => {

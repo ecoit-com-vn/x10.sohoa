@@ -234,6 +234,29 @@ export class ReportDossierByBoxComponent implements OnInit, AfterViewInit {
     this.loadStatsData();
   }
 
+  onResetSearch(): void {
+    this.selectedBoxIds.set([]);
+    this.selectedUnitId.set(null);
+
+    this.applyDefaultUnitFilter();
+
+    const currentYear = new Date().getFullYear();
+    const years = this.years();
+
+    this.selectedYear.set(
+      years.includes(currentYear)
+        ? currentYear
+        : years[0] ?? currentYear
+    );
+
+    this.dossierList?.resetPagination();
+    this.boxGrid?.resetPagination();
+
+    this.filterVersion.update((v) => v + 1);
+
+    this.loadStatsData();
+  }
+
   switchTab(tab: MainTabMode): void {
     this.activeTab.set(tab);
     queueMicrotask(() => {

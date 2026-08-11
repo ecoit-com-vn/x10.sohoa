@@ -2,7 +2,9 @@
 
 <div class="wf-page dossier-report-page operation-time-report">
   <div class="list-toolbar standard-page-toolbar breadcrumb-container">
-    <wf-breadcrumb [suffix]="'Báo cáo thống kê hồ sơ thiết bị theo thời gian vận hành'"></wf-breadcrumb>
+    <wf-breadcrumb
+      [suffix]="'Báo cáo thống kê hồ sơ thiết bị theo thời gian vận hành'"
+    ></wf-breadcrumb>
   </div>
 
   <div class="standard-search-card filter-card">
@@ -67,7 +69,12 @@
       </div>
 
       <div class="standard-search-actions filter-actions">
-        <button type="button" class="btn-tim" (click)="onFilter()" [disabled]="loading()">
+        <button
+          type="button"
+          class="btn-tim"
+          (click)="onFilter()"
+          [disabled]="loading()"
+        >
           <i class="pi pi-search"></i> Tìm kiếm
         </button>
         <button
