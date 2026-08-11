@@ -9,7 +9,7 @@
     (keydown.space)="$event.preventDefault()"
     (onBlur)="onTouched(); onBlur($event)"
     (onInput)="onInput($event)"
-    [dateFormat]="dateFormat"
+    [dateFormat]="primeNgDateFormat"
     [placeholder]="placeholder"
     [firstDayOfWeek]="1"
     [formControl]="control"
