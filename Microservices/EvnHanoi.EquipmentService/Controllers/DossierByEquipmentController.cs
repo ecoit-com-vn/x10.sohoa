@@ -18,15 +18,18 @@ namespace EvnHanoi.EquipmentService.Controllers;
 public partial class DossierByEquipmentController : ControllerBase
 {
     private readonly IDossierService _dossierService;
+    private readonly IEquipmentRepository _equipmentRepository;
     private readonly IDossierDocumentService _dossierDocumentService;
     private readonly IDocumentDigitizationService _documentDigitizationService;
 
     public DossierByEquipmentController(
         IDossierService dossierService,
+        IEquipmentRepository equipmentRepository,
         IDossierDocumentService dossierDocumentService,
         IDocumentDigitizationService documentDigitizationService)
     {
         _dossierService = dossierService ?? throw new ArgumentNullException(nameof(dossierService));
+        _equipmentRepository = equipmentRepository ?? throw new ArgumentNullException(nameof(equipmentRepository));
         _dossierDocumentService = dossierDocumentService ?? throw new ArgumentNullException(nameof(dossierDocumentService));
         _documentDigitizationService = documentDigitizationService ?? throw new ArgumentNullException(nameof(documentDigitizationService));
     }
@@ -112,6 +115,32 @@ public partial class DossierByEquipmentController : ControllerBase
 
         var equipments = await _dossierService.GetEquipmentsAsync(id);
         return Ok(equipments);
+    }
+
+    /// <summary>
+    /// Chi tiết thiết bị chỉ đọc trong ngữ cảnh Tra cứu hồ sơ thiết bị.
+    /// Chỉ trả dữ liệu khi hồ sơ đã xuất bản thuộc phạm vi đơn vị của người dùng
+    /// và thiết bị thực sự được gắn với hồ sơ đó.
+    /// </summary>
+    [HttpGet("{id:guid}/equipments/{equipmentId:guid}")]
+    public async Task<IActionResult> GetRelatedEquipmentDetail(Guid id, Guid equipmentId)
+    {
+        var (isAdmin, unitId) = ResolveUserScope();
+        if (!isAdmin && unitId is null)
+            return Unauthorized(new { message = "Không thể xác định đơn vị của người dùng" });
+
+        var dossier = await _dossierService.GetPublishedDetailByIdAsync(id, isAdmin, unitId);
+        if (dossier is null)
+            return NotFound(new { message = $"Không tìm thấy hồ sơ đã xuất bản với ID = {id}" });
+
+        var relatedEquipments = await _dossierService.GetEquipmentsAsync(id);
+        if (!relatedEquipments.Any(item => item.EquipmentId == equipmentId))
+            return NotFound(new { message = "Thiết bị không thuộc hồ sơ đang tra cứu." });
+
+        var equipment = await _equipmentRepository.GetDtoByIdAsync(equipmentId);
+        return equipment is null
+            ? NotFound(new { message = "Không tìm thấy thiết bị." })
+            : Ok(equipment);
     }
 
     /// <summary>
