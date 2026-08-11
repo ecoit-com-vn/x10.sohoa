@@ -172,10 +172,18 @@
 
             <div class="form-group">
                 <label class="form-label">Thuộc đơn vị cấp trên (Parent Unit)</label>
-                <select class="wf-select w-full" [ngModel]="currentUnit().parentId" (ngModelChange)="onUnitFieldChange('parentId', $event)" [disabled]="saving()">
-            <option [value]="null">-- Chọn đơn vị gốc / cấp trên --</option>
-            <option *ngFor="let u of getEligibleParents(currentUnit().id)" [value]="u.id">{{ u.name }} ({{ u.code }})</option>
-          </select>
+                <eco-input-tree-select
+                    [showLabel]="false"
+                    placeholder="-- Chọn đơn vị gốc / cấp trên --"
+                    selectionMode="single"
+                    [nodes]="parentUnitTreeNodes()"
+                    [ngModel]="currentUnit().parentId"
+                    (ngModelChange)="onUnitFieldChange('parentId', $event)"
+                    [enableSearch]="true"
+                    [showClear]="true"
+                    [border]="true"
+                    [readonly]="saving()">
+                </eco-input-tree-select>
             </div>
 
             <div class="form-group">
