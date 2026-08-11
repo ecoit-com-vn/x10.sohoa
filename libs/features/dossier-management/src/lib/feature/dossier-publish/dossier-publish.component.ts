@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject, Output, EventEmitter } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal, computed, inject, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -11,7 +11,7 @@ import { DossierPublishService } from '../../data-access/dossier-publish.service
 import { DossierListTab } from '../../utils/dossier-status.util';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
-import { finalize, Observable } from 'rxjs';
+import { debounceTime, distinctUntilChanged, finalize, Observable, Subject, takeUntil } from 'rxjs';
 
 type PublishTab = 'pending-publish' | 'published' | 'unpublished';
 
@@ -50,7 +50,8 @@ function tabLabel(tab: PublishTab): string {
             type="text"
             class="wf-search-input"
             placeholder="Tìm theo mã hồ sơ, tiêu đề hồ sơ..."
-            [(ngModel)]="searchKeyword"
+            [ngModel]="searchKeyword()"
+            (ngModelChange)="onKeywordFilterChange($event)"
           />
           </div>
           <div class="search-form-item">
@@ -138,9 +139,10 @@ function tabLabel(tab: PublishTab): string {
                   <span *ngIf="!first">{{ getCatalogValue(item, col) }}</span>
                 </td>
                 <td>{{ getDossierTypeName(item) }}</td>
-                <td>
-                  <div>{{ item.infrastructureName || '-' }}</div>
-                  <div class="text-muted" style="font-size: 0.75rem;">{{ item.infrastructureCode }}</div>
+                <td class="publish-infrastructure-cell">
+                  <div *ngFor="let infrastructure of getInfrastructureLines(item)">
+                    {{ infrastructure }}
+                  </div>
                 </td>
                 <td class="text-center" style="width: 100px;">{{ item.documentCount ?? 0 }}</td>
                 <td class="col-hd">
@@ -304,6 +306,12 @@ function tabLabel(tab: PublishTab): string {
       margin-left: 6px;
       color: #64748b;
     }
+    .publish-infrastructure-cell {
+      min-width: 220px;
+      max-width: 320px;
+      white-space: normal;
+      line-height: 1.5;
+    }
     :host ::ng-deep .digitization-infrastructure-select .p-select-label {
       font-size: 0.85rem;
     }
@@ -371,7 +379,7 @@ function tabLabel(tab: PublishTab): string {
     }
   `]
 })
-export class DossierPublishComponent implements OnInit {
+export class DossierPublishComponent implements OnInit, OnDestroy {
   @Output() viewDetail = new EventEmitter<string>();
   @Output() edit = new EventEmitter<string>();
 
@@ -381,6 +389,9 @@ export class DossierPublishComponent implements OnInit {
   private service = inject(DossierManagementService);
   private publishService = inject(DossierPublishService);
   private messageService = inject(MessageService);
+  private readonly keywordChanges$ = new Subject<{ value: string; version: number }>();
+  private readonly destroy$ = new Subject<void>();
+  private keywordChangeVersion = 0;
   authService = inject(AuthService);
 
   items = signal<any[]>([]);
@@ -463,8 +474,21 @@ export class DossierPublishComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.keywordChanges$
+      .pipe(debounceTime(350), distinctUntilChanged(), takeUntil(this.destroy$))
+      .subscribe(({ value, version }) => {
+        if (version !== this.keywordChangeVersion) return;
+        this.searchKeyword.set(value.trim());
+        this.refreshFilteredList();
+      });
+
     this.loadLookups();
     this.refreshList();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   selectTab(tab: PublishTab) {
@@ -475,12 +499,18 @@ export class DossierPublishComponent implements OnInit {
   }
 
   onSearch() {
+    this.keywordChangeVersion++;
     this.searchKeyword.set(this.searchKeyword().trim());
-    this.currentPage.set(1);
-    this.refreshList();
+    this.refreshFilteredList();
+  }
+
+  onKeywordFilterChange(keyword: string): void {
+    this.searchKeyword.set(keyword);
+    this.keywordChanges$.next({ value: keyword, version: ++this.keywordChangeVersion });
   }
 
   onResetSearch(): void {
+    this.keywordChangeVersion++;
     this.searchKeyword.set('');
     this.filterDossierTypeId.set(null);
     this.filterInfrastructureId.set(null);
@@ -492,16 +522,19 @@ export class DossierPublishComponent implements OnInit {
 
   onDossierTypeFilterChange(dossierTypeId: string | null): void {
     this.filterDossierTypeId.set(dossierTypeId || null);
+    this.refreshFilteredList();
   }
 
   onEquipmentFilterChange(equipmentId: string | null): void {
     this.filterEquipmentId.set(equipmentId || null);
+    this.refreshFilteredList();
   }
 
   selectInfrastructure(infrastructureId: string | null): void {
     this.filterInfrastructureId.set(infrastructureId);
     this.filterEquipmentId.set(null);
     this.equipments.set([]);
+    this.refreshFilteredList();
 
     if (infrastructureId) {
       this.service.getEquipmentLookup({ infrastructureId, pageSize: 1000 }).subscribe({
@@ -510,6 +543,11 @@ export class DossierPublishComponent implements OnInit {
       });
     }
 
+  }
+
+  private refreshFilteredList(): void {
+    this.currentPage.set(1);
+    this.refreshList();
   }
 
   refreshList() {
@@ -593,6 +631,35 @@ export class DossierPublishComponent implements OnInit {
   getDossierTypeName(item: any): string {
     const name = item?.dossierTypeName ?? item?.DossierTypeName;
     return name != null && String(name).trim() !== '' ? String(name) : '-';
+  }
+
+  getInfrastructureLines(item: any): string[] {
+    const infrastructures = item?.infrastructures ?? item?.Infrastructures;
+    if (Array.isArray(infrastructures)) {
+      const lines = infrastructures
+        .map((infrastructure: any) => {
+          const name = infrastructure?.infrastructureName ?? infrastructure?.InfrastructureName;
+          const code = infrastructure?.infrastructureCode ?? infrastructure?.InfrastructureCode;
+          if (name == null || String(name).trim() === '') return '';
+          return code != null && String(code).trim() !== ''
+            ? `${String(name).trim()} (${String(code).trim()})`
+            : String(name).trim();
+        })
+        .filter(Boolean);
+      if (lines.length) return [...new Set(lines)];
+    }
+
+    const name = item?.infrastructureName ?? item?.InfrastructureName;
+    const code = item?.infrastructureCode ?? item?.InfrastructureCode;
+    if (name == null || String(name).trim() === '') return ['-'];
+    return String(name)
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .map((value, index) => {
+        const codes = String(code ?? '').split(',').map((itemCode) => itemCode.trim());
+        return codes[index] ? `${value} (${codes[index]})` : value;
+      });
   }
 
   changePage(page: number) {

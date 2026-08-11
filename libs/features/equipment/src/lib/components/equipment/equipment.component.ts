@@ -340,8 +340,7 @@ export class EquipmentComponent implements OnInit {
   // Permission Computeds
   canCreate = computed(() => this.authService.hasPermission('EQUIPMENT_CREATE') || this.authService.hasPermission('SUPER_ADMIN'));
   canEdit = computed(() =>
-    !this.searchReadOnly()
-    && (this.authService.hasPermission('EQUIPMENT_EDIT') || this.authService.hasPermission('SUPER_ADMIN'))
+    this.authService.hasPermission('EQUIPMENT_EDIT') || this.authService.hasPermission('SUPER_ADMIN')
   );
   canDelete = computed(() => this.authService.hasPermission('EQUIPMENT_DELETE') || this.authService.hasPermission('SUPER_ADMIN'));
   canManage = computed(() => this.authService.hasPermission('EQUIPMENT_MANAGE') || this.authService.hasPermission('SUPER_ADMIN'));
@@ -402,10 +401,7 @@ export class EquipmentComponent implements OnInit {
         let mode = '';
         this.route.queryParams.subscribe(qParams => {
           mode = qParams['mode'] || '';
-          if (this.searchReadOnly()) {
-            this.isEditingFormValues.set(false);
-            this.isEditingGeneral.set(false);
-          } else if (mode === 'edit-specs') {
+          if (mode === 'edit-specs') {
             this.isEditingFormValues.set(true);
             this.isEditingGeneral.set(false);
           } else if (mode === 'edit') {
@@ -421,17 +417,7 @@ export class EquipmentComponent implements OnInit {
         this.serverErrors.set({});
         this.loadLookupData();
 
-        const searchContext = this.route.snapshot.data['searchContext'];
-        const dossierId = this.route.snapshot.paramMap.get('dossierId');
-        const detailRequest = this.searchReadOnly()
-          ? searchContext === 'substation'
-            ? this.equipmentService.getSubstationSearchById(id)
-            : dossierId
-              ? this.equipmentService.getDossierEquipmentSearchById(dossierId, id)
-              : this.equipmentService.getById(id)
-          : this.equipmentService.getById(id);
-
-        detailRequest.subscribe({
+        this.equipmentService.getById(id).subscribe({
           next: (res) => {
             if (res) {
               this.currentItem.set({
@@ -1401,21 +1387,7 @@ export class EquipmentComponent implements OnInit {
 
   goBack() {
     const url = this.router.url;
-    if (this.searchReadOnly()) {
-      const searchContext = this.route.snapshot.data['searchContext'];
-      const substationId = this.route.snapshot.paramMap.get('substationId');
-      if (searchContext === 'substation') {
-        this.router.navigate(substationId
-          ? ['/search/substation', substationId]
-          : ['/search/substation']);
-        return;
-      }
-
-      const dossierId = this.route.snapshot.paramMap.get('dossierId');
-      this.router.navigate(dossierId
-        ? ['/search/dossier-by-equipment', dossierId]
-        : ['/search/dossier-by-equipment']);
-    } else if (url.includes('/catalog/substation/')) {
+    if (url.includes('/catalog/substation/')) {
       const parentId = this.route.snapshot.paramMap.get('parentId');
       this.router.navigate(['/catalog/substation', parentId]);
     } else if (url.includes('/catalog/transmission-line/')) {

@@ -31,9 +31,9 @@ export const SEARCH_ROUTES: Route[] = [
   {
     path: 'substation/:substationId/equipment/:id',
     loadComponent: () =>
-      import('@sohoa.frontend/features/equipment').then(m => m.EquipmentComponent),
+      import('@sohoa.frontend/features/equipment').then(m => m.EquipmentSearchDetailComponent),
     canActivate: [substationSearchGuard],
-    data: { searchReadOnly: true, searchContext: 'substation' }
+    data: { searchContext: 'substation' }
   },
   {
     path: 'transmission-line',
@@ -66,9 +66,9 @@ export const SEARCH_ROUTES: Route[] = [
   {
     path: 'dossier-by-equipment/:dossierId/equipment/:id',
     loadComponent: () =>
-      import('@sohoa.frontend/features/equipment').then(m => m.EquipmentComponent),
+      import('@sohoa.frontend/features/equipment').then(m => m.EquipmentSearchDetailComponent),
     canActivate: [dossierEquipmentLookupGuard],
-    data: { searchReadOnly: true }
+    data: { searchContext: 'dossier' }
   },
   {
     path: 'dossier-by-equipment/:id',
