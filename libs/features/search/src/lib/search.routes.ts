@@ -29,6 +29,13 @@ export const SEARCH_ROUTES: Route[] = [
     canActivate: [substationSearchGuard]
   },
   {
+    path: 'substation/:substationId/equipment/:id',
+    loadComponent: () =>
+      import('@sohoa.frontend/features/equipment').then(m => m.EquipmentComponent),
+    canActivate: [substationSearchGuard],
+    data: { searchReadOnly: true, searchContext: 'substation' }
+  },
+  {
     path: 'transmission-line',
     loadComponent: () => import('./components/transmission-line-search/transmission-line-search.component').then(m => m.TransmissionLineSearchComponent),
     canActivate: [lineSearchGuard]
