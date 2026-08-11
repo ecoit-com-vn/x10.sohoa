@@ -20,6 +20,7 @@ public class SubstationSearchController : ControllerBase
     private readonly IInfrastructureRepository _infrastructureRepository;
     private readonly IEquipmentRepository _equipmentRepository;
     private const int INFRA_TYPE_ID = 1; // 1 = Substation (Trạm biến áp)
+    private const int ACTIVE_STATUS = 1;
 
     public SubstationSearchController(IInfrastructureRepository infrastructureRepository, IEquipmentRepository equipmentRepository)
     {
@@ -32,7 +33,6 @@ public class SubstationSearchController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] string? keyword = null,
-        [FromQuery] int? status = null,
         [FromQuery] long? unitId = null,
         [FromQuery] int? gridTypeId = null,
         [FromQuery] DateTime? fromDate = null,
@@ -50,7 +50,7 @@ public class SubstationSearchController : ControllerBase
             pageSize,
             INFRA_TYPE_ID,
             keyword,
-            status,
+            ACTIVE_STATUS,
             allowedUnitIds,
             unitId,
             gridTypeId,
