@@ -60,12 +60,15 @@ public interface IDocumentRepository
     Task<IEnumerable<DossierTypeQueryDto>> GetActiveDossierTypesWithGridTypeAsync();
     Task<IEnumerable<InfrastructureQueryDto>> GetActiveInfrastructuresByUnitAsync(long unitId);
     Task<IEnumerable<ActiveDossierQueryDto>> GetActiveDossiersByUnitAsync(long unitId);
+    Task<Dictionary<string, int>> GetDocumentCountsByDossierIdsAsync(IEnumerable<string> dossierIds);
+    Task<IEnumerable<(string DossierId, string InfrastructureId)>> GetDossierInfrastructureLinksAsync(long unitId);
+    Task<DossierCatalogTreeDataDto> GetDossierCatalogTreeDataAsync(long unitId);
     Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDossierCatalogDocumentsAsync(
-        long unitId, 
-        string? infrastructureId, 
-        string? dossierTypeId, 
-        string? keyword, 
-        int page, 
+        long unitId,
+        string? infrastructureId,
+        string? dossierTypeId,
+        string? keyword,
+        int page,
         int pageSize);
 
     Task<IEnumerable<DocumentOcrIndexHintDto>> GetOcrVersionIndexHintsByDossierIdAsync(Guid dossierId);
