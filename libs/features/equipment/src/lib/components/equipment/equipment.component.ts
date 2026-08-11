@@ -227,6 +227,20 @@ export class EquipmentComponent implements OnInit {
   /** Màn chi tiết mở từ phân hệ Tra cứu: chỉ xem, không cho phép cập nhật dữ liệu. */
   searchReadOnly = signal<boolean>(false);
   searchBreadcrumbItems = computed(() => {
+    const searchContext = this.route.snapshot.data['searchContext'];
+    const substationId = this.route.snapshot.paramMap.get('substationId');
+    if (searchContext === 'substation') {
+      return [
+        { label: 'Tra cứu tìm kiếm' },
+        { label: 'Tra cứu tìm kiếm Trạm biến áp', url: '/search/substation' },
+        {
+          label: 'Chi tiết',
+          url: substationId ? `/search/substation/${substationId}` : '/search/substation'
+        },
+        { label: 'Thiết bị' }
+      ];
+    }
+
     const dossierId = this.route.snapshot.paramMap.get('dossierId');
     return [
       { label: 'Tra cứu tìm kiếm' },
@@ -1372,6 +1386,15 @@ export class EquipmentComponent implements OnInit {
   goBack() {
     const url = this.router.url;
     if (this.searchReadOnly()) {
+      const searchContext = this.route.snapshot.data['searchContext'];
+      const substationId = this.route.snapshot.paramMap.get('substationId');
+      if (searchContext === 'substation') {
+        this.router.navigate(substationId
+          ? ['/search/substation', substationId]
+          : ['/search/substation']);
+        return;
+      }
+
       const dossierId = this.route.snapshot.paramMap.get('dossierId');
       this.router.navigate(dossierId
         ? ['/search/dossier-by-equipment', dossierId]
