@@ -15,13 +15,16 @@ namespace EvnHanoi.NotificationService.Controllers
         private const string AuditLogRetentionLockResource = "lock:audit-log-retention";
         private readonly IAuditLogService _auditLogService;
         private readonly IDistributedLockFactory _lockFactory;
+        private readonly ILogger<AuditLogController> _logger;
 
         public AuditLogController(
             IAuditLogService auditLogService,
-            IDistributedLockFactory lockFactory)
+            IDistributedLockFactory lockFactory,
+            ILogger<AuditLogController> logger)
         {
             _auditLogService = auditLogService;
             _lockFactory = lockFactory;
+            _logger = logger;
         }
 
         [HttpGet("recent")]
@@ -40,7 +43,8 @@ namespace EvnHanoi.NotificationService.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                _logger.LogWarning(ex, "Dashboard recent audit logs are unavailable.");
+                return Ok(new { Logs = Array.Empty<AuditLogItemDto>() });
             }
         }
 
@@ -56,17 +60,13 @@ namespace EvnHanoi.NotificationService.Controllers
 
             try
             {
-                var (total, _) = await _auditLogService.GetAuditLogsAsync(
-                    page: 1,
-                    pageSize: 1,
-                    keyword: "download",
-                    fromDate: fromDate,
-                    toDate: toDate);
+                var total = await _auditLogService.GetDashboardDownloadCountAsync(fromDate, toDate);
                 return Ok(new { totalCount = total });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                _logger.LogWarning(ex, "Dashboard download count is unavailable.");
+                return Ok(new { totalCount = 0L });
             }
         }
 

@@ -35,7 +35,7 @@ public class DossierSearchService : IDossierSearchService
         var bhsCatalogs = (await _enrichmentRepository.GetBhsCatalogDefinitionsAsync()).ToList();
         var (items, totalCount) = await _searchRepository.GetPagedAsync(filter, bhsCatalogs);
         var enriched = await EnrichUnitNamesAsync(items.ToList());
-        return (enriched, totalCount);
+        return (await EnrichInfrastructuresAsync(enriched), totalCount);
     }
 
     private async Task<DossierTabCountsDto> ResolveUnitScopeAndSearchCountsAsync(DossierFilterDto filter)
@@ -154,6 +154,64 @@ public class DossierSearchService : IDossierSearchService
             {
                 item.UnitName = name;
             }
+        }
+
+        return items;
+    }
+
+    private async Task<List<DossierListItemDto>> EnrichInfrastructuresAsync(List<DossierListItemDto> items)
+    {
+        var dossierIds = items
+            .Select(item => item.Id)
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .Select(id => id.ToString())
+            .ToArray();
+        if (dossierIds.Length == 0) return items;
+
+        if (_dbConnection.State != ConnectionState.Open)
+            _dbConnection.Open();
+
+        const string sql = @"
+            SELECT DISTINCT
+                source.DossierId,
+                source.InfrastructureId,
+                i.CODE AS InfrastructureCode,
+                i.NAME AS InfrastructureName
+            FROM (
+                SELECT di.DossierId, di.InfrastructureId
+                FROM DOSSIER_INFRASTRUCTURE di
+                WHERE di.DossierId IN :DossierIds
+                UNION
+                SELECT d.Id AS DossierId, d.InfrastructureId
+                FROM DOSSIERS d
+                WHERE d.Id IN :DossierIds
+                  AND d.InfrastructureId IS NOT NULL
+            ) source
+            INNER JOIN INFRASTRUCTURE i ON i.ID = source.InfrastructureId
+            WHERE i.IsDeleted = 0 OR i.IsDeleted IS NULL
+            ORDER BY source.DossierId, i.NAME";
+
+        var assignments = await _dbConnection.QueryAsync<DossierInfrastructureAssignmentDto>(
+            sql,
+            new { DossierIds = dossierIds });
+        var byDossier = assignments
+            .GroupBy(assignment => assignment.DossierId)
+            .ToDictionary(group => group.Key, group => group.Cast<DossierInfrastructureDto>().ToList());
+
+        foreach (var item in items)
+        {
+            if (!byDossier.TryGetValue(item.Id, out var infrastructures)) continue;
+
+            item.Infrastructures = infrastructures;
+            item.InfrastructureName = string.Join(", ", infrastructures
+                .Select(infrastructure => infrastructure.InfrastructureName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct());
+            item.InfrastructureCode = string.Join(", ", infrastructures
+                .Select(infrastructure => infrastructure.InfrastructureCode)
+                .Where(code => !string.IsNullOrWhiteSpace(code))
+                .Distinct());
         }
 
         return items;
