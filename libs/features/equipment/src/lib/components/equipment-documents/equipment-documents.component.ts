@@ -43,6 +43,7 @@ import {
   canReExtract,
   isReExtracting,
   isRetryingDigitization,
+  DossierDocumentEditDialogComponent,
 } from '@sohoa.frontend/features/dossier-management';
 
 export interface EquipmentDocumentItem {
@@ -99,6 +100,7 @@ const MAX_INLINE_DOCUMENT_ACTIONS = 3;
     MenuModule,
     EcoPaginatorComponent,
     EquipmentDocumentDetailDialogComponent,
+    DossierDocumentEditDialogComponent,
     OcrInsightsPanelComponent,
   ],
   templateUrl: './equipment-documents.component.html',
@@ -120,6 +122,10 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
   canEdit = input(false);
   /** Ẩn trạng thái xử lý OCR/bóc tách tại màn chỉ xem thuộc phân hệ Tra cứu. */
   hideDigitizationColumns = input(false);
+  /** Mở chi tiết tài liệu theo đúng ngữ cảnh Tra cứu hồ sơ thiết bị. */
+  dossierLookupMode = input(false);
+  /** Id hồ sơ trên route, dùng dự phòng khi item tài liệu không trả dossierId. */
+  lookupDossierId = input<string | null>(null);
   factoryAcceptanceOnly = input(false);
   externalAccess = input(false);
   factoryProfileAccess = input(false);
@@ -145,6 +151,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
 
   showEditDocument = signal(false);
   editTarget = signal<EquipmentDocumentItem | null>(null);
+  detailDossierId = computed(() => this.editTarget()?.dossierId ?? this.lookupDossierId());
 
   totalPages = computed(() => Math.ceil(this.totalDocuments() / this.pageSize()));
 
@@ -531,6 +538,14 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
   }
 
   editDocument(doc: EquipmentDocumentItem): void {
+    if (this.dossierLookupMode() && !doc.dossierId && !this.lookupDossierId()) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Không thể xem tài liệu',
+        detail: 'Không xác định được hồ sơ chứa tài liệu.',
+      });
+      return;
+    }
     this.editTarget.set(doc);
     this.showEditDocument.set(true);
   }

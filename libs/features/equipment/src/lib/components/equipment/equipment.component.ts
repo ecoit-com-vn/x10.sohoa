@@ -226,6 +226,9 @@ export class EquipmentComponent implements OnInit {
 
   /** Màn chi tiết mở từ phân hệ Tra cứu: chỉ xem, không cho phép cập nhật dữ liệu. */
   searchReadOnly = signal<boolean>(false);
+  /** Chỉ bật cho route Tra cứu hồ sơ thiết bị; không áp dụng cho tra cứu trạm/đường dây. */
+  dossierLookupMode = signal<boolean>(false);
+  lookupDossierId = signal<string | null>(null);
   searchBreadcrumbItems = computed(() => {
     const searchContext = this.route.snapshot.data['searchContext'];
     const substationId = this.route.snapshot.paramMap.get('substationId');
@@ -367,6 +370,9 @@ export class EquipmentComponent implements OnInit {
 
   ngOnInit() {
     this.searchReadOnly.set(this.route.snapshot.data['searchReadOnly'] === true);
+    const routeDossierId = this.route.snapshot.paramMap.get('dossierId');
+    this.lookupDossierId.set(routeDossierId);
+    this.dossierLookupMode.set(this.searchReadOnly() && !!routeDossierId);
     this.authService.loadPermissions();
 
     this.route.paramMap.subscribe(params => {

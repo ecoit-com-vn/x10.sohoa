@@ -1934,6 +1934,8 @@
             [equipmentId]="profileEquipmentId"
             [canEdit]="canEdit() && !searchReadOnly()"
             [hideDigitizationColumns]="searchReadOnly()"
+            [dossierLookupMode]="dossierLookupMode()"
+            [lookupDossierId]="lookupDossierId()"
             (documentProcessed)="reloadDetail(profileEquipmentId)"
           ></app-equipment-documents>
         </div>
