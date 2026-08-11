@@ -56,6 +56,16 @@ public static class DapperServiceExtensions
         {
             if (_handlersRegistered) return;
 
+            // BẮT BUỘC phải RemoveTypeMap TRƯỚC khi AddTypeHandler cho Guid: SqlMapper.LookupDbType
+            // tra `typeMap` (bảng built-in của Dapper, có sẵn Guid -> DbType.Guid) TRƯỚC khi tra
+            // `typeHandlers`. Nếu còn entry đó, Dapper sinh mã gán parameter.DbType = DbType.Guid mà
+            // OracleParameter không nhận (ArgumentException "Value does not fall within the expected
+            // range"), và GuidTypeHandler.SetValue bên dưới KHÔNG bao giờ được gọi — nghĩa là mọi
+            // tham số Guid gửi xuống Oracle đều lỗi, kể cả trong mệnh đề WHERE. Chiều đọc
+            // (Guid <- VARCHAR2(36)) vẫn dùng handler nên trước đây lỗi này chỉ lộ ra khi ghi.
+            SqlMapper.RemoveTypeMap(typeof(Guid));
+            SqlMapper.RemoveTypeMap(typeof(Guid?));
+
             SqlMapper.AddTypeHandler(new GuidTypeHandler());
             SqlMapper.AddTypeHandler(new NullableGuidTypeHandler());
             _handlersRegistered = true;
