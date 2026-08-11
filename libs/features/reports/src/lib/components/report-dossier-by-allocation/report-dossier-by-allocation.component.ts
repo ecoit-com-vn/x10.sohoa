@@ -146,7 +146,7 @@ export class ReportDossierByAllocationComponent implements OnInit {
   loadLookups(): void {
     this.loading.set(true);
 
-    this.reportService.getUnitsLookup().subscribe({
+    this.reportService.getUnitsLookup(1).subscribe({
       next: (units) => {
         this.units.set(units || []);
         this.applyDefaultUnitFilter();
