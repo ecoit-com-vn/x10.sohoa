@@ -415,7 +415,17 @@ export class EquipmentComponent implements OnInit {
         this.serverErrors.set({});
         this.loadLookupData();
 
-        this.equipmentService.getById(id).subscribe({
+        const searchContext = this.route.snapshot.data['searchContext'];
+        const dossierId = this.route.snapshot.paramMap.get('dossierId');
+        const detailRequest = this.searchReadOnly()
+          ? searchContext === 'substation'
+            ? this.equipmentService.getSubstationSearchById(id)
+            : dossierId
+              ? this.equipmentService.getDossierEquipmentSearchById(dossierId, id)
+              : this.equipmentService.getById(id)
+          : this.equipmentService.getById(id);
+
+        detailRequest.subscribe({
           next: (res) => {
             if (res) {
               this.currentItem.set({
