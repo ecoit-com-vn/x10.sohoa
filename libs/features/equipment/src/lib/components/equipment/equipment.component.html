@@ -846,41 +846,6 @@
             class="docs-fields-list"
             style="display: flex; flex-direction: column; gap: 14px"
           >
-            <!-- Mã thiết bị (Highlight) -->
-            <div
-              style="
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                border-bottom: 1px dashed #cbd5e1;
-                padding-bottom: 12px;
-                margin-bottom: 20px;
-              "
-            >
-              <span
-                style="
-                  font-size: 0.95rem;
-                  font-weight: 700;
-                  color: #0f172a;
-                  text-transform: uppercase;
-                "
-              >
-                <i
-                  class="pi pi-file"
-                  style="color: #2563eb; margin-right: 6px"
-                ></i>
-                Hồ sơ thông tin thiết bị
-              </span>
-              <div style="display: flex; gap: 8px" *ngIf="canEdit()">
-                <button
-                  class="btn-outlined btn-small"
-                  (click)="isEditingGeneral.set(true)"
-                >
-                  <i class="pi pi-pencil"></i> Sửa thông tin chung
-                </button>
-              </div>
-            </div>
-
             <!-- View theo kiểu docs (Highlight mã thiết bị và trạng thái hoạt động, các trường khác hiển thị bình thường) -->
             <div
               class="docs-fields-list"
