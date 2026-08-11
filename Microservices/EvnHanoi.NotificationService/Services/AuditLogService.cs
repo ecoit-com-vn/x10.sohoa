@@ -53,6 +53,11 @@ namespace EvnHanoi.NotificationService.Services
             return _auditLogRepository.GetRecentAuditLogsAsync(count);
         }
 
+        public Task<long> GetDashboardDownloadCountAsync(DateTime? fromDate = null, DateTime? toDate = null)
+        {
+            return _auditLogRepository.GetDashboardDownloadCountAsync(fromDate, toDate);
+        }
+
         public async Task<(byte[] FileBytes, string FileName, int RowCount)> ExportAuditLogsAsync(
             DateTime fromDate,
             DateTime toDate,

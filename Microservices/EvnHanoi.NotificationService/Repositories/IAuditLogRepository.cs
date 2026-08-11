@@ -21,6 +21,7 @@ namespace EvnHanoi.NotificationService.Repositories
             IReadOnlyList<string>? unitIds = null);
 
         Task<IReadOnlyList<AuditLogItemDto>> GetRecentAuditLogsAsync(int count);
+        Task<long> GetDashboardDownloadCountAsync(DateTime? fromDate = null, DateTime? toDate = null);
         Task<IReadOnlyList<AuditLogItemDto>> ExportAuditLogsAsync(
             string? keyword = null,
             string? action = null,
