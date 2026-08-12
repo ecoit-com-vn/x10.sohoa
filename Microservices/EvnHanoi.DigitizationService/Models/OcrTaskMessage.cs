@@ -15,5 +15,11 @@ namespace EvnHanoi.DigitizationService.Models
         public string FormSchemaJson { get; set; }
         /// <summary>Thiết bị kỹ thuật — dùng suffix _eq_{EquipmentId} khi lưu kết quả bóc tách.</summary>
         public Guid? EquipmentId { get; set; }
+
+        /// <summary>
+        /// Phạm vi trang cần bóc tách (xem <see cref="ExtractionScopes"/>). Rỗng = bóc tách mọi
+        /// trang, giữ nguyên hành vi cũ. Bước OCR không bị ảnh hưởng, luôn chạy đủ trang.
+        /// </summary>
+        public string ExtractionScope { get; set; } = ExtractionScopes.Default;
     }
 }

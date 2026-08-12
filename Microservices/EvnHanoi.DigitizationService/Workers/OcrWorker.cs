@@ -104,7 +104,11 @@ namespace EvnHanoi.DigitizationService.Workers
 
                 // Giới hạn số message xử lý đồng thời/1 kết nối bằng đúng ConsumerDispatchConcurrency
                 // (xem Program.cs) — để RabbitMQ không dồn quá nhiều message chưa ack cho worker.
-                await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 4, global: false, cancellationToken: stoppingToken);
+                //
+                // prefetch 2 (hạ từ 4) khớp ConsumerDispatchConcurrency=2. Mỗi tài liệu OCR chiếm
+                // GPU rất lâu (tài liệu thật 96–744 vùng chữ/trang, ~4,4 crop/giây) nên giữ nhiều
+                // message unacked chỉ làm chúng chờ tới lúc vượt timeout, không giúp nhanh hơn.
+                await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 2, global: false, cancellationToken: stoppingToken);
 
                 var consumer = new AsyncEventingBasicConsumer(_channel);
                 consumer.ReceivedAsync += async (model, ea) =>
@@ -137,7 +141,10 @@ namespace EvnHanoi.DigitizationService.Workers
                                     ExtractPrompt = taskMsg.ExtractPrompt,
                                     Form = taskMsg.Form,
                                     FormSchemaJson = taskMsg.FormSchemaJson,
-                                    EquipmentId = taskMsg.EquipmentId
+                                    EquipmentId = taskMsg.EquipmentId,
+                                    // Chuyển tiếp phạm vi trang người dùng chọn lúc upload — OCR ở trên
+                                    // đã chạy đủ trang, chỉ bước bóc tách mới bị giới hạn.
+                                    ExtractionScope = taskMsg.ExtractionScope
                                 };
                                 // Tín hiệu bàn giao sang ExtractionWorker — mất là job "xong OCR nhưng
                                 // không bao giờ vào Extraction" âm thầm, nên thử lại có backoff trước
@@ -165,7 +172,8 @@ namespace EvnHanoi.DigitizationService.Workers
                                     ExtractPrompt = taskMsg.ExtractPrompt,
                                     Form = taskMsg.Form,
                                     FormSchemaJson = taskMsg.FormSchemaJson,
-                                    EquipmentId = taskMsg.EquipmentId
+                                    EquipmentId = taskMsg.EquipmentId,
+                                    ExtractionScope = taskMsg.ExtractionScope
                                 };
                                 await publisher.PublishMessageAsync(extractMsg, "digitization.topic", "extraction.process.task");
                                 await _channel.BasicAckAsync(ea.DeliveryTag, false);
@@ -269,10 +277,15 @@ namespace EvnHanoi.DigitizationService.Workers
                                         }
                                         else
                                         {
+                                            // LỖI HẠ TẦNG, KHÔNG PHẢI "trang không có chữ" — phải ném ra để job vào
+                                            // retry/DLQ và EquipmentService đánh dấu Failed. Trước đây chỗ này chỉ ghi
+                                            // warning rồi tiếp tục với 0 box, nên trang lỗi vẫn được ghi vào PDF "2 lớp"
+                                            // mà không có lớp text nào — mất dữ liệu âm thầm, chỉ phát hiện được nếu
+                                            // TOÀN BỘ tài liệu rỗng (chốt chặn totalBoxesDrawn == 0 phía dưới).
                                             var errorBody = await response.Content.ReadAsStringAsync(stoppingToken);
-                                            _logger.LogWarning(
-                                                "ocr_vl_server trả về lỗi {StatusCode} cho trang {Page}. Body: {Body}",
-                                                response.StatusCode, i + 1, errorBody);
+                                            throw new InvalidOperationException(
+                                                $"ocr_vl_server trả về lỗi {(int)response.StatusCode} {response.StatusCode} cho trang {i + 1}/{pageCount} " +
+                                                $"(FileId={taskMsg.FileId}). Body: {(errorBody.Length > 500 ? errorBody[..500] + "..." : errorBody)}");
                                         }
                                     }
 
@@ -295,7 +308,15 @@ namespace EvnHanoi.DigitizationService.Workers
                                 catch (Exception ex)
                                 {
                                     sw.Stop();
-                                    _logger.LogWarning(ex, "Lỗi khi gọi ocr_vl_server cho trang {Page}.", i + 1);
+                                    // KHÔNG nuốt lỗi: timeout/mất kết nối/HTTP lỗi khi gọi ocr_vl_server là lỗi thật,
+                                    // phải để nó nổi lên handler ngoài -> retry có backoff -> DLQ, và publish
+                                    // ocr.process.failed để EquipmentService đánh dấu tài liệu Failed. Ném ngay tại
+                                    // trang lỗi (fail fast) thay vì chạy tiếp các trang còn lại: dù sao job cũng sẽ
+                                    // được retry lại từ đầu, chạy tiếp chỉ chiếm GPU vô ích.
+                                    _logger.LogError(ex,
+                                        "Lỗi khi gọi ocr_vl_server cho trang {Page}/{TotalPages} (FileId={FileId}) — huỷ job.",
+                                        i + 1, pageCount, taskMsg.FileId);
+                                    throw;
                                 }
 
                                 // 4. Tạo trang PDF 2 lớp: text ẩn (vẽ trước) + ảnh gốc (phủ lên sau) —

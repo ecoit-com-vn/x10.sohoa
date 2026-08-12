@@ -10,6 +10,12 @@ namespace EvnHanoi.DigitizationService.Models
         public string ExtractPrompt { get; set; }
         public Guid? EquipmentId { get; set; }
 
+        /// <summary>
+        /// Phạm vi trang cần bóc tách (xem <see cref="ExtractionScopes"/>). Rỗng = bóc tách mọi
+        /// trang, giữ nguyên hành vi cũ. Bước OCR không bị ảnh hưởng, luôn chạy đủ trang.
+        /// </summary>
+        public string ExtractionScope { get; set; } = ExtractionScopes.Default;
+
         /// <summary>Danh sách các form cần bóc tách. Mỗi form tương ứng với một đối tượng được bóc tách từ PDF.
         /// </summary>
         public ExtractionForm Form { get; set; }
