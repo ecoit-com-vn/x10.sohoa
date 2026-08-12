@@ -1,6 +1,27 @@
 namespace EvnHanoi.EquipmentService.Core.DTOs;
 
 /// <summary>
+/// Phạm vi trang cần bóc tách, gửi xuống DigitizationService qua message. Chỉ ảnh hưởng bước bóc
+/// tách (gửi text lên LLM) — bước OCR luôn chạy đủ trang để PDF 2 lớp và tìm kiếm toàn văn không
+/// bị hụt. Giá trị phải khớp EvnHanoi.DigitizationService.Models.ExtractionScopes (2 service không
+/// tham chiếu lẫn nhau nên phải khai báo song song; đổi bên nào thì đổi cả bên kia).
+/// </summary>
+public static class ExtractionScopeValues
+{
+    public const string FirstPage = "FirstPage";
+    public const string LastPage = "LastPage";
+    public const string FirstAndLastPage = "FirstAndLastPage";
+    public const string AllPages = "AllPages";
+
+    /// <summary>Mặc định khi client không gửi: bóc tách mọi trang — giữ nguyên hành vi cũ.</summary>
+    public const string Default = AllPages;
+
+    /// <summary>Giá trị lạ/rỗng đều quy về <see cref="Default"/> để không đẩy rác xuống worker.</summary>
+    public static string Normalize(string? scope) =>
+        scope is FirstPage or LastPage or FirstAndLastPage or AllPages ? scope! : Default;
+}
+
+/// <summary>
 /// Payload gửi tới DigitizationService — khớp OcrTaskMessage worker.
 /// FileId = DocumentVersionId.
 /// </summary>
@@ -16,6 +37,8 @@ public class OcrTaskPublishMessage
     /// <summary>Snapshot đầy đủ EAV FormSchema JSON để worker/LLM tham chiếu.</summary>
     public string? FormSchemaJson { get; set; }
     public Guid? EquipmentId { get; set; }
+    /// <summary>Phạm vi trang bóc tách — xem <see cref="ExtractionScopeValues"/>.</summary>
+    public string ExtractionScope { get; set; } = ExtractionScopeValues.Default;
 }
 
 public class DigitizationExtractionForm
@@ -40,6 +63,8 @@ public class ExtractionTaskPublishMessage
     public DigitizationExtractionForm? Form { get; set; }
     public string? FormSchemaJson { get; set; }
     public Guid? EquipmentId { get; set; }
+    /// <summary>Phạm vi trang bóc tách — xem <see cref="ExtractionScopeValues"/>.</summary>
+    public string ExtractionScope { get; set; } = ExtractionScopeValues.Default;
 }
 
 /// <summary>ocr.process.progress / extraction.process.progress / *.process.failed</summary>
@@ -89,6 +114,11 @@ public class SubmitDossierDocumentDigitizationRequest
     public string? ExtractPrompt { get; set; }
     /// <summary>Tùy chọn — nếu bỏ trống sẽ lấy từ form EAV của loại hồ sơ.</summary>
     public string? FormSchemaJson { get; set; }
+    /// <summary>
+    /// Tùy chọn — FirstPage | LastPage | FirstAndLastPage | AllPages. Bỏ trống = AllPages (hành vi cũ).
+    /// Chỉ giới hạn bước bóc tách, không ảnh hưởng bước OCR.
+    /// </summary>
+    public string? ExtractionScope { get; set; }
 }
 
 public class SubmitDocumentDigitizationRequest
@@ -104,6 +134,11 @@ public class SubmitDocumentDigitizationRequest
     /// <summary>EAV FormSchema JSON — bắt buộc để bóc tách đúng trường.</summary>
     public string FormSchemaJson { get; set; } = string.Empty;
     public string? ExtractPrompt { get; set; }
+    /// <summary>
+    /// Tùy chọn — FirstPage | LastPage | FirstAndLastPage | AllPages. Bỏ trống = AllPages (hành vi cũ).
+    /// Chỉ giới hạn bước bóc tách, không ảnh hưởng bước OCR.
+    /// </summary>
+    public string? ExtractionScope { get; set; }
 }
 
 public class DocumentOcrProgressDto

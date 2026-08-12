@@ -87,7 +87,9 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             ExtractPrompt = formContext.ExtractPrompt,
             FormId = formContext.FormId,
             FormName = formContext.FormName,
-            FormSchemaJson = formContext.FormSchemaJson
+            FormSchemaJson = formContext.FormSchemaJson,
+            // Phạm vi trang bóc tách do người dùng chọn ở dialog upload; bỏ trống = AllPages.
+            ExtractionScope = request.ExtractionScope
         }, userId, dossierId);
     }
 
@@ -350,7 +352,8 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             ProcessOption = request.ProcessOption,
             ExtractPrompt = request.ExtractPrompt,
             Form = form,
-            FormSchemaJson = request.FormSchemaJson
+            FormSchemaJson = request.FormSchemaJson,
+            ExtractionScope = ExtractionScopeValues.Normalize(request.ExtractionScope)
         };
 
         await _messageProducer.PublishToExchangeAsync(message, DigitizationExchange, OcrTaskRoutingKey);

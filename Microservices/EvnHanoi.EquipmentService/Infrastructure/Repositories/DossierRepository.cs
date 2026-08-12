@@ -343,15 +343,15 @@ public class DossierRepository : IDossierRepository
             parameters.Add("Keyword", $"%{keyword.ToUpper().Trim()}%");
         }
 
-        parameters.Add("Offset", (page - 1) * pageSize);
-        parameters.Add("PageSize", pageSize);
+        //parameters.Add("Offset", (page - 1) * pageSize);
+        //parameters.Add("PageSize", pageSize);
 
         var selectSql = $@"
         SELECT d.{nameof(Dossier.Id)} AS ID
         {sqlBase}
-        ORDER BY d.{nameof(Dossier.CreatedDate)} DESC
-        OFFSET :Offset ROWS
-        FETCH NEXT :PageSize ROWS ONLY";
+        ORDER BY d.{nameof(Dossier.CreatedDate)} DESC";
+        //OFFSET :Offset ROWS
+        //FETCH NEXT :PageSize ROWS ONLY";
 
         var rawIds = await _connection.QueryAsync<dynamic>(selectSql, parameters);
 
