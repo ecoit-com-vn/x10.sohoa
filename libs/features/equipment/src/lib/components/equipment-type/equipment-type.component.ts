@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -25,6 +26,7 @@ import { finalize } from 'rxjs/operators';
     SelectModule,
     DialogModule,
     WfBreadcrumbComponent,
+    EcoPaginatorComponent,
     DeleteConfirmDialogComponent
   ],
   providers: [MessageService],
@@ -216,7 +218,8 @@ export class EquipmentTypeComponent implements OnInit {
   }
 
   onPageSizeChange(event: any) {
-    this.pageSize.set(Number(event.target.value));
+    const size = typeof event === 'number' ? event : Number(event?.target?.value);
+    this.pageSize.set(size);
     this.currentPage.set(1);
   }
 
