@@ -184,6 +184,19 @@ namespace EvnHanoi.DigitizationService.Workers
                             int totalPages = pageTexts.Count;
                             _logger.LogInformation("Tổng cộng tìm thấy {TotalPages} trang text.", totalPages);
 
+                            // Giới hạn số trang gửi lên LLM theo lựa chọn của người dùng lúc upload.
+                            // Bước OCR phía trước KHÔNG bị ảnh hưởng (PDF 2 lớp + file text vẫn đủ trang),
+                            // đây chỉ là bước bóc tách — bước tốn thời gian nhất (~30-60s/trang).
+                            var pagesToExtract = new HashSet<int>(
+                                ExtractionScopes.ResolvePageNumbers(taskMsg.ExtractionScope, totalPages));
+                            if (totalPages > 0)
+                            {
+                                _logger.LogInformation(
+                                    "Phạm vi bóc tách: {Scope} -> xử lý {SelectedCount}/{TotalPages} trang ({PageList}).",
+                                    ExtractionScopes.Describe(taskMsg.ExtractionScope),
+                                    pagesToExtract.Count, totalPages, string.Join(", ", pagesToExtract));
+                            }
+
                             if (totalPages == 0)
                             {
                                 _logger.LogWarning("Không tìm thấy nội dung OCR/JSON nào cho {FilePath}", taskMsg.FilePath);
@@ -301,6 +314,14 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
                             {
                                 string pageText = pageTexts[i];
                                 int pageNum = i + 1;
+
+                                if (!pagesToExtract.Contains(pageNum))
+                                {
+                                    _logger.LogInformation(
+                                        "Trang {Page} ngoài phạm vi bóc tách ({Scope}). Bỏ qua.",
+                                        pageNum, ExtractionScopes.Describe(taskMsg.ExtractionScope));
+                                    continue;
+                                }
 
                                 if (string.IsNullOrWhiteSpace(pageText))
                                 {
