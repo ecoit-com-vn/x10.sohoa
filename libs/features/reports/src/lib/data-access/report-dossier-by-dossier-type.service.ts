@@ -37,8 +37,17 @@ export class ReportDossierByDossierTypeService {
     return `${this.config.apiGatewayUrl}/api/v1/reports/statistics`;
   }
 
-  getUnitsLookup(): Observable<UnitLookupItem[]> {
-    return this.http.get<UnitLookupItem[]>(`${this.baseUrl}/lookups/units`);
+  getUnitsLookup(isactive?: number): Observable<UnitLookupItem[]> {
+    let params = new HttpParams();
+
+    if (isactive !== undefined && isactive !== null) {
+      params = params.set('isactive', isactive);
+    }
+
+    return this.http.get<UnitLookupItem[]>(
+      `${this.baseUrl}/lookups/units`,
+      { params }
+    );
   }
 
   getDossierTypesLookup(): Observable<DossierTypeLookupItem[]> {

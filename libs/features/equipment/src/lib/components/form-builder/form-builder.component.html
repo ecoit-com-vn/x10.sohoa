@@ -8,7 +8,10 @@
         (listClick)="goToList()" />
     </div>
     <div class="toolbar-right">
-      <p-button label="Quay lại" icon="pi pi-arrow-left" severity="secondary" size="small" [rounded]="true"
+      <button *ngIf="isEditMode()" type="button" class="btn-back btn-small" (click)="goToList()">
+        <i class="pi pi-arrow-left"></i> Quay lại danh sách
+      </button>
+      <p-button *ngIf="!isEditMode()" label="Quay lại" icon="pi pi-arrow-left" severity="secondary" size="small" [rounded]="true"
         (onClick)="goToList()"></p-button>
       <p-button label="Xem JSON" icon="pi pi-code" severity="secondary" size="small" [rounded]="true"
         (onClick)="showJson.set(!showJson())"></p-button>

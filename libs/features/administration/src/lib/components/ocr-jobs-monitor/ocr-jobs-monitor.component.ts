@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ToastModule } from 'primeng/toast';
+import { DialogModule } from 'primeng/dialog';
 import { DatePickerModule } from 'primeng/datepicker';
 import { MessageService } from 'primeng/api';
 import { Subject, Subscription, catchError, finalize, of, switchMap } from 'rxjs';
@@ -34,7 +35,7 @@ const PHASE_OPTIONS: Array<{ value: string; label: string }> = [
 @Component({
   selector: 'app-ocr-jobs-monitor',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, DatePickerModule, WfBreadcrumbComponent, EcoPaginatorComponent],
+  imports: [CommonModule, FormsModule, ToastModule, DialogModule, DatePickerModule, WfBreadcrumbComponent, EcoPaginatorComponent],
   providers: [MessageService],
   templateUrl: './ocr-jobs-monitor.component.html',
   styleUrl: './ocr-jobs-monitor.component.scss',
@@ -181,6 +182,18 @@ export class OcrJobsMonitorComponent implements OnInit, OnDestroy {
     this.loadTrigger.next();
   }
 
+  // Xác nhận trước khi chạy lại. Trước đây bấm là gọi API ngay. Với job lỗi ở bước OCR thì
+  // "chạy lại" nghĩa là OCR lại toàn bộ rồi GHI ĐÈ file PDF gốc trên MinIO; job lỗi ở bước bóc
+  // tách thì chỉ bóc tách lại, không đụng tới file. Nội dung popup đổi theo đúng 2 trường hợp đó.
+  readonly showRetryConfirm = signal(false);
+  readonly retryConfirmTarget = signal<OcrJobListItem | null>(null);
+  readonly retryConfirmRerunsOcr = computed(() => this.retryConfirmTarget()?.phase === 'ocr');
+  readonly retryConfirmTargetLabel = computed(() => this.retryConfirmTarget()?.documentName ?? '');
+  readonly retryConfirmSubmitting = computed(() => {
+    const job = this.retryConfirmTarget();
+    return job ? this.retryingIds().has(job.progressId) : false;
+  });
+
   canRetryJob(job: OcrJobListItem): boolean {
     // Quyền thực thi retry đã được kiểm tra phía server bởi chính endpoint
     // submit-digitization/rerun-extraction (báo lỗi nếu người dùng không đủ quyền).
@@ -197,6 +210,27 @@ export class OcrJobsMonitorComponent implements OnInit, OnDestroy {
    * mẫu EAV; chỉ dùng luồng thiết bị khi tài liệu không thuộc hồ sơ nào.
    */
   retryJob(job: OcrJobListItem): void {
+    if (!this.canRetryJob(job)) return;
+    this.retryConfirmTarget.set(job);
+    this.showRetryConfirm.set(true);
+  }
+
+  cancelRetryConfirm(): void {
+    const job = this.retryConfirmTarget();
+    if (job && this.isRetrying(job)) return;
+    this.showRetryConfirm.set(false);
+    this.retryConfirmTarget.set(null);
+  }
+
+  confirmRetryJob(): void {
+    const job = this.retryConfirmTarget();
+    if (!job || this.isRetrying(job)) return;
+    this.showRetryConfirm.set(false);
+    this.retryConfirmTarget.set(null);
+    this.runRetryJob(job);
+  }
+
+  private runRetryJob(job: OcrJobListItem): void {
     if (!this.canRetryJob(job)) return;
 
     const ids = new Set(this.retryingIds());

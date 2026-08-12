@@ -190,6 +190,58 @@
             <span>Chỉ bóc tách dữ liệu (PDF đã có lớp text)</span>
           </label>
         </div>
+
+        <!--
+          Phạm vi trang bóc tách — giống dialog "Upload trực tiếp vào hồ sơ". Chỉ hiện khi đã chọn
+          chế độ có bóc tách. Bước OCR luôn chạy đủ trang; phạm vi này chỉ giới hạn số trang gửi lên
+          LLM vì đó là bước tốn ~20-30 giây mỗi trang.
+        -->
+        <div class="ocr-scope" *ngIf="ocrMode !== 'none'">
+          <p class="step-note scope-title">Phạm vi bóc tách</p>
+          <div class="ocr-options">
+            <label class="ocr-option">
+              <input
+                type="radio"
+                name="folderExtractionScope"
+                value="FirstPage"
+                [(ngModel)]="extractionScope"
+              />
+              <span>Bóc tách trang đầu</span>
+            </label>
+            <label class="ocr-option">
+              <input
+                type="radio"
+                name="folderExtractionScope"
+                value="LastPage"
+                [(ngModel)]="extractionScope"
+              />
+              <span>Bóc tách trang cuối</span>
+            </label>
+            <label class="ocr-option">
+              <input
+                type="radio"
+                name="folderExtractionScope"
+                value="FirstAndLastPage"
+                [(ngModel)]="extractionScope"
+              />
+              <span>Bóc tách trang đầu + cuối</span>
+            </label>
+            <label class="ocr-option">
+              <input
+                type="radio"
+                name="folderExtractionScope"
+                value="AllPages"
+                [(ngModel)]="extractionScope"
+              />
+              <span>Bóc tách tất cả các trang</span>
+            </label>
+          </div>
+          <p class="step-note scope-hint">
+            Chỉ giới hạn bước bóc tách. Bước OCR vẫn nhận dạng toàn bộ trang nên PDF 2 lớp và tìm
+            kiếm toàn văn không bị thiếu.
+          </p>
+        </div>
+
         <p class="step-note ocr-warn" *ngIf="selectedDocumentTypeId() && !hasDocumentTypeForm()">
           Loại văn bản chưa gắn biểu mẫu EAV — không thể bóc tách.
         </p>

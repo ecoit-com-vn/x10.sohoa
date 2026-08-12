@@ -255,6 +255,7 @@ body {
     background: #ffffff;
     border: 1px solid #e2e8f0;
     padding: 5px 16px;
+    border-radius: 10px;
 }
 
 .standard-page-toolbar>.toolbar-left {
@@ -621,7 +622,7 @@ body {
 
 .btn-cancel,
 .btn-reject {
-    height: 34px;
+    height: 30px;
     padding: 0 14px;
     background: #ECAE0F;
     /* Amber/Yellow replacement */

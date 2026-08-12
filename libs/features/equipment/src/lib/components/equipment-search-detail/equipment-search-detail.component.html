@@ -1,0 +1,551 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb [customItems]="breadcrumbItems()" />
+    </div>
+    <div class="toolbar-right">
+      <button class="btn-back btn-small" (click)="goBack()">
+        <i class="pi pi-arrow-left"></i> Quay lại danh sách
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="isLoadingDetail()" style="text-align: center; padding: 60px 0">
+    <i
+      class="pi pi-spin pi-spinner"
+      style="font-size: 2rem; color: #002d72; margin-bottom: 10px"
+    ></i>
+    <div>Đang tải chi tiết thiết bị...</div>
+  </div>
+
+  <div *ngIf="!isLoadingDetail()" class="animate-fade-in sub-view-container">
+    <div class="equipment-detail-card">
+      <!-- Tab Bar EVN -->
+      <div class="tab-bar" style="margin-bottom: 20px">
+        <div
+          class="tab-item"
+          [class.tab-active]="activeTab() === 'info'"
+          (click)="activeTab.set('info')"
+        >
+          <i class="pi pi-info-circle" style="margin-right: 4px"></i> Thông
+          tin thiết bị
+        </div>
+        <div
+          class="tab-item"
+          [class.tab-active]="activeTab() === 'profileDocs'"
+          (click)="activeTab.set('profileDocs')"
+        >
+          <i class="pi pi-paperclip" style="margin-right: 4px"></i> Tài liệu
+          đính kèm
+        </div>
+        <div
+          class="tab-item"
+          [class.tab-active]="activeTab() === 'related'"
+          (click)="activeTab.set('related')"
+        >
+          <i class="pi pi-folder-open" style="margin-right: 4px"></i> Hồ sơ
+          liên quan
+        </div>
+      </div>
+
+      <!-- NỘI DUNG CÁC TAB -->
+
+      <!-- ==================== TAB: THÔNG TIN THIẾT BỊ ==================== -->
+      <div *ngIf="activeTab() === 'info'" class="tab-content animate-fade-in">
+        <div
+          class="docs-style-view"
+          style="
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            margin-bottom: 25px;
+          "
+        >
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              border-bottom: 1px dashed #cbd5e1;
+              padding-bottom: 12px;
+              margin-bottom: 20px;
+            "
+          >
+            <span
+              style="
+                font-size: 0.95rem;
+                font-weight: 700;
+                color: #0f172a;
+                text-transform: uppercase;
+              "
+            >
+              <i
+                class="pi pi-file"
+                style="color: #2563eb; margin-right: 6px"
+              ></i>
+              Thông tin chi tiết
+            </span>
+          </div>
+
+          <!-- View theo kiểu docs (Highlight mã thiết bị và trạng thái hoạt động, các trường khác hiển thị bình thường) -->
+          <div
+            class="docs-fields-list"
+            style="display: flex; flex-direction: column; gap: 14px"
+          >
+            <!-- Mã thiết bị (Highlight) -->
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              border-bottom: 1px solid #f1f5f9;
+              padding-bottom: 8px;
+            "
+          >
+            <span style="width: 200px; color: #64748b; font-weight: 600"
+              >Mã thiết bị:</span
+            >
+            <span
+              style="
+                font-weight: 700;
+                color: #1e3a8a;
+                background: #eff6ff;
+                padding: 3px 8px;
+                border-radius: 4px;
+                font-family: monospace;
+              "
+            >
+              {{ currentItem().code }}
+            </span>
+          </div>
+
+          <!-- Tên thiết bị -->
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              border-bottom: 1px solid #f1f5f9;
+              padding-bottom: 8px;
+            "
+          >
+            <span style="width: 200px; color: #64748b; font-weight: 600"
+              >Tên thiết bị:</span
+            >
+            <span style="color: #334155">{{ currentItem().name }}</span>
+          </div>
+
+          <!-- Loại thiết bị -->
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              border-bottom: 1px solid #f1f5f9;
+              padding-bottom: 8px;
+            "
+          >
+            <span style="width: 200px; color: #64748b; font-weight: 600"
+              >Loại thiết bị:</span
+            >
+            <span style="color: #4f46e5; font-weight: 600">{{
+              currentItem().equipmentTypeName
+            }}</span>
+          </div>
+
+          <!-- Lưới điện -->
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              border-bottom: 1px solid #f1f5f9;
+              padding-bottom: 8px;
+            "
+          >
+            <span style="width: 200px; color: #64748b; font-weight: 600"
+              >Thuộc Lưới điện:</span
+            >
+            <span style="color: #334155">{{
+              currentItem().gridTypeName || '---'
+            }}</span>
+          </div>
+
+          <!-- Trạm / Đường dây -->
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              border-bottom: 1px solid #f1f5f9;
+              padding-bottom: 8px;
+            "
+          >
+            <span style="width: 200px; color: #64748b; font-weight: 600"
+              >Trạm / Đường dây:</span
+            >
+            <span style="color: #334155">{{
+              currentItem().infrastructureName || '---'
+            }}</span>
+          </div>
+
+          <!-- Đơn vị quản lý -->
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              border-bottom: 1px solid #f1f5f9;
+              padding-bottom: 8px;
+            "
+          >
+            <span style="width: 200px; color: #64748b; font-weight: 600"
+              >Đơn vị quản lý:</span
+            >
+            <span style="color: #334155">
+              {{ currentItem().unitName }}
+            </span>
+          </div>
+
+          <!-- Năm sản xuất -->
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              border-bottom: 1px solid #f1f5f9;
+              padding-bottom: 8px;
+            "
+            *ngIf="currentItem().manufactureYear"
+          >
+            <span style="width: 200px; color: #64748b; font-weight: 600"
+              >Năm sản xuất:</span
+            >
+            <span style="color: #334155">{{
+              currentItem().manufactureYear
+            }}</span>
+          </div>
+
+          <!-- Tình trạng -->
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              border-bottom: 1px solid #f1f5f9;
+              padding-bottom: 8px;
+            "
+            *ngIf="currentItem().equipmentStatusName"
+          >
+            <span style="width: 200px; color: #64748b; font-weight: 600"
+              >Tình trạng:</span
+            >
+            <span style="color: #334155">{{
+              currentItem().equipmentStatusName
+            }}</span>
+          </div>
+
+          <!-- Trạng thái hoạt động (Highlight) -->
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              border-bottom: 1px solid #f1f5f9;
+              padding-bottom: 8px;
+            "
+          >
+            <span style="width: 200px; color: #64748b; font-weight: 600"
+              >Trạng thái hoạt động:</span
+            >
+            <span
+              class="status-pill"
+              [ngClass]="
+                currentItem().isActive ? 'status-active' : 'status-inactive'
+              "
+            >
+              {{ currentItem().isActive ? 'Đang hoạt động' : 'Bị khóa' }}
+            </span>
+          </div>
+
+          <!-- Người tạo -->
+          <div
+            style="display: flex; align-items: center; padding-bottom: 8px"
+            *ngIf="currentItem().creator"
+          >
+            <span style="width: 200px; color: #64748b; font-weight: 600"
+              >Người tạo bản ghi:</span
+            >
+            <span class="text-muted" style="font-size: 0.9rem">
+              {{ currentItem().creator.name }} ({{
+                currentItem().creator.username
+              }})
+            </span>
+          </div>
+          </div>
+        </div>
+
+        <!-- Khối 2: Xem Thông số kỹ thuật EAV (id specs-section) -->
+        <div id="specs-section">
+          <div
+            class="docs-style-view"
+            style="
+              background: #ffffff;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              padding: 24px;
+              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+              margin-bottom: 25px;
+            "
+          >
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px dashed #cbd5e1;
+                padding-bottom: 12px;
+                margin-bottom: 20px;
+              "
+            >
+              <span
+                style="
+                  font-size: 0.95rem;
+                  font-weight: 700;
+                  color: #002d72;
+                  text-transform: uppercase;
+                "
+              >
+                <i
+                  class="pi pi-sliders-h"
+                  style="color: #2563eb; margin-right: 6px"
+                ></i>
+                Thông số kỹ thuật chi tiết
+              </span>
+            </div>
+
+            <!-- Empty template -->
+            <div
+              *ngIf="!eavTemplate()"
+              class="org-tree-empty"
+              style="text-align: center; padding: 30px 0"
+            >
+              <i
+                class="pi pi-exclamation-circle"
+                style="font-size: 2.2rem; color: #94a3b8; margin-bottom: 10px"
+              ></i>
+              <div style="font-weight: 600; color: #64748b; font-size: 1rem">
+                Chưa có biểu mẫu thông số được gán cho loại thiết bị này.
+              </div>
+            </div>
+
+            <!-- Render data kiểu docs (không phân cột, text căn trái, số căn phải, in đậm thường) -->
+            <div
+              *ngIf="eavTemplate()"
+              style="display: flex; flex-direction: column; gap: 14px"
+            >
+              <ng-container *ngFor="let field of eavFields()">
+                <div
+                  *ngIf="hasValue(field)"
+                  style="
+                    display: flex;
+                    align-items: center;
+                    border-bottom: 1px solid #f1f5f9;
+                    padding-bottom: 8px;
+                  "
+                >
+                  <span style="width: 220px; color: #64748b; font-weight: 600">
+                    {{ field.label }}:
+                  </span>
+                  <span
+                    [style.text-align]="isNumberField(field) ? 'right' : 'left'"
+                    [style.margin-left]="isNumberField(field) ? 'auto' : '0'"
+                    [style.font-family]="
+                      isNumberField(field) ? 'monospace' : 'inherit'
+                    "
+                    style="font-size: 0.95rem; font-weight: 700; color: #334155"
+                  >
+                    {{ getFormattedValue(field) }}
+                  </span>
+                </div>
+              </ng-container>
+
+              <div
+                *ngIf="
+                  eavFields().length > 0 && (formValuesObj() | json) === '{}'
+                "
+                class="org-tree-empty"
+                style="text-align: center; padding: 20px 0"
+              >
+                <i
+                  class="pi pi-info-circle"
+                  style="font-size: 1.8rem; color: #94a3b8; margin-bottom: 8px"
+                ></i>
+                <div style="color: #64748b; font-weight: 600">
+                  Chưa cấu hình thông số kỹ thuật cho thiết bị.
+                </div>
+              </div>
+
+              <div
+                *ngIf="eavFields().length === 0"
+                class="org-tree-empty"
+                style="text-align: center; padding: 20px 0"
+              >
+                <i
+                  class="pi pi-inbox"
+                  style="font-size: 1.8rem; color: #94a3b8; margin-bottom: 8px"
+                ></i>
+                <div style="color: #64748b">
+                  Biểu mẫu rỗng, chưa có trường thuộc tính nào được định nghĩa.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== TAB: TÀI LIỆU ĐÍNH KÈM (profile docs) ==================== -->
+      <div
+        *ngIf="activeTab() === 'profileDocs'"
+        class="tab-content animate-fade-in"
+      >
+        <app-equipment-documents
+          *ngIf="currentItem().id as profileEquipmentId"
+          [equipmentId]="profileEquipmentId"
+          [canEdit]="false"
+          [hideDigitizationColumns]="true"
+          (documentProcessed)="reloadDetail(profileEquipmentId)"
+        ></app-equipment-documents>
+      </div>
+
+      <!-- ==================== TAB: HỒ SƠ LIÊN QUAN (ORACLE BHS LIST) ==================== -->
+      <div
+        *ngIf="activeTab() === 'related'"
+        class="tab-content animate-fade-in"
+      >
+        <div
+          class="wf-table-wrap"
+          style="
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+          "
+        >
+          <div
+            style="
+              border-bottom: 1px dashed #cbd5e1;
+              padding-bottom: 10px;
+              margin-bottom: 15px;
+            "
+          >
+            <span
+              style="
+                font-size: 0.95rem;
+                font-weight: 700;
+                color: #002d72;
+                text-transform: uppercase;
+              "
+            >
+              <i
+                class="pi pi-folder-open"
+                style="color: #ff6b00; margin-right: 6px"
+              ></i>
+              Danh mục Hồ sơ lưu trữ liên quan
+            </span>
+          </div>
+
+          <!-- Loader -->
+          <div
+            *ngIf="isLoadingDossiers()"
+            style="text-align: center; padding: 40px 0"
+          >
+            <i
+              class="pi pi-spin pi-spinner"
+              style="font-size: 2rem; color: #002d72; margin-bottom: 10px"
+            ></i>
+            <div>Đang truy vấn dữ liệu hồ sơ từ hệ thống Oracle...</div>
+          </div>
+
+          <div *ngIf="!isLoadingDossiers()">
+            <table class="wf-table">
+              <thead>
+                <tr>
+                  <th class="col-stt">STT</th>
+                  <!-- Các cột Catalog BHS động -->
+                  <th *ngFor="let col of dossierColumns()">
+                    {{ col.label }}
+                  </th>
+                  <th>Loại hồ sơ</th>
+                  <th>Người tạo</th>
+                  <th>Ngày tạo</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of dossierItems(); let i = index">
+                  <td class="col-stt text-muted">
+                    {{ (dossierPage() - 1) * dossierPageSize() + i + 1 }}
+                  </td>
+
+                  <!-- Render giá trị Catalog BHS động, gắn link hồ sơ ở cột BHS đầu tiên -->
+                  <td *ngFor="let col of dossierColumns(); let firstCol = first">
+                    <span *ngIf="firstCol; else normalVal">
+                      <b
+                        class="wf-name-link"
+                        style="
+                          color: #0284c7;
+                          cursor: pointer;
+                          text-decoration: underline;
+                        "
+                        (click)="viewDossierDetail(item)"
+                        [title]="'Xem chi tiết hồ sơ trong tab mới'"
+                      >
+                        {{
+                          item.catalogData
+                            ? item.catalogData[col.key] || '---'
+                            : '---'
+                        }}
+                      </b>
+                    </span>
+                    <ng-template #normalVal>
+                      {{
+                        item.catalogData
+                          ? item.catalogData[col.key] || '---'
+                          : '---'
+                      }}
+                    </ng-template>
+                  </td>
+
+                  <td>{{ item.dossierTypeName }}</td>
+                  <td>{{ item.creatorName || 'System' }}</td>
+                  <td>{{ item.createdDate | date: 'dd/MM/yyyy HH:mm' }}</td>
+                </tr>
+                <tr *ngIf="dossierItems().length === 0">
+                  <td
+                    [attr.colspan]="4 + dossierColumns().length"
+                    class="empty-row"
+                  >
+                    <i class="pi pi-inbox"></i>
+                    <div>Không tìm thấy hồ sơ nào liên kết với thiết bị này.</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Phân trang hồ sơ BHS -->
+            <div
+              class="table-footer-paginator"
+              *ngIf="dossierTotalCount() > 0"
+              style="margin-top: 15px"
+            >
+              <span class="record-count"
+                >Tổng số: <b>{{ dossierTotalCount() }}</b> hồ sơ liên quan.</span
+              >
+              <app-eco-paginator
+                [first]="(dossierPage() - 1) * dossierPageSize()"
+                [rows]="dossierPageSize()"
+                [totalRecords]="dossierTotalCount()"
+                [rowsPerPageOptions]="[5, 10, 20, 50]"
+                (onPageChange)="onRelatedDossierPageChange($event)"
+              ></app-eco-paginator>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -12,6 +12,7 @@ import { finalize } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import {
   DeleteConfirmDialogComponent,
+  EcoInputTreeSelectComponent,
   EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
@@ -19,7 +20,7 @@ import {
 @Component({
   selector: 'app-organization-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, PaginatorModule, MenuModule, WfBreadcrumbComponent, EcoPaginatorComponent, DeleteConfirmDialogComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, PaginatorModule, MenuModule, WfBreadcrumbComponent, EcoInputTreeSelectComponent, EcoPaginatorComponent, DeleteConfirmDialogComponent],
 
   providers: [MessageService],
   templateUrl: './organization-settings.component.html',
@@ -33,6 +34,34 @@ export class OrganizationSettings implements OnInit {
   dialogHeader = signal<string>('');
   isEdit = signal<boolean>(false);
   currentUnit = signal<any>({});
+
+  parentUnitTreeNodes = computed(() => {
+    const eligibleUnits = this.getEligibleParents(this.currentUnit().id ?? null);
+    const eligibleIds = new Set(eligibleUnits.map(unit => Number(unit.id)));
+    const nodesById = new Map<number, any>();
+    const roots: any[] = [];
+
+    eligibleUnits.forEach(unit => {
+      nodesById.set(Number(unit.id), {
+        key: unit.id,
+        label: `${unit.name} (${unit.code})`,
+        data: unit,
+        children: []
+      });
+    });
+
+    eligibleUnits.forEach(unit => {
+      const node = nodesById.get(Number(unit.id));
+      const parentId = unit.parentId == null ? null : Number(unit.parentId);
+      if (parentId != null && eligibleIds.has(parentId)) {
+        nodesById.get(parentId)?.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+
+    return roots;
+  });
 
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
@@ -189,9 +218,12 @@ export class OrganizationSettings implements OnInit {
   getIndentLevel(unit: any): number {
     let level = 0;
     let parentId = unit.parentId;
-    while (parentId) {
+    const visitedIds = new Set<number>([Number(unit.id)]);
+    while (parentId != null) {
       const parent = this.units().find(u => u.id === parentId);
-      if (parent && parent.id !== unit.id) {
+      const parentIdNumber = Number(parent?.id);
+      if (parent && !visitedIds.has(parentIdNumber)) {
+        visitedIds.add(parentIdNumber);
         level++;
         parentId = parent.parentId;
       } else {
@@ -215,9 +247,9 @@ export class OrganizationSettings implements OnInit {
     const childrenIds = new Set<number>();
     const findChildren = (pid: number) => {
       allUnits.forEach(u => {
-        if (u.parentId === pid) {
-          childrenIds.add(u.id);
-          findChildren(u.id);
+        if (Number(u.parentId) === pid && !childrenIds.has(Number(u.id))) {
+          childrenIds.add(Number(u.id));
+          findChildren(Number(u.id));
         }
       });
     };

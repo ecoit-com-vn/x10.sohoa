@@ -42,16 +42,32 @@
 
           <div class="standard-search-field">
             <label class="search-field-label">Từ ngày</label>
-            <input type="date" class="wf-input"
+            <p-datepicker
               [ngModel]="searchFromDate()"
-              (ngModelChange)="searchFromDate.set($event); onOperationDateChange()" />
+              (ngModelChange)="searchFromDate.set($event); onOperationDateChange()"
+              dateFormat="dd/mm/yy"
+              placeholder="dd/MM/yyyy"
+              [showIcon]="true"
+              [readonlyInput]="false"
+              [showOnFocus]="false"
+              [showButtonBar]="true"
+              inputStyleClass="wf-input"
+              appendTo="self" />
           </div>
 
           <div class="standard-search-field">
             <label class="search-field-label">Đến ngày</label>
-            <input type="date" class="wf-input"
+            <p-datepicker
               [ngModel]="searchToDate()"
-              (ngModelChange)="searchToDate.set($event); onOperationDateChange()" />
+              (ngModelChange)="searchToDate.set($event); onOperationDateChange()"
+              dateFormat="dd/mm/yy"
+              placeholder="dd/MM/yyyy"
+              [showIcon]="true"
+              [readonlyInput]="false"
+              [showOnFocus]="false"
+              [showButtonBar]="true"
+              inputStyleClass="wf-input"
+              appendTo="self" />
           </div>
         </div>
 
@@ -306,17 +322,15 @@
             </table>
 
             <!-- Equipment Pagination -->
-            <div class="table-footer-paginator" *ngIf="equipmentTotalCount() > 0">
-              <span class="record-count">Tổng số: <b>{{ equipmentTotalCount() }}</b> thiết bị.</span>
-              <p-paginator
+            <app-eco-paginator
+                *ngIf="equipmentTotalCount() > 0"
                 [first]="(equipmentPage() - 1) * equipmentPageSize()"
                 [rows]="equipmentPageSize()"
                 [totalRecords]="equipmentTotalCount()"
                 [rowsPerPageOptions]="[10, 20, 50]"
-                dropdownAppendTo="body"
+                recordLabel="thiết bị"
                 (onPageChange)="onEquipmentPageChange($event)">
-              </p-paginator>
-            </div>
+            </app-eco-paginator>
           </div>
         </div>
       </div>
@@ -331,17 +345,15 @@
           <div *ngIf="loadingAttachmentDocuments()" class="substation-document-empty"><i class="pi pi-spin pi-spinner"></i> Đang tải tài liệu...</div>
           <table *ngIf="!loadingAttachmentDocuments() && selectedAttachmentDocuments().length > 0" class="wf-table substation-document-table"><thead><tr><th>STT</th><th>Tài liệu</th><th>Thiết bị</th><th>Ngày tài liệu</th><th>Người tạo</th></tr></thead><tbody><tr *ngFor="let item of pagedAttachmentDocuments(); let i = index"><td>{{ (attachmentDocumentPage() - 1) * attachmentDocumentPageSize() + i + 1 }}</td><td><button class="substation-document-link" (click)="openAttachmentDocumentPreview(item.dossier.id, item.document)"><i class="pi pi-file-pdf"></i>{{ item.document.name || item.document.fileName || 'Tài liệu chưa đặt tên' }}</button></td><td>{{ getAttachmentEquipmentName(item) }}</td><td>{{ item.document.createdDate ? (item.document.createdDate | date:'dd/MM/yyyy') : '-' }}</td><td>{{ item.document.createdByName || item.document.createdBy || '-' }}</td></tr></tbody></table>
           <div *ngIf="!loadingAttachmentDocuments() && selectedAttachmentDocuments().length === 0" class="substation-document-empty">Chọn một thư mục để xem danh sách tài liệu.</div>
-          <div *ngIf="!loadingAttachmentDocuments() && selectedAttachmentDocuments().length > 0" class="table-footer-paginator">
-            <span class="record-count">Tổng số: <b>{{ selectedAttachmentDocuments().length }}</b> tài liệu.</span>
-            <p-paginator
+          <app-eco-paginator
+              *ngIf="!loadingAttachmentDocuments() && selectedAttachmentDocuments().length > 0"
               [first]="(attachmentDocumentPage() - 1) * attachmentDocumentPageSize()"
               [rows]="attachmentDocumentPageSize()"
               [totalRecords]="selectedAttachmentDocuments().length"
               [rowsPerPageOptions]="[10, 20, 50]"
-              dropdownAppendTo="body"
+              recordLabel="tài liệu"
               (onPageChange)="onAttachmentDocumentPageChange($event)">
-            </p-paginator>
-          </div>
+          </app-eco-paginator>
         </section>
         <aside class="substation-document-tree"><div class="substation-tree-title"><i class="pi pi-folder"></i> TÀI LIỆU ĐÍNH KÈM</div>
           
@@ -350,7 +362,7 @@
 
       <!-- ======= TAB 2: HỒ SƠ KỸ THUẬT (chỉ đọc) ======= -->
       <div *ngIf="activeTab() === 2" class="tab-content animate-fade-in substation-document-workspace">
-        <section class="substation-document-list"><div class="substation-document-heading">{{ selectedTechnicalFolder()?.name || 'Hồ sơ kỹ thuật' }}</div><div class="substation-document-filters"><label>Từ khóa<input type="text" placeholder="Tìm theo tên tài liệu" [ngModel]="technicalDocumentKeyword()" (ngModelChange)="technicalDocumentKeyword.set($event); onTechnicalDocumentFiltersChange()" /></label><label>Loại tài liệu<p-select [options]="technicalDocumentTypeOptions()" [ngModel]="technicalSelectedDocumentTypeId()" (ngModelChange)="technicalSelectedDocumentTypeId.set($event); onTechnicalDocumentFiltersChange()" optionLabel="name" optionValue="id" placeholder="-- Chọn loại tài liệu --" [filter]="true" [showClear]="true" appendTo="body"></p-select></label></div><div *ngIf="loadingTechnicalDossiers() || (selectedTechnicalFolder() && isTechnicalFolderLoading(selectedTechnicalFolder()!.id))" class="substation-document-empty"><i class="pi pi-spin pi-spinner"></i> Đang tải tài liệu...</div><table *ngIf="!loadingTechnicalDossiers() && !isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') && selectedTechnicalDocuments().length > 0" class="wf-table substation-document-table"><thead><tr><th>STT</th><th>Tài liệu</th><th>Loại tài liệu</th><th>Ngày tài liệu</th><th>Người tạo</th></tr></thead><tbody><tr *ngFor="let item of pagedTechnicalDocuments(); let i = index"><td>{{ (technicalDocumentPage() - 1) * technicalDocumentPageSize() + i + 1 }}</td><td><button class="substation-document-link" (click)="openAttachmentDocumentPreview(item.dossier.id, item.document)"><i class="pi pi-file-pdf"></i>{{ item.document.name || item.document.fileName || 'Tài liệu chưa đặt tên' }}</button></td><td>{{ item.document.documentTypeName || '-' }}</td><td>{{ item.document.createdDate ? (item.document.createdDate | date:'dd/MM/yyyy') : '-' }}</td><td>{{ item.document.createdByName || item.document.createdBy || '-' }}</td></tr></tbody></table><div *ngIf="!loadingTechnicalDossiers() && !isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') && selectedTechnicalDocuments().length === 0" class="substation-document-empty">Chọn một thư mục để xem danh sách tài liệu.</div><div *ngIf="!loadingTechnicalDossiers() && !isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') && selectedTechnicalDocuments().length > 0" class="table-footer-paginator"><span class="record-count">Tổng số: <b>{{ selectedTechnicalDocuments().length }}</b> tài liệu.</span><p-paginator [first]="(technicalDocumentPage() - 1) * technicalDocumentPageSize()" [rows]="technicalDocumentPageSize()" [totalRecords]="selectedTechnicalDocuments().length" [rowsPerPageOptions]="[10, 20, 50]" dropdownAppendTo="body" (onPageChange)="onTechnicalDocumentPageChange($event)"></p-paginator></div></section>
+        <section class="substation-document-list"><div class="substation-document-heading">{{ selectedTechnicalFolder()?.name || 'Hồ sơ kỹ thuật' }}</div><div class="substation-document-filters"><label>Từ khóa<input type="text" placeholder="Tìm theo tên tài liệu" [ngModel]="technicalDocumentKeyword()" (ngModelChange)="technicalDocumentKeyword.set($event); onTechnicalDocumentFiltersChange()" /></label><label>Loại tài liệu<p-select [options]="technicalDocumentTypeOptions()" [ngModel]="technicalSelectedDocumentTypeId()" (ngModelChange)="technicalSelectedDocumentTypeId.set($event); onTechnicalDocumentFiltersChange()" optionLabel="name" optionValue="id" placeholder="-- Chọn loại tài liệu --" [filter]="true" [showClear]="true" appendTo="body"></p-select></label></div><div *ngIf="loadingTechnicalDossiers() || (selectedTechnicalFolder() && isTechnicalFolderLoading(selectedTechnicalFolder()!.id))" class="substation-document-empty"><i class="pi pi-spin pi-spinner"></i> Đang tải tài liệu...</div><table *ngIf="!loadingTechnicalDossiers() && !isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') && selectedTechnicalDocuments().length > 0" class="wf-table substation-document-table"><thead><tr><th>STT</th><th>Tài liệu</th><th>Loại tài liệu</th><th>Ngày tài liệu</th><th>Người tạo</th></tr></thead><tbody><tr *ngFor="let item of pagedTechnicalDocuments(); let i = index"><td>{{ (technicalDocumentPage() - 1) * technicalDocumentPageSize() + i + 1 }}</td><td><button class="substation-document-link" (click)="openAttachmentDocumentPreview(item.dossier.id, item.document)"><i class="pi pi-file-pdf"></i>{{ item.document.name || item.document.fileName || 'Tài liệu chưa đặt tên' }}</button></td><td>{{ item.document.documentTypeName || '-' }}</td><td>{{ item.document.createdDate ? (item.document.createdDate | date:'dd/MM/yyyy') : '-' }}</td><td>{{ item.document.createdByName || item.document.createdBy || '-' }}</td></tr></tbody></table><div *ngIf="!loadingTechnicalDossiers() && !isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') && selectedTechnicalDocuments().length === 0" class="substation-document-empty">Chọn một thư mục để xem danh sách tài liệu.</div><app-eco-paginator *ngIf="!loadingTechnicalDossiers() && !isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') && selectedTechnicalDocuments().length > 0" [first]="(technicalDocumentPage() - 1) * technicalDocumentPageSize()" [rows]="technicalDocumentPageSize()" [totalRecords]="selectedTechnicalDocuments().length" [rowsPerPageOptions]="[10, 20, 50]" recordLabel="tài liệu" (onPageChange)="onTechnicalDocumentPageChange($event)"></app-eco-paginator></section>
         <aside class="substation-document-tree"><div class="substation-tree-title"><i class="pi pi-folder-open"></i> Hồ sơ kỹ thuật</div>
           <button class="substation-tree-parent" (click)="toggleTechnicalStationFolder()"><i class="pi" [class.pi-chevron-right]="!technicalStationFolderExpanded()" [class.pi-chevron-down]="technicalStationFolderExpanded()"></i><i class="pi" [class.pi-folder]="!technicalStationFolderExpanded()" [class.pi-folder-open]="technicalStationFolderExpanded()"></i><span>{{ currentItem().name || 'Trạm biến áp' }}</span></button><div *ngIf="technicalStationFolderExpanded()" class="substation-tree-children"><button *ngFor="let folder of technicalDossierFolders()" class="substation-tree-node" [class.selected]="selectedTechnicalFolderId() === folder.id" (click)="selectTechnicalFolder(folder)"><i class="pi" [class.pi-folder]="selectedTechnicalFolderId() !== folder.id" [class.pi-folder-open]="selectedTechnicalFolderId() === folder.id"></i><span>{{ folder.name }}</span></button></div></aside>
       </div>
