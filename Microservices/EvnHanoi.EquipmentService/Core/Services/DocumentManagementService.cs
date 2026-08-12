@@ -564,18 +564,45 @@ public class DocumentManagementService : IDocumentManagementService
 
     public async Task<IEnumerable<FolderCatalogNodeDto>> GetDossierCatalogTreeAsync(long unitId)
     {
-        // 1. Get Unit Info
-        var unitInfo = await _documentRepository.GetUnitInfoAsync(unitId);
+        // Lấy toàn bộ dữ liệu cây danh mục hồ sơ trong 1 round-trip duy nhất
+        // (gộp 5 query trước đây: unit info, infrastructures, dossiers, junction links, document counts)
+        var data = await _documentRepository.GetDossierCatalogTreeDataAsync(unitId);
+
+        var unitInfo = data.UnitInfo;
         if (unitInfo == null || string.IsNullOrEmpty(unitInfo.Name))
         {
             throw new InvalidOperationException("Không tìm thấy thông tin đơn vị trong hệ thống");
         }
 
-        // 2. Query Infrastructures (both Substations (1) and Power lines (2))
-        var infrastructures = await _documentRepository.GetActiveInfrastructuresByUnitAsync(unitId);
+        var infrastructures = data.Infrastructures;
+        var dossiers = data.Dossiers;
 
-        // 3. Query active dossiers for this unit
-        var dossiers = await _documentRepository.GetActiveDossiersByUnitAsync(unitId);
+        // Mapping n-n Dossier <-> Infrastructure (giống điều kiện OR EXISTS trong GetListDocumentIdsAsync)
+        var infraToDossierIds = data.JunctionLinks
+            .GroupBy(x => x.InfrastructureId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => new HashSet<string>(g.Select(x => x.DossierId), StringComparer.OrdinalIgnoreCase),
+                StringComparer.OrdinalIgnoreCase);
+
+        // Đếm số document theo dossierId (để hiển thị đúng số TÀI LIỆU thay vì số HỒ SƠ)
+        var documentCounts = data.DocumentCounts;
+
+        // Hàm cục bộ: lấy tất cả dossier thuộc 1 infrastructure, match cả FK trực tiếp lẫn bảng trung gian
+        IEnumerable<ActiveDossierQueryDto> GetDossiersForInfra(string infraId)
+        {
+            var linkedIds = infraToDossierIds.TryGetValue(infraId, out var set)
+                ? set
+                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            return dossiers.Where(d =>
+                string.Equals(d.InfrastructureId, infraId, StringComparison.OrdinalIgnoreCase)
+                || linkedIds.Contains(d.Id));
+        }
+
+        // Hàm cục bộ: tổng số document của 1 nhóm dossier
+        int CountDocuments(IEnumerable<ActiveDossierQueryDto> group) =>
+            group.Sum(d => documentCounts.TryGetValue(d.Id, out var c) ? c : 0);
 
         var nodes = new List<FolderCatalogNodeDto>();
         var unitCode = unitInfo.Code ?? string.Empty;
@@ -599,8 +626,8 @@ public class DocumentManagementService : IDocumentManagementService
             string parentId = isHighVoltageSub ? "tba-cao-ap" : "tba-trung-ap";
             string subNodeId = isHighVoltageSub ? $"tba-cao-ap_{sub.Id}" : $"tba-trung-ap_{sub.Id}";
 
-            // Lọc các dossiers thuộc trạm này
-            var subDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, sub.Id, StringComparison.OrdinalIgnoreCase));
+            // Lọc các dossiers thuộc trạm này (FK trực tiếp + bảng trung gian)
+            var subDossiers = GetDossiersForInfra(sub.Id);
 
             var dossierGroups = subDossiers
                 .GroupBy(d => new { d.DossierTypeId, d.DossierTypeName })
@@ -624,10 +651,13 @@ public class DocumentManagementService : IDocumentManagementService
                 foreach (var g in dossierGroups)
                 {
                     if (string.IsNullOrEmpty(g.Key.DossierTypeId)) continue;
+
+                    int docCount = CountDocuments(g); // số TÀI LIỆU, không phải số hồ sơ
+
                     nodes.Add(new FolderCatalogNodeDto
                     {
                         Id = $"type_{subNodeId}_{g.Key.DossierTypeId}",
-                        Name = $"{g.Key.DossierTypeName} ({g.Count()})", // Số lượng hồ sơ đã xuất bản
+                        Name = $"{g.Key.DossierTypeName} ({docCount})",
                         ParentId = subNodeId,
                         UnitId = unitId,
                         UnitCode = unitCode,
@@ -652,8 +682,8 @@ public class DocumentManagementService : IDocumentManagementService
             string parentId = isHighVoltageInfra ? "dd-cao-ap" : "dd-trung-ap";
             string lineNodeId = isHighVoltageInfra ? $"dd-cao-ap_{infra.Id}" : $"dd-trung-ap_{infra.Id}";
 
-            // Lọc các dossiers thuộc đường dây này
-            var lineDossiers = dossiers.Where(d => string.Equals(d.InfrastructureId, infra.Id, StringComparison.OrdinalIgnoreCase));
+            // Lọc các dossiers thuộc đường dây này (FK trực tiếp + bảng trung gian)
+            var lineDossiers = GetDossiersForInfra(infra.Id);
 
             var dossierGroups = lineDossiers
                 .GroupBy(d => new { d.DossierTypeId, d.DossierTypeName })
@@ -677,10 +707,13 @@ public class DocumentManagementService : IDocumentManagementService
                 foreach (var g in dossierGroups)
                 {
                     if (string.IsNullOrEmpty(g.Key.DossierTypeId)) continue;
+
+                    int docCount = CountDocuments(g); // số TÀI LIỆU, không phải số hồ sơ
+
                     nodes.Add(new FolderCatalogNodeDto
                     {
                         Id = $"type_{lineNodeId}_{g.Key.DossierTypeId}",
-                        Name = $"{g.Key.DossierTypeName} ({g.Count()})", // Số lượng hồ sơ đã xuất bản
+                        Name = $"{g.Key.DossierTypeName} ({docCount})",
                         ParentId = lineNodeId,
                         UnitId = unitId,
                         UnitCode = unitCode,

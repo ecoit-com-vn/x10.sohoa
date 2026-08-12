@@ -278,12 +278,9 @@ public partial class EquipmentController : ControllerBase
         sourceEquipment.ModifiedDate = DateTime.UtcNow;
         sourceEquipment.StatusTransition = 1;
 
-        var result = await _equipmentRepository.CloneDossiersAndDocumentsForDetailTransferAsync(
+        var transferredDossierIds = await _equipmentRepository.CloneDossiersAndDocumentsForDetailTransferAsync(
             sourceEquipment,
             replacementEquipment);
-
-        if (!result)
-            return BadRequest(new { message = "Không thể chuyển hồ sơ thiết bị sang bản ghi mới." });
 
         try
         {
@@ -305,6 +302,24 @@ public partial class EquipmentController : ControllerBase
                 },
                 NotificationTopicTopology.ExchangeName,
                 NotificationTopicTopology.EquipmentDossierTransferredRoutingKey);
+
+            foreach (var dossierId in transferredDossierIds)
+            {
+                try
+                {
+                    var indexEvent = new DossierChangedEvent(
+                        DossierIndexIdNormalizer.Normalize(dossierId.ToString()),
+                        DossierChangedActions.Created,
+                        Guid.NewGuid().ToString(),
+                        DateTime.UtcNow);
+
+                    await _messageProducer.SendMessageAsync(indexEvent, DossierMessaging.IndexQueue);
+                }
+                catch (Exception ex)
+                {
+                    Serilog.Log.Error(ex, "Failed to publish dossier index event for transferred dossier {DossierId}.", dossierId);
+                }
+            }
         }
         catch (Exception ex)
         {

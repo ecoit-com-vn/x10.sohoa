@@ -355,7 +355,7 @@ public class DocumentRepository : IDocumentRepository
 
         var whereClause = "IS_DELETED = 0";
         var aliasedWhereClause = "d.IS_DELETED = 0";
-        
+
         if (folderId.HasValue)
         {
             whereClause += " AND FOLDER_ID = :FolderId";
@@ -399,8 +399,9 @@ public class DocumentRepository : IDocumentRepository
 
         var totalCount = await _connection.ExecuteScalarAsync<int>(
             countSql,
-            new { 
-                FolderId = folderId?.ToString(), 
+            new
+            {
+                FolderId = folderId?.ToString(),
                 Keyword = keywordParam,
                 CreatedBy = creatorParam,
                 StartDate = filter.StartDate,
@@ -464,14 +465,15 @@ public class DocumentRepository : IDocumentRepository
 
         var items = await _connection.QueryAsync<DocumentListItemDto>(
             listSql,
-            new { 
-                FolderId = folderId?.ToString(), 
-                Keyword = keywordParam, 
+            new
+            {
+                FolderId = folderId?.ToString(),
+                Keyword = keywordParam,
                 CreatedBy = creatorParam,
                 StartDate = filter.StartDate,
                 EndDate = endOfDayVal,
-                Offset = offset, 
-                PageSize = filter.PageSize 
+                Offset = offset,
+                PageSize = filter.PageSize
             }
         );
 
@@ -524,7 +526,7 @@ public class DocumentRepository : IDocumentRepository
             {
                 System.IO.File.WriteAllText(@"C:\Users\admin\Desktop\SO_HOA_X10\oracle_error.log", ex.ToString() + "\n\nSQL:\n" + sql);
             }
-            catch {}
+            catch { }
             throw;
         }
     }
@@ -554,10 +556,10 @@ public class DocumentRepository : IDocumentRepository
               AND FOLDER_ID = :FolderId 
               AND IS_DELETED = 0";
 
-        return await _connection.QuerySingleOrDefaultAsync<Document>(sql, new 
-        { 
-            Name = name, 
-            FolderId = folderId.ToString() 
+        return await _connection.QuerySingleOrDefaultAsync<Document>(sql, new
+        {
+            Name = name,
+            FolderId = folderId.ToString()
         });
     }
 
@@ -587,7 +589,8 @@ public class DocumentRepository : IDocumentRepository
               AND DOSSIER_ID = :DossierId 
               AND IS_DELETED = 0";
 
-        return await _connection.QuerySingleOrDefaultAsync<Document>(sql, new {
+        return await _connection.QuerySingleOrDefaultAsync<Document>(sql, new
+        {
             Name = name,
             DossierId = dossierId.ToString()
         });
@@ -1106,7 +1109,7 @@ public class DocumentRepository : IDocumentRepository
             {
                 System.IO.File.WriteAllText(@"C:\Users\admin\Desktop\SO_HOA_X10\oracle_error.log", ex.ToString() + "\n\nSQL:\n" + listSql);
             }
-            catch {}
+            catch { }
             throw;
         }
     }
@@ -1481,13 +1484,76 @@ public class DocumentRepository : IDocumentRepository
         return await _connection.QueryAsync<ActiveDossierQueryDto>(sql, new { UnitId = unitId });
     }
 
+    public async Task<Dictionary<string, int>> GetDocumentCountsByDossierIdsAsync(IEnumerable<string> dossierIds)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT DOSSIER_ID, COUNT(*) AS CNT
+            FROM DOCUMENTS
+            WHERE IS_DELETED = 0 AND DOSSIER_ID IN :DossierIds
+            GROUP BY DOSSIER_ID";
+
+        var results = await _connection.QueryAsync<(string DossierId, int Count)>(sql, new { DossierIds = dossierIds });
+        return results.ToDictionary(r => r.DossierId, r => r.Count);
+    }
+
+    public async Task<IEnumerable<(string DossierId, string InfrastructureId)>> GetDossierInfrastructureLinksAsync(long unitId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT di.DossierId, di.InfrastructureId
+            FROM DOSSIER_INFRASTRUCTURE di
+            INNER JOIN DOSSIERS d ON d.ID = di.DossierId AND d.ISDELETED = 0 AND d.PUBLISHSTATUSID = 2
+            INNER JOIN INFRASTRUCTURE i ON i.ID = di.InfrastructureId
+            WHERE i.UNIT_ID IN (
+                SELECT Id FROM ORGANIZATION_UNIT
+                START WITH Id = :UnitId
+                CONNECT BY PRIOR Id = ParentId
+            )";
+
+        var results = await _connection.QueryAsync<(string DossierId, string InfrastructureId)>(sql, new { UnitId = unitId });
+        return results;
+    }
+
+    public async Task<DossierCatalogTreeDataDto> GetDossierCatalogTreeDataAsync(long unitId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var result = new DossierCatalogTreeDataDto
+        {
+            UnitInfo = await GetUnitInfoAsync(unitId),
+            Infrastructures = (await GetActiveInfrastructuresByUnitAsync(unitId)).ToList(),
+            Dossiers = (await GetActiveDossiersByUnitAsync(unitId)).ToList()
+        };
+
+        result.JunctionLinks = (await GetDossierInfrastructureLinksAsync(unitId))
+            .Select(x => new DossierInfrastructureLinkDto
+            {
+                DossierId = x.DossierId,
+                InfrastructureId = x.InfrastructureId
+            })
+            .ToList();
+
+        var dossierIds = result.Dossiers.Select(d => d.Id).ToList();
+        if (dossierIds.Count > 0)
+        {
+            result.DocumentCounts = await GetDocumentCountsByDossierIdsAsync(dossierIds);
+        }
+
+        return result;
+    }
 
     public async Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDossierCatalogDocumentsAsync(
-        long unitId, 
-        string? infrastructureId, 
-        string? dossierTypeId, 
-        string? keyword, 
-        int page, 
+        long unitId,
+        string? infrastructureId,
+        string? dossierTypeId,
+        string? keyword,
+        int page,
         int pageSize)
     {
         if (_connection.State != ConnectionState.Open)

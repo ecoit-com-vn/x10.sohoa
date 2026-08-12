@@ -877,7 +877,7 @@ StatusTransition,
         });
     }
 
-    public async Task<bool> CloneDossiersAndDocumentsForDetailTransferAsync(
+    public async Task<IReadOnlyList<Guid>> CloneDossiersAndDocumentsForDetailTransferAsync(
         Equipment sourceEquipment,
         Equipment replacementEquipment)
     {
@@ -918,7 +918,7 @@ StatusTransition,
                     throw new InvalidOperationException("Thiết bị nguồn không còn tồn tại hoặc đã bị xóa.");
 
                 transaction.Commit();
-                return true;
+                return dossierCopies.Select(copy => copy.Id).ToList();
             }
             catch
             {
@@ -1133,6 +1133,18 @@ StatusTransition,
                     dossierCopy.Source.FloorId,
                     dossierCopy.Source.BoxId
                 }, transaction);
+
+            if (replacementEquipment.InfrastructureId.HasValue)
+            {
+                await _connection.ExecuteAsync(
+                    "INSERT INTO DOSSIER_INFRASTRUCTURE (DossierId, InfrastructureId) VALUES (:DossierId, :InfrastructureId)",
+                    new
+                    {
+                        DossierId = dossierCopy.Id.ToString(),
+                        InfrastructureId = replacementEquipment.InfrastructureId.Value.ToString()
+                    },
+                    transaction);
+            }
 
             await _connection.ExecuteAsync(
                 "INSERT INTO DOSSIER_EQUIPMENTS (DossierId, EquipmentId) VALUES (:DossierId, :EquipmentId)",
