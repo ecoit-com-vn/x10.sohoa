@@ -155,6 +155,33 @@
 
       <!-- ===== TAB 2: TÀI LIỆU ĐÍNH KÈM ===== -->
       <div *ngIf="activeDetailTab() === 'documents'" class="tab-pane-container animate-fade-in">
+        <div class="filters-card">
+          <div class="filter-item">
+            <span class="filter-label">Tên tài liệu</span>
+            <input type="text" class="wf-input" placeholder="Nhập tên tài liệu, Enter để tìm kiếm"
+              [ngModel]="filterDocumentKeyword()" (ngModelChange)="filterDocumentKeyword.set($event)"
+              (keyup.enter)="onApplyDocumentSearch()">
+          </div>
+
+          <div class="filter-item">
+            <span class="filter-label">Loại tài liệu</span>
+            <select class="wf-select" [ngModel]="filterDocumentTypeId()"
+              (ngModelChange)="filterDocumentTypeId.set($event)">
+              <option value="">-- Chọn loại tài liệu --</option>
+              <option *ngFor="let dt of documentTypeOptions()" [value]="dt.id">{{ dt.name }}</option>
+            </select>
+          </div>
+
+          <div class="filter-item filter-actions">
+            <button type="button" class="btn-outlined btn-lam-moi" (click)="onResetDocumentSearch()">
+              <i class="pi pi-refresh"></i> Làm mới
+            </button>
+            <button type="button" class="btn-save" (click)="onApplyDocumentSearch()">
+              <i class="pi pi-check"></i> Áp dụng
+            </button>
+          </div>
+        </div>
+
         <div class="wf-table-wrap">
           <table class="wf-table">
             <thead>
@@ -173,7 +200,7 @@
                   <div>Đang tải tài liệu...</div>
                 </td>
               </tr>
-              <tr *ngFor="let doc of dossierDocuments(); let i = index" [hidden]="loadingDossierDocuments()">
+              <tr *ngFor="let doc of filteredDossierDocuments(); let i = index" [hidden]="loadingDossierDocuments()">
                 <td class="col-stt text-muted">{{ i + 1 }}</td>
                 <td>
                   <span class="wf-name-link" (click)="onViewDocumentDetail(doc)">{{ doc.name }}</span>
@@ -189,7 +216,7 @@
                   </button>
                 </td>
               </tr>
-              <tr *ngIf="!loadingDossierDocuments() && dossierDocuments().length === 0">
+              <tr *ngIf="!loadingDossierDocuments() && filteredDossierDocuments().length === 0">
                 <td colspan="5" class="empty-row">
                   <i class="pi pi-info-circle"></i>
                   <div>Không có tài liệu đính kèm.</div>
@@ -205,8 +232,8 @@
         <div class="filters-card">
           <div class="filter-item">
             <span class="filter-label">Từ khóa</span>
-            <input type="text" class="wf-input" placeholder="Nhập từ khóa tìm kiếm" [(ngModel)]="filterKeyword"
-              (ngModelChange)="onRelatedFilterChange()">
+            <input type="text" class="wf-input" placeholder="Nhập từ khóa, Enter để tìm kiếm" [(ngModel)]="filterKeyword"
+              (keyup.enter)="onRelatedFilterChange()">
           </div>
 
           <div class="filter-item">
@@ -224,6 +251,15 @@
               <option value="">-- Chọn loại hồ sơ --</option>
               <option *ngFor="let dt of dossierTypes()" [value]="dt.id">{{ dt.name }}</option>
             </select>
+          </div>
+
+          <div class="filter-item filter-actions">
+            <button type="button" class="btn-outlined btn-lam-moi" (click)="onResetRelatedSearch()">
+              <i class="pi pi-refresh"></i> Làm mới
+            </button>
+            <button type="button" class="btn-save" (click)="onRelatedFilterChange()">
+              <i class="pi pi-check"></i> Áp dụng
+            </button>
           </div>
         </div>
 

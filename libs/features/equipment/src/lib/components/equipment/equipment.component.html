@@ -1897,6 +1897,7 @@
             *ngIf="currentItem().id as profileEquipmentId"
             [equipmentId]="profileEquipmentId"
             [canEdit]="canEdit()"
+            [publishedOnly]="true"
             (documentProcessed)="reloadDetail(profileEquipmentId)"
           ></app-equipment-documents>
         </div>

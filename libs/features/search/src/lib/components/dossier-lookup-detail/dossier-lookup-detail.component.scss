@@ -196,6 +196,7 @@
   padding: 1rem;
   background-color: #ffffff;
   display: flex;
+  flex-wrap: wrap;
   gap: 20px;
   align-items: center;
 }
@@ -211,6 +212,21 @@
   font-weight: 600;
   color: #374151;
   font-size: 0.875rem;
+}
+
+.filter-actions {
+  flex: 1 0 100%;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.filter-actions .btn-save,
+.filter-actions .btn-lam-moi {
+  height: 34px;
+  white-space: nowrap;
 }
 
 /* Tables & Pagination */
