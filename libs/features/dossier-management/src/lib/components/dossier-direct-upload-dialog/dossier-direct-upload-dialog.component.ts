@@ -49,6 +49,7 @@ import {
   DossierDocumentService,
   DocumentTypeLookupItem,
   DigitizationProcessOption,
+  DigitizationExtractionScope,
 } from '../../data-access/dossier-document.service';
 import { OcrMode } from '../../utils/dossier-digitization.util';
 
@@ -124,6 +125,13 @@ export class DossierDirectUploadDialogComponent implements OnInit {
   scanInProgress = signal(false);
 
   ocrMode: OcrMode = 'none';
+
+  /**
+   * Phạm vi trang cần bóc tách. Mặc định 'FirstAndLastPage' vì với biểu mẫu ngành điện, dữ liệu cần
+   * lấy hầu như chỉ nằm ở trang đầu và trang cuối — bóc tách mọi trang tốn thêm ~30-60 giây mỗi
+   * trang mà phần lớn không dùng tới. Bước OCR không bị ảnh hưởng, vẫn chạy đủ trang.
+   */
+  extractionScope: DigitizationExtractionScope = 'FirstAndLastPage';
 
 
 
@@ -325,6 +333,7 @@ export class DossierDirectUploadDialogComponent implements OnInit {
     this.uploadedFiles.set([]);
 
     this.ocrMode = 'none';
+    this.extractionScope = 'FirstAndLastPage';
 
     this.submitting.set(false);
 
@@ -469,6 +478,7 @@ export class DossierDirectUploadDialogComponent implements OnInit {
   private submitDigitizationForUploaded(files: UploadedFileItem[]): Promise<void> {
 
     const processOption = this.ocrMode as DigitizationProcessOption;
+    const extractionScope = this.extractionScope;
 
 
 
@@ -476,7 +486,7 @@ export class DossierDirectUploadDialogComponent implements OnInit {
 
       this.dossierDocumentService
 
-        .submitDigitization(this.dossierId, file.versionId, { processOption })
+        .submitDigitization(this.dossierId, file.versionId, { processOption, extractionScope })
 
         .pipe(
 

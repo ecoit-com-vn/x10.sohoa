@@ -146,3 +146,73 @@
     </div>
   }
 </div>
+
+<!--
+  Xác nhận trước khi chạy lại job. Trước đây bấm là gọi API ngay. Job lỗi ở bước OCR sẽ OCR lại
+  toàn bộ và ghi đè file PDF gốc; job lỗi ở bước bóc tách chỉ bóc tách lại, không đụng tới file.
+-->
+<p-dialog
+  [visible]="showRetryConfirm()"
+  (visibleChange)="$event ? null : cancelRetryConfirm()"
+  [header]="retryConfirmRerunsOcr() ? 'Xác nhận chạy lại OCR + bóc tách' : 'Xác nhận bóc tách lại'"
+  [modal]="true"
+  appendTo="body"
+  [style]="{ width: '460px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!retryConfirmSubmitting()"
+>
+  <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+    <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
+    <div>
+      <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">
+        {{
+          retryConfirmRerunsOcr()
+            ? 'Bạn có chắc chắn muốn chạy lại OCR + bóc tách?'
+            : 'Bạn có chắc chắn muốn bóc tách lại?'
+        }}
+      </p>
+      <p style="margin: 0 0 6px 0; color: #64748b; font-size: 0.875rem;">
+        Tài liệu <b style="color: #1e293b;">{{ retryConfirmTargetLabel() }}</b>
+        {{
+          retryConfirmRerunsOcr()
+            ? ' sẽ được nhận dạng lại từ đầu, sau đó bóc tách lại.'
+            : ' sẽ được bóc tách lại từ kết quả OCR đã có.'
+        }}
+      </p>
+      <p
+        *ngIf="retryConfirmRerunsOcr()"
+        style="margin: 0; color: #b45309; font-size: 0.8125rem;"
+      >
+        Lưu ý: bước OCR tạo lại file PDF 2 lớp và ghi đè lên file hiện tại.
+      </p>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div
+      style="
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 12px;
+      "
+    >
+      <button
+        class="btn-cancel btn-small"
+        (click)="cancelRetryConfirm()"
+        [disabled]="retryConfirmSubmitting()"
+      >
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button
+        class="btn-green btn-small"
+        (click)="confirmRetryJob()"
+        [disabled]="retryConfirmSubmitting()"
+      >
+        <i class="pi pi-spin pi-spinner" *ngIf="retryConfirmSubmitting()"></i>
+        <i class="pi pi-refresh" *ngIf="!retryConfirmSubmitting()"></i>
+        Chạy lại
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>

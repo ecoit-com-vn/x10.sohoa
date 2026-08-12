@@ -149,6 +149,21 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
   reExtractTarget = signal<DossierDocumentItem | null>(null);
   reExtractSubmitting = signal(false);
 
+  // Xác nhận cho nhóm thao tác CHẠY LẠI OCR. Tách riêng với dialog bóc tách lại ở trên vì hệ quả
+  // khác nhau hẳn: OCR dựng lại PDF 2 lớp rồi GHI ĐÈ file gốc trên MinIO, còn bóc tách lại chỉ
+  // đọc lại text đã có. Trước đây 2 thao tác này chạy ngay khi bấm, không hỏi gì.
+  showOcrConfirm = signal(false);
+  ocrConfirmTarget = signal<DossierDocumentItem | null>(null);
+  ocrConfirmKind = signal<'ocr-extract' | 'retry'>('ocr-extract');
+  readonly ocrConfirmHeader = computed(() =>
+    this.ocrConfirmKind() === 'retry' ? 'Xác nhận xử lý lại OCR/bóc tách' : 'Xác nhận chạy lại OCR + bóc tách'
+  );
+  readonly ocrConfirmTargetLabel = computed(() => this.ocrConfirmTarget()?.name ?? '');
+  readonly ocrConfirmSubmitting = computed(() => {
+    const doc = this.ocrConfirmTarget();
+    return doc ? this.isRetryingDigitization(doc.id, this.retryingIds()) : false;
+  });
+
   showFolderPicker = signal(false);
   showDirectUpload = signal(false);
   uploadSource = signal(3);
@@ -484,14 +499,19 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
         run: (d) => this.onReExtract(d),
       });
     } else if (this.canReExtract(doc) && this.canEdit) {
+      // Các scope không phải 'creator' (Phê duyệt hồ sơ, Xuất bản hồ sơ): cùng hành động
+      // onReExtract như nhánh trên, nhưng trước đây hiện thành icon rời không nhãn nên người dùng
+      // không biết nó chạy gì. Đưa vào menu ⋯ với nhãn rõ ràng, giống màn Cập nhật hồ sơ.
+      // Ý "tải biểu mẫu mới" không mất: dialog xác nhận đã ghi "theo biểu mẫu EAV mới nhất".
       actions.push({
         key: 'reextract',
-        title: 'Bóc tách lại (tải biểu mẫu mới)',
+        title: 'Bóc tách lại',
         btnClass: 'act-reextract',
         iconClasses: this.isReExtracting(doc.id, this.reExtractingIds())
           ? 'pi pi-spin pi-spinner'
           : 'pi pi-sync',
         disabled: this.isReExtracting(doc.id, this.reExtractingIds()),
+        overflowOnly: true,
         run: (d) => this.onReExtract(d),
       });
     }
@@ -749,7 +769,39 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
     this.loadDocuments(true);
   }
 
+  /** Mở popup xác nhận — KHÔNG gọi API ngay (xem showOcrConfirm). */
   onRetryDigitization(doc: DossierDocumentItem): void {
+    if (!doc.latestVersionId || !this.canEdit) return;
+    this.ocrConfirmTarget.set(doc);
+    this.ocrConfirmKind.set('retry');
+    this.showOcrConfirm.set(true);
+  }
+
+  /** Mở popup xác nhận — KHÔNG gọi API ngay (xem showOcrConfirm). */
+  onOcrAndExtract(doc: DossierDocumentItem): void {
+    if (!doc.latestVersionId || !this.canEdit) return;
+    this.ocrConfirmTarget.set(doc);
+    this.ocrConfirmKind.set('ocr-extract');
+    this.showOcrConfirm.set(true);
+  }
+
+  cancelOcrConfirm(): void {
+    if (this.ocrConfirmSubmitting()) return;
+    this.showOcrConfirm.set(false);
+    this.ocrConfirmTarget.set(null);
+  }
+
+  confirmOcr(): void {
+    const doc = this.ocrConfirmTarget();
+    if (!doc || this.ocrConfirmSubmitting()) return;
+    const kind = this.ocrConfirmKind();
+    this.showOcrConfirm.set(false);
+    this.ocrConfirmTarget.set(null);
+    if (kind === 'retry') this.runRetryDigitization(doc);
+    else this.runOcrAndExtract(doc);
+  }
+
+  private runRetryDigitization(doc: DossierDocumentItem): void {
     if (!doc.latestVersionId || !this.canEdit) return;
 
     const ids = new Set(this.retryingIds());
@@ -783,7 +835,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
       });
   }
 
-  onOcrAndExtract(doc: DossierDocumentItem): void {
+  private runOcrAndExtract(doc: DossierDocumentItem): void {
     if (!doc.latestVersionId || !this.canEdit) return;
 
     const ids = new Set(this.retryingIds());

@@ -160,3 +160,30 @@
     opacity: 0.55;
   }
 }
+
+/* Khối phạm vi trang bóc tách — thụt vào + vạch xanh bên trái để thấy rõ nó phụ thuộc lựa chọn chế
+   độ OCR ở trên. Giữ giống dialog upload trực tiếp cho nhất quán giữa 2 đường thêm tài liệu. */
+.ocr-scope {
+  margin: 4px 0 10px;
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #3b82f6;
+  border-radius: 6px;
+
+  .scope-title {
+    margin: 0 0 8px;
+    font-weight: 600;
+    color: #374151;
+  }
+
+  .ocr-options {
+    margin-bottom: 6px;
+  }
+
+  .scope-hint {
+    margin: 0;
+    font-size: 0.75rem;
+    color: #6b7280;
+  }
+}
