@@ -535,7 +535,116 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
     this.showEditDocument.set(true);
   }
 
+  // ---- Xác nhận trước khi chạy OCR / bóc tách ------------------------------------------------
+  // Cả 4 thao tác OCR/bóc tách ở màn này trước đây gọi API ngay khi bấm, không hỏi lại. Nhóm có
+  // OCR nặng hơn nhiều: nó dựng lại PDF 2 lớp rồi GHI ĐÈ file gốc trên MinIO, không hoàn tác được;
+  // nhóm chỉ bóc tách thì chỉ đọc lại text đã có. Dialog dùng chung, nội dung đổi theo loại.
+  readonly showDigitizationConfirm = signal(false);
+  readonly digitizationConfirmKind = signal<'ocr' | 'ocr-extract' | 'retry' | 'reextract'>('ocr');
+  readonly digitizationConfirmTarget = signal<EquipmentDocumentItem | null>(null);
+  readonly digitizationConfirmTargetLabel = computed(() => this.digitizationConfirmTarget()?.name ?? '');
+  /** true với các loại có chạy lại OCR (ghi đè file gốc) — dùng để hiện cảnh báo đậm hơn. */
+  readonly digitizationConfirmRerunsOcr = computed(() => this.digitizationConfirmKind() !== 'reextract');
+  readonly digitizationConfirmHeader = computed(() => {
+    switch (this.digitizationConfirmKind()) {
+      case 'ocr':
+        return 'Xác nhận chạy OCR';
+      case 'ocr-extract':
+        return 'Xác nhận chạy OCR + bóc tách';
+      case 'retry':
+        return 'Xác nhận xử lý lại OCR/bóc tách';
+      default:
+        return 'Xác nhận bóc tách lại';
+    }
+  });
+  readonly digitizationConfirmQuestion = computed(() => {
+    switch (this.digitizationConfirmKind()) {
+      case 'ocr':
+        return 'Bạn có chắc chắn muốn chạy OCR cho tài liệu này?';
+      case 'ocr-extract':
+        return 'Bạn có chắc chắn muốn chạy OCR + bóc tách?';
+      case 'retry':
+        return 'Bạn có chắc chắn muốn xử lý lại OCR/bóc tách?';
+      default:
+        return 'Bạn có chắc chắn muốn bóc tách lại?';
+    }
+  });
+  readonly digitizationConfirmActionLabel = computed(() => {
+    switch (this.digitizationConfirmKind()) {
+      case 'ocr':
+        return 'Chạy OCR';
+      case 'ocr-extract':
+        return 'Chạy OCR + bóc tách';
+      case 'retry':
+        return 'Xử lý lại';
+      default:
+        return 'Bóc tách lại';
+    }
+  });
+  readonly digitizationConfirmSubmitting = computed(() => {
+    const doc = this.digitizationConfirmTarget();
+    if (!doc) return false;
+    return (
+      this.submittingIds().has(doc.id) ||
+      this.retryingIds().has(doc.id) ||
+      this.reExtractingIds().has(doc.id)
+    );
+  });
+
   onSubmitOcr(doc: EquipmentDocumentItem): void {
+    this.openDigitizationConfirm(doc, 'ocr');
+  }
+
+  onOcrAndExtract(doc: EquipmentDocumentItem): void {
+    this.openDigitizationConfirm(doc, 'ocr-extract');
+  }
+
+  onRetryDigitization(doc: EquipmentDocumentItem): void {
+    this.openDigitizationConfirm(doc, 'retry');
+  }
+
+  onReExtract(doc: EquipmentDocumentItem): void {
+    this.openDigitizationConfirm(doc, 'reextract');
+  }
+
+  private openDigitizationConfirm(
+    doc: EquipmentDocumentItem,
+    kind: 'ocr' | 'ocr-extract' | 'retry' | 'reextract'
+  ): void {
+    if (!doc.latestVersionId || !this.canEdit()) return;
+    this.digitizationConfirmTarget.set(doc);
+    this.digitizationConfirmKind.set(kind);
+    this.showDigitizationConfirm.set(true);
+  }
+
+  cancelDigitizationConfirm(): void {
+    if (this.digitizationConfirmSubmitting()) return;
+    this.showDigitizationConfirm.set(false);
+    this.digitizationConfirmTarget.set(null);
+  }
+
+  confirmDigitization(): void {
+    const doc = this.digitizationConfirmTarget();
+    if (!doc || this.digitizationConfirmSubmitting()) return;
+    const kind = this.digitizationConfirmKind();
+    this.showDigitizationConfirm.set(false);
+    this.digitizationConfirmTarget.set(null);
+    switch (kind) {
+      case 'ocr':
+        this.runSubmitOcr(doc);
+        break;
+      case 'ocr-extract':
+        this.runOcrAndExtract(doc);
+        break;
+      case 'retry':
+        this.runRetryDigitization(doc);
+        break;
+      default:
+        this.runReExtract(doc);
+    }
+  }
+
+  private runSubmitOcr(doc: EquipmentDocumentItem): void {
     if (!doc.latestVersionId || !this.canEdit()) return;
 
     const ids = new Set(this.submittingIds());
@@ -571,7 +680,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
       });
   }
 
-  onOcrAndExtract(doc: EquipmentDocumentItem): void {
+  private runOcrAndExtract(doc: EquipmentDocumentItem): void {
     if (!doc.latestVersionId || !this.canEdit()) return;
 
     const ids = new Set(this.retryingIds());
@@ -607,7 +716,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
       });
   }
 
-  onRetryDigitization(doc: EquipmentDocumentItem): void {
+  private runRetryDigitization(doc: EquipmentDocumentItem): void {
     if (!doc.latestVersionId || !this.canEdit()) return;
 
     const ids = new Set(this.retryingIds());
@@ -643,7 +752,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
       });
   }
 
-  onReExtract(doc: EquipmentDocumentItem): void {
+  private runReExtract(doc: EquipmentDocumentItem): void {
     if (!doc.latestVersionId || !this.canEdit()) return;
 
     const ids = new Set(this.reExtractingIds());

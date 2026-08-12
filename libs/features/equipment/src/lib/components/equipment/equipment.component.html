@@ -3,13 +3,9 @@
   <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
       <wf-breadcrumb
-        *ngIf="!searchReadOnly(); else searchReadOnlyBreadcrumb"
         [viewMode]="currentView() === 'add' ? 'add' : null"
         [suffix]="currentView() === 'add' ? 'Thêm mới thiết bị' : null"
       />
-      <ng-template #searchReadOnlyBreadcrumb>
-        <wf-breadcrumb [customItems]="searchBreadcrumbItems()" />
-      </ng-template>
     </div>
     <div class="toolbar-right">
       <button
@@ -817,251 +813,225 @@
               margin-bottom: 25px;
             "
           >
-            <span
-              style="
-                font-size: 0.95rem;
-                font-weight: 700;
-                color: #0f172a;
-                text-transform: uppercase;
-              "
-            >
-              <i
-                class="pi pi-file"
-                style="color: #2563eb; margin-right: 6px"
-              ></i>
-              {{ searchReadOnly() ? 'Thông tin thiết bị' : 'Hồ sơ thông tin thiết bị' }}
-            </span>
-            <div style="display: flex; gap: 8px" *ngIf="canEdit()">
-              <button
-                class="btn-outlined btn-small"
-                (click)="isEditingGeneral.set(true)"
-              >
-                <i class="pi pi-pencil"></i> Sửa thông tin chung
-              </button>
-            </div>
-          </div>
-
-          <!-- View theo kiểu docs (Highlight mã thiết bị và trạng thái hoạt động, các trường khác hiển thị bình thường) -->
-          <div
-            class="docs-fields-list"
-            style="display: flex; flex-direction: column; gap: 14px"
-          >
-            <!-- View theo kiểu docs (Highlight mã thiết bị và trạng thái hoạt động, các trường khác hiển thị bình thường) -->
-            <div
-              class="docs-fields-list"
-              style="display: flex; flex-direction: column; gap: 14px"
-            >
-              <!-- Mã thiết bị (Highlight) -->
-              <div
-                style="
-                  display: flex;
-                  align-items: center;
-                  border-bottom: 1px solid #f1f5f9;
-                  padding-bottom: 8px;
-                "
-              >
-                <span style="width: 200px; color: #64748b; font-weight: 600"
-                  >Mã thiết bị:</span
-                >
-                <span
-                  style="
-                    font-weight: 700;
-                    color: #1e3a8a;
-                    background: #eff6ff;
-                    padding: 3px 8px;
-                    border-radius: 4px;
-                    font-family: monospace;
-                  "
-                >
-                  {{ currentItem().code }}
-                </span>
-              </div>
-
-              <!-- Tên thiết bị -->
-              <div
-                style="
-                  display: flex;
-                  align-items: center;
-                  border-bottom: 1px solid #f1f5f9;
-                  padding-bottom: 8px;
-                "
-              >
-                <span style="width: 200px; color: #64748b; font-weight: 600"
-                  >Tên thiết bị:</span
-                >
-                <span style="color: #334155">{{ currentItem().name }}</span>
-              </div>
-
-              <!-- Loại thiết bị -->
-              <div
-                style="
-                  display: flex;
-                  align-items: center;
-                  border-bottom: 1px solid #f1f5f9;
-                  padding-bottom: 8px;
-                "
-              >
-                <span style="width: 200px; color: #64748b; font-weight: 600"
-                  >Loại thiết bị:</span
-                >
-                <span style="color: #4f46e5; font-weight: 600">{{
-                  currentItem().equipmentTypeName
-                }}</span>
-              </div>
-
-              <!-- Lưới điện -->
-              <div
-                style="
-                  display: flex;
-                  align-items: center;
-                  border-bottom: 1px solid #f1f5f9;
-                  padding-bottom: 8px;
-                "
-              >
-                <span style="width: 200px; color: #64748b; font-weight: 600"
-                  >Thuộc Lưới điện:</span
-                >
-                <span style="color: #334155">{{
-                  currentItem().gridTypeName || '---'
-                }}</span>
-              </div>
-
-              <!-- Trạm / Đường dây -->
-              <div
-                style="
-                  display: flex;
-                  align-items: center;
-                  border-bottom: 1px solid #f1f5f9;
-                  padding-bottom: 8px;
-                "
-              >
-                <span style="width: 200px; color: #64748b; font-weight: 600"
-                  >Trạm / Đường dây:</span
-                >
-                <span style="color: #334155">{{
-                  currentItem().infrastructureName || '---'
-                }}</span>
-              </div>
-
-              <!-- Đơn vị quản lý -->
-              <div
-                style="
-                  display: flex;
-                  align-items: center;
-                  border-bottom: 1px solid #f1f5f9;
-                  padding-bottom: 8px;
-                "
-              >
-                <span style="width: 200px; color: #64748b; font-weight: 600"
-                  >Đơn vị quản lý:</span
-                >
-                <span style="color: #334155">
-                  {{ currentItem().unitName }}
-                </span>
-              </div>
-
-              <!-- Năm sản xuất -->
-              <div
-                style="
-                  display: flex;
-                  align-items: center;
-                  border-bottom: 1px solid #f1f5f9;
-                  padding-bottom: 8px;
-                "
-                *ngIf="currentItem().manufactureYear"
-              >
-                <span style="width: 200px; color: #64748b; font-weight: 600"
-                  >Năm sản xuất:</span
-                >
-                <span style="color: #334155">{{
-                  currentItem().manufactureYear
-                }}</span>
-              </div>
-
-              <!-- Tình trạng -->
-              <div
-                style="
-                  display: flex;
-                  align-items: center;
-                  border-bottom: 1px solid #f1f5f9;
-                  padding-bottom: 8px;
-                "
-                *ngIf="currentItem().equipmentStatusName"
-              >
-                <span style="width: 200px; color: #64748b; font-weight: 600"
-                  >Tình trạng:</span
-                >
-                <span style="color: #334155">{{
-                  currentItem().equipmentStatusName
-                }}</span>
-              </div>
-
-              <!-- Trạng thái hoạt động (Highlight) -->
-              <div
-                style="
-                  display: flex;
-                  align-items: center;
-                  border-bottom: 1px solid #f1f5f9;
-                  padding-bottom: 8px;
-                "
-              >
-                <span style="width: 200px; color: #64748b; font-weight: 600"
-                  >Trạng thái hoạt động:</span
-                >
-                <span
-                  class="status-pill"
-                  [ngClass]="
-                    currentItem().isActive ? 'status-active' : 'status-inactive'
-                  "
-                >
-                  {{ currentItem().isActive ? 'Đang hoạt động' : 'Bị khóa' }}
-                </span>
-              </div>
-
-              <!-- Người tạo -->
-              <div
-                style="display: flex; align-items: center; padding-bottom: 8px"
-                *ngIf="currentItem().creator"
-              >
-                <span style="width: 200px; color: #64748b; font-weight: 600"
-                  >Người tạo bản ghi:</span
-                >
-                <span class="text-muted" style="font-size: 0.9rem">
-                  {{ currentItem().creator.name }} ({{
-                    currentItem().creator.username
-                  }})
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Chế độ sửa Thông tin chung (Edit General Form) -->
-          <div
-            *ngIf="isEditingGeneral()"
-            class="animate-fade-in"
-            style="
-              background: #ffffff;
-              border: 1px solid #cbd5e1;
-              border-radius: 8px;
-              padding: 24px;
-              margin-bottom: 25px;
-            "
-          >
             <div
               style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
                 border-bottom: 1px dashed #cbd5e1;
                 padding-bottom: 12px;
                 margin-bottom: 20px;
               "
             >
               <span
-                style="font-size: 0.95rem; font-weight: 700; color: #002d72"
+                style="
+                  font-size: 0.95rem;
+                  font-weight: 700;
+                  color: #002d72;
+                  text-transform: uppercase;
+                "
               >
-                <i class="pi pi-pencil" style="margin-right: 6px"></i> Chỉnh sửa
-                thông tin chung
+                <i
+                  class="pi pi-file"
+                  style="color: #2563eb; margin-right: 6px"
+                ></i>
+                Thông tin chi tiết
+              </span>
+              <button
+                class="btn-small btn-save"
+                (click)="isEditingGeneral.set(true)"
+                *ngIf="canEdit()"
+              >
+                <i class="pi pi-pencil"></i> Sửa thông tin chung
+              </button>
+            </div>
+
+            <!-- View theo kiểu docs (Highlight mã thiết bị và trạng thái hoạt động, các trường khác hiển thị bình thường) -->
+            <div
+              class="docs-fields-list"
+            style="display: flex; flex-direction: column; gap: 14px"
+          >
+            <!-- Mã thiết bị (Highlight) -->
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 8px;
+              "
+            >
+              <span style="width: 200px; font-weight: 600"
+                >Mã thiết bị:</span
+              >
+              <span
+              >
+                {{ currentItem().code }}
               </span>
             </div>
 
+            <!-- Tên thiết bị -->
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 8px;
+              "
+            >
+              <span style="width: 200px; font-weight: 600"
+                >Tên thiết bị:</span
+              >
+              <span style="color: #334155">{{ currentItem().name }}</span>
+            </div>
+
+            <!-- Loại thiết bị -->
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 8px;
+              "
+            >
+              <span style="width: 200px; font-weight: 600"
+                >Loại thiết bị:</span
+              >
+              <span>{{
+                currentItem().equipmentTypeName
+              }}</span>
+            </div>
+
+            <!-- Lưới điện -->
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 8px;
+              "
+            >
+              <span style="width: 200px; font-weight: 600"
+                >Thuộc Lưới điện:</span
+              >
+              <span style="color: #334155">{{
+                currentItem().gridTypeName || '---'
+              }}</span>
+            </div>
+
+            <!-- Trạm / Đường dây -->
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 8px;
+              "
+            >
+              <span style="width: 200px; font-weight: 600"
+                >Trạm / Đường dây:</span
+              >
+              <span style="color: #334155">{{
+                currentItem().infrastructureName || '---'
+              }}</span>
+            </div>
+
+            <!-- Đơn vị quản lý -->
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 8px;
+              "
+            >
+              <span style="width: 200px; font-weight: 600"
+                >Đơn vị quản lý:</span
+              >
+              <span style="color: #334155">
+                {{ currentItem().unitName }}
+              </span>
+            </div>
+
+            <!-- Năm sản xuất -->
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 8px;
+              "
+              *ngIf="currentItem().manufactureYear"
+            >
+              <span style="width: 200px; font-weight: 600"
+                >Năm sản xuất:</span
+              >
+              <span style="color: #334155">{{
+                currentItem().manufactureYear
+              }}</span>
+            </div>
+
+            <!-- Tình trạng -->
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 8px;
+              "
+              *ngIf="currentItem().equipmentStatusName"
+            >
+              <span style="width: 200px; font-weight: 600"
+                >Tình trạng:</span
+              >
+              <span style="color: #334155">{{
+                currentItem().equipmentStatusName
+              }}</span>
+            </div>
+
+            <!-- Trạng thái hoạt động (Highlight) -->
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                border-bottom: 1px solid #f1f5f9;
+                padding-bottom: 8px;
+              "
+            >
+              <span style="width: 200px; font-weight: 600"
+                >Trạng thái hoạt động:</span
+              >
+              <span>
+                {{ currentItem().isActive ? 'Đang hoạt động' : 'Bị khóa' }}
+              </span>
+            </div>
+
+            <!-- Người tạo -->
+            <div
+              style="display: flex; align-items: center; padding-bottom: 8px"
+              *ngIf="currentItem().creator"
+            >
+              <span style="width: 200px; font-weight: 600"
+                >Người tạo bản ghi:</span
+              >
+              <span class="text-muted" style="font-size: 0.9rem">
+                {{ currentItem().creator.name }} ({{
+                  currentItem().creator.username
+                }})
+              </span>
+            </div>
+            </div>
+          </div>
+
+          <!-- Chế độ sửa Thông tin chung (Edit General Form) -->
+          <p-dialog
+            [visible]="isEditingGeneral()"
+            (visibleChange)="$event ? null : isEditingGeneral.set(false)"
+            header="Chỉnh sửa thông tin chung"
+            [modal]="true"
+            [style]="{ width: '900px' }"
+            styleClass="evn-dialog-custom"
+            [closable]="!isSaving()"
+          >
             <div
               class="grid-form-layout"
               style="
@@ -1522,29 +1492,28 @@
                 </div>
               </div>
 
-              <!-- Edit General Actions -->
+            </div>
+            <ng-template #footer>
               <div
                 style="
-                  margin-top: 20px;
-                  padding-top: 16px;
-                  border-top: 1px solid #e2e8f0;
                   display: flex;
-                  gap: 10px;
                   justify-content: flex-end;
+                  gap: 8px;
+                  border-top: 1px solid #f1f5f9;
+                  padding-top: 12px;
                 "
               >
                 <button
-                  class="btn-cancel btn-small"
+                  class="btn-cancel"
                   (click)="isEditingGeneral.set(false)"
                   [disabled]="isSaving()"
                 >
-                  Quay lại xem
+                  Hủy
                 </button>
                 <button
-                  class="btn-save btn-small"
+                  class="btn-save"
                   (click)="onSaveItem()"
                   [disabled]="isSaving()"
-                  style="background-color: #4790e9; border-color: #4790e9"
                 >
                   <i
                     class="pi pi-spin pi-spinner"
@@ -1559,8 +1528,8 @@
                   Lưu thông tin chung
                 </button>
               </div>
-            </div>
-          </div>
+            </ng-template>
+          </p-dialog>
 
           <!-- Khối 2: Cấu hình / Xem Thông số kỹ thuật EAV (id specs-section) -->
           <div id="specs-section">
@@ -1602,7 +1571,7 @@
                   Thông số kỹ thuật chi tiết
                 </span>
                 <button
-                  class="btn-outlined btn-small"
+                  class="btn-save btn-small"
                   (click)="onEditSpecs(currentItem())"
                   *ngIf="canEdit() && eavTemplate()"
                 >
@@ -1632,7 +1601,7 @@
                   class="pi pi-exclamation-circle"
                   style="font-size: 2.2rem; color: #94a3b8; margin-bottom: 10px"
                 ></i>
-                <div style="font-weight: 600; color: #64748b; font-size: 1rem">
+                <div style="font-weight: 600; font-size: 1rem">
                   Chưa có biểu mẫu thông số được gán cho loại thiết bị này.
                 </div>
                 <p
@@ -1659,7 +1628,7 @@
                     "
                   >
                     <span
-                      style="width: 220px; color: #64748b; font-weight: 600"
+                      style="width: 310px; font-weight: 600"
                     >
                       {{ field.label }}:
                     </span>
@@ -1670,11 +1639,6 @@
                       [style.margin-left]="isNumberField(field) ? 'auto' : '0'"
                       [style.font-family]="
                         isNumberField(field) ? 'monospace' : 'inherit'
-                      "
-                      style="
-                        font-size: 0.95rem;
-                        font-weight: 700;
-                        color: #334155;
                       "
                     >
                       {{ getFormattedValue(field) }}
@@ -1932,8 +1896,7 @@
           <app-equipment-documents
             *ngIf="currentItem().id as profileEquipmentId"
             [equipmentId]="profileEquipmentId"
-            [canEdit]="canEdit() && !searchReadOnly()"
-            [hideDigitizationColumns]="searchReadOnly()"
+            [canEdit]="canEdit()"
             (documentProcessed)="reloadDetail(profileEquipmentId)"
           ></app-equipment-documents>
         </div>
