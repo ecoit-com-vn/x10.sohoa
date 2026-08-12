@@ -5,6 +5,7 @@ export * from './lib/components/form-template/form-template.component';
 export * from './lib/components/form-renderer/form-renderer.component';
 export * from './lib/components/equipment-type/equipment-type.component';
 export * from './lib/components/equipment/equipment.component';
+export * from './lib/components/equipment-search-detail/equipment-search-detail.component';
 export * from './lib/components/file-upload/file-upload-zone.component';
 export type { FileUploadHandler } from './lib/components/file-upload/file-upload-zone.component';
 export * from './lib/components/scanner/scanner-panel.component';

@@ -868,7 +868,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
 
     this.http
       .get<Array<{ id: number; name: string; parentId?: number | null }>>(
-        `${this.config.apiGatewayUrl}/api/v1/organization-units/lookup`
+        `${this.config.apiGatewayUrl}/api/v1/organization-units/lookup-all-active`
       )
       .subscribe({
         next: (units) => {
