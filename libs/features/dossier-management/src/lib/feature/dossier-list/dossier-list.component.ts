@@ -1378,18 +1378,28 @@ export class DossierListComponent implements OnInit {
     const infrastructures = item?.infrastructures ?? item?.Infrastructures;
     if (Array.isArray(infrastructures)) {
       const names = infrastructures
-        .map((infrastructure: any) => infrastructure?.infrastructureName ?? infrastructure?.InfrastructureName)
-        .filter((name: unknown) => name != null && String(name).trim() !== '')
-        .map((name: unknown) => String(name).trim());
+        .map((infrastructure: any) => {
+          const name = infrastructure?.infrastructureName ?? infrastructure?.InfrastructureName;
+          const code = infrastructure?.infrastructureCode ?? infrastructure?.InfrastructureCode;
+          if (name == null || String(name).trim() === '') return '';
+
+          const normalizedName = String(name).trim();
+          const normalizedCode = code == null ? '' : String(code).trim();
+          return normalizedCode ? `${normalizedName} (${normalizedCode})` : normalizedName;
+        })
+        .filter(Boolean);
       if (names.length) return [...new Set(names)];
     }
 
     const name = item?.infrastructureName ?? item?.InfrastructureName;
+    const code = item?.infrastructureCode ?? item?.InfrastructureCode;
     if (name != null && String(name).trim() !== '') {
+      const codes = String(code ?? '').split(',').map((value) => value.trim());
       return String(name)
         .split(',')
         .map((value) => value.trim())
-        .filter(Boolean);
+        .filter(Boolean)
+        .map((value, index) => codes[index] ? `${value} (${codes[index]})` : value);
     }
     return ['-'];
   }

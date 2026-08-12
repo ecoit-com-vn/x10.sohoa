@@ -3,12 +3,25 @@
 
     <div class="list-toolbar standard-page-toolbar">
         <div class="toolbar-left">
-            <wf-breadcrumb />
+            <wf-breadcrumb [suffix]="currentView() === 'permission' ? 'Phân quyền' : null" />
         </div>
         <div class="toolbar-right">
-            <button *ngIf="authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE')" class="btn-green" (click)="onAddNew()">
+            <button *ngIf="currentView() === 'list' && authService.hasPermission('UNIT_PERMISSION_GROUP_MANAGE')" class="btn-green" (click)="onAddNew()">
           <i class="pi pi-plus"></i> Thêm mới
         </button>
+            <ng-container *ngIf="currentView() === 'permission'">
+                <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="savingPermissions()">
+              <i class="pi pi-times"></i> Hủy
+            </button>
+                <button class="btn-save btn-small" (click)="onSavePermissions()" [disabled]="savingPermissions()">
+              <i class="pi pi-spin pi-spinner" *ngIf="savingPermissions()"></i>
+              <i class="pi pi-check" *ngIf="!savingPermissions()"></i>
+              Lưu
+            </button>
+                <button class="btn-outlined btn-small" (click)="currentView.set('list')" [disabled]="savingPermissions()">
+              Quay lại
+            </button>
+            </ng-container>
         </div>
     </div>
 
@@ -177,28 +190,6 @@
 
         <!-- MÀN HÌNH PHÂN QUYỀN -->
         <div *ngIf="currentView() === 'permission'" class="animate-fade-in">
-            <div class="edit-header">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <button class="btn-outlined btn-small" (click)="currentView.set('list')" title="Quay lại danh sách" [disabled]="savingPermissions()">
-            <i class="pi pi-arrow-left"></i>
-          </button>
-                    <h3 class="edit-title">{{ permissionDialogHeader() }}</h3>
-                </div>
-                <div class="edit-actions">
-                    <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="savingPermissions()">
-            <i class="pi pi-times"></i> Hủy
-          </button>
-                    <button class="btn-save btn-small" (click)="onSavePermissions()" [disabled]="savingPermissions()">
-            <i class="pi pi-spin pi-spinner" *ngIf="savingPermissions()"></i>
-            <i class="pi pi-check" *ngIf="!savingPermissions()"></i>
-            Lưu
-          </button>
-                    <button class="btn-outlined btn-small" (click)="currentView.set('list')" [disabled]="savingPermissions()">
-            Quay lại
-          </button>
-                </div>
-            </div>
-
             <div class="permission-tab-content">
                 <div class="permissions-scroll-container">
                     <div *ngFor="let parent of menuPermissionTree()" class="permission-group-card">
