@@ -44,7 +44,12 @@ var rabbitFactory = new ConnectionFactory
     Port = int.TryParse(builder.Configuration["RabbitMQ:Port"], out var port) ? port : 5672,
     // Cho phép OcrWorker/ExtractionWorker xử lý nhiều message song song — 1 message treo/chậm
     // không còn chặn toàn bộ các message khác phía sau trong cùng queue.
-    ConsumerDispatchConcurrency = 4
+    //
+    // Hạ 4 -> 2: nghẽn thật của luồng OCR là GPU của ocr_vl_server (đo được ~4,4 crop/giây, GPU
+    // 86–100%), không phải service này. Đẩy nhiều tài liệu song song KHÔNG tăng thông lượng mà chỉ
+    // làm mỗi trang chờ lâu hơn, vượt timeout phía client rồi bị retry — vòng xoáy tự làm nặng
+    // thêm. Với 2, mỗi instance xử lý tối đa 2 tài liệu cùng lúc.
+    ConsumerDispatchConcurrency = 2
 };
 var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
 builder.Services.AddSingleton<IConnection>(rabbitConnection);
@@ -68,9 +73,17 @@ builder.Services.AddScoped<ISearchablePdfBuilder, SearchablePdfBuilder>();
 // Timeout gọi ocr_vl_server/LLM đọc từ cấu hình (AIModelServers) thay vì hard-code — điều chỉnh
 // được qua appsettings mà không cần build lại. Áp dụng CHO TỪNG LỆNH GỌI (mỗi trang PDF một lệnh
 // gọi riêng trong OcrWorker), không cộng dồn theo số trang của tài liệu.
-var ocrPageAttemptTimeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("AIModelServers:OcrPageAttemptTimeoutSeconds", 60));
-var ocrPageTotalTimeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("AIModelServers:OcrPageTotalTimeoutSeconds", 180));
-var ocrPageSamplingDuration = TimeSpan.FromMinutes(builder.Configuration.GetValue("AIModelServers:OcrPageCircuitBreakerSamplingMinutes", 10));
+// Mặc định 900s (appsettings.json cũng đặt 900): đo trên server OCR thật (1 GPU Tesla T4) công suất
+// là ~4,4 crop/giây, còn tài liệu thực tế có 96–744 vùng chữ mỗi trang — một trang dày cần ~170s
+// NGAY CẢ KHI độc chiếm server, và đo được tới 330s khi nhiều tài liệu chạy song song. Với 180s như
+// trước, client bỏ cuộc giữa lúc server vẫn đang xử lý: ocr_vl_server ghi hàng loạt "OCR crop
+// failed" rồi trả 0/N vùng, job bị retry và càng làm tải nặng thêm.
+// Chi tiết đo đạc: BAO_CAO_SU_CO_OCR_LLM_SERVER_104.md.
+var ocrPageAttemptTimeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("AIModelServers:OcrPageAttemptTimeoutSeconds", 900));
+var ocrPageTotalTimeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("AIModelServers:OcrPageTotalTimeoutSeconds", 900));
+// BẮT BUỘC >= 2 × AttemptTimeout, nếu không AddStandardResilienceHandler ném lỗi validate ngay lúc
+// khởi động service (900s × 2 = 1800s = 30 phút).
+var ocrPageSamplingDuration = TimeSpan.FromMinutes(builder.Configuration.GetValue("AIModelServers:OcrPageCircuitBreakerSamplingMinutes", 30));
 var llmAttemptTimeout = TimeSpan.FromMinutes(builder.Configuration.GetValue("AIModelServers:LlmAttemptTimeoutMinutes", 3));
 var llmTotalTimeout = TimeSpan.FromMinutes(builder.Configuration.GetValue("AIModelServers:LlmTotalTimeoutMinutes", 6));
 var llmSamplingDuration = TimeSpan.FromMinutes(builder.Configuration.GetValue("AIModelServers:LlmCircuitBreakerSamplingMinutes", 12));
