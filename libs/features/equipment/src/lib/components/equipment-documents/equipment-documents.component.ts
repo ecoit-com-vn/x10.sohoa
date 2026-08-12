@@ -429,6 +429,15 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
         overflowOnly: true,
         run: (d) => this.onOcrAndExtract(d),
       });
+      actions.push({
+        key: 'extract-only',
+        title: noTemplate ? 'Bóc tách (thiếu biểu mẫu thiết bị)' : 'Bóc tách',
+        btnClass: 'act-reextract',
+        iconClasses: isReExtracting(doc.id, this.reExtractingIds()) ? 'pi pi-spin pi-spinner color-blue' : 'pi pi-sync color-blue',
+        disabled: noTemplate || isReExtracting(doc.id, this.reExtractingIds()) || !doc.latestVersionId,
+        overflowOnly: true,
+        run: (d) => this.onExtractOnly(d),
+      });
     } else if (this.canRetryDigitization(doc) && showDigitization) {
       actions.push({
         key: 'retry',
@@ -540,11 +549,14 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
   // OCR nặng hơn nhiều: nó dựng lại PDF 2 lớp rồi GHI ĐÈ file gốc trên MinIO, không hoàn tác được;
   // nhóm chỉ bóc tách thì chỉ đọc lại text đã có. Dialog dùng chung, nội dung đổi theo loại.
   readonly showDigitizationConfirm = signal(false);
-  readonly digitizationConfirmKind = signal<'ocr' | 'ocr-extract' | 'retry' | 'reextract'>('ocr');
+  readonly digitizationConfirmKind = signal<'ocr' | 'ocr-extract' | 'retry' | 'reextract' | 'extract'>('ocr');
   readonly digitizationConfirmTarget = signal<EquipmentDocumentItem | null>(null);
   readonly digitizationConfirmTargetLabel = computed(() => this.digitizationConfirmTarget()?.name ?? '');
   /** true với các loại có chạy lại OCR (ghi đè file gốc) — dùng để hiện cảnh báo đậm hơn. */
-  readonly digitizationConfirmRerunsOcr = computed(() => this.digitizationConfirmKind() !== 'reextract');
+  readonly digitizationConfirmRerunsOcr = computed(() => {
+    const kind = this.digitizationConfirmKind();
+    return kind !== 'reextract' && kind !== 'extract';
+  });
   readonly digitizationConfirmHeader = computed(() => {
     switch (this.digitizationConfirmKind()) {
       case 'ocr':
@@ -553,6 +565,8 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
         return 'Xác nhận chạy OCR + bóc tách';
       case 'retry':
         return 'Xác nhận xử lý lại OCR/bóc tách';
+      case 'extract':
+        return 'Xác nhận bóc tách';
       default:
         return 'Xác nhận bóc tách lại';
     }
@@ -565,6 +579,8 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
         return 'Bạn có chắc chắn muốn chạy OCR + bóc tách?';
       case 'retry':
         return 'Bạn có chắc chắn muốn xử lý lại OCR/bóc tách?';
+      case 'extract':
+        return 'Bạn có chắc chắn muốn chạy bóc tách?';
       default:
         return 'Bạn có chắc chắn muốn bóc tách lại?';
     }
@@ -577,6 +593,8 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
         return 'Chạy OCR + bóc tách';
       case 'retry':
         return 'Xử lý lại';
+      case 'extract':
+        return 'Bóc tách';
       default:
         return 'Bóc tách lại';
     }
@@ -607,9 +625,13 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
     this.openDigitizationConfirm(doc, 'reextract');
   }
 
+  onExtractOnly(doc: EquipmentDocumentItem): void {
+    this.openDigitizationConfirm(doc, 'extract');
+  }
+
   private openDigitizationConfirm(
     doc: EquipmentDocumentItem,
-    kind: 'ocr' | 'ocr-extract' | 'retry' | 'reextract'
+    kind: 'ocr' | 'ocr-extract' | 'retry' | 'reextract' | 'extract'
   ): void {
     if (!doc.latestVersionId || !this.canEdit()) return;
     this.digitizationConfirmTarget.set(doc);

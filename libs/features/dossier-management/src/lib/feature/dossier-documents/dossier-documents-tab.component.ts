@@ -148,6 +148,17 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
   showReExtractConfirm = signal(false);
   reExtractTarget = signal<DossierDocumentItem | null>(null);
   reExtractSubmitting = signal(false);
+  /** 'extract' = thao tác "Bóc tách" mới (luôn hiện cùng OCR/OCR + bóc tách lại); 'reextract' = "Bóc tách lại" cũ. Cùng gọi 1 API, chỉ khác chữ hiển thị. */
+  reExtractKind = signal<'extract' | 'reextract'>('reextract');
+  readonly reExtractHeader = computed(() =>
+    this.reExtractKind() === 'extract' ? 'Xác nhận bóc tách' : 'Xác nhận bóc tách lại'
+  );
+  readonly reExtractQuestion = computed(() =>
+    this.reExtractKind() === 'extract' ? 'Bạn có chắc chắn muốn chạy bóc tách?' : 'Bạn có chắc chắn muốn bóc tách lại?'
+  );
+  readonly reExtractActionLabel = computed(() =>
+    this.reExtractKind() === 'extract' ? 'Bóc tách' : 'Bóc tách lại'
+  );
 
   // Xác nhận cho nhóm thao tác CHẠY LẠI OCR. Tách riêng với dialog bóc tách lại ở trên vì hệ quả
   // khác nhau hẳn: OCR dựng lại PDF 2 lớp rồi GHI ĐÈ file gốc trên MinIO, còn bóc tách lại chỉ
@@ -472,6 +483,17 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
         disabled: this.isRetryingDigitization(doc.id, this.retryingIds()),
         overflowOnly: true,
         run: (d) => this.onOcrAndExtract(d),
+      });
+      actions.push({
+        key: 'extract-only',
+        title: 'Bóc tách',
+        btnClass: 'act-reextract',
+        iconClasses: this.isReExtracting(doc.id, this.reExtractingIds())
+          ? 'pi pi-spin pi-spinner'
+          : 'pi pi-sync',
+        disabled: this.isReExtracting(doc.id, this.reExtractingIds()),
+        overflowOnly: true,
+        run: (d) => this.onReExtract(d, 'extract'),
       });
     } else if (this.canRetryDigitization(doc) && this.canEdit) {
       actions.push({
@@ -868,9 +890,10 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
       });
   }
 
-  onReExtract(doc: DossierDocumentItem): void {
+  onReExtract(doc: DossierDocumentItem, kind: 'extract' | 'reextract' = 'reextract'): void {
     if (!doc.latestVersionId || !this.canEdit) return;
     this.reExtractTarget.set(doc);
+    this.reExtractKind.set(kind);
     this.showReExtractConfirm.set(true);
   }
 
@@ -898,6 +921,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
   confirmReExtract(): void {
     const doc = this.reExtractTarget();
     if (!doc?.latestVersionId || !this.canEdit || this.reExtractSubmitting()) return;
+    const kind = this.reExtractKind();
 
     const ids = new Set(this.reExtractingIds());
     ids.add(doc.id);
@@ -918,8 +942,11 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
         next: () => {
           this.messageService.add({
             severity: 'success',
-            summary: 'Đã gửi bóc tách lại',
-            detail: `"${doc.name}" đang được bóc tách lại với biểu mẫu mới nhất`,
+            summary: kind === 'extract' ? 'Đã gửi bóc tách' : 'Đã gửi bóc tách lại',
+            detail:
+              kind === 'extract'
+                ? `"${doc.name}" đang được bóc tách theo biểu mẫu mới nhất`
+                : `"${doc.name}" đang được bóc tách lại với biểu mẫu mới nhất`,
           });
           this.showReExtractConfirm.set(false);
           this.reExtractTarget.set(null);
@@ -929,7 +956,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
           this.messageService.add({
             severity: 'error',
             summary: 'Lỗi',
-            detail: err?.error?.message || 'Không thể gửi bóc tách lại',
+            detail: err?.error?.message || (kind === 'extract' ? 'Không thể gửi bóc tách' : 'Không thể gửi bóc tách lại'),
           });
         },
       });
