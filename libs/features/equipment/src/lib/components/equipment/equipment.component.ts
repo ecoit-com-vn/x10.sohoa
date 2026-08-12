@@ -337,10 +337,6 @@ export class EquipmentComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.searchReadOnly.set(this.route.snapshot.data['searchReadOnly'] === true);
-    const routeDossierId = this.route.snapshot.paramMap.get('dossierId');
-    this.lookupDossierId.set(routeDossierId);
-    this.dossierLookupMode.set(this.searchReadOnly() && !!routeDossierId);
     this.authService.loadPermissions();
 
     this.route.paramMap.subscribe(params => {
