@@ -226,9 +226,11 @@ namespace EvnHanoi.DigitizationService.Workers
                             {
                                 _logger.LogInformation("Đang xử lý trang {Page}/{TotalPages}...", i + 1, pageCount);
 
-                                // 2. Render trang PDF → JPEG (200 DPI)
+                                // 2. Render trang PDF → JPEG (150 DPI — khớp với DPI file đã được nén
+                                // lúc upload ở EquipmentService, xem EvnHanoi.DocumentProcessing; render
+                                // lại cao hơn từ nguồn đã 150 DPI chỉ tốn CPU, không thêm chi tiết thật)
                                 using var imgStream = new MemoryStream();
-                                var renderOptions = new PDFtoImage.RenderOptions { Dpi = 200, WithAnnotations = true };
+                                var renderOptions = new PDFtoImage.RenderOptions { Dpi = 150, WithAnnotations = true };
                                 PDFtoImage.Conversion.SaveJpeg(imgStream, pdfBytes, password: null, page: i, options: renderOptions);
                                 imgStream.Position = 0;
                                 byte[] pageImageBytes = imgStream.ToArray();

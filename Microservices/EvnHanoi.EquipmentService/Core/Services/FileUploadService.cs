@@ -151,6 +151,7 @@ public class FileUploadService : IFileUploadService
     private readonly IFileStorageService _fileStorageService;
     private readonly IClamAvService _antivirusService;
     private readonly IMimeTypeValidationService _mimeTypeValidator;
+    private readonly EvnHanoi.DocumentProcessing.IDocumentCompressionService _documentCompressionService;
     private readonly IConfiguration _config;
     private readonly ILogger<FileUploadService> _logger;
 
@@ -159,6 +160,7 @@ public class FileUploadService : IFileUploadService
         IFileStorageService fileStorageService,
         IClamAvService antivirusService,
         IMimeTypeValidationService mimeTypeValidator,
+        EvnHanoi.DocumentProcessing.IDocumentCompressionService documentCompressionService,
         IConfiguration config,
         ILogger<FileUploadService> logger)
     {
@@ -166,6 +168,7 @@ public class FileUploadService : IFileUploadService
         _fileStorageService = fileStorageService ?? throw new ArgumentNullException(nameof(fileStorageService));
         _antivirusService = antivirusService ?? throw new ArgumentNullException(nameof(antivirusService));
         _mimeTypeValidator = mimeTypeValidator ?? throw new ArgumentNullException(nameof(mimeTypeValidator));
+        _documentCompressionService = documentCompressionService ?? throw new ArgumentNullException(nameof(documentCompressionService));
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -206,10 +209,17 @@ public class FileUploadService : IFileUploadService
                 throw new InvalidOperationException($"File bị phát hiện chứa mã độc: {scanResult.Threat}");
             }
 
-            // ===== UPLOAD TO MINIO (theo đơn vị + thư mục) =====
+            // ===== NÉN FILE (giảm về ~150 DPI cho PDF scan/ảnh, giữ nguyên PDF điện tử gốc) =====
             fileStream.Seek(0, SeekOrigin.Begin);
+            var compression = await _documentCompressionService.CompressAsync(fileStream, fileName, mimeType, cancellationToken);
+            using var compressedStream = compression.Stream;
+            fileName = compression.FileName;
+            mimeType = compression.MimeType;
+            fileSize = compression.Size;
+
+            // ===== UPLOAD TO MINIO (theo đơn vị + thư mục) =====
             var (minioPath, minioVersionId) = await _fileStorageService.UploadFileAsync(
-                fileStream,
+                compressedStream,
                 fileName,
                 mimeType,
                 fileSize,
@@ -413,6 +423,28 @@ public class FileUploadService : IFileUploadService
                 cancellationToken);
             _logger.LogInformation("Merged chunks for session {UploadId}: {MergedPath} (Version: {VersionId})", uploadId, mergedPath, minioVersionId);
 
+            // ===== NÉN FILE SAU KHI MERGE (giảm về ~150 DPI cho PDF scan/ảnh, giữ nguyên PDF điện tử
+            // gốc) — ghi đè lên đúng object vừa merge, không giữ lại bản chưa nén. Lưu ý: khác với
+            // luồng upload trực tiếp, ở đây KHÔNG đổi tên/đuôi file khi nén đổi định dạng (TIFF/BMP →
+            // JPEG) vì object key đã cố định từ bước merge — chỉ MimeType/FileSize được cập nhật theo
+            // bản đã nén.
+            var mimeType = ResolveMimeType(session.FileName);
+            using (var mergedStream = await _fileStorageService.DownloadFileAsync(
+                mergedPath, _fileStorageService.DocumentBucketName, minioVersionId, cancellationToken))
+            {
+                var compression = await _documentCompressionService.CompressAsync(mergedStream, session.FileName, mimeType, cancellationToken);
+                using var compressedStream = compression.Stream;
+                mimeType = compression.MimeType;
+
+                if (compression.WasCompressed)
+                {
+                    var (replacedSize, replacedVersionId) = await _fileStorageService.ReplaceObjectAsync(
+                        mergedPath, _fileStorageService.DocumentBucketName, compressedStream, compression.Size, compression.MimeType, cancellationToken);
+                    mergedSize = replacedSize;
+                    minioVersionId = replacedVersionId;
+                }
+            }
+
             // ===== CREATE OR UPDATE DOCUMENT & VERSION =====
             Guid documentId;
             int versionNumber = 1;
@@ -446,7 +478,7 @@ public class FileUploadService : IFileUploadService
                 FilePath = mergedPath,
                 MinioVersionId = minioVersionId,
                 FileSize = mergedSize,
-                MimeType = ResolveMimeType(session.FileName),
+                MimeType = mimeType,
                 UploadSessionId = session.Id,
                 ChunksCount = session.TotalChunks,
                 CreatedBy = userId
@@ -516,12 +548,19 @@ public class FileUploadService : IFileUploadService
         if (!scanResult.IsClean)
             throw new InvalidOperationException($"File bị phát hiện chứa mã độc: {scanResult.Threat}");
 
+        // ===== NÉN FILE (giảm về ~150 DPI cho PDF scan/ảnh, giữ nguyên PDF điện tử gốc) =====
         fileStream.Seek(0, SeekOrigin.Begin);
-        var pageCount = DocumentPageCountDetector.Detect(fileStream, fileName, mimeType);
+        var compression = await _documentCompressionService.CompressAsync(fileStream, fileName, mimeType, cancellationToken);
+        using var compressedStream = compression.Stream;
+        fileName = compression.FileName;
+        mimeType = compression.MimeType;
+        fileSize = compression.Size;
 
-        fileStream.Seek(0, SeekOrigin.Begin);
+        var pageCount = DocumentPageCountDetector.Detect(compressedStream, fileName, mimeType);
+
+        compressedStream.Seek(0, SeekOrigin.Begin);
         var (minioPath, minioVersionId) = await _fileStorageService.UploadFileToDossierAsync(
-            fileStream, fileName, mimeType, fileSize, unitCode, dossierId, cancellationToken);
+            compressedStream, fileName, mimeType, fileSize, unitCode, dossierId, cancellationToken);
 
         // Check for existing document in dossier
         var existingDoc = await _documentRepository.GetDocumentByNameAndDossierAsync(fileName, dossierId);
@@ -650,6 +689,7 @@ public class FileUploadService : IFileUploadService
             uploadId, session.TotalChunks, unitCode, dossierId, session.FileName, cancellationToken);
 
         var pageCount = 0;
+        var mimeType = ResolveMimeType(session.FileName);
         try
         {
             await using var mergedFile = await _fileStorageService.DownloadFileAsync(
@@ -657,7 +697,23 @@ public class FileUploadService : IFileUploadService
                 _fileStorageService.DossierBucketName,
                 minioVersionId,
                 cancellationToken);
-            pageCount = DocumentPageCountDetector.Detect(mergedFile, session.FileName, mimeType: null);
+
+            // ===== NÉN FILE SAU KHI MERGE (giảm về ~150 DPI cho PDF scan/ảnh, giữ nguyên PDF điện tử
+            // gốc) — ghi đè lên đúng object vừa merge, không giữ lại bản chưa nén. =====
+            var compression = await _documentCompressionService.CompressAsync(mergedFile, session.FileName, mimeType, cancellationToken);
+            using var compressedStream = compression.Stream;
+            mimeType = compression.MimeType;
+
+            if (compression.WasCompressed)
+            {
+                var (replacedSize, replacedVersionId) = await _fileStorageService.ReplaceObjectAsync(
+                    mergedPath, _fileStorageService.DossierBucketName, compressedStream, compression.Size, compression.MimeType, cancellationToken);
+                mergedSize = replacedSize;
+                minioVersionId = replacedVersionId;
+            }
+
+            compressedStream.Seek(0, SeekOrigin.Begin);
+            pageCount = DocumentPageCountDetector.Detect(compressedStream, session.FileName, mimeType);
         }
         catch (Exception ex)
         {
@@ -900,6 +956,22 @@ public class FileUploadService : IFileUploadService
             var mimeType = ResolveMimeType(session.FileName);
             await ValidateMimeTypeAsync(mimeType);
             ValidateMagicBytes(mergedStream, mimeType);
+
+            // ===== NÉN FILE SAU KHI MERGE (giảm về ~150 DPI cho PDF scan/ảnh, giữ nguyên PDF điện tử
+            // gốc) — ghi đè lên đúng object vừa merge, không giữ lại bản chưa nén. =====
+            var storageBucketName = document.FolderId.HasValue ? _fileStorageService.DocumentBucketName : _fileStorageService.DossierBucketName;
+            mergedStream.Seek(0, SeekOrigin.Begin);
+            var compression = await _documentCompressionService.CompressAsync(mergedStream, session.FileName, mimeType, cancellationToken);
+            using var compressedStream = compression.Stream;
+            mimeType = compression.MimeType;
+
+            if (compression.WasCompressed)
+            {
+                var (replacedSize, replacedVersionId) = await _fileStorageService.ReplaceObjectAsync(
+                    minioPath, storageBucketName, compressedStream, compression.Size, compression.MimeType, cancellationToken);
+                mergedSize = replacedSize;
+                minioVersionId = replacedVersionId;
+            }
 
             var versions = await _documentRepository.GetDocumentVersionsAsync(documentId);
             int versionNumber = versions.Any() ? versions.Max(v => v.VersionNumber) + 1 : 1;

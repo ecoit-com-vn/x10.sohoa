@@ -92,6 +92,7 @@ builder.Services.AddHostedService<EvnHanoi.EquipmentService.Infrastructure.Messa
 builder.Services.AddHostedService<EvnHanoi.EquipmentService.Infrastructure.Messaging.OcrJobWatchdogService>();
 builder.Services.AddScoped<IClamAvService, ClamAvService>();
 builder.Services.AddScoped<IMimeTypeValidationService, MimeTypeValidationService>();
+builder.Services.AddScoped<EvnHanoi.DocumentProcessing.IDocumentCompressionService, EvnHanoi.DocumentProcessing.DocumentCompressionService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IExternalApiKeyValidator, EvnHanoi.EquipmentService.Infrastructure.Repositories.ExternalApiKeyValidator>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IExternalApiCallLogRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.ExternalApiCallLogRepository>();
