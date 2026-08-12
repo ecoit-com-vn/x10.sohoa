@@ -88,14 +88,14 @@
                         inputStyleClass="lookup-date-input"
                         appendTo="self" />
                 </div>
-                <div class="standard-search-actions lookup-filters__action">
+            </div>
+            <div class="standard-search-actions lookup-filters__action">
                     <button type="button" (click)="onResetSearch()" class="btn-outlined btn-lam-moi">
             <i class="pi pi-refresh"></i> Làm mới
           </button>
                     <button type="button" (click)="onSearch()" class="btn-save">
             <i class="pi pi-check"></i> Áp dụng
           </button>
-                </div>
             </div>
         </div>
 
@@ -181,7 +181,7 @@
             </p-menu>
 
             <app-eco-paginator
-                *ngIf="totalCount() > 0 && !loading()"
+                *ngIf="totalCount() > 0"
                 [first]="(currentPage() - 1) * pageSize()"
                 [rows]="pageSize()"
                 [totalRecords]="totalCount()"

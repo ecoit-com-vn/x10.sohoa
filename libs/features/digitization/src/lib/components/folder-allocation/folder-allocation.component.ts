@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal, computed, effect } from '@angular/co
 import {
   DeleteConfirmDialogComponent,
   EcoInputDateComponent,
+  EcoPaginatorComponent,
   WfBreadcrumbComponent
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -28,6 +29,7 @@ import { AuthService } from '@sohoa.frontend/shared/core';
     WfBreadcrumbComponent,
     DeleteConfirmDialogComponent,
     EcoInputDateComponent,
+    EcoPaginatorComponent,
   ],
   providers: [MessageService],
   templateUrl: './folder-allocation.component.html',
@@ -353,9 +355,11 @@ export class FolderAllocationComponent implements OnInit {
     }
   }
 
-  onPageSizeChange(event: Event): void {
-    const target = event.target as HTMLSelectElement;
-    this.pageSize.set(Number(target.value));
+  onPageSizeChange(event: Event | number): void {
+    const size = typeof event === 'number'
+      ? event
+      : Number((event.target as HTMLSelectElement).value);
+    this.pageSize.set(size);
     this.currentPage.set(1);
   }
 }
