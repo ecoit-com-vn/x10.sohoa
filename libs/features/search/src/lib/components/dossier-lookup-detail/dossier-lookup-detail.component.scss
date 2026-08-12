@@ -1,4 +1,9 @@
 /* Container & Layout */
+.standard-page-toolbar .btn-back {
+  height: 32px;
+  white-space: nowrap;
+}
+
 .dossier-detail-view-container {
   display: flex;
   flex-direction: column;

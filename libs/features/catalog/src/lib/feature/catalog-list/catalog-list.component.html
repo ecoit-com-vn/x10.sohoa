@@ -17,8 +17,9 @@
     <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
 
         <!-- Toolbar -->
-        <div class="list-toolbar" *ngIf="isUnitScopedCatalog(); else defaultCatalogFilters">
-            <div class="unit-scoped-search-grid" [class.unit-scoped-search-grid--muc-luc]="isMucLucCatalog()">
+        <div *ngIf="isUnitScopedCatalog(); else defaultCatalogFilters">
+            <div class="standard-search-card">
+            <div class="standard-search-grid">
                 <div class="standard-search-field">
                     <label class="search-field-label">Tên danh mục</label>
                     <input type="text" class="wf-search-input" style="width: 100%;" placeholder="Tên danh mục..." [ngModel]="searchName()" (ngModelChange)="searchName.set($event)" (keyup.enter)="onSearch()" />
@@ -45,14 +46,15 @@
                         </ng-template>
                     </p-treeSelect>
                 </div>
-                <div class="unit-scoped-search-actions">
+            </div>
+            <div class="standard-search-actions">
                     <button type="button" class="btn-outlined" (click)="onResetSearch()">
                 <i class="pi pi-refresh"></i> Làm mới
               </button>
                     <button type="button" class="btn-save" (click)="onSearch()">
                 <i class="pi pi-check"></i> Áp dụng
               </button>
-                </div>
+            </div>
             </div>
         </div>
 
