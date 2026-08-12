@@ -62,6 +62,61 @@
         </label>
       </div>
 
+      <!--
+        Phạm vi trang bóc tách — chỉ có nghĩa khi đã chọn 1 trong 2 chế độ có bóc tách.
+        Bước OCR luôn chạy đủ trang (PDF 2 lớp + tìm kiếm toàn văn không bị hụt); phạm vi này chỉ
+        giới hạn số trang gửi lên LLM, vì đó là bước tốn ~30-60 giây mỗi trang.
+      -->
+      <div class="ocr-scope" *ngIf="ocrMode !== 'none'">
+        <p class="ocr-note scope-title">Phạm vi bóc tách</p>
+        <div class="ocr-options">
+          <label class="ocr-option">
+            <input
+              type="radio"
+              name="extractionScope"
+              value="FirstPage"
+              [(ngModel)]="extractionScope"
+              [disabled]="submitting()"
+            />
+            <span>Bóc tách trang đầu</span>
+          </label>
+          <label class="ocr-option">
+            <input
+              type="radio"
+              name="extractionScope"
+              value="LastPage"
+              [(ngModel)]="extractionScope"
+              [disabled]="submitting()"
+            />
+            <span>Bóc tách trang cuối</span>
+          </label>
+          <label class="ocr-option">
+            <input
+              type="radio"
+              name="extractionScope"
+              value="FirstAndLastPage"
+              [(ngModel)]="extractionScope"
+              [disabled]="submitting()"
+            />
+            <span>Bóc tách trang đầu + cuối</span>
+          </label>
+          <label class="ocr-option">
+            <input
+              type="radio"
+              name="extractionScope"
+              value="AllPages"
+              [(ngModel)]="extractionScope"
+              [disabled]="submitting()"
+            />
+            <span>Bóc tách tất cả các trang</span>
+          </label>
+        </div>
+        <p class="ocr-note scope-hint">
+          Chỉ giới hạn bước bóc tách. Bước OCR vẫn nhận dạng toàn bộ trang nên PDF 2 lớp và tìm kiếm
+          toàn văn không bị thiếu.
+        </p>
+      </div>
+
       <p class="ocr-note ocr-warn" *ngIf="selectedDocumentTypeId() && !hasDocumentTypeForm()">
         <i class="pi pi-exclamation-triangle"></i>
         Loại văn bản chưa gắn biểu mẫu EAV — không thể bóc tách dữ liệu.
