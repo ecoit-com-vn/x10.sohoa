@@ -224,37 +224,6 @@ export class EquipmentComponent implements OnInit {
   items = signal<any[]>([]);
   totalCount = signal<number>(0);
 
-  /** Màn chi tiết mở từ phân hệ Tra cứu: chỉ xem, không cho phép cập nhật dữ liệu. */
-  searchReadOnly = signal<boolean>(false);
-  /** Chỉ bật cho route Tra cứu hồ sơ thiết bị; không áp dụng cho tra cứu trạm/đường dây. */
-  dossierLookupMode = signal<boolean>(false);
-  lookupDossierId = signal<string | null>(null);
-  searchBreadcrumbItems = computed(() => {
-    const searchContext = this.route.snapshot.data['searchContext'];
-    const substationId = this.route.snapshot.paramMap.get('substationId');
-    if (searchContext === 'substation') {
-      return [
-        { label: 'Tra cứu tìm kiếm' },
-        { label: 'Tra cứu tìm kiếm Trạm biến áp', url: '/search/substation' },
-        {
-          label: 'Chi tiết',
-          url: substationId ? `/search/substation/${substationId}` : '/search/substation'
-        },
-        { label: 'Thiết bị' }
-      ];
-    }
-
-    const dossierId = this.route.snapshot.paramMap.get('dossierId');
-    return [
-      { label: 'Tra cứu tìm kiếm' },
-      { label: 'Tra cứu hồ sơ thiết bị', url: '/search/dossier-by-equipment' },
-      {
-        label: 'Chi tiết',
-        url: dossierId ? `/search/dossier-by-equipment/${dossierId}` : '/search/dossier-by-equipment'
-      },
-      { label: 'Thiết bị' }
-    ];
-  });
 
   currentView = signal<'list' | 'add' | 'edit'>('list');
   currentItem = signal<any>({});
