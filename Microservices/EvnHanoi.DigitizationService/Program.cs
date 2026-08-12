@@ -69,6 +69,7 @@ builder.Services.AddScoped<EvnHanoi.DigitizationService.Core.Services.OcrModule.
 builder.Services.AddScoped<EvnHanoi.DigitizationService.Core.Services.OcrModule.IOcrModuleSpellcheckService, EvnHanoi.DigitizationService.Core.Services.OcrModule.OcrModuleSpellcheckService>();
 builder.Services.AddScoped<EvnHanoi.DigitizationService.Core.Services.OcrModule.IOcrModuleErrorAnalysisAggregator, EvnHanoi.DigitizationService.Core.Services.OcrModule.OcrModuleErrorAnalysisAggregator>();
 builder.Services.AddScoped<ISearchablePdfBuilder, SearchablePdfBuilder>();
+builder.Services.AddScoped<EvnHanoi.DocumentProcessing.IDocumentCompressionService, EvnHanoi.DocumentProcessing.DocumentCompressionService>();
 
 // Timeout gọi ocr_vl_server/LLM đọc từ cấu hình (AIModelServers) thay vì hard-code — điều chỉnh
 // được qua appsettings mà không cần build lại. Áp dụng CHO TỪNG LỆNH GỌI (mỗi trang PDF một lệnh

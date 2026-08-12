@@ -21,6 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\BuildingBlocks\EvnHanoi.DocumentProcessing\EvnHanoi.DocumentProcessing.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\EvnHanoi.Infrastructure\EvnHanoi.Infrastructure.csproj" />
     <ProjectReference Include="..\..\Aspire\EvnHanoi.ServiceDefaults\EvnHanoi.ServiceDefaults.csproj" />
   </ItemGroup>

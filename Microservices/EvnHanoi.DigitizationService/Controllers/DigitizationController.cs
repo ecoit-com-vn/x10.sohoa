@@ -17,6 +17,7 @@ namespace EvnHanoi.DigitizationService.Controllers
         private readonly IMinioStorageService _minioStorageService;
         private readonly IMessagePublisher _messagePublisher;
         private readonly IFileAttachmentRepository _repository;
+        private readonly EvnHanoi.DocumentProcessing.IDocumentCompressionService _documentCompressionService;
         private readonly ILogger<DigitizationController> _logger;
         private readonly string _bucketName;
 
@@ -24,12 +25,14 @@ namespace EvnHanoi.DigitizationService.Controllers
             IMinioStorageService minioStorageService,
             IMessagePublisher messagePublisher,
             IFileAttachmentRepository repository,
+            EvnHanoi.DocumentProcessing.IDocumentCompressionService documentCompressionService,
             IConfiguration configuration,
             ILogger<DigitizationController> logger)
         {
             _minioStorageService = minioStorageService;
             _messagePublisher = messagePublisher;
             _repository = repository;
+            _documentCompressionService = documentCompressionService;
             _logger = logger;
             _bucketName = configuration["MinIO:BucketName"] ?? "digitization";
         }
@@ -42,19 +45,23 @@ namespace EvnHanoi.DigitizationService.Controllers
 
             try
             {
-                var objectName = $"{Guid.NewGuid()}_{FileNameHelper.ToMinioObjectFileName(file.FileName)}";
-                
-                // 1. Upload to MinIO
+                // ===== NÉN FILE (giảm về ~150 DPI cho PDF scan/ảnh, giữ nguyên PDF điện tử gốc) =====
                 using var stream = file.OpenReadStream();
-                var filePath = await _minioStorageService.UploadFileAsync(_bucketName, objectName, stream, file.ContentType);
+                var compression = await _documentCompressionService.CompressAsync(stream, file.FileName, file.ContentType);
+                using var compressedStream = compression.Stream;
+
+                var objectName = $"{Guid.NewGuid()}_{FileNameHelper.ToMinioObjectFileName(compression.FileName)}";
+
+                // 1. Upload to MinIO
+                var filePath = await _minioStorageService.UploadFileAsync(_bucketName, objectName, compressedStream, compression.MimeType);
 
                 // 2. Save to DB FILE_ATTACHMENT
                 var fileAttachment = new FileAttachment
                 {
-                    FileName = file.FileName,
+                    FileName = compression.FileName,
                     FilePath = filePath,
-                    ContentType = file.ContentType,
-                    FileSize = file.Length,
+                    ContentType = compression.MimeType,
+                    FileSize = compression.Size,
                     UploadedAt = DateTime.UtcNow,
                     UploadedBy = "System", // Ideally from User context
                     Status = "Uploaded"
