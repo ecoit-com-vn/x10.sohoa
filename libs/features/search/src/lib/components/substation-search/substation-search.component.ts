@@ -599,7 +599,9 @@ export class SubstationSearchComponent implements OnInit {
           (results[index]?.items || []).map((document: any) => ({ dossier, document }))
         );
         this.attachmentDossierDocuments.set(documents);
-        this.selectFirstAttachmentFolder();
+        // Tự động active vào hồ sơ (thư mục) đầu tiên để hiển thị ngay danh sách tài liệu.
+        const firstFolder = this.attachmentDocumentFolders()[0] ?? null;
+        this.selectedAttachmentFolderId.set(firstFolder?.id ?? null);
       });
     });
   }
@@ -727,12 +729,17 @@ export class SubstationSearchComponent implements OnInit {
       next: res => {
         if (!isCurrentRequest()) return;
         this.technicalDossiers.set(res?.items || []);
-        this.selectedTechnicalFolderId.set(null);
         this.technicalStationFolderExpanded.set(true);
         this.technicalDocumentKeyword.set('');
         this.technicalSelectedDocumentTypeId.set('');
         this.technicalDocumentPage.set(1);
-        this.selectFirstTechnicalFolder();
+        // Tự động active vào hồ sơ (thư mục) đầu tiên và tải luôn danh sách tài liệu PDF của hồ sơ đó.
+        const firstFolder = this.technicalDossierFolders()[0] ?? null;
+        if (firstFolder) {
+          this.selectTechnicalFolder(firstFolder);
+        } else {
+          this.selectedTechnicalFolderId.set(null);
+        }
         this.loadAttachmentDocuments();
       },
       error: () => {
@@ -922,7 +929,7 @@ export class SubstationSearchComponent implements OnInit {
 
     import('xlsx').then(XLSX => {
       const workbook = XLSX.utils.book_new();
-      
+
       const dataRows = this.relatedDossiers().map((doc, index) => ({
         'STT': index + 1,
         'Mã hồ sơ': this.getDossierCode(doc),
