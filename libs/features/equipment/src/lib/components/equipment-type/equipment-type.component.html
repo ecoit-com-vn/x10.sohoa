@@ -63,14 +63,14 @@
             </select>
           </div>
 
-          <div class="standard-search-actions">
+        </div>
+        <div class="standard-search-actions">
             <button class="btn-outlined" (click)="onResetSearch()">
               <i class="pi pi-refresh"></i> Làm mới
             </button>
             <button class="btn-save" (click)="onSearch()">
               <i class="pi pi-check"></i> Áp dụng
             </button>
-          </div>
         </div>
 
       </div>
@@ -139,31 +139,14 @@
         styleClass="row-action-menu"></p-menu>
 
       <!-- Phân trang -->
-      <div class="table-footer" *ngIf="items().length > 0">
-        <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> bản ghi.</span>
-        <div class="pagination">
-          <button class="page-btn" (click)="prevPage()" [disabled]="currentPage() === 1">
-            <i class="pi pi-chevron-left"></i>
-          </button>
-          <span class="page-current">Trang {{ currentPage() }} / {{ totalPages() || 1 }}</span>
-          <button class="page-btn" (click)="nextPage()" [disabled]="currentPage() >= totalPages()">
-            <i class="pi pi-chevron-right"></i>
-          </button>
-          <span
-            style="margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #6b7280;">
-            Đi tới trang:
-            <input type="number" class="page-jump-input" [value]="currentPage()"
-              (change)="goToPage($any($event.target).value)"
-              style="width: 50px; height: 28px; text-align: center; border: 1px solid #e5e7eb; border-radius: 4px; padding: 0 4px;"
-              [min]="1" [max]="totalPages() || 1" />
-          </span>
-          <select class="page-size-sel" [ngModel]="pageSize()" (change)="onPageSizeChange($event)">
-            <option [value]="10">10 / trang</option>
-            <option [value]="20">20 / trang</option>
-            <option [value]="50">50 / trang</option>
-          </select>
-        </div>
-      </div>
+      <app-eco-paginator
+        *ngIf="totalCount() > 0"
+        [currentPage]="currentPage()"
+        [pageSize]="pageSize()"
+        [totalRecords]="totalCount()"
+        [rowsPerPageOptions]="[10, 20, 50]"
+        (pageChange)="goToPage($event)"
+        (pageSizeChange)="onPageSizeChange($event)" />
       </div>
     </div>
 

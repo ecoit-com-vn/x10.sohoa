@@ -39,7 +39,7 @@
 
                 <div class="standard-search-field">
                     <label class="search-field-label">Trạng thái</label>
-                    <select class="wf-select"
+                    <select class="wf-input"
                         style="min-width: 220px; height: 38px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #fff; font-size: 0.875rem; color: #334155; cursor: pointer; outline: none;"
                         [ngModel]="searchStatus()" (ngModelChange)="onStatusFilterChange($event)">
                         <option [value]="null">-- Tất cả trạng thái --</option>
@@ -48,11 +48,11 @@
                     </select>
                 </div>
 
-                <div class="standard-search-actions">
+            </div>
+            <div class="standard-search-actions">
                     <button type="button" class="btn-outlined" (click)="onResetSearch()"><i class="pi pi-refresh"></i>
                         Làm mới</button>
                     <button class="btn-save" (click)="onSearch()"><i class="pi pi-check"></i> Áp dụng</button>
-                </div>
             </div>
         </div>
 
