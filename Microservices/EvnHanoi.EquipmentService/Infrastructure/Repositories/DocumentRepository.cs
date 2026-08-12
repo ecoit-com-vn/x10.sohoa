@@ -1866,8 +1866,32 @@ public class DocumentRepository : IDocumentRepository
                 ) m ON dv.DOCUMENT_ID = m.DOCUMENT_ID AND dv.VERSION_NUMBER = m.MAX_VER
                 WHERE dv.IS_DELETED = 0
             ) latest ON d.ID = latest.DOCUMENT_ID
-            LEFT JOIN DOCUMENT_OCR_PROGRESS ocr ON latest.LATEST_VERSION_ID = ocr.DOCUMENT_VERSION_ID AND ocr.IS_DELETED = 0
-            LEFT JOIN DOCUMENT_EXTRACTION_RESULTS ext ON latest.LATEST_VERSION_ID = ext.DOCUMENT_VERSION_ID AND ext.EQUIPMENT_ID = :EquipmentId AND ext.IS_DELETED = 0
+            LEFT JOIN (
+                SELECT ranked.*
+                FROM (
+                    SELECT p.*,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY p.DOCUMENT_VERSION_ID
+                               ORDER BY p.CREATED_DATE DESC, p.ID DESC
+                           ) AS RN
+                    FROM DOCUMENT_OCR_PROGRESS p
+                    WHERE p.IS_DELETED = 0
+                ) ranked
+                WHERE ranked.RN = 1
+            ) ocr ON latest.LATEST_VERSION_ID = ocr.DOCUMENT_VERSION_ID
+            LEFT JOIN (
+                SELECT ranked.*
+                FROM (
+                    SELECT e.*,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY e.DOCUMENT_VERSION_ID, e.EQUIPMENT_ID
+                               ORDER BY e.CREATED_DATE DESC, e.ID DESC
+                           ) AS RN
+                    FROM DOCUMENT_EXTRACTION_RESULTS e
+                    WHERE e.IS_DELETED = 0
+                ) ranked
+                WHERE ranked.RN = 1
+            ) ext ON latest.LATEST_VERSION_ID = ext.DOCUMENT_VERSION_ID AND ext.EQUIPMENT_ID = :EquipmentId
             WHERE {aliasedWhere}
             ORDER BY d.CREATED_DATE DESC
             OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
