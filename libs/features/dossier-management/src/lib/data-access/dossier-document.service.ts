@@ -107,9 +107,20 @@ interface UploadChunkResponse {
 
 export type DigitizationProcessOption = 'OcrAndExtract' | 'ExtractOnly';
 
+/**
+ * Phạm vi trang cần bóc tách. CHỈ ảnh hưởng bước bóc tách (gửi text lên LLM) — bước OCR luôn chạy
+ * đủ trang để PDF 2 lớp và tìm kiếm toàn văn không bị hụt. Bỏ trống = 'AllPages' (hành vi cũ).
+ */
+export type DigitizationExtractionScope =
+  | 'FirstPage'
+  | 'LastPage'
+  | 'FirstAndLastPage'
+  | 'AllPages';
+
 export interface SubmitDigitizationRequest {
   processOption?: DigitizationProcessOption;
   extractPrompt?: string;
+  extractionScope?: DigitizationExtractionScope;
 }
 
 export interface DocumentExtractionResult {
@@ -454,6 +465,9 @@ export class DossierDocumentService {
       {
         processOption: body.processOption ?? 'OcrAndExtract',
         extractPrompt: body.extractPrompt,
+        // Không tự đặt mặc định ở đây: backend coi rỗng = AllPages (giữ hành vi cũ cho các luồng
+        // chưa chọn phạm vi). Dialog upload trực tiếp chủ động gửi 'FirstAndLastPage'.
+        extractionScope: body.extractionScope,
       }
     );
   }

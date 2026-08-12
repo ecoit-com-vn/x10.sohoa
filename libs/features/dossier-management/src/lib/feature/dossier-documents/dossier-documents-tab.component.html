@@ -263,6 +263,71 @@
   </ng-template>
 </p-dialog>
 
+<!--
+  Xác nhận cho nhóm thao tác CHẠY LẠI OCR ("OCR + bóc tách lại", "Xử lý lại OCR/bóc tách").
+  Trước đây 2 thao tác này gọi API ngay khi bấm. Cảnh báo mạnh hơn dialog bóc tách lại vì OCR
+  dựng lại PDF 2 lớp rồi GHI ĐÈ file gốc trên MinIO — không có bản hoàn tác.
+-->
+<p-dialog
+  [visible]="showOcrConfirm()"
+  (visibleChange)="$event ? null : cancelOcrConfirm()"
+  [header]="ocrConfirmHeader()"
+  [modal]="true"
+  appendTo="body"
+  [style]="{ width: '460px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!ocrConfirmSubmitting()"
+>
+  <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+    <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
+    <div>
+      <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">
+        {{
+          ocrConfirmKind() === 'retry'
+            ? 'Bạn có chắc chắn muốn xử lý lại OCR/bóc tách?'
+            : 'Bạn có chắc chắn muốn chạy lại OCR + bóc tách?'
+        }}
+      </p>
+      <p style="margin: 0 0 6px 0; color: #64748b; font-size: 0.875rem;">
+        Tài liệu <b style="color: #1e293b;">{{ ocrConfirmTargetLabel() }}</b> sẽ được nhận dạng lại
+        từ đầu, sau đó bóc tách theo biểu mẫu EAV mới nhất.
+      </p>
+      <p style="margin: 0; color: #b45309; font-size: 0.8125rem;">
+        Lưu ý: bước OCR tạo lại file PDF 2 lớp và ghi đè lên file hiện tại. Dữ liệu bóc tách hiện
+        có sẽ bị thay thế khi xử lý xong.
+      </p>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div
+      style="
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 12px;
+      "
+    >
+      <button
+        class="btn-cancel btn-small"
+        (click)="cancelOcrConfirm()"
+        [disabled]="ocrConfirmSubmitting()"
+      >
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button
+        class="btn-green btn-small"
+        (click)="confirmOcr()"
+        [disabled]="ocrConfirmSubmitting()"
+      >
+        <i class="pi pi-spin pi-spinner" *ngIf="ocrConfirmSubmitting()"></i>
+        <i class="pi pi-refresh" *ngIf="!ocrConfirmSubmitting()"></i>
+        {{ ocrConfirmKind() === 'retry' ? 'Xử lý lại' : 'Chạy lại OCR + bóc tách' }}
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
 <app-dossier-document-edit-dialog
   *ngIf="editTarget()?.latestVersionId as versionId"
   [dossierId]="dossierId"
