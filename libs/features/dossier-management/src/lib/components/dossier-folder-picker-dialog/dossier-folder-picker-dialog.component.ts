@@ -22,6 +22,7 @@ import {
 import {
   DossierDocumentService,
   DocumentTypeLookupItem,
+  DigitizationExtractionScope,
 } from '../../data-access/dossier-document.service';
 import { FolderAllocationService } from '@sohoa.frontend/features/digitization';
 import { OcrMode } from '../../utils/dossier-digitization.util';
@@ -74,6 +75,12 @@ export class DossierFolderPickerDialogComponent {
   selectedDocumentTypeId = signal('');
   ocrMode: OcrMode = 'none';
 
+  /**
+   * Phạm vi trang cần bóc tách — giống dialog upload trực tiếp, mặc định 'FirstAndLastPage' vì dữ
+   * liệu cần lấy hầu như chỉ ở trang đầu/cuối. Chỉ giới hạn bước bóc tách; OCR vẫn chạy đủ trang.
+   */
+  extractionScope: DigitizationExtractionScope = 'FirstAndLastPage';
+
   totalPages = computed(() => {
     const total = this.totalDocuments();
     const size = this.pageSize();
@@ -104,6 +111,7 @@ export class DossierFolderPickerDialogComponent {
     this.page.set(1);
     this.selectedDocumentTypeId.set('');
     this.ocrMode = 'none';
+    this.extractionScope = 'FirstAndLastPage';
     if (this.flatFolderList().length === 0) {
       this.loadFolderTree();
     } else if (this.selectedFolder()) {
@@ -346,7 +354,10 @@ export class DossierFolderPickerDialogComponent {
     let started = false;
     for (const item of items) {
       this.dossierDocumentService
-        .submitDigitization(this.dossierId, item.versionId, { processOption: this.ocrMode })
+        .submitDigitization(this.dossierId, item.versionId, {
+          processOption: this.ocrMode,
+          extractionScope: this.extractionScope,
+        })
         .subscribe({
           next: () => {
             if (!started) {

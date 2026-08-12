@@ -21,24 +21,37 @@
       </thead>
       <tbody>
         <ng-container *ngIf="loading()">
-          <tr *ngFor="let _ of [1,2,3,4]">
-            <td *ngFor="let __ of [1,2,3,4,5,6,7]">
-              <div class="skeleton-shimmer" style="height:16px;border-radius:4px;"></div>
+          <tr *ngFor="let _ of [1, 2, 3, 4]">
+            <td *ngFor="let __ of [1, 2, 3, 4, 5, 6, 7]">
+              <div
+                class="skeleton-shimmer"
+                style="height: 16px; border-radius: 4px"
+              ></div>
             </td>
           </tr>
         </ng-container>
         <ng-container *ngIf="!loading()">
           <tr *ngFor="let item of items(); let i = index">
-            <td class="text-center font-medium">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-            <td><span class="equipment-type-code">{{ item.equipmentTypeCode || '-' }}</span></td>
-            <td class="font-medium text-gray-800">{{ item.equipmentTypeName || '-' }}</td>
+            <td class="text-center font-medium">
+              {{ (currentPage() - 1) * pageSize() + i + 1 }}
+            </td>
+            <td>
+              <span class="equipment-type-code">{{
+                item.equipmentTypeCode || '-'
+              }}</span>
+            </td>
+            <td class="font-medium text-gray-800">
+              {{ item.equipmentTypeName || '-' }}
+            </td>
             <td>{{ item.gridTypeName || '-' }}</td>
             <td class="text-center font-semibold">{{ item.totalDossiers }}</td>
             <td class="text-center font-semibold">{{ item.totalDocuments }}</td>
             <td class="text-center font-semibold">{{ item.totalPages }}</td>
           </tr>
           <tr *ngIf="items().length === 0">
-            <td colspan="7" class="text-center py-8 text-gray-500 text-xs">Không tìm thấy dữ liệu phù hợp.</td>
+            <td colspan="7" class="text-center py-8 text-gray-500 text-xs">
+              Không tìm thấy dữ liệu phù hợp.
+            </td>
           </tr>
         </ng-container>
       </tbody>
@@ -46,13 +59,16 @@
   </div>
 
   <div class="table-footer-paginator" *ngIf="totalCount() > 0">
-    <span class="record-count">Tổng số: <b>{{ totalCount() | number }}</b> bản ghi.</span>
+    <span class="record-count"
+      >Tổng số: <b>{{ totalCount() | number }}</b> bản ghi.</span
+    >
     <app-eco-paginator
       [first]="(currentPage() - 1) * pageSize()"
       [rows]="pageSize()"
       [totalRecords]="totalCount()"
       [rowsPerPageOptions]="[10, 20, 50]"
-      (onPageChange)="onPageChange($event)">
+      (onPageChange)="onPageChange($event)"
+    >
     </app-eco-paginator>
   </div>
 </div>

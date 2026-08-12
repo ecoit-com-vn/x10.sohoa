@@ -171,7 +171,7 @@
 ></p-menu>
 
 <app-equipment-document-detail-dialog
-  *ngIf="editTarget()?.latestVersionId as versionId"
+  *ngIf="!dossierLookupMode() && editTarget()?.latestVersionId as versionId"
   [equipmentId]="equipmentId()"
   [versionId]="versionId"
   [documentName]="editTarget()?.name ?? ''"
@@ -183,8 +183,103 @@
   (applied)="onDocumentEdited()"
 ></app-equipment-document-detail-dialog>
 
+<ng-container *ngIf="dossierLookupMode() && detailDossierId() as dossierId">
+  <app-dossier-document-edit-dialog
+    *ngIf="editTarget()?.latestVersionId as versionId"
+    [dossierId]="dossierId"
+    [versionId]="versionId"
+    [documentName]="editTarget()?.name ?? ''"
+    [mimeType]="editTarget()?.mimeType ?? null"
+    [documentTypeId]="editTarget()?.documentTypeId ?? null"
+    [canEdit]="false"
+    [lookupMode]="true"
+    [totalPagesHint]="editTarget()?.ocrProgress?.totalPages ?? 0"
+    [visible]="showEditDocument()"
+    (visibleChange)="showEditDocument.set($event)"
+  ></app-dossier-document-edit-dialog>
+</ng-container>
+
 <lib-ocr-insights-panel
   [visible]="ocrInsightsVisible()"
   (visibleChange)="ocrInsightsVisible.set($event)"
   [sourceDocument]="ocrInsightsSource()"
 ></lib-ocr-insights-panel>
+
+<!--
+  Xác nhận chung cho 4 thao tác OCR/bóc tách (OCR, OCR + bóc tách, Xử lý lại OCR/bóc tách,
+  Bóc tách lại). Trước đây tất cả gọi API ngay khi bấm. Với các loại có chạy lại OCR thì thêm
+  cảnh báo: OCR dựng lại PDF 2 lớp và ghi đè file gốc trên MinIO.
+-->
+<p-dialog
+  [visible]="showDigitizationConfirm()"
+  (visibleChange)="$event ? null : cancelDigitizationConfirm()"
+  [header]="digitizationConfirmHeader()"
+  [modal]="true"
+  appendTo="body"
+  [style]="{ width: '460px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!digitizationConfirmSubmitting()"
+>
+  <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+    <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
+    <div>
+      <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">
+        {{ digitizationConfirmQuestion() }}
+      </p>
+      <p style="margin: 0 0 6px 0; color: #64748b; font-size: 0.875rem;">
+        Tài liệu <b style="color: #1e293b;">{{ digitizationConfirmTargetLabel() }}</b>
+        {{
+          digitizationConfirmRerunsOcr()
+            ? ' sẽ được nhận dạng lại từ đầu, sau đó bóc tách theo biểu mẫu thiết bị mới nhất.'
+            : ' sẽ được bóc tách lại theo biểu mẫu thiết bị mới nhất.'
+        }}
+      </p>
+      <p
+        *ngIf="digitizationConfirmRerunsOcr()"
+        style="margin: 0; color: #b45309; font-size: 0.8125rem;"
+      >
+        Lưu ý: bước OCR tạo lại file PDF 2 lớp và ghi đè lên file hiện tại. Dữ liệu bóc tách hiện
+        có sẽ bị thay thế khi xử lý xong.
+      </p>
+      <p
+        *ngIf="!digitizationConfirmRerunsOcr()"
+        style="margin: 0; color: #64748b; font-size: 0.8125rem;"
+      >
+        Thao tác này không chạy lại OCR nên không ảnh hưởng tới file PDF hiện tại.
+      </p>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div
+      style="
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 12px;
+      "
+    >
+      <button
+        class="btn-cancel btn-small"
+        (click)="cancelDigitizationConfirm()"
+        [disabled]="digitizationConfirmSubmitting()"
+      >
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button
+        class="btn-green btn-small"
+        (click)="confirmDigitization()"
+        [disabled]="digitizationConfirmSubmitting()"
+      >
+        <i class="pi pi-spin pi-spinner" *ngIf="digitizationConfirmSubmitting()"></i>
+        <i
+          class="pi"
+          [class.pi-refresh]="digitizationConfirmRerunsOcr()"
+          [class.pi-sync]="!digitizationConfirmRerunsOcr()"
+          *ngIf="!digitizationConfirmSubmitting()"
+        ></i>
+        {{ digitizationConfirmActionLabel() }}
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
