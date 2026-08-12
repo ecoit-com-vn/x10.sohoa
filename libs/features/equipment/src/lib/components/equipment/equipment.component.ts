@@ -224,6 +224,7 @@ export class EquipmentComponent implements OnInit {
   items = signal<any[]>([]);
   totalCount = signal<number>(0);
 
+
   currentView = signal<'list' | 'add' | 'edit'>('list');
   currentItem = signal<any>({});
   isSaving = signal<boolean>(false);
@@ -336,6 +337,10 @@ export class EquipmentComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.searchReadOnly.set(this.route.snapshot.data['searchReadOnly'] === true);
+    const routeDossierId = this.route.snapshot.paramMap.get('dossierId');
+    this.lookupDossierId.set(routeDossierId);
+    this.dossierLookupMode.set(this.searchReadOnly() && !!routeDossierId);
     this.authService.loadPermissions();
 
     this.route.paramMap.subscribe(params => {
