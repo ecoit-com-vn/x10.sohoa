@@ -237,6 +237,18 @@ export function canReExtract(doc: DossierDocumentItem): boolean {
   );
 }
 
+/** true nếu tài liệu đã từng bóc tách xong/lỗi ở lần chạy trước — dùng đổi nhãn nút "Bóc tách" ↔ "Bóc tách lại" theo trạng thái, tránh hiện 2 nút cùng chức năng. */
+export function hasExtractionEverRun(doc: DossierDocumentItem): boolean {
+  const ocr = doc.ocrProgress;
+  const ext = doc.extractionResult;
+  return (
+    ext?.status === 'Completed' ||
+    ext?.status === 'Failed' ||
+    ocr?.status === 'Completed' ||
+    (ocr?.status === 'Failed' && ocr.phase === 'extraction')
+  );
+}
+
 export function isReExtracting(docId: string, reExtractingIds: Set<string>): boolean {
   return reExtractingIds.has(docId);
 }

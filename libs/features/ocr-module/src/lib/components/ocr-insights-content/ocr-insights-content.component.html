@@ -134,42 +134,100 @@
             Kiểm tra chính tả
           </button>
           @if (spellcheckSummary(); as summary) {
-            <span class="script-type-summary">
-              Tìm thấy <b>{{ summary.suggestionCount }}</b>/{{ summary.totalRegionsChecked }} vùng có gợi ý
-            </span>
+            @if (summary.llmResponseParsed) {
+              <span class="script-type-summary">
+                Tìm thấy <b>{{ summary.suggestionCount }}</b>/{{ summary.totalRegionsChecked }} vùng có gợi ý AI
+              </span>
+            } @else {
+              <span class="script-type-summary error-text">
+                Không đọc được phản hồi từ AI — vui lòng thử lại
+              </span>
+            }
           }
         </div>
+        <p class="hint-note">
+          Danh sách dưới đây liệt kê toàn bộ vùng văn bản của trang đang chọn — không chỉ các vùng
+          AI gợi ý sửa. Vùng có badge "Thấp" là vùng OCR có độ tin cậy thấp (theo tab "Lỗi OCR"), nên
+          kiểm tra và sửa tay ngay cả khi AI không đưa ra gợi ý nào.
+        </p>
 
-        @if (spellcheckRegions().length === 0) {
-          <p class="empty-hint">Chưa có gợi ý chính tả nào. Bấm "Kiểm tra chính tả" để bắt đầu.</p>
-        } @else {
-          <div class="spellcheck-list">
-            @for (region of spellcheckRegions(); track region.id) {
-              <div class="spellcheck-item">
-                <div class="spellcheck-original">{{ region.textRaw }}</div>
-                <div class="spellcheck-suggestion">→ {{ region.spellcheckSuggestion }}</div>
-                <div class="spellcheck-actions">
-                  <button type="button" class="btn-chip btn-accept" (click)="acceptSuggestion(region)">
-                    <i class="pi pi-check"></i> Chấp nhận
-                  </button>
-                  <button type="button" class="btn-chip btn-reject" (click)="rejectSuggestion(region)">
-                    <i class="pi pi-times"></i> Từ chối
-                  </button>
-                  <input
-                    type="text"
-                    class="template-name-input manual-edit-input"
-                    placeholder="Sửa tay..."
-                    [ngModel]="manualEditText()[region.id] ?? ''"
-                    (ngModelChange)="onManualEditChange(region.id, $event)"
-                  />
-                  <button type="button" class="btn-chip" (click)="saveManualEdit(region)">Lưu</button>
-                </div>
-                @if (region.spellcheckStatus) {
-                  <span class="script-badge badge-diff">{{ region.spellcheckStatus }}</span>
-                }
-              </div>
-            }
+        @if (pageImageLoading()) {
+          <div class="insights-loading">
+            <i class="pi pi-spin pi-spinner"></i>
+            Đang tải ảnh trang...
           </div>
+        } @else if (pageImageUrl()) {
+          <lib-bounding-box-overlay
+            [imageUrl]="pageImageUrl()!"
+            [regions]="overviewOverlayRegions()"
+          ></lib-bounding-box-overlay>
+        }
+
+        @if (spellcheckPageRegions().length === 0) {
+          <p class="empty-hint">Trang {{ selectedPage() }} chưa có vùng văn bản nào.</p>
+        } @else {
+          <table class="region-table">
+            <thead>
+              <tr>
+                <th>Nội dung</th>
+                <th>Gợi ý AI</th>
+                <th>Độ tin cậy</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (region of spellcheckPageRegions(); track region.id) {
+                <tr [class.row-low-confidence]="lowConfidenceRegionIds().has(region.id)">
+                  <td class="text-cell">
+                    @if (editingRegionId() === region.id) {
+                      <textarea
+                        class="template-name-input manual-edit-input"
+                        rows="2"
+                        [ngModel]="editText()[region.id] ?? region.textRaw"
+                        (ngModelChange)="onEditTextChange(region.id, $event)"
+                      ></textarea>
+                    } @else {
+                      {{ region.textRaw }}
+                    }
+                  </td>
+                  <td>
+                    @if (region.spellcheckSuggestion && region.spellcheckStatus !== 'Accepted' && region.spellcheckStatus !== 'Rejected') {
+                      <div class="spellcheck-suggestion">→ {{ region.spellcheckSuggestion }}</div>
+                      <button type="button" class="btn-chip btn-accept" (click)="acceptSuggestion(region)">
+                        <i class="pi pi-check"></i> Chấp nhận
+                      </button>
+                      <button type="button" class="btn-chip btn-reject" (click)="rejectSuggestion(region)">
+                        <i class="pi pi-times"></i> Từ chối
+                      </button>
+                    }
+                  </td>
+                  <td>
+                    {{ region.confidence != null ? (region.confidence * 100).toFixed(0) + '%' : '—' }}
+                    @if (lowConfidenceRegionIds().has(region.id)) {
+                      <span class="script-badge badge-diff">Thấp</span>
+                    }
+                  </td>
+                  <td>
+                    @if (editingRegionId() === region.id) {
+                      <button
+                        type="button"
+                        class="btn-chip btn-accept"
+                        [disabled]="savingRegionId() === region.id"
+                        (click)="saveRegionEdit(region)"
+                      >
+                        <i class="pi" [ngClass]="savingRegionId() === region.id ? 'pi-spin pi-spinner' : 'pi-check'"></i> Lưu
+                      </button>
+                      <button type="button" class="btn-chip" (click)="cancelEditRegion()">Hủy</button>
+                    } @else {
+                      <button type="button" class="btn-chip" (click)="startEditRegion(region)">
+                        <i class="pi pi-pencil"></i> Sửa
+                      </button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
         }
       }
       @case ('5') {

@@ -72,8 +72,23 @@ export class OcrInsightsContentComponent implements OnInit {
 
   spellcheckLoading = signal(false);
   spellcheckSummary = signal<SpellcheckRunResult | null>(null);
-  spellcheckRegions = computed(() => this.regions().filter((r) => !!r.spellcheckSuggestion));
-  manualEditText = signal<Record<string, string>>({});
+
+  // Tab "Kiểm tra chính tả và hiệu chỉnh nội dung" — liệt kê TOÀN BỘ box loại Text của trang đang
+  // chọn (không chỉ các box có gợi ý AI), kèm sửa tay từng box + badge độ tin cậy thấp.
+  spellcheckPageRegions = computed(() =>
+    this.regions().filter((r) => r.pageNumber === this.selectedPage() && r.regionType === 'Text'),
+  );
+  lowConfidenceRegionIds = computed(
+    () =>
+      new Set(
+        this.errorAnalysisList()
+          .filter((e) => e.errorCategory === 'LowConfidence' && e.resolvedStatus !== 'Resolved')
+          .map((e) => e.regionId),
+      ),
+  );
+  editingRegionId = signal<string | null>(null);
+  editText = signal<Record<string, string>>({});
+  savingRegionId = signal<string | null>(null);
 
   errorAnalysisLoading = signal(false);
   errorAnalysisList = signal<OcrModuleErrorAnalysis[]>([]);
@@ -90,7 +105,24 @@ export class OcrInsightsContentComponent implements OnInit {
   }
 
   onTabChange(value: string | number | undefined): void {
-    this.activeTab.set(String(value ?? '0'));
+    const tab = String(value ?? '0');
+    this.activeTab.set(tab);
+
+    // Vào tab chính tả lần đầu, nạp trước kết quả "Lỗi OCR" đã tính (GET, không tính lại) để badge
+    // độ tin cậy thấp có dữ liệu ngay — không bắt người dùng phải qua tab "Lỗi OCR" trước. Chỉ tính
+    // lại (POST, tốn hơn) nếu GET cũng rỗng (job chưa từng chạy "Lỗi OCR" lần nào).
+    const jobId = this.jobId();
+    if (tab === '4' && this.errorAnalysisList().length === 0 && jobId) {
+      this.ocrModuleService.getErrorAnalysis(jobId).subscribe((errors) => {
+        if (errors.length > 0) {
+          this.errorAnalysisList.set(errors);
+        } else {
+          this.ocrModuleService.runErrorAnalysis(jobId).subscribe((recomputed) => {
+            this.errorAnalysisList.set(recomputed);
+          });
+        }
+      });
+    }
   }
 
   retry(): void {
@@ -318,21 +350,41 @@ export class OcrInsightsContentComponent implements OnInit {
     });
   }
 
-  onManualEditChange(regionId: string, value: string): void {
-    this.manualEditText.update((map) => ({ ...map, [regionId]: value }));
+  startEditRegion(region: OcrModuleRegionDto): void {
+    this.editingRegionId.set(region.id);
+    this.editText.update((m) => ({ ...m, [region.id]: region.textRaw }));
   }
 
-  saveManualEdit(region: OcrModuleRegionDto): void {
-    const jobId = this.jobId();
-    const manualText = this.manualEditText()[region.id];
-    if (!jobId || !manualText?.trim()) return;
+  cancelEditRegion(): void {
+    this.editingRegionId.set(null);
+  }
 
-    this.ocrModuleService
-      .updateSpellcheckStatus(jobId, region.id, { status: 'ManuallyEdited', manualText: manualText.trim() })
-      .subscribe(() => {
-        this.messageService.add({ severity: 'success', summary: 'Đã lưu sửa tay', detail: '' });
+  onEditTextChange(regionId: string, value: string): void {
+    this.editText.update((m) => ({ ...m, [regionId]: value }));
+  }
+
+  saveRegionEdit(region: OcrModuleRegionDto): void {
+    const jobId = this.jobId();
+    const text = (this.editText()[region.id] ?? region.textRaw).trim();
+    if (!jobId || !text) return;
+
+    this.savingRegionId.set(region.id);
+    this.ocrModuleService.updateRegionText(jobId, region.id, text).subscribe({
+      next: () => {
+        this.savingRegionId.set(null);
+        this.editingRegionId.set(null);
+        this.messageService.add({ severity: 'success', summary: 'Đã lưu', detail: '' });
         this.loadRegions();
-      });
+      },
+      error: (err) => {
+        this.savingRegionId.set(null);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Lỗi',
+          detail: err?.error?.message ?? 'Không lưu được nội dung đã sửa.',
+        });
+      },
+    });
   }
 
   runErrorAnalysis(): void {

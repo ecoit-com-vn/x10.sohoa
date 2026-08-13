@@ -248,4 +248,17 @@ lib-bounding-box-overlay {
     white-space: pre-wrap;
     word-break: break-word;
   }
+
+  tr.row-low-confidence {
+    background-color: rgba(220, 38, 38, 0.04);
+
+    td {
+      border-bottom-color: rgba(220, 38, 38, 0.15);
+    }
+  }
+}
+
+.script-type-summary.error-text {
+  color: #b91c1c;
+  font-weight: 600;
 }
