@@ -83,28 +83,14 @@
       </div>
     </div>
 
-    <div class="table-footer" *ngIf="!loading() && totalCount() > 0">
-      <span class="record-count">
-        Hiển thị {{ items().length }} trên tổng số <b>{{ totalCount() }}</b> bản ghi
-      </span>
-      <div class="pagination">
-        <button class="page-btn" [disabled]="currentPage() === 1" (click)="changePage(1)">
-          <i class="pi pi-angle-double-left"></i>
-        </button>
-        <button class="page-btn" [disabled]="currentPage() === 1" (click)="changePage(currentPage() - 1)">
-          <i class="pi pi-chevron-left"></i>
-        </button>
-        <span class="page-current">{{ currentPage() }}</span>
-        <button class="page-btn" [disabled]="currentPage() >= totalPages()" (click)="changePage(currentPage() + 1)">
-          <i class="pi pi-chevron-right"></i>
-        </button>
-        <button class="page-btn" [disabled]="currentPage() >= totalPages()" (click)="changePage(totalPages())">
-          <i class="pi pi-angle-double-right"></i>
-        </button>
-        <select class="page-size-sel" [ngModel]="pageSize()" (ngModelChange)="onPageSizeChange(+$event)">
-          <option *ngFor="let size of pageSizeOptions" [ngValue]="size">{{ size }}</option>
-        </select>
-      </div>
-    </div>
+    <app-eco-paginator
+      *ngIf="!loading() && totalCount() > 0"
+      [first]="(currentPage() - 1) * pageSize()"
+      [rows]="pageSize()"
+      [totalRecords]="totalCount()"
+      [rowsPerPageOptions]="pageSizeOptions"
+      recordLabel="tài liệu"
+      (onPageChange)="onPageChange($event)">
+    </app-eco-paginator>
   </div>
 </div>
