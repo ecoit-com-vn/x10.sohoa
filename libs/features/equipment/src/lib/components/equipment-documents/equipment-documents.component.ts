@@ -24,7 +24,6 @@ import { Subject, debounceTime, distinctUntilChanged, finalize, takeUntil } from
 import { EquipmentService } from '../../data-access/equipment.service';
 import { FileDownloadService } from '../../data-access/file-download.service';
 import { EquipmentDocumentDetailDialogComponent } from '../equipment-document-detail-dialog/equipment-document-detail-dialog.component';
-import { OcrInsightsPanelComponent, OcrInsightsSourceDocument } from '@sohoa.frontend/features/ocr-module';
 
 import {
   formatDocumentDate,
@@ -101,7 +100,6 @@ const MAX_INLINE_DOCUMENT_ACTIONS = 3;
     EcoPaginatorComponent,
     EquipmentDocumentDetailDialogComponent,
     DossierDocumentEditDialogComponent,
-    OcrInsightsPanelComponent,
   ],
   templateUrl: './equipment-documents.component.html',
   styleUrl: './equipment-documents.component.scss',
@@ -146,10 +144,6 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
   submittingIds = signal<Set<string>>(new Set());
   retryingIds = signal<Set<string>>(new Set());
   reExtractingIds = signal<Set<string>>(new Set());
-
-  // Phân hệ Module OCR (Nhóm A) — chỉ đọc kết quả OCR đã có, không đụng logic OCR/bóc tách ở trên.
-  ocrInsightsVisible = signal(false);
-  ocrInsightsSource = signal<OcrInsightsSourceDocument | null>(null);
 
   showEditDocument = signal(false);
   editTarget = signal<EquipmentDocumentItem | null>(null);
@@ -835,39 +829,17 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Mở panel "Phân tích OCR nâng cao" (phân hệ Module OCR, Nhóm A) — chỉ đọc lại kết quả OCR
-   * đã có sẵn của tài liệu này, không gọi lại pipeline OCR/bóc tách ở trên.
+   * Mở trang "Phân tích OCR nâng cao" (phân hệ Module OCR, Nhóm A) trong tab mới — chỉ đọc lại
+   * kết quả OCR đã có sẵn của tài liệu này, không gọi lại pipeline OCR/bóc tách ở trên.
+   * Mở tab mới thay vì điều hướng tại chỗ để không mất dữ liệu đang nhập ở màn hình thiết bị.
    */
   onOpenOcrInsights(doc: EquipmentDocumentItem): void {
     if (!doc.latestVersionId) return;
 
-    this.equipmentService.getDigitizationProgressForEquipment(this.equipmentId(), doc.latestVersionId).subscribe({
-      next: (progress) => {
-        if (!progress?.bucketName || !progress?.filePath) {
-          this.messageService.add({
-            severity: 'warn',
-            summary: 'Chưa thể phân tích',
-            detail: 'Tài liệu này chưa có đủ thông tin vị trí lưu trữ file OCR.',
-          });
-          return;
-        }
-        this.ocrInsightsSource.set({
-          bucket: progress.bucketName,
-          filePath: progress.filePath,
-          documentVersionId: doc.latestVersionId ?? undefined,
-          totalPages: progress.totalPages ?? 0,
-          documentLabel: doc.name,
-        });
-        this.ocrInsightsVisible.set(true);
-      },
-      error: () => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: 'Không tải được thông tin OCR của tài liệu để phân tích.',
-        });
-      },
-    });
+    const url =
+      `/#/equipment/device-list/${this.equipmentId()}/documents/${doc.latestVersionId}/ocr-analysis` +
+      `?label=${encodeURIComponent(doc.name)}`;
+    window.open(url, '_blank');
   }
 
   onDocumentEdited(): void {
