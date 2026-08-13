@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, signal, computed, inject, Output, EventEmitter } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -11,7 +11,7 @@ import { DossierPublishService } from '../../data-access/dossier-publish.service
 import { DossierListTab } from '../../utils/dossier-status.util';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
-import { debounceTime, distinctUntilChanged, finalize, Observable, Subject, takeUntil } from 'rxjs';
+import { finalize, Observable } from 'rxjs';
 
 type PublishTab = 'pending-publish' | 'published' | 'unpublished';
 
@@ -52,6 +52,7 @@ function tabLabel(tab: PublishTab): string {
             placeholder="Tìm theo mã hồ sơ, tiêu đề hồ sơ..."
             [ngModel]="searchKeyword()"
             (ngModelChange)="onKeywordFilterChange($event)"
+            (keyup.enter)="onSearch()"
           />
           </div>
           <div class="search-form-item">
@@ -379,7 +380,7 @@ function tabLabel(tab: PublishTab): string {
     }
   `]
 })
-export class DossierPublishComponent implements OnInit, OnDestroy {
+export class DossierPublishComponent implements OnInit {
   @Output() viewDetail = new EventEmitter<string>();
   @Output() edit = new EventEmitter<string>();
 
@@ -389,9 +390,6 @@ export class DossierPublishComponent implements OnInit, OnDestroy {
   private service = inject(DossierManagementService);
   private publishService = inject(DossierPublishService);
   private messageService = inject(MessageService);
-  private readonly keywordChanges$ = new Subject<{ value: string; version: number }>();
-  private readonly destroy$ = new Subject<void>();
-  private keywordChangeVersion = 0;
   authService = inject(AuthService);
 
   items = signal<any[]>([]);
@@ -474,21 +472,8 @@ export class DossierPublishComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.keywordChanges$
-      .pipe(debounceTime(350), distinctUntilChanged(), takeUntil(this.destroy$))
-      .subscribe(({ value, version }) => {
-        if (version !== this.keywordChangeVersion) return;
-        this.searchKeyword.set(value.trim());
-        this.refreshFilteredList();
-      });
-
     this.loadLookups();
     this.refreshList();
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 
   selectTab(tab: PublishTab) {
@@ -499,18 +484,15 @@ export class DossierPublishComponent implements OnInit, OnDestroy {
   }
 
   onSearch() {
-    this.keywordChangeVersion++;
     this.searchKeyword.set(this.searchKeyword().trim());
     this.refreshFilteredList();
   }
 
   onKeywordFilterChange(keyword: string): void {
     this.searchKeyword.set(keyword);
-    this.keywordChanges$.next({ value: keyword, version: ++this.keywordChangeVersion });
   }
 
   onResetSearch(): void {
-    this.keywordChangeVersion++;
     this.searchKeyword.set('');
     this.filterDossierTypeId.set(null);
     this.filterInfrastructureId.set(null);

@@ -28,7 +28,7 @@
           </div>
           <div class="standard-search-field">
             <label class="search-field-label">Trạng thái</label>
-            <select class="wf-select" 
+            <select class="wf-input"
             [ngModel]="searchStatus()" 
             (ngModelChange)="searchStatus.set($event); onSearch()">
                 <option value="">-- Tất cả trạng thái --</option>
@@ -60,14 +60,14 @@
               [showIcon]="true"
               [readonlyInput]="false" />
           </div>
-          <div class="standard-search-actions">
+        </div>
+        <div class="standard-search-actions">
             <button class="btn-outlined" (click)="onResetSearch()">
               <i class="pi pi-refresh"></i> Làm mới
             </button>
             <button class="btn-save" (click)="onSearch()">
               <i class="pi pi-check"></i> Áp dụng
             </button>
-          </div>
         </div>
       </div>
 
