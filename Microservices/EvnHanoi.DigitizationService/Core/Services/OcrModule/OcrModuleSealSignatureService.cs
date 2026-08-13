@@ -6,6 +6,7 @@ using EvnHanoi.DigitizationService.Helpers;
 using EvnHanoi.DigitizationService.Models.OcrModule;
 using EvnHanoi.DigitizationService.Repositories.OcrModule;
 using EvnHanoi.DigitizationService.Services;
+using EvnHanoi.DigitizationService.Services.OcrModule;
 using EvnHanoi.Infrastructure.Database;
 using Microsoft.Extensions.Configuration;
 using SixLabors.ImageSharp;
@@ -21,7 +22,9 @@ public class SealSignatureRunResult
 
 /// <summary>
 /// Yêu cầu 94 — điều phối việc dựng lại ảnh từng trang từ PDF gốc đã lưu trên MinIO (dùng lại
-/// PDFtoImage, cùng convention 200dpi với OcrWorker.cs), sinh ứng viên con dấu VÀ chữ ký bằng
+/// PDFtoImage, ở OcrModuleImageDpi.DisplayDpi — CHÚ Ý: đây là DPI khác với OcrWorker.cs dùng lúc OCR
+/// văn bản, xem OcrModuleImageDpi để biết vì sao 2 giá trị này không được lệch nhau), sinh ứng viên
+/// con dấu VÀ chữ ký bằng
 /// SealSignatureDetector — cả 2 loại đều quét trực tiếp pixel ảnh trang, KHÔNG dựa vào box của vùng
 /// văn bản OCR — rồi XÁC THỰC từng ứng viên bằng cách cắt ảnh và gửi cho LLM server hiện có
 /// (AIModelServers:LlmServerUrl, model multimodal, cùng HttpClient "LlmClient" đã dùng cho spellcheck).
@@ -78,7 +81,7 @@ public class OcrModuleSealSignatureService : IOcrModuleSealSignatureService
             await _repository.DeleteSealAndSignatureRegionsAsync(job.Id, currentPageNumber);
 
             using var imgStream = new MemoryStream();
-            var renderOptions = new PDFtoImage.RenderOptions { Dpi = 200, WithAnnotations = true };
+            var renderOptions = new PDFtoImage.RenderOptions { Dpi = OcrModuleImageDpi.DisplayDpi, WithAnnotations = true };
             PDFtoImage.Conversion.SaveJpeg(imgStream, pdfBytes, password: null, page: i, options: renderOptions);
             var pageImageBytes = imgStream.ToArray();
 

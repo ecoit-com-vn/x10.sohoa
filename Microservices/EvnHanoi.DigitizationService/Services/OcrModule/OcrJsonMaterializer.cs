@@ -72,15 +72,18 @@ public class OcrJsonMaterializer : IOcrJsonMaterializer
                 if (box.Box == null || box.Box.Count != 4 || string.IsNullOrWhiteSpace(box.Text))
                     continue;
 
+                // Box trong JSON là pixel tuyệt đối theo ảnh OcrWorker render lúc OCR (OcrSourceDpi),
+                // nhưng ảnh hiển thị cho FE (GetPageImage) và mọi region khác đều ở DisplayDpi —
+                // quy đổi ngay tại đây để BoxX0..Y1 lưu trong OCR_MODULE_REGION luôn khớp DisplayDpi.
                 regions.Add(new OcrModuleRegion
                 {
                     Id = UuidHelper.NewUuid(),
                     JobId = jobId,
                     PageNumber = page,
-                    BoxX0 = box.Box[0],
-                    BoxY0 = box.Box[1],
-                    BoxX1 = box.Box[2],
-                    BoxY1 = box.Box[3],
+                    BoxX0 = box.Box[0] * OcrModuleImageDpi.SourceToDisplayScale,
+                    BoxY0 = box.Box[1] * OcrModuleImageDpi.SourceToDisplayScale,
+                    BoxX1 = box.Box[2] * OcrModuleImageDpi.SourceToDisplayScale,
+                    BoxY1 = box.Box[3] * OcrModuleImageDpi.SourceToDisplayScale,
                     TextRaw = OcrPageContentHelper.NormalizeUtf8Text(box.Text),
                     Confidence = box.Confidence,
                     RegionType = "Text",
