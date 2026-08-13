@@ -96,8 +96,11 @@ public class OcrModuleJobController : ControllerBase
     }
 
     /// <summary>
-    /// Render 1 trang của file nguồn (PDF) ra ảnh JPEG ở 200 DPI — cùng DPI với OcrWorker dùng lúc OCR,
-    /// nên tọa độ box (BoxX0/Y0/X1/Y1) đã lưu khớp pixel tuyệt đối với ảnh trả về ở đây.
+    /// Render 1 trang của file nguồn (PDF) ra ảnh JPEG ở OcrModuleImageDpi.DisplayDpi — KHÁC DPI mà
+    /// OcrWorker dùng lúc OCR (OcrModuleImageDpi.OcrSourceDpi). Toạ độ box của mọi region trong
+    /// OCR_MODULE_REGION đã được quy đổi về DisplayDpi trước khi lưu (xem OcrJsonMaterializer cho
+    /// region Text, OcrModuleSealSignatureService cho region Seal/Signature — cả hai đều nhất quán
+    /// với ảnh trả về ở đây), nên FE có thể dùng thẳng BoxX0/Y0/X1/Y1 mà không cần quy đổi thêm.
     /// </summary>
     [HttpGet("{jobId}/pages/{pageNumber}/image")]
     public async Task<IActionResult> GetPageImage(string jobId, int pageNumber)
@@ -117,7 +120,7 @@ public class OcrModuleJobController : ControllerBase
             byte[] pdfBytes = msPdf.ToArray();
 
             using var imgStream = new MemoryStream();
-            var renderOptions = new PDFtoImage.RenderOptions { Dpi = 200, WithAnnotations = true };
+            var renderOptions = new PDFtoImage.RenderOptions { Dpi = OcrModuleImageDpi.DisplayDpi, WithAnnotations = true };
             PDFtoImage.Conversion.SaveJpeg(imgStream, pdfBytes, password: null, page: pageNumber - 1, options: renderOptions);
 
             return File(imgStream.ToArray(), "image/jpeg");
