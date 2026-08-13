@@ -1897,6 +1897,7 @@
             *ngIf="currentItem().id as profileEquipmentId"
             [equipmentId]="profileEquipmentId"
             [canEdit]="canEdit() && !searchReadOnly()"
+            [publishedOnly]="true"
             [hideDigitizationColumns]="searchReadOnly()"
             [dossierLookupMode]="dossierLookupMode()"
             [lookupDossierId]="lookupDossierId()"

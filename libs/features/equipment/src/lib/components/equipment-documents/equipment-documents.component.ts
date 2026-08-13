@@ -130,6 +130,8 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
   externalAccess = input(false);
   factoryProfileAccess = input(false);
   cbmDocumentsOnly = input(false);
+  /** Chỉ lấy tài liệu thuộc hồ sơ đã xuất bản — dùng cho các màn Tra cứu (search). */
+  publishedOnly = input(false);
   documentProcessed = output<void>();
 
   documents = signal<EquipmentDocumentItem[]>([]);
@@ -222,12 +224,19 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
             this.pageSize(),
             this.searchKeyword()
           )
-        : this.equipmentService.getProfileDocuments(
-            equipmentId,
-            this.page(),
-            this.pageSize(),
-            this.searchKeyword()
-          );
+        : this.publishedOnly()
+          ? this.equipmentService.getPublishedProfileDocuments(
+              equipmentId,
+              this.page(),
+              this.pageSize(),
+              this.searchKeyword()
+            )
+          : this.equipmentService.getProfileDocuments(
+              equipmentId,
+              this.page(),
+              this.pageSize(),
+              this.searchKeyword()
+            );
 
     request$
       .pipe(

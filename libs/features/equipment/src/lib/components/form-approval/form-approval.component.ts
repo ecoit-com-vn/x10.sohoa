@@ -65,7 +65,7 @@ export class FormApprovalComponent implements OnInit {
   showConfirmReject = signal<boolean>(false);
   targetForm: EavFormTemplate | null = null;
 
-  viewState = signal<'list' | 'preview'>('list');
+  viewState = signal<'list' | 'detail'>('list');
   loading = signal<boolean>(false);
   forms = signal<EavFormTemplate[]>([]);
   pendingCount = computed(() => this.forms().filter(f => f.status === 'Chờ duyệt').length);
@@ -83,9 +83,11 @@ export class FormApprovalComponent implements OnInit {
   restoreTarget = signal<EavFormTemplate | null>(null);
   restoringVersion = signal<boolean>(false);
 
-  // Preview properties
-  fields = signal<FormField[]>([]);
-  simulatedValues = signal<{ [key: string]: any }>({});
+  formFields = computed(() => {
+    const form = this.selectedForm();
+    if (!form?.formSchema) return [];
+    return this.parseFormSchema(form.formSchema);
+  });
 
   // Pagination
   first = signal<number>(0);
@@ -102,7 +104,8 @@ export class FormApprovalComponent implements OnInit {
   openActionMenu(form: EavFormTemplate, event: Event, menu: Menu): void {
     event.stopPropagation();
     this.actionMenuItems = [
-      { label: 'Xem chi tiết & cấu trúc', title: 'Xem chi tiết & cấu trúc', icon: 'pi pi-eye color-teal', command: () => this.onPreview(form) },
+      { label: 'Xem chi tiết', title: 'Xem chi tiết', icon: 'pi pi-eye color-teal', command: () => this.onPreview(form) },
+      { label: 'Lịch sử phiên bản', title: 'Lịch sử phiên bản', icon: 'pi pi-history', command: () => this.viewVersions(form) },
       ...(form.status === 'Chờ duyệt' && this.canApprove() ? [
         { label: 'Phê duyệt', title: 'Phê duyệt', icon: 'pi pi-check color-teal', command: () => this.approveForm(form) },
         { label: 'Từ chối', title: 'Từ chối', icon: 'pi pi-times color-red', command: () => this.rejectForm(form) },
@@ -134,9 +137,9 @@ export class FormApprovalComponent implements OnInit {
     });
 
     effect(() => {
-      const currentFields = this.fields();
+      const currentFields = this.formFields();
       if (!currentFields) return;
-      currentFields.forEach((f: FormField) => {
+      currentFields.forEach((f: any) => {
         if (f.dataSourceType === 'catalog' && f.catalogType) {
           this.loadCatalogOptions(f.catalogType);
         }
@@ -150,8 +153,6 @@ export class FormApprovalComponent implements OnInit {
         if (!id) {
           this.viewState.set('list');
           this.selectedForm.set(null);
-          this.fields.set([]);
-          this.simulatedValues.set({});
           if (this.forms().length === 0) {
             this.loadForms();
           }
@@ -294,26 +295,29 @@ export class FormApprovalComponent implements OnInit {
 
   private applyPreview(form: EavFormTemplate) {
     this.selectedForm.set(form);
-    this.viewState.set('preview');
+    this.viewState.set('detail');
+  }
 
-    try {
-      const parsedFields = JSON.parse(form.formSchema || '[]') || [];
-      this.fields.set(parsedFields);
-
-      const initialSimulated: { [key: string]: any } = {};
-      parsedFields.forEach((f: FormField) => {
-        if (f.type === 'checkbox') {
-          initialSimulated[f.name] = false;
-        } else {
-          initialSimulated[f.name] = '';
-        }
-      });
-      this.simulatedValues.set(initialSimulated);
-    } catch (e) {
-      console.error('Failed to parse form schema', e);
-      this.fields.set([]);
-      this.simulatedValues.set({});
+  private parseFormSchema(schema: unknown): any[] {
+    if (!schema) return [];
+    if (Array.isArray(schema)) return schema;
+    if (typeof schema === 'string') {
+      const trimmed = schema.trim();
+      if (!trimmed) return [];
+      try {
+        return this.parseFormSchema(JSON.parse(trimmed));
+      } catch (error) {
+        console.error('Error parsing form schema string', error);
+        return [];
+      }
     }
+    if (typeof schema === 'object') {
+      const record = schema as Record<string, unknown>;
+      if (Array.isArray(record['fields'])) {
+        return record['fields'] as any[];
+      }
+    }
+    return [];
   }
 
   goToList() {
@@ -458,49 +462,18 @@ export class FormApprovalComponent implements OnInit {
     return form.categoryName || form.category || '(Chưa chọn)';
   }
 
-  updateSimulatedValue(name: string, value: any) {
-    this.simulatedValues.update(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  getFieldType(field: any): string {
+    const type = (field?.type || 'text').toString().toLowerCase();
+    if (type === 'dropdown' || type === 'select') return 'dropdown';
+    if (type === 'textarea') return 'textarea';
+    if (type === 'checkbox') return 'checkbox';
+    if (type === 'radio') return 'radio';
+    if (type === 'date') return 'date';
+    if (type === 'number') return 'number';
+    return 'text';
   }
 
-  isAllChecked(field: any): boolean {
-    if (!field.options || field.options.length === 0) return false;
-    return field.options.every((opt: string) => this.simulatedValues()[field.name + '_' + opt] === true);
-  }
-
-  toggleSelectAll(field: any, checked: boolean) {
-    if (!field.options) return;
-    field.options.forEach((opt: string) => {
-      this.updateSimulatedValue(field.name + '_' + opt, checked);
-    });
-  }
-
-  onSimulateSubmit() {
-    const missingFields: string[] = [];
-    const vals = this.simulatedValues();
-    this.fields().forEach(f => {
-      if (f.required) {
-        const val = vals[f.name];
-        if (val === undefined || val === null || val === '') {
-          missingFields.push(f.label);
-        }
-      }
-    });
-
-    if (missingFields.length > 0) {
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Kiểm nghiệm lỗi',
-        detail: `Vui lòng điền các trường bắt buộc: ${missingFields.join(', ')}`
-      });
-    } else {
-      this.messageService.add({
-        severity: 'success',
-        summary: 'Kiểm nghiệm thành công',
-        detail: 'Cơ cấu dữ liệu mô phỏng hoàn toàn chính xác!'
-      });
-    }
+  isFormLocked(form: EavFormTemplate): boolean {
+    return !form.isActive;
   }
 }

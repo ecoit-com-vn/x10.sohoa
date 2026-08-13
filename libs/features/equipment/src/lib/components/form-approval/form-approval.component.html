@@ -1,11 +1,11 @@
-<div class="wf-page" [class.preview-mode]="viewState() === 'preview'">
+<div class="wf-page">
     <p-toast></p-toast>
-    <div class="list-toolbar standard-page-toolbar">
-        <div class="toolbar-left">
-            <wf-breadcrumb />
-        </div>
-    </div>
     <div *ngIf="viewState() === 'list'">
+        <div class="list-toolbar standard-page-toolbar">
+            <div class="toolbar-left">
+                <wf-breadcrumb />
+            </div>
+        </div>
 
         <div class="loading-overlay" *ngIf="loading()">
             <div class="loading-content">
@@ -68,7 +68,7 @@
                             <th>Người tạo</th>
                             <th class="col-tt">Trạng thái</th>
                             <th>Cập nhật lần cuối</th>
-                            <th class="col-hd" style="width: 200px;">Thao tác</th>
+                            <th class="col-hd" style="width: 60px;">Thao tác</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -100,18 +100,6 @@
                                 <button type="button" class="act-btn act-more" (click)="openActionMenu(form, $event, actionMenu)" title="Thao tác khác">
                 <i class="pi pi-ellipsis-h"></i>
               </button>
-                                <button class="act-btn btn-view-history" (click)="viewVersions(form)" title="Lịch sử phiên bản">
-                <i class="pi pi-history"></i>
-              </button>
-
-                                <ng-container *ngIf="form.status === 'Chờ duyệt' && canApprove()">
-                                    <button class="act-btn act-approve" (click)="approveForm(form)" title="Phê duyệt">
-                  <i class="pi pi-check"></i>
-                </button>
-                                    <button class="act-btn act-reject" (click)="rejectForm(form)" title="Từ chối">
-                  <i class="pi pi-times"></i>
-                </button>
-                                </ng-container>
                             </td>
                         </tr>
 
@@ -135,122 +123,164 @@
         </div>
     </div>
 
-    <div class="wf-card preview-card" *ngIf="viewState() === 'preview' && selectedForm() as form">
-        <div class="loading-overlay" *ngIf="loading()">
-            <div class="loading-content">
-                <i class="pi pi-spin pi-spinner text-4xl mr-3" style="color: #002D72;"></i>
-                <span class="text-base font-semibold" style="color: #002D72;">Đang xử lý biểu mẫu...</span>
+    <!-- ==================== DETAIL VIEW STATE ==================== -->
+    <ng-container *ngIf="viewState() === 'detail' && selectedForm() as form">
+        <!-- Toolbar: Breadcrumb + Quảy lại + Phê duyệt / Từ chối -->
+        <div class="list-toolbar standard-page-toolbar">
+            <div class="toolbar-left">
+                <wf-breadcrumb [suffix]="'Xem chi tiết biểu mẫu'" />
             </div>
-        </div>
-
-        <div class="builder-header" style="margin-bottom: 1.25rem;">
-            <div class="header-left">
-                <div>
-                    <span class="badge mb-2" style="background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700;">
-            PHÂN HỆ KIỂM DUYỆT
-          </span>
-                    <h2 class="builder-title">Xem trước cấu hình: {{ form.name }}</h2>
-                    <p class="builder-subtitle">{{ form.descriptionInfo || form.description || 'Vui lòng kiểm tra kỹ cấu trúc các thuộc tính kỹ thuật bên dưới trước khi duyệt.' }}</p>
-                </div>
-            </div>
-            <div class="header-right" style="display: flex; gap: 8px;">
-                <p-button label="Quay lại" icon="pi pi-arrow-left" severity="secondary" [rounded]="true" (onClick)="goToList()"></p-button>
-
+            <div class="toolbar-right" style="display: flex; gap: 8px;">
+                <button class="btn-outlined btn-small" (click)="goToList()">
+                    <i class="pi pi-arrow-left"></i> Quåy lại danh sách
+                </button>
                 <ng-container *ngIf="form.status === 'Chờ duyệt' && canApprove()">
-                    <p-button label="Từ chối duyệt" icon="pi pi-times" severity="danger" [rounded]="true" (onClick)="rejectForm(form)"></p-button>
-                    <p-button label="Phê duyệt" icon="pi pi-check" severity="success" [rounded]="true" (onClick)="approveForm(form)"></p-button>
+                    <button class="btn-cancel btn-small" (click)="rejectForm(form)">
+                        <i class="pi pi-times"></i> Từ chối duyệt
+                    </button>
+                    <button class="btn-save btn-small" (click)="approveForm(form)">
+                        <i class="pi pi-check"></i> Phê duyệt
+                    </button>
                 </ng-container>
             </div>
         </div>
 
-        <div class="card p-5 preview-body-card" style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 15px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #FF6B00; padding-bottom: 8px; margin-bottom: 20px;">
-                <h3 class="font-bold text-lg" style="color: #002D72; margin: 0;">Thông số kỹ thuật biểu mẫu (Preview)</h3>
-                <span class="text-sm font-semibold" style="color: #64748b;">
-          Mã biểu mẫu: <b style="color: #000;">{{ form.code }}</b> | Hạng mục: <b style="color: #000;">{{ getCategoryName(form) }}</b>
-        </span>
-            </div>
-
-            <div style="display: flex; flex-wrap: wrap; gap: 20px;">
-                <div *ngFor="let field of fields()" [style.width]="field.width === 50 ? 'calc(50% - 10px)' : '100%'" style="display: flex; flex-direction: column; gap: 6px;">
-
-                    <label class="font-semibold text-sm" style="color: #374151;">
-            {{ field.label }}
-            <span *ngIf="field.required" class="text-danger">*</span>
-          </label>
-
+        <div class="wf-card">
+            <div class="detail-dialog-wrapper">
+                <h4 class="preview-title-header">Thông tin biểu mẫu</h4>
+                <div class="metadata-grid">
                     <div>
-                        <input *ngIf="field.type === 'text'" type="text" pInputText class="w-full" [placeholder]="field.placeholder || ''" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" />
-                        <input *ngIf="field.type === 'number'" type="number" pInputText class="w-full" [placeholder]="field.placeholder || ''" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" />
-                        <p-datepicker *ngIf="field.type === 'date'" class="w-full" dateFormat="dd/mm/yy" [showIcon]="true" icon="pi pi-calendar" appendTo="body" styleClass="w-full" [style]="{'width':'100%'}" placeholder="dd/mm/yyyy" [ngModel]="simulatedValues()[field.name]"
-                            (ngModelChange)="updateSimulatedValue(field.name, $event)"></p-datepicker>
-
-                        <p-select *ngIf="field.type === 'dropdown'" [options]="field.dataSourceType === 'catalog' ? (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...']) : (field.options || [])" [placeholder]="field.placeholder || 'Chọn giá trị...'" [ngModel]="simulatedValues()[field.name]"
-                            (ngModelChange)="updateSimulatedValue(field.name, $event)" styleClass="w-full" appendTo="body">
-                        </p-select>
-
-                        <textarea *ngIf="field.type === 'textarea'" pTextarea class="w-full" rows="3" [placeholder]="field.placeholder || ''" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)"></textarea>
-
-                        <!-- Radio -->
-                        <div *ngIf="field.type === 'radio'" style="display: flex; flex-direction: column; gap: 8px; padding: 4px 0;">
-                            <ng-container *ngIf="field.dataSourceType === 'catalog'">
-                                <div *ngFor="let opt of (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...']); let oIdx = index" style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="radio" [id]="'sim_radio_' + field.id + '_' + oIdx" [name]="'sim_radio_' + field.id" [value]="opt" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" style="scale: 1.1; cursor: pointer;" />
-                                    <label [for]="'sim_radio_' + field.id + '_' + oIdx" class="text-sm select-none" style="cursor: pointer;">{{ opt }}</label>
-                                </div>
-                            </ng-container>
-                            <ng-container *ngIf="field.dataSourceType !== 'catalog'">
-                                <div *ngFor="let opt of (field.options || []); let oIdx = index" style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="radio" [id]="'sim_radio_' + field.id + '_' + oIdx" [name]="'sim_radio_' + field.id" [value]="opt" [ngModel]="simulatedValues()[field.name]" (ngModelChange)="updateSimulatedValue(field.name, $event)" style="scale: 1.1; cursor: pointer;" />
-                                    <label [for]="'sim_radio_' + field.id + '_' + oIdx" class="text-sm select-none" style="cursor: pointer;">{{ opt }}</label>
-                                </div>
-                            </ng-container>
-                        </div>
-
-                        <!-- Checkbox -->
-                        <div *ngIf="field.type === 'checkbox'">
-                            <!-- Case 1: Nhóm checkbox (nếu có options hoặc catalog) -->
-                            <div *ngIf="field.dataSourceType === 'catalog' || (field.options && field.options.length > 0); else singleCheckboxPreview" style="display: flex; flex-direction: column; gap: 8px; padding: 4px 0;">
-
-                                <ng-container *ngIf="field.dataSourceType === 'catalog'">
-                                    <div *ngFor="let opt of (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...']); let oIdx = index" style="display: flex; align-items: center; gap: 8px;">
-                                        <input type="checkbox" [id]="'sim_chk_' + field.id + '_' + oIdx" [ngModel]="simulatedValues()[field.name + '_' + opt] || false" (ngModelChange)="updateSimulatedValue(field.name + '_' + opt, $event)" style="scale: 1.1; cursor: pointer;" />
-                                        <label [for]="'sim_chk_' + field.id + '_' + oIdx" class="text-sm select-none" style="cursor: pointer;">{{ opt }}</label>
-                                    </div>
-                                </ng-container>
-
-                                <ng-container *ngIf="field.dataSourceType !== 'catalog'">
-                                    <!-- "Chọn tất cả" preview -->
-                                    <div *ngIf="field.selectAll" style="display: flex; align-items: center; gap: 8px;">
-                                        <input type="checkbox" [id]="'sim_chk_all_' + field.id" [ngModel]="isAllChecked(field)" (ngModelChange)="toggleSelectAll(field, $event)" style="scale: 1.1; cursor: pointer;" />
-                                        <label [for]="'sim_chk_all_' + field.id" class="text-sm select-none" style="cursor: pointer; font-weight: 600; color: #002D72;">Chọn tất cả</label>
-                                    </div>
-
-                                    <div *ngFor="let opt of (field.options || []); let oIdx = index" style="display: flex; align-items: center; gap: 8px;">
-                                        <input type="checkbox" [id]="'sim_chk_' + field.id + '_' + oIdx" [ngModel]="simulatedValues()[field.name + '_' + opt] || false" (ngModelChange)="updateSimulatedValue(field.name + '_' + opt, $event)" style="scale: 1.1; cursor: pointer;" />
-                                        <label [for]="'sim_chk_' + field.id + '_' + oIdx" class="text-sm select-none" style="cursor: pointer;">{{ opt }}</label>
-                                    </div>
-                                </ng-container>
-                            </div>
-
-                            <!-- Case 2: Checkbox đơn -->
-                            <ng-template #singleCheckboxPreview>
-                                <div style="display: flex; align-items: center; gap: 8px; padding: 8px 0;">
-                                    <input type="checkbox" [id]="'sim_chk_single_' + field.id" [ngModel]="simulatedValues()[field.name] || false" (ngModelChange)="updateSimulatedValue(field.name, $event)" style="scale: 1.1; cursor: pointer;" />
-                                    <label [for]="'sim_chk_single_' + field.id" class="text-sm select-none" style="cursor: pointer;">{{ field.placeholder || 'Đồng ý / Xác nhận' }}</label>
-                                </div>
-                            </ng-template>
+                        <label class="metadata-field-label">Mã form: </label>
+                        <div class="metadata-field-value">{{ form.code }}</div>
+                    </div>
+                    <div>
+                        <label class="metadata-field-label">Tên form: </label>
+                        <div class="metadata-field-value">{{ form.name }}</div>
+                    </div>
+                    <div>
+                        <label class="metadata-field-label">Hạng mục: </label>
+                        <div class="metadata-field-value"><span class="badge">{{ getCategoryName(form) }}</span></div>
+                    </div>
+                    <div>
+                        <label class="metadata-field-label">Phiên bản: </label>
+                        <div class="metadata-field-value">v{{ form.version }}.0</div>
+                    </div>
+                    <div>
+                        <label class="metadata-field-label">Trạng thái: </label>
+                        <div class="metadata-field-value">
+                            <span class="status-pill"
+                                [class.status-pending]="form.status === 'Chờ duyệt'"
+                                [class.status-approved]="form.status === 'Hoàn thành'"
+                                [class.status-rejected]="form.status === 'Từ chối'">
+                                {{ form.status || 'Chờ duyệt' }}
+                            </span>
                         </div>
                     </div>
+                    <div>
+                        <label class="metadata-field-label">Người tạo: </label>
+                        <div class="metadata-field-value">{{ form.createdBy || 'admin' }}</div>
+                    </div>
+                    <div>
+                        <label class="metadata-field-label">Ngày tạo: </label>
+                        <div class="metadata-field-value">{{ form.createdAt | date:'dd/MM/yyyy HH:mm' }}</div>
+                    </div>
+                </div>
+                <div class="metadata-desc-group">
+                    <label class="metadata-field-label">Mô tả: </label>
+                    <div class="metadata-desc-box">{{ form.descriptionInfo || form.description || 'Không có mô tả' }}</div>
+                </div>
 
+                <div class="mt-4">
+                    <h4 class="preview-title-header">Xem trước biểu mẫu nhập liệu</h4>
+                    <div class="preview-form-container" style="max-height: none; overflow-y: visible;">
+                        <div class="preview-form-grid">
+                            <div *ngFor="let field of formFields()"
+                                 [style.grid-column]="'span ' + (field.width === 50 ? 6 : 12)"
+                                 class="preview-form-field">
+
+                                <label class="preview-form-label">
+                                    {{ field.label || field.name || '(Trường chưa đặt tên)' }}
+                                    <span *ngIf="field.required" class="required-star">*</span>
+                                </label>
+
+                                <div class="preview-form-field-wrapper">
+                                    <!-- Text Input -->
+                                    <input *ngIf="getFieldType(field) === 'text'" type="text" pInputText class="preview-form-input"
+                                           [placeholder]="field.placeholder || ''" disabled />
+
+                                    <!-- Number Input -->
+                                    <input *ngIf="getFieldType(field) === 'number'" type="number" pInputText class="preview-form-input"
+                                           [placeholder]="field.placeholder || ''" disabled />
+
+                                    <!-- Date Input -->
+                                    <input *ngIf="getFieldType(field) === 'date'" type="text" placeholder="dd/mm/yyyy" pInputText class="preview-form-input" disabled />
+
+                                    <!-- Dropdown Select -->
+                                    <select *ngIf="getFieldType(field) === 'dropdown'" class="preview-form-select" disabled>
+                                        <option value="">{{ field.placeholder || 'Chọn giá trị...' }}</option>
+                                        <option *ngFor="let opt of (field.dataSourceType === 'catalog' ? (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...']) : (field.options || []))">{{ opt }}</option>
+                                    </select>
+
+                                    <!-- Textarea -->
+                                    <textarea *ngIf="getFieldType(field) === 'textarea'" pTextarea class="preview-form-textarea"
+                                              [placeholder]="field.placeholder || ''" rows="2" disabled></textarea>
+
+                                    <!-- Radio -->
+                                    <div *ngIf="getFieldType(field) === 'radio'" style="display: flex; flex-direction: column; gap: 6px; padding: 4px 0;">
+                                        <label *ngFor="let opt of (field.dataSourceType === 'catalog' ? (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...']) : (field.options || []))"
+                                               style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+                                            <input type="radio" disabled />
+                                            <span style="font-size: 0.9rem;">{{ opt }}</span>
+                                        </label>
+                                    </div>
+
+                                    <!-- Checkbox -->
+                                    <div *ngIf="getFieldType(field) === 'checkbox'">
+                                        <div *ngIf="field.dataSourceType === 'catalog' || (field.options && field.options.length > 0); else singleCheckboxView"
+                                             style="display: flex; flex-direction: column; gap: 6px; padding: 4px 0;">
+                                            <ng-container *ngIf="field.dataSourceType === 'catalog'">
+                                                <label *ngFor="let opt of (catalogOptionsMap()[field.catalogType || ''] || ['Đang tải...'])"
+                                                       style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+                                                    <input type="checkbox" disabled />
+                                                    <span style="font-size: 0.9rem;">{{ opt }}</span>
+                                                </label>
+                                            </ng-container>
+                                            <ng-container *ngIf="field.dataSourceType !== 'catalog'">
+                                                <label *ngIf="field.selectAll" style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:not-allowed; opacity:0.8; color:#002D72;">
+                                                    <input type="checkbox" disabled /> <span style="font-size:0.9rem;">Chọn tất cả</span>
+                                                </label>
+                                                <label *ngFor="let opt of (field.options || [])"
+                                                       style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+                                                    <input type="checkbox" disabled />
+                                                    <span style="font-size: 0.9rem;">{{ opt }}</span>
+                                                </label>
+                                            </ng-container>
+                                        </div>
+                                        <!-- Checkbox đơn -->
+                                        <ng-template #singleCheckboxView>
+                                            <div class="preview-form-checkbox-container">
+                                                <input type="checkbox" disabled class="preview-form-checkbox-input" />
+                                                <span class="preview-form-checkbox-label">{{ field.placeholder || field.label || 'Đồng ý / Xác nhận' }}</span>
+                                            </div>
+                                        </ng-template>
+                                    </div>
+                                </div>
+
+                                <div *ngIf="field.description" class="preview-form-description">
+                                    <i class="pi pi-info-circle"></i>{{ field.description }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div *ngIf="formFields().length === 0" class="preview-form-empty">
+                            <i class="pi pi-clone"></i>
+                            Biểu mẫu chưa cấu hình thuộc tính nào.
+                        </div>
+                    </div>
                 </div>
             </div>
-
-            <div style="margin-top: 30px; display: flex; justify-content: flex-end; border-top: 1px solid #e2e8f0; padding-top: 20px;">
-                <p-button label="Kiểm nghiệm cấu trúc biểu mẫu (Simulate)" icon="pi pi-check-circle" [rounded]="true" styleClass="btn-evn-blue" (onClick)="onSimulateSubmit()"></p-button>
-            </div>
         </div>
-    </div>
+    </ng-container>
 
     <!-- ==================== DIALOG XÁC NHẬN PHÊ DUYỆT ==================== -->
     <p-dialog [visible]="showConfirmApprove()" (visibleChange)="$event ? null : showConfirmApprove.set(false)" header="Xác nhận phê duyệt" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom" [closable]="true">

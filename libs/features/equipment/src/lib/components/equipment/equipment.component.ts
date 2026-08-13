@@ -98,6 +98,9 @@ export class EquipmentComponent implements OnInit {
 
   // Tab and Detail View States
   activeTab = signal<'info' | 'related' | 'profileDocs'>('info');
+  searchReadOnly = signal<boolean>(false);
+  dossierLookupMode = signal<boolean>(false);
+  lookupDossierId = signal<string | null>(null);
   eavTemplate = signal<any>(null);
   eavFields = signal<any[]>([]);
   formValuesObj = signal<any>({});
@@ -337,10 +340,6 @@ export class EquipmentComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.searchReadOnly.set(this.route.snapshot.data['searchReadOnly'] === true);
-    const routeDossierId = this.route.snapshot.paramMap.get('dossierId');
-    this.lookupDossierId.set(routeDossierId);
-    this.dossierLookupMode.set(this.searchReadOnly() && !!routeDossierId);
     this.authService.loadPermissions();
 
     this.route.paramMap.subscribe(params => {
