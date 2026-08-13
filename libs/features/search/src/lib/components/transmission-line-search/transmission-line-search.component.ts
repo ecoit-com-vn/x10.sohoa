@@ -563,7 +563,7 @@ export class TransmissionLineSearchComponent implements OnInit {
       }
 
       const documentRequests = dossiers.map((dossier: any) =>
-        this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true).pipe(
+        this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true, true).pipe(
           catchError(() => of({ items: [] }))
         )
       );
@@ -573,6 +573,9 @@ export class TransmissionLineSearchComponent implements OnInit {
           (results[index]?.items || []).map((document: any) => ({ dossier, document }))
         );
         this.attachmentDossierDocuments.set(documents);
+        // Tự động active vào hồ sơ (thư mục) đầu tiên để hiển thị ngay danh sách tài liệu.
+        const firstFolder = this.attachmentDocumentFolders()[0] ?? null;
+        this.selectedAttachmentFolderId.set(firstFolder?.id ?? null);
       });
     });
   }
@@ -679,11 +682,17 @@ export class TransmissionLineSearchComponent implements OnInit {
     }).pipe(finalize(() => this.loadingTechnicalDossiers.set(false))).subscribe({
       next: res => {
         this.technicalDossiers.set(res?.items || []);
-        this.selectedTechnicalFolderId.set(null);
         this.technicalStationFolderExpanded.set(true);
         this.technicalDocumentKeyword.set('');
         this.technicalSelectedDocumentTypeId.set('');
         this.technicalDocumentPage.set(1);
+        // Tự động active vào hồ sơ (thư mục) đầu tiên và tải luôn danh sách tài liệu PDF của hồ sơ đó.
+        const firstFolder = this.technicalDossierFolders()[0] ?? null;
+        if (firstFolder) {
+          this.selectTechnicalFolder(firstFolder);
+        } else {
+          this.selectedTechnicalFolderId.set(null);
+        }
         this.loadAttachmentDocuments();
       },
       error: () => {
@@ -712,7 +721,7 @@ export class TransmissionLineSearchComponent implements OnInit {
     this.loadingTechnicalFolders.set(loading);
 
     const documentRequests = missingDossiers.map((dossier: any) =>
-      this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true).pipe(
+      this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true, true).pipe(
         catchError(() => of({ items: [] }))
       )
     );

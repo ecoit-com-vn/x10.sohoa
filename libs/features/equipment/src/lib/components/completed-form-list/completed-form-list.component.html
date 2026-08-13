@@ -131,12 +131,12 @@
     <!-- ==================== DETAIL VIEW STATE ==================== -->
     <ng-container *ngIf="viewState() === 'detail'">
         <!-- Breadcrumb with Back button -->
-        <div class="list-toolbar">
+        <div class="list-toolbar standard-page-toolbar">
             <div class="toolbar-left">
                 <wf-breadcrumb [suffix]="viewState() === 'detail' ? 'Xem chi tiết form hoàn thành' : null" />
             </div>
             <div class="toolbar-right">
-                <button class="btn-save btn-tim" (click)="goToList()" style="background-color: #002D72 !important; border-color: #002D72 !important; display: inline-flex; align-items: center; gap: 6px; color: white;">
+                <button class="btn-outlined btn-small" (click)="goToList()">
                     <i class="pi pi-arrow-left"></i> Quay lại danh sách
                 </button>
             </div>
