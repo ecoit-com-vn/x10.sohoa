@@ -213,17 +213,15 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
   showViewDocument = signal(false);
   viewTarget = signal<Document | null>(null);
   unitOptions = signal<any[]>([]);
-  selectedUnitId = signal<number | null>(null);
-  unitTreeOpen = signal<boolean>(false);
-  unitSearchKeyword = signal<string>('');
-  expandedUnitNodes = signal<Set<number>>(new Set<number>());
+  searchUnitId = signal<number | null>(null);
+  searchOrgTreeOpen = signal<boolean>(false);
+  searchOrgSearchKeyword = signal<string>('');
+  expandedSearchUnitNodes = signal<Set<number>>(new Set<number>());
 
-  unitTree = computed(() => this.buildUnitTree(this.unitOptions()));
-
-  filteredUnitTree = computed(() =>
+  searchOrgUnitTree = computed(() =>
     this.filterUnitTree(
-      this.unitTree(),
-      this.unitSearchKeyword()
+      this.buildUnitTree(this.unitOptions()),
+      this.searchOrgSearchKeyword()
     )
   );
 
@@ -345,7 +343,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
     const defaultUnit = userUnitId != null
       ? options.find(unit => unit.id === userUnitId) ?? options[0]
       : options[0];
-    this.selectedUnitId.set(defaultUnit?.id ?? userUnitId);
+    this.searchUnitId.set(defaultUnit?.id ?? userUnitId);
 
     this.onSearch();
   }
@@ -375,6 +373,12 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
       next: (types) => this.dossierTypes.set(types || []),
       error: () => console.error('Failed to load dossier types'),
     });
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('click', () => {
+        this.searchOrgTreeOpen.set(false);
+      });
+    }
   }
 
   ngOnDestroy() {
@@ -390,7 +394,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
 
   private loadFolderTree() {
     this.loadingTree.set(true);
-    this.documentService.getFolderTree(this.selectedUnitId(), this.searchDossierTypeId()).subscribe({
+    this.documentService.getFolderTree(this.searchUnitId(), this.searchDossierTypeId()).subscribe({
       next: (folders) => {
         this.flatFolderList.set(folders);
         const treeStructure = convertFlatToTree(folders);
@@ -552,8 +556,8 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
       pageSize: this.pageSize()
     };
 
-    if (this.selectedUnitId()) {
-      params.unitId = this.selectedUnitId();
+    if (this.searchUnitId()) {
+      params.unitId = this.searchUnitId();
     }
 
     this.http.get<any>(
@@ -698,7 +702,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
       pageSize: 50,
     };
 
-    this.documentService.getDocuments(filter, this.selectedUnitId()).subscribe({
+    this.documentService.getDocuments(filter, this.searchUnitId()).subscribe({
       next: (response) => {
         this.dossierDocuments.set(response.items);
         this.totalDossierDocuments.set(response.totalCount);
@@ -747,7 +751,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
       pageSize: this.pageSize(),
     };
 
-    this.documentService.getDocuments(filter, this.selectedUnitId()).subscribe({
+    this.documentService.getDocuments(filter, this.searchUnitId()).subscribe({
       next: (response) => {
         this.documents.set(response.items);
         this.totalDocuments.set(response.totalCount);
@@ -864,7 +868,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
 
   private initializeUnitFilter() {
     const userUnitId = this.authService.getUserUnitId();
-    this.selectedUnitId.set(userUnitId);
+    this.searchUnitId.set(userUnitId);
 
     this.http
       .get<Array<{ id: number; name: string; parentId?: number | null }>>(
@@ -880,7 +884,7 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
               userUnitId != null
                 ? options.find((u) => u.id === userUnitId) ?? options[0]
                 : options[0];
-            this.selectedUnitId.set(defaultUnit?.id ?? userUnitId);
+            this.searchUnitId.set(defaultUnit?.id ?? userUnitId);
           }
 
           this.loadFolderTree();
@@ -892,15 +896,6 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
       });
   }
 
-  onUnitChange(unitId: any) {
-    const numericId = unitId ? parseInt(unitId, 10) : null;
-    this.selectedUnitId.set(numericId);
-    this.selectedFolder.set(null);
-    this.documents.set([]);
-    this.totalDocuments.set(0);
-    this.expandedFolders.set(new Set<string>());
-    this.loadFolderTree();
-  }
 buildUnitTree(units: any[]): any[] {
   const map = new Map<number, any>();
   const roots: any[] = [];
@@ -953,65 +948,41 @@ filterUnitTree(nodes: any[], keyword: string): any[] {
   }, []);
 }
 
-toggleUnitTree(event?: Event) {
-  if (event) {
-    event.stopPropagation();
-  }
-
-  this.unitTreeOpen.update(open => {
-    const next = !open;
-
-    if (!next) {
-      this.unitSearchKeyword.set('');
-    }
-
-    return next;
-  });
+toggleSearchOrgTree(event?: Event) {
+  if (event) event.stopPropagation();
+  this.searchOrgTreeOpen.update(open => !open);
 }
 
-toggleUnitNode(unitId: number, event?: Event) {
-  if (event) {
-    event.stopPropagation();
-  }
-
-  const expanded = new Set(this.expandedUnitNodes());
-
-  if (expanded.has(unitId)) {
-    expanded.delete(unitId);
-  } else {
-    expanded.add(unitId);
-  }
-
-  this.expandedUnitNodes.set(expanded);
+toggleSearchUnitNode(unitId: any, event?: Event) {
+  if (event) event.stopPropagation();
+  const expanded = new Set(this.expandedSearchUnitNodes());
+  expanded.has(unitId) ? expanded.delete(unitId) : expanded.add(unitId);
+  this.expandedSearchUnitNodes.set(expanded);
 }
 
-isUnitNodeExpanded(unitId: number): boolean {
-  return this.expandedUnitNodes().has(unitId);
+isSearchNodeExpanded(unitId: any): boolean {
+  return this.expandedSearchUnitNodes().has(unitId);
 }
 
-selectUnitFromTree(unitId: number, event?: Event) {
-  if (event) {
-    event.stopPropagation();
-  }
-
-  this.onUnitChange(unitId);
-
-  this.unitTreeOpen.set(false);
-  this.unitSearchKeyword.set('');
+selectSearchOrgUnit(unitId: any) {
+  this.searchUnitId.set(Number(unitId));
+  this.searchOrgTreeOpen.set(false);
+  this.searchOrgSearchKeyword.set('');
+  this.onSearch();
 }
 
-getSelectedUnitLabel(): string {
-  const unitId = this.selectedUnitId();
+clearSearchOrgUnit(event: Event) {
+  event.stopPropagation();
+  this.searchUnitId.set(null);
+  this.searchOrgTreeOpen.set(false);
+  this.searchOrgSearchKeyword.set('');
+  this.onSearch();
+}
 
-  if (unitId == null) {
-    return '';
-  }
-
-  const unit = this.unitOptions().find(
-    x => Number(x.id) === Number(unitId)
-  );
-
-  return unit?.name || '';
+getUnitLabel(unitId: any): string {
+  if (!unitId) return '';
+  const u = (this.unitOptions() || []).find(x => x.id == unitId);
+  return u ? u.name : '';
 }
   trackByFolderId(index: number, folder: FolderNode): string {
     return folder.id;

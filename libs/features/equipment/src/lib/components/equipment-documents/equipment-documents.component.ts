@@ -41,6 +41,7 @@ import {
   canRetryDigitization,
   canSubmitOcrAndExtract,
   canReExtract,
+  hasExtractionEverRun,
   isReExtracting,
   isRetryingDigitization,
   DossierDocumentEditDialogComponent,
@@ -445,15 +446,6 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
         overflowOnly: true,
         run: (d) => this.onOcrAndExtract(d),
       });
-      actions.push({
-        key: 'extract-only',
-        title: noTemplate ? 'Bóc tách (thiếu biểu mẫu thiết bị)' : 'Bóc tách',
-        btnClass: 'act-reextract',
-        iconClasses: isReExtracting(doc.id, this.reExtractingIds()) ? 'pi pi-spin pi-spinner color-blue' : 'pi pi-sync color-blue',
-        disabled: noTemplate || isReExtracting(doc.id, this.reExtractingIds()) || !doc.latestVersionId,
-        overflowOnly: true,
-        run: (d) => this.onExtractOnly(d),
-      });
     } else if (this.canRetryDigitization(doc) && showDigitization) {
       actions.push({
         key: 'retry',
@@ -474,7 +466,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
     if (showDigitization && this.canReExtract(doc)) {
       actions.push({
         key: 'reextract',
-        title: 'Bóc tách lại',
+        title: hasExtractionEverRun(doc as any) ? 'Bóc tách lại' : 'Bóc tách',
         btnClass: 'act-reextract',
         iconClasses: isReExtracting(doc.id, this.reExtractingIds())
           ? 'pi pi-spin pi-spinner color-blue'
@@ -573,13 +565,15 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
   // OCR nặng hơn nhiều: nó dựng lại PDF 2 lớp rồi GHI ĐÈ file gốc trên MinIO, không hoàn tác được;
   // nhóm chỉ bóc tách thì chỉ đọc lại text đã có. Dialog dùng chung, nội dung đổi theo loại.
   readonly showDigitizationConfirm = signal(false);
-  readonly digitizationConfirmKind = signal<'ocr' | 'ocr-extract' | 'retry' | 'reextract' | 'extract'>('ocr');
+  readonly digitizationConfirmKind = signal<'ocr' | 'ocr-extract' | 'retry' | 'reextract'>('ocr');
   readonly digitizationConfirmTarget = signal<EquipmentDocumentItem | null>(null);
   readonly digitizationConfirmTargetLabel = computed(() => this.digitizationConfirmTarget()?.name ?? '');
   /** true với các loại có chạy lại OCR (ghi đè file gốc) — dùng để hiện cảnh báo đậm hơn. */
-  readonly digitizationConfirmRerunsOcr = computed(() => {
-    const kind = this.digitizationConfirmKind();
-    return kind !== 'reextract' && kind !== 'extract';
+  readonly digitizationConfirmRerunsOcr = computed(() => this.digitizationConfirmKind() !== 'reextract');
+  /** 'reextract' là lần bóc tách đầu tiên (chưa từng chạy) hay chạy lại — quyết định chữ "Bóc tách" hay "Bóc tách lại" trong dialog. */
+  readonly digitizationConfirmIsFirstExtract = computed(() => {
+    const doc = this.digitizationConfirmTarget();
+    return !!doc && !hasExtractionEverRun(doc as any);
   });
   readonly digitizationConfirmHeader = computed(() => {
     switch (this.digitizationConfirmKind()) {
@@ -589,10 +583,8 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
         return 'Xác nhận chạy OCR + bóc tách';
       case 'retry':
         return 'Xác nhận xử lý lại OCR/bóc tách';
-      case 'extract':
-        return 'Xác nhận bóc tách';
       default:
-        return 'Xác nhận bóc tách lại';
+        return this.digitizationConfirmIsFirstExtract() ? 'Xác nhận bóc tách' : 'Xác nhận bóc tách lại';
     }
   });
   readonly digitizationConfirmQuestion = computed(() => {
@@ -603,10 +595,10 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
         return 'Bạn có chắc chắn muốn chạy OCR + bóc tách?';
       case 'retry':
         return 'Bạn có chắc chắn muốn xử lý lại OCR/bóc tách?';
-      case 'extract':
-        return 'Bạn có chắc chắn muốn chạy bóc tách?';
       default:
-        return 'Bạn có chắc chắn muốn bóc tách lại?';
+        return this.digitizationConfirmIsFirstExtract()
+          ? 'Bạn có chắc chắn muốn chạy bóc tách?'
+          : 'Bạn có chắc chắn muốn bóc tách lại?';
     }
   });
   readonly digitizationConfirmActionLabel = computed(() => {
@@ -617,10 +609,8 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
         return 'Chạy OCR + bóc tách';
       case 'retry':
         return 'Xử lý lại';
-      case 'extract':
-        return 'Bóc tách';
       default:
-        return 'Bóc tách lại';
+        return this.digitizationConfirmIsFirstExtract() ? 'Bóc tách' : 'Bóc tách lại';
     }
   });
   readonly digitizationConfirmSubmitting = computed(() => {
@@ -649,13 +639,9 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
     this.openDigitizationConfirm(doc, 'reextract');
   }
 
-  onExtractOnly(doc: EquipmentDocumentItem): void {
-    this.openDigitizationConfirm(doc, 'extract');
-  }
-
   private openDigitizationConfirm(
     doc: EquipmentDocumentItem,
-    kind: 'ocr' | 'ocr-extract' | 'retry' | 'reextract' | 'extract'
+    kind: 'ocr' | 'ocr-extract' | 'retry' | 'reextract'
   ): void {
     if (!doc.latestVersionId || !this.canEdit()) return;
     this.digitizationConfirmTarget.set(doc);
@@ -801,6 +787,7 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
   private runReExtract(doc: EquipmentDocumentItem): void {
     if (!doc.latestVersionId || !this.canEdit()) return;
 
+    const isFirstExtract = !hasExtractionEverRun(doc as any);
     const ids = new Set(this.reExtractingIds());
     ids.add(doc.id);
     this.reExtractingIds.set(ids);
@@ -819,8 +806,10 @@ export class EquipmentDocumentsComponent implements OnInit, OnDestroy {
         next: () => {
           this.messageService.add({
             severity: 'success',
-            summary: 'Đã gửi bóc tách lại',
-            detail: `"${doc.name}" đang được bóc tách lại theo biểu mẫu thiết bị.`,
+            summary: isFirstExtract ? 'Đã gửi bóc tách' : 'Đã gửi bóc tách lại',
+            detail: isFirstExtract
+              ? `"${doc.name}" đang được bóc tách theo biểu mẫu thiết bị.`
+              : `"${doc.name}" đang được bóc tách lại theo biểu mẫu thiết bị.`,
           });
           this.loadDocuments();
         },
