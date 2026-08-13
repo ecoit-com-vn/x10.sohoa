@@ -565,11 +565,11 @@
             </div>
             <div>
               <label class="metadata-field-label">Người tạo: </label>
-              <div class="metadata-field-value">{{ targetForm?.createdBy || 'admin' }}</div>
+              <div class="metadata-field-value">{{ targetForm?.creatorFullName || '' }}</div>
             </div>
             <div>
               <label class="metadata-field-label">Ngày tạo: </label>
-              <div class="metadata-field-value">{{ targetForm?.createdAt ? (targetForm?.createdAt | date:'dd/MM/yyyy HH:mm') : ('--/--/----') }}</div>
+              <div class="metadata-field-value">{{ targetForm?.createdAt ? (targetForm?.createdAt | date:'dd/MM/yyyy') : ('--/--/----') }}</div>
             </div>
             <div>
               <label class="metadata-field-label">Vị trí bóc tách: </label>
@@ -578,11 +578,11 @@
           </div>
           <div class="metadata-desc-group" style="margin-top: 10px;">
             <label class="metadata-field-label">Quy tắc bóc tách thông tin: </label>
-            <div class="metadata-desc-box">{{ extractionProcess() || 'Chưa cấu hình' }}</div>
+            <div class="metadata-desc-box">{{ extractionProcess() }}</div>
           </div>
           <div class="metadata-desc-group">
             <label class="metadata-field-label">Mô tả: </label>
-            <div class="metadata-desc-box">{{ formDescription() || 'Không có mô tả' }}</div>
+            <div class="metadata-desc-box">{{ formDescription() }}</div>
           </div>
 
           <div class="mt-4" style="margin-top: 20px;">
