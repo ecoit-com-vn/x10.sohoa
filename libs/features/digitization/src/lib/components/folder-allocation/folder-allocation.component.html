@@ -4,35 +4,30 @@
   <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left"><wf-breadcrumb /></div>
     <div class="toolbar-right">
-      <button *ngIf="authService.hasPermission('FOLDER_ALLOCATION_CREATE') || authService.hasPermission('FOLDER_ALLOCATION_EDIT') || authService.hasPermission('FOLDER_ALLOCATION_MANAGE')" class="btn-green" (click)="openCreate()">
+      <button
+        *ngIf="authService.hasPermission('FOLDER_ALLOCATION_CREATE') || authService.hasPermission('FOLDER_ALLOCATION_EDIT') || authService.hasPermission('FOLDER_ALLOCATION_MANAGE')"
+        class="btn-green" (click)="openCreate()">
         <i class="pi pi-user-plus"></i> Thêm mới
       </button>
     </div>
   </div>
 
   <div>
-    
+
     <!-- Toolbar/Header -->
     <div class="standard-search-card">
       <div class="standard-search-grid">
         <!-- Tìm kiếm từ khóa -->
         <div class="standard-search-field">
           <label class="search-field-label">Từ khóa</label>
-          <input
-            type="text"
-            class="wf-input"
-            [ngModel]="searchKeyword()"
-            (ngModelChange)="searchKeyword.set($event)"
+          <input type="text" class="wf-input" [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)"
             placeholder="Tìm kiếm thư mục, người xử lý..." />
         </div>
 
         <!-- Lọc theo Trạng thái -->
         <div class="standard-search-field">
           <label class="search-field-label">Trạng thái</label>
-          <select
-            class="wf-input"
-            [ngModel]="selectedStatus()"
-            (ngModelChange)="selectedStatus.set($event)">
+          <select class="wf-input" [ngModel]="selectedStatus()" (ngModelChange)="selectedStatus.set($event)">
             <option value="">-- Tất cả trạng thái --</option>
             <option value="Active">Đang phân bổ</option>
             <option value="Revoked">Thu hồi</option>
@@ -41,168 +36,148 @@
 
         <div class="standard-search-field lookup-filters__field">
           <label class="form-label">Từ ngày</label>
-          <eco-input-date
-            [showLabel]="false"
-            label="Từ ngày"
-            view="date"
-            dateFormat="dd/MM/yyyy"
-            placeholder="dd/MM/yyyy"
-            [border]="true"
-            [disabled]="false"
-            [readonly]="false"
-            [showClear]="true"
-            [maxDate]="selectedToDate() ?? undefined"
-            [ngModel]="selectedFromDate()"
-            (ngModelChange)="selectedFromDate.set($event)"
-          ></eco-input-date>
+          <eco-input-date [showLabel]="false" label="Từ ngày" view="date" dateFormat="dd/MM/yyyy"
+            placeholder="dd/MM/yyyy" [border]="true" [disabled]="false" [readonly]="false" [showClear]="true"
+            [maxDate]="selectedToDate() ?? undefined" [ngModel]="selectedFromDate()"
+            (ngModelChange)="selectedFromDate.set($event)"></eco-input-date>
         </div>
 
         <div class="standard-search-field lookup-filters__field">
           <label class="form-label">Đến ngày</label>
-          <eco-input-date
-            [showLabel]="false"
-            label="Đến ngày"
-            view="date"
-            dateFormat="dd/MM/yyyy"
-            placeholder="dd/MM/yyyy"
-            [border]="true"
-            [disabled]="false"
-            [readonly]="false"
-            [showClear]="true"
-            [minDate]="selectedFromDate() ?? undefined"
-            [ngModel]="selectedToDate()"
-            (ngModelChange)="selectedToDate.set($event)"
-          ></eco-input-date>
+          <eco-input-date [showLabel]="false" label="Đến ngày" view="date" dateFormat="dd/MM/yyyy"
+            placeholder="dd/MM/yyyy" [border]="true" [disabled]="false" [readonly]="false" [showClear]="true"
+            [minDate]="selectedFromDate() ?? undefined" [ngModel]="selectedToDate()"
+            (ngModelChange)="selectedToDate.set($event)"></eco-input-date>
         </div>
-
-      </div>
-      <div class="standard-search-actions">
+        <div class="standard-search-actions">
           <button class="btn-outlined" (click)="onResetSearch()">
             <i class="pi pi-refresh"></i> Làm mới
           </button>
           <button class="btn-save" (click)="onApplyFilters()">
             <i class="pi pi-check"></i> Áp dụng
           </button>
+        </div>
       </div>
     </div>
 
     <!-- Table -->
     <div class="wf-card">
-    <div class="wf-table-wrap">
-      <table class="wf-table">
-        <thead>
-          <tr>
-            <th class="col-stt" style="width: 60px;">STT</th>
-            <th>Tên thư mục</th>
-            <th>Đường dẫn thư mục</th>
-            <th style="width: 220px;">Người xử lý</th>
-            <th style="width: 150px; text-align: center;">Ngày phân bổ</th>
-            <th class="col-tt" style="width: 150px;">Trạng thái</th>
-            <th class="col-hd" style="width: 180px;">Thao tác</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Loading shimmer skeleton -->
-          <ng-container *ngIf="loading()">
-            <tr *ngFor="let item of [1, 2, 3, 4, 5]">
-              <td class="col-stt"><div class="skeleton-shimmer" style="height: 16px; width: 24px; margin: auto;"></div></td>
-              <td><div class="skeleton-shimmer" style="height: 16px; width: 150px;"></div></td>
-              <td><div class="skeleton-shimmer" style="height: 16px; width: 250px;"></div></td>
-              <td><div class="skeleton-shimmer" style="height: 16px; width: 120px;"></div></td>
-              <td><div class="skeleton-shimmer" style="height: 16px; width: 80px; margin: auto;"></div></td>
-              <td class="col-tt"><div class="skeleton-shimmer" style="height: 24px; width: 100px; border-radius: 12px; margin: auto;"></div></td>
-              <td class="col-hd"><div class="skeleton-shimmer" style="height: 28px; width: 120px; margin: auto;"></div></td>
+      <div class="wf-table-wrap">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th class="col-stt" style="width: 60px;">STT</th>
+              <th>Tên thư mục</th>
+              <th>Đường dẫn thư mục</th>
+              <th style="width: 220px;">Người xử lý</th>
+              <th style="width: 150px; text-align: center;">Ngày phân bổ</th>
+              <th class="col-tt" style="width: 150px;">Trạng thái</th>
+              <th class="col-hd" style="width: 180px;">Thao tác</th>
             </tr>
-          </ng-container>
+          </thead>
+          <tbody>
+            <!-- Loading shimmer skeleton -->
+            <ng-container *ngIf="loading()">
+              <tr *ngFor="let item of [1, 2, 3, 4, 5]">
+                <td class="col-stt">
+                  <div class="skeleton-shimmer" style="height: 16px; width: 24px; margin: auto;"></div>
+                </td>
+                <td>
+                  <div class="skeleton-shimmer" style="height: 16px; width: 150px;"></div>
+                </td>
+                <td>
+                  <div class="skeleton-shimmer" style="height: 16px; width: 250px;"></div>
+                </td>
+                <td>
+                  <div class="skeleton-shimmer" style="height: 16px; width: 120px;"></div>
+                </td>
+                <td>
+                  <div class="skeleton-shimmer" style="height: 16px; width: 80px; margin: auto;"></div>
+                </td>
+                <td class="col-tt">
+                  <div class="skeleton-shimmer" style="height: 24px; width: 100px; border-radius: 12px; margin: auto;">
+                  </div>
+                </td>
+                <td class="col-hd">
+                  <div class="skeleton-shimmer" style="height: 28px; width: 120px; margin: auto;"></div>
+                </td>
+              </tr>
+            </ng-container>
 
-          <!-- Dữ liệu -->
-          <ng-container *ngIf="!loading()">
-            <tr *ngFor="let item of allocations(); let i = index">
-              <td class="col-stt" style="text-align: center;">
-                {{ (currentPage() - 1) * pageSize() + i + 1 }}
-              </td>
-              <td>
-                <b *ngIf="authService.hasPermission('FOLDER_ALLOCATION_EDIT') || authService.hasPermission('FOLDER_ALLOCATION_MANAGE')" class="wf-name-link" (click)="openEdit(item)">{{ item.folder_name }}</b>
-                <span *ngIf="!(authService.hasPermission('FOLDER_ALLOCATION_EDIT') || authService.hasPermission('FOLDER_ALLOCATION_MANAGE'))">{{ item.folder_name }}</span>
-              </td>
-              <td style="color: #64748b; font-size: 0.9rem;">
-                {{ item.folder_path || '---' }}
-              </td>
-              <td>
-                <div><b>{{ item.user_full_name }}</b></div>
-                <div style="font-size: 0.8rem; color: #6b7280;">{{ item.user_name }}</div>
-              </td>
-              <td style="text-align: center;">
-                {{ formatDate(item.allocated_date) }}
-              </td>
-              <td class="col-tt">
-                <span 
-                  class="status-pill"
-                  [class.status-active]="item.status === 'Active'"
-                  [class.status-inactive]="!item.status || item.status === 'Revoked'">
-                  <i [class]="item.status === 'Active' ? 'pi pi-check-circle' : 'pi pi-minus-circle'"></i>
-                  {{ item.status === 'Active' ? 'Đang phân bổ' : 'Thu hồi' }}
-                </span>
-              </td>
-              <td class="col-hd">
-                <div class="action-buttons-group">
-                  <button
-                    type="button"
-                    class="act-btn act-more"
-                    title="Thao tác"
-                    (click)="openActionMenu(item, $event, actionMenu)">
-                    <i class="pi pi-ellipsis-h"></i>
-                  </button>
-                </div>
-              </td>
-            </tr>
+            <!-- Dữ liệu -->
+            <ng-container *ngIf="!loading()">
+              <tr *ngFor="let item of allocations(); let i = index">
+                <td class="col-stt" style="text-align: center;">
+                  {{ (currentPage() - 1) * pageSize() + i + 1 }}
+                </td>
+                <td>
+                  <b *ngIf="authService.hasPermission('FOLDER_ALLOCATION_EDIT') || authService.hasPermission('FOLDER_ALLOCATION_MANAGE')"
+                    class="wf-name-link" (click)="openEdit(item)">{{ item.folder_name }}</b>
+                  <span
+                    *ngIf="!(authService.hasPermission('FOLDER_ALLOCATION_EDIT') || authService.hasPermission('FOLDER_ALLOCATION_MANAGE'))">{{
+                    item.folder_name }}</span>
+                </td>
+                <td style="color: #64748b; font-size: 0.9rem;">
+                  {{ item.folder_path || '---' }}
+                </td>
+                <td>
+                  <div><b>{{ item.user_full_name }}</b></div>
+                  <div style="font-size: 0.8rem; color: #6b7280;">{{ item.user_name }}</div>
+                </td>
+                <td style="text-align: center;">
+                  {{ formatDate(item.allocated_date) }}
+                </td>
+                <td class="col-tt">
+                  <span class="status-pill" [class.status-active]="item.status === 'Active'"
+                    [class.status-inactive]="!item.status || item.status === 'Revoked'">
+                    <i [class]="item.status === 'Active' ? 'pi pi-check-circle' : 'pi pi-minus-circle'"></i>
+                    {{ item.status === 'Active' ? 'Đang phân bổ' : 'Thu hồi' }}
+                  </span>
+                </td>
+                <td class="col-hd">
+                  <div class="action-buttons-group">
+                    <button type="button" class="act-btn act-more" title="Thao tác"
+                      (click)="openActionMenu(item, $event, actionMenu)">
+                      <i class="pi pi-ellipsis-h"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
 
-            <!-- Dữ liệu trống -->
-            <tr *ngIf="allocations().length === 0">
-              <td colspan="7" class="empty-row">
-                <i class="pi pi-inbox" style="font-size: 2rem; color: #9ca3af; margin-bottom: 8px;"></i>
-                <div>Chưa có thông tin phân bổ nào.</div>
-              </td>
-            </tr>
-          </ng-container>
-        </tbody>
-      </table>
-  </div>
+              <!-- Dữ liệu trống -->
+              <tr *ngIf="allocations().length === 0">
+                <td colspan="7" class="empty-row">
+                  <i class="pi pi-inbox" style="font-size: 2rem; color: #9ca3af; margin-bottom: 8px;"></i>
+                  <div>Chưa có thông tin phân bổ nào.</div>
+                </td>
+              </tr>
+            </ng-container>
+          </tbody>
+        </table>
+      </div>
 
-  <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
+      <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body"
+        styleClass="row-action-menu"></p-menu>
 
-  <!-- Phân trang -->
-    <app-eco-paginator
-      *ngIf="totalCount() > 0"
-      [currentPage]="currentPage()"
-      [pageSize]="pageSize()"
-      [totalRecords]="totalCount()"
-      [rowsPerPageOptions]="[10, 20, 50]"
-      (pageChange)="goToPage($event)"
-      (pageSizeChange)="onPageSizeChange($event)" />
-    <!-- Dialog Thêm/Sửa phân bổ -->
+      <!-- Phân trang -->
+      <app-eco-paginator *ngIf="totalCount() > 0" [currentPage]="currentPage()" [pageSize]="pageSize()"
+        [totalRecords]="totalCount()" [rowsPerPageOptions]="[10, 20, 50]" (pageChange)="goToPage($event)"
+        (pageSizeChange)="onPageSizeChange($event)" />
+      <!-- Dialog Thêm/Sửa phân bổ -->
     </div>
 
-    <app-folder-allocation-dialog
-      [(visible)]="dialogVisible"
-      [allocationId]="editingId()"
-      (saved)="loadAllocations()">
+    <app-folder-allocation-dialog [(visible)]="dialogVisible" [allocationId]="editingId()" (saved)="loadAllocations()">
     </app-folder-allocation-dialog>
 
   </div>
 
   <!-- Dialog Xác nhận Phân bổ lại -->
-  <p-dialog
-    [visible]="showReactivateConfirm()"
-    (visibleChange)="$event ? null : onCancelReactivate()"
-    header="Xác nhận phân bổ"
-    [modal]="true"
-    [style]="{ width: '420px' }"
-    styleClass="evn-dialog-custom"
-    appendTo="body"
+  <p-dialog [visible]="showReactivateConfirm()" (visibleChange)="$event ? null : onCancelReactivate()"
+    header="Xác nhận phân bổ" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom" appendTo="body"
     [closable]="!reactivating()">
     <div style="padding: 8px 0 16px 0; display: flex; align-items: flex-start; gap: 12px;">
-      <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+      <i class="pi pi-exclamation-triangle"
+        style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
       <div>
         <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">
           Bạn có chắc chắn muốn phân bổ lại thư mục?
@@ -215,14 +190,12 @@
       </div>
     </div>
     <ng-template #footer>
-      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <div
+        style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
         <button class="btn-cancel btn-small" (click)="onCancelReactivate()" [disabled]="reactivating()">
           <i class="pi pi-times"></i> Hủy
         </button>
-        <button
-          class="btn-save btn-small"
-          (click)="onConfirmReactivate()"
-          [disabled]="reactivating()"
+        <button class="btn-save btn-small" (click)="onConfirmReactivate()" [disabled]="reactivating()"
           style="background-color: #22c55e; border-color: #22c55e;">
           <i class="pi pi-spin pi-spinner" *ngIf="reactivating()" style="margin-right: 4px;"></i>
           <i class="pi pi-check-circle" *ngIf="!reactivating()" style="margin-right: 4px;"></i>
@@ -233,17 +206,11 @@
   </p-dialog>
 
   <!-- Dialog Xác nhận Thu hồi -->
-  <p-dialog
-    [visible]="showRevokeConfirm()"
-    (visibleChange)="$event ? null : onCancelRevoke()"
-    header="Xác nhận thu hồi"
-    [modal]="true"
-    [style]="{ width: '420px' }"
-    styleClass="evn-dialog-custom"
-    appendTo="body"
-    [closable]="!revoking()">
+  <p-dialog [visible]="showRevokeConfirm()" (visibleChange)="$event ? null : onCancelRevoke()" header="Xác nhận thu hồi"
+    [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom" appendTo="body" [closable]="!revoking()">
     <div style="padding: 8px 0 16px 0; display: flex; align-items: flex-start; gap: 12px;">
-      <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+      <i class="pi pi-exclamation-triangle"
+        style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
       <div>
         <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">
           Bạn có chắc chắn muốn thu hồi quyền nhập liệu?
@@ -256,14 +223,12 @@
       </div>
     </div>
     <ng-template #footer>
-      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <div
+        style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
         <button class="btn-cancel btn-small" (click)="onCancelRevoke()" [disabled]="revoking()">
           <i class="pi pi-times"></i> Hủy
         </button>
-        <button
-          class="btn-save"
-          (click)="onConfirmRevoke()"
-          [disabled]="revoking()"
+        <button class="btn-save" (click)="onConfirmRevoke()" [disabled]="revoking()"
           style="background-color: #1185bb; border-color: #f59e0b;">
           <i class="pi pi-spin pi-spinner" *ngIf="revoking()" style="margin-right: 4px;"></i>
           <i class="pi pi-ban" *ngIf="!revoking()" style="margin-right: 4px;"></i>
@@ -274,14 +239,7 @@
   </p-dialog>
 
   <!-- Popup xác nhận xóa dùng chung toàn hệ thống. -->
-  <app-delete-confirm-dialog
-    [visible]="showDeleteConfirm()"
-    header="Xác nhận xóa phân bổ thư mục"
-    entityLabel="Phân bổ thư mục"
-    [targetName]="deleteTargetLabel()"
-    consequence="sẽ bị xóa khỏi hệ thống."
-    [loading]="deleting()"
-    (cancelled)="onCancelDelete()"
-    (confirmed)="onConfirmDelete()"
-  />
+  <app-delete-confirm-dialog [visible]="showDeleteConfirm()" header="Xác nhận xóa phân bổ thư mục"
+    entityLabel="Phân bổ thư mục" [targetName]="deleteTargetLabel()" consequence="sẽ bị xóa khỏi hệ thống."
+    [loading]="deleting()" (cancelled)="onCancelDelete()" (confirmed)="onConfirmDelete()" />
 </div>
