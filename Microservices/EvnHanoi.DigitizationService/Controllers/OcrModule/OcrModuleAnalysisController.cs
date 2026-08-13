@@ -21,17 +21,20 @@ public class OcrModuleAnalysisController : ControllerBase
     private readonly IOcrModuleSealSignatureService _sealSignatureService;
     private readonly IOcrModuleSpellcheckService _spellcheckService;
     private readonly IOcrModuleErrorAnalysisAggregator _errorAnalysisAggregator;
+    private readonly IOcrModuleRegionCorrectionService _regionCorrectionService;
 
     public OcrModuleAnalysisController(
         IOcrModuleRepository repository,
         IOcrModuleSealSignatureService sealSignatureService,
         IOcrModuleSpellcheckService spellcheckService,
-        IOcrModuleErrorAnalysisAggregator errorAnalysisAggregator)
+        IOcrModuleErrorAnalysisAggregator errorAnalysisAggregator,
+        IOcrModuleRegionCorrectionService regionCorrectionService)
     {
         _repository = repository;
         _sealSignatureService = sealSignatureService;
         _spellcheckService = spellcheckService;
         _errorAnalysisAggregator = errorAnalysisAggregator;
+        _regionCorrectionService = regionCorrectionService;
     }
 
     /// <summary>Yêu cầu 93 — phân loại Printed/Handwritten/Mixed theo từng vùng văn bản.</summary>
@@ -218,8 +221,63 @@ public class OcrModuleAnalysisController : ControllerBase
             _ => null,
         };
 
-        await _repository.UpdateRegionSpellcheckStatusAsync(regionId, request.Status, textRawOverride);
-        return Ok();
+        // "Rejected" không đổi TextRaw — chỉ cập nhật cột trạng thái, không cần đồng bộ MinIO/PDF/ES.
+        if (textRawOverride == null)
+        {
+            await _repository.UpdateRegionSpellcheckStatusAsync(regionId, request.Status, textRawOverride: null);
+            return Ok();
+        }
+
+        try
+        {
+            var updated = await _regionCorrectionService.ApplyManualCorrectionAsync(
+                jobId, regionId, textRawOverride, request.Status, User?.Identity?.Name);
+            return Ok(updated);
+        }
+        catch (RegionSourceIndexMissingException)
+        {
+            return Conflict(new { code = "ERR_OCR_MODULE_REGION_NOT_PATCHABLE",
+                message = "Vùng này được tạo trước khi hỗ trợ sửa trực tiếp — không thể ghi lại vào file gốc." });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { code = "ERR_OCR_MODULE_REGION_NOT_FOUND", message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { code = "ERR_OCR_MODULE_REGION_EDIT_FAILED",
+                message = "Không lưu được nội dung đã sửa.", details = new[] { ex.Message } });
+        }
+    }
+
+    /// <summary>Sửa tay nội dung 1 box bất kỳ (tab "Kiểm tra chính tả và hiệu chỉnh nội dung") — đồng bộ
+    /// lại MinIO/PDF 2 lớp/Elasticsearch, không gắn với ngữ cảnh gợi ý chính tả nào.</summary>
+    [HttpPut("regions/{regionId}/text")]
+    public async Task<ActionResult<OcrModuleRegionDto>> UpdateRegionText(string jobId, string regionId, [FromBody] UpdateRegionTextRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.TextRaw))
+            return BadRequest(new { code = "ERR_OCR_MODULE_EMPTY_TEXT", message = "Nội dung không được để trống." });
+
+        try
+        {
+            var updated = await _regionCorrectionService.ApplyManualCorrectionAsync(
+                jobId, regionId, request.TextRaw, spellcheckStatus: null, editedBy: User?.Identity?.Name);
+            return Ok(updated);
+        }
+        catch (RegionSourceIndexMissingException)
+        {
+            return Conflict(new { code = "ERR_OCR_MODULE_REGION_NOT_PATCHABLE",
+                message = "Vùng này được tạo trước khi hỗ trợ sửa trực tiếp — không thể ghi lại vào file gốc." });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { code = "ERR_OCR_MODULE_REGION_NOT_FOUND", message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { code = "ERR_OCR_MODULE_REGION_EDIT_FAILED",
+                message = "Không lưu được nội dung đã sửa.", details = new[] { ex.Message } });
+        }
     }
 
     /// <summary>
@@ -253,6 +311,11 @@ public class UpdateSpellcheckRequest
     public string Status { get; set; } = string.Empty;
     public string? SuggestionText { get; set; }
     public string? ManualText { get; set; }
+}
+
+public class UpdateRegionTextRequest
+{
+    public string TextRaw { get; set; } = string.Empty;
 }
 
 public class RunTemplateDiffRequest

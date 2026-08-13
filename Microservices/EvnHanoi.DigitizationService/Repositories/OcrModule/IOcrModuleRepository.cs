@@ -13,6 +13,9 @@ public interface IOcrModuleRepository
     Task<PagedResult<OcrModuleRegionDto>> GetRegionsPagedAsync(string jobId, int page, int pageSize);
     Task<List<OcrModuleRegionDto>> GetAllRegionsAsync(string jobId);
     Task<List<OcrModuleRegion>> GetAllRegionEntitiesAsync(string jobId);
+    Task<OcrModuleRegion?> GetRegionByIdAsync(string regionId);
+    Task<OcrModuleRegionDto?> GetRegionDtoByIdAsync(string regionId);
+    Task UpdateRegionTextAndStatusAsync(string regionId, string textRaw, string? spellcheckStatus, string? editedBy);
     Task UpdateRegionScriptTypesAsync(IReadOnlyDictionary<string, string> regionIdToScriptType);
     Task UpdateRegionFormulasAsync(IReadOnlyDictionary<string, string> regionIdToFormulaText);
     Task ResetFormulaRegionsAsync(IReadOnlyList<string> regionIds);

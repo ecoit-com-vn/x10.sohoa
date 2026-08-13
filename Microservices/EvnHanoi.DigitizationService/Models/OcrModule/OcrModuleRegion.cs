@@ -16,6 +16,11 @@ public class OcrModuleRegion
     public string TextRaw { get; set; } = string.Empty;
     public double? Confidence { get; set; }
 
+    /// <summary>Vị trí trong mảng box của file JSON OCR gốc trên MinIO (page_{n}.json) — dùng để ghi đè
+    /// đúng phần tử khi người dùng sửa tay nội dung (xem OcrModuleRegionCorrectionService). NULL nếu
+    /// Job được materialize trước khi có cột này — các Job đó không patch được ngược vào MinIO.</summary>
+    public int? SourceIndex { get; set; }
+
     /// <summary>Printed | Handwritten | Mixed — yêu cầu 93.</summary>
     public string? ScriptType { get; set; }
 

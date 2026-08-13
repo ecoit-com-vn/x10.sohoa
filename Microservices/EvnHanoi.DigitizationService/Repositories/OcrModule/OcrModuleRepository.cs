@@ -60,12 +60,12 @@ public class OcrModuleRepository : IOcrModuleRepository
         var sql = $@"
             INSERT INTO OCR_MODULE_REGION (
                 ID, JOB_ID, PAGE_NUMBER, BOX_X0, BOX_Y0, BOX_X1, BOX_Y1,
-                TEXT_RAW, CONFIDENCE, REGION_TYPE, SEAL_SIGNATURE_SCORE, STATUS, CREATED_DATE
+                TEXT_RAW, CONFIDENCE, REGION_TYPE, SEAL_SIGNATURE_SCORE, STATUS, SOURCE_INDEX, CREATED_DATE
             ) VALUES (
                 :{nameof(OcrModuleRegion.Id)}, :{nameof(OcrModuleRegion.JobId)}, :{nameof(OcrModuleRegion.PageNumber)},
                 :{nameof(OcrModuleRegion.BoxX0)}, :{nameof(OcrModuleRegion.BoxY0)}, :{nameof(OcrModuleRegion.BoxX1)}, :{nameof(OcrModuleRegion.BoxY1)},
                 :{nameof(OcrModuleRegion.TextRaw)}, :{nameof(OcrModuleRegion.Confidence)}, :{nameof(OcrModuleRegion.RegionType)},
-                :{nameof(OcrModuleRegion.SealSignatureScore)}, :{nameof(OcrModuleRegion.Status)}, SYSTIMESTAMP
+                :{nameof(OcrModuleRegion.SealSignatureScore)}, :{nameof(OcrModuleRegion.Status)}, :{nameof(OcrModuleRegion.SourceIndex)}, SYSTIMESTAMP
             )";
 
         await _connection.ExecuteAsync(sql, regions);
@@ -104,6 +104,15 @@ public class OcrModuleRepository : IOcrModuleRepository
         };
     }
 
+    public async Task<OcrModuleRegionDto?> GetRegionDtoByIdAsync(string regionId)
+    {
+        var sql = $@"
+            SELECT {RegionSelectColumns()}
+            FROM OCR_MODULE_REGION WHERE ID = :RegionId AND IS_DELETED = 0";
+
+        return await _connection.QuerySingleOrDefaultAsync<OcrModuleRegionDto>(sql, new { RegionId = regionId });
+    }
+
     public async Task<List<OcrModuleRegionDto>> GetAllRegionsAsync(string jobId)
     {
         var sql = $@"
@@ -117,17 +126,42 @@ public class OcrModuleRepository : IOcrModuleRepository
     public async Task<List<OcrModuleRegion>> GetAllRegionEntitiesAsync(string jobId)
     {
         var sql = $@"
-            SELECT ID AS {nameof(OcrModuleRegion.Id)}, JOB_ID AS {nameof(OcrModuleRegion.JobId)},
-                   PAGE_NUMBER AS {nameof(OcrModuleRegion.PageNumber)},
-                   BOX_X0 AS {nameof(OcrModuleRegion.BoxX0)}, BOX_Y0 AS {nameof(OcrModuleRegion.BoxY0)},
-                   BOX_X1 AS {nameof(OcrModuleRegion.BoxX1)}, BOX_Y1 AS {nameof(OcrModuleRegion.BoxY1)},
-                   TEXT_RAW AS {nameof(OcrModuleRegion.TextRaw)}, CONFIDENCE AS {nameof(OcrModuleRegion.Confidence)},
-                   REGION_TYPE AS {nameof(OcrModuleRegion.RegionType)}, STATUS AS {nameof(OcrModuleRegion.Status)}
+            SELECT {RegionEntityColumns()}
             FROM OCR_MODULE_REGION WHERE JOB_ID = :JobId AND IS_DELETED = 0
             ORDER BY PAGE_NUMBER, BOX_Y0, BOX_X0";
 
         return (await _connection.QueryAsync<OcrModuleRegion>(sql, new { JobId = jobId })).ToList();
     }
+
+    public async Task<OcrModuleRegion?> GetRegionByIdAsync(string regionId)
+    {
+        var sql = $@"
+            SELECT {RegionEntityColumns()}
+            FROM OCR_MODULE_REGION WHERE ID = :RegionId AND IS_DELETED = 0";
+
+        return await _connection.QuerySingleOrDefaultAsync<OcrModuleRegion>(sql, new { RegionId = regionId });
+    }
+
+    public async Task UpdateRegionTextAndStatusAsync(string regionId, string textRaw, string? spellcheckStatus, string? editedBy)
+    {
+        var sql = @"
+            UPDATE OCR_MODULE_REGION
+               SET TEXT_RAW = :TextRaw, CONFIDENCE = 1.0, STATUS = 'Edited',
+                   SPELLCHECK_STATUS = COALESCE(:SpellcheckStatus, SPELLCHECK_STATUS),
+                   MODIFIED_BY = :EditedBy, MODIFIED_DATE = SYSTIMESTAMP, ROW_VERSION = ROW_VERSION + 1
+             WHERE ID = :RegionId";
+
+        await _connection.ExecuteAsync(sql, new { RegionId = regionId, TextRaw = textRaw, SpellcheckStatus = spellcheckStatus, EditedBy = editedBy });
+    }
+
+    private static string RegionEntityColumns() => $@"
+        ID AS {nameof(OcrModuleRegion.Id)}, JOB_ID AS {nameof(OcrModuleRegion.JobId)},
+        PAGE_NUMBER AS {nameof(OcrModuleRegion.PageNumber)},
+        BOX_X0 AS {nameof(OcrModuleRegion.BoxX0)}, BOX_Y0 AS {nameof(OcrModuleRegion.BoxY0)},
+        BOX_X1 AS {nameof(OcrModuleRegion.BoxX1)}, BOX_Y1 AS {nameof(OcrModuleRegion.BoxY1)},
+        TEXT_RAW AS {nameof(OcrModuleRegion.TextRaw)}, CONFIDENCE AS {nameof(OcrModuleRegion.Confidence)},
+        REGION_TYPE AS {nameof(OcrModuleRegion.RegionType)}, STATUS AS {nameof(OcrModuleRegion.Status)},
+        SOURCE_INDEX AS {nameof(OcrModuleRegion.SourceIndex)}";
 
     public async Task UpdateRegionScriptTypesAsync(IReadOnlyDictionary<string, string> regionIdToScriptType)
     {

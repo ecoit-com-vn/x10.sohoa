@@ -41,7 +41,11 @@ public class OcrModuleErrorAnalysisAggregator : IOcrModuleErrorAnalysisAggregato
 
         foreach (var region in regions)
         {
-            if (region.RegionType == "Text" && region.Confidence.HasValue && region.Confidence.Value < LowConfidenceThreshold)
+            // Region đã được người dùng hiệu chỉnh tay hoặc xác nhận thì không còn coi là lỗi độ tin cậy
+            // thấp nữa, dù giá trị Confidence cũ (trước khi sửa) có thể vẫn còn thấp trong 1 số đường dữ liệu.
+            var manuallyResolved = region.Status == "Edited" || region.Status == "Confirmed";
+
+            if (!manuallyResolved && region.RegionType == "Text" && region.Confidence.HasValue && region.Confidence.Value < LowConfidenceThreshold)
             {
                 errors.Add(NewError(jobId, region.Id, region.PageNumber, "LowConfidence",
                     region.Confidence.Value < 0.4 ? "High" : "Medium",

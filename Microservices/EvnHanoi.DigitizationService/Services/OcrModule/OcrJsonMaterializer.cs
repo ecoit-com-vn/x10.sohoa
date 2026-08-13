@@ -67,14 +67,18 @@ public class OcrJsonMaterializer : IOcrJsonMaterializer
             }
 
             var boxes = OcrPageContentHelper.DeserializeOcrResponse(pageJson);
-            foreach (var box in boxes)
+            for (var i = 0; i < boxes.Count; i++)
             {
+                var box = boxes[i];
                 if (box.Box == null || box.Box.Count != 4 || string.IsNullOrWhiteSpace(box.Text))
                     continue;
 
                 // Box trong JSON là pixel tuyệt đối theo ảnh OcrWorker render lúc OCR (OcrSourceDpi),
                 // nhưng ảnh hiển thị cho FE (GetPageImage) và mọi region khác đều ở DisplayDpi —
                 // quy đổi ngay tại đây để BoxX0..Y1 lưu trong OCR_MODULE_REGION luôn khớp DisplayDpi.
+                //
+                // SourceIndex = i (vị trí trong "boxes" gốc, TÍNH CẢ các box bị bỏ qua ở trên) — để
+                // khi sửa tay nội dung, patchedArray[region.SourceIndex] luôn trúng đúng phần tử đã đọc.
                 regions.Add(new OcrModuleRegion
                 {
                     Id = UuidHelper.NewUuid(),
@@ -88,6 +92,7 @@ public class OcrJsonMaterializer : IOcrJsonMaterializer
                     Confidence = box.Confidence,
                     RegionType = "Text",
                     Status = "Detected",
+                    SourceIndex = i,
                 });
             }
         }

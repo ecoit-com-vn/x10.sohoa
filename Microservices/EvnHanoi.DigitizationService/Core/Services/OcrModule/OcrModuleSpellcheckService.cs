@@ -5,6 +5,7 @@ using EvnHanoi.DigitizationService.Helpers;
 using EvnHanoi.DigitizationService.Models.OcrModule;
 using EvnHanoi.DigitizationService.Repositories.OcrModule;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace EvnHanoi.DigitizationService.Core.Services.OcrModule;
 
@@ -12,6 +13,9 @@ public class SpellcheckRunResult
 {
     public int TotalRegionsChecked { get; set; }
     public int SuggestionCount { get; set; }
+
+    /// <summary>false = LLM đã trả lời nhưng không đọc được JSON hợp lệ — khác với "chạy xong, không có lỗi".</summary>
+    public bool LlmResponseParsed { get; set; } = true;
 }
 
 /// <summary>
@@ -32,15 +36,18 @@ public class OcrModuleSpellcheckService : IOcrModuleSpellcheckService
     private readonly IOcrModuleRepository _repository;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
+    private readonly ILogger<OcrModuleSpellcheckService> _logger;
 
     public OcrModuleSpellcheckService(
         IOcrModuleRepository repository,
         IHttpClientFactory httpClientFactory,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        ILogger<OcrModuleSpellcheckService> logger)
     {
         _repository = repository;
         _httpClientFactory = httpClientFactory;
         _configuration = configuration;
+        _logger = logger;
     }
 
     public async Task<SpellcheckRunResult> RunAsync(string jobId, int? pageNumber = null)
@@ -105,7 +112,16 @@ public class OcrModuleSpellcheckService : IOcrModuleSpellcheckService
         var cleaned = OcrPageContentHelper.StripMarkdownCodeFence(rawContent);
 
         var suggestions = new Dictionary<string, string>();
-        if (!string.IsNullOrWhiteSpace(cleaned))
+        var responseParsed = true;
+
+        if (string.IsNullOrWhiteSpace(cleaned))
+        {
+            responseParsed = false;
+            _logger.LogWarning(
+                "Job {JobId} trang {PageNumber}: phản hồi LLM không có nội dung 'content' dùng được. Preview envelope: {Preview}",
+                jobId, pageNumber, Preview(responseBody));
+        }
+        else
         {
             try
             {
@@ -124,9 +140,15 @@ public class OcrModuleSpellcheckService : IOcrModuleSpellcheckService
                     }
                 }
             }
-            catch (JsonException)
+            catch (JsonException ex)
             {
-                // Bỏ qua nếu LLM trả về JSON không hợp lệ — không có gợi ý nào được lưu, không lỗi hệ thống.
+                // LLM trả về JSON không hợp lệ — không có gợi ý nào được lưu, nhưng PHẢI log + báo cho
+                // FE biết đây là "chạy nhưng không đọc được kết quả", không phải "chạy xong, không có lỗi".
+                responseParsed = false;
+                _logger.LogWarning(
+                    ex,
+                    "Job {JobId} trang {PageNumber}: không parse được JSON gợi ý chính tả từ LLM. Preview: {Preview}",
+                    jobId, pageNumber, Preview(cleaned));
             }
         }
 
@@ -136,6 +158,13 @@ public class OcrModuleSpellcheckService : IOcrModuleSpellcheckService
         {
             TotalRegionsChecked = textRegions.Count,
             SuggestionCount = suggestions.Count,
+            LlmResponseParsed = responseParsed,
         };
+    }
+
+    private static string Preview(string? text, int maxLength = 500)
+    {
+        if (string.IsNullOrEmpty(text)) return string.Empty;
+        return text.Length <= maxLength ? text : text[..maxLength] + "…";
     }
 }
