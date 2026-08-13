@@ -802,6 +802,25 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Riêng cho /dossier-management/digitization/my-dossiers (kindId=1) — chỉ xét phân quyền role,
+   * không xét trạng thái hồ sơ/workflow/người tạo như canEditDossier().
+   * Lưu ý: DossierDigitizationController resolve ra bộ mã quyền riêng DOSSIER_DIGITIZATION_*
+   * (không dùng chung DOSSIER_EDIT/DOSSIER_CREATE của DossierController) — xem PermissionCodeResolver.cs.
+   */
+  canManageDigitizationDocuments(): boolean {
+    if (this.menuScope === 'publisher') return false;
+
+    const roles = this.authService.getUserRoles?.() ?? [];
+    if (roles.includes('ADMIN')) return true;
+
+    return this.authService.hasPermission('DOSSIER_DIGITIZATION_EDIT')
+      || this.authService.hasPermission('DOSSIER_DIGITIZATION_CREATE')
+      || this.authService.hasPermission('DOSSIER_DIGITIZATION_MANAGE')
+      || this.authService.hasPermission('DOSSIER_DIGITIZATION_IMPORT')
+      || this.authService.hasPermission('DOSSIER_DIGITIZATION_EXPORT');
+  }
+
   canEditDossier(): boolean {
     if (this.menuScope === 'publisher') return false;
 

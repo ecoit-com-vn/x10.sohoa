@@ -154,7 +154,15 @@
                                     <span *ngIf="!first">{{ getCatalogValue(item, col) }}</span>
                                 </td>
                                 <td>{{ getDossierTypeName(item) }}</td>
-                                <td>{{ item.infrastructureName || '-' }}</td>
+                                <td>
+                                    <ng-container *ngIf="item.infrastructures?.length; else noInfrastructure">
+                                        <div *ngFor="let infra of item.infrastructures">
+                                            {{ infra.infrastructureName }}
+                                            <span *ngIf="infra.infrastructureCode" class="text-muted"> ({{ infra.infrastructureCode }})</span>
+                                        </div>
+                                    </ng-container>
+                                    <ng-template #noInfrastructure>{{ item.infrastructureName || '-' }}</ng-template>
+                                </td>
                                 <td class="text-center" style="width: 100px;">{{ item.documentCount ?? 0 }}</td>
                                 <td class="col-hd">
                                     <div class="action-buttons-group">

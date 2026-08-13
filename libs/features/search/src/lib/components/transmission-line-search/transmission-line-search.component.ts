@@ -563,7 +563,7 @@ export class TransmissionLineSearchComponent implements OnInit {
       }
 
       const documentRequests = dossiers.map((dossier: any) =>
-        this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true).pipe(
+        this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true, true).pipe(
           catchError(() => of({ items: [] }))
         )
       );
@@ -721,7 +721,7 @@ export class TransmissionLineSearchComponent implements OnInit {
     this.loadingTechnicalFolders.set(loading);
 
     const documentRequests = missingDossiers.map((dossier: any) =>
-      this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true).pipe(
+      this.dossierDocumentService.getDocuments(String(dossier.id), { page: 1, pageSize: 1000 }, true, true).pipe(
         catchError(() => of({ items: [] }))
       )
     );
