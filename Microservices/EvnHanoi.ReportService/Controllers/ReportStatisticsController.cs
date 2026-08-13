@@ -307,6 +307,20 @@ namespace EvnHanoi.ReportService.Controllers
         }
 
         /// <summary>
+        /// Lookup danh sách hộp hồ sơ — lấy ra chi tiết Combobox Hộp hồ sơ: Hiện thị dạng cây Kệ > Tầng > Hộp
+        /// GET /api/v1/reports/statistics/lookups/boxes-detail
+        /// </summary>
+        [HttpGet("lookups/boxes-detail")]
+        public async Task<IActionResult> GetBoxesDetailLookup([FromQuery] long? unitId)
+        {
+            var scope = ResolveUserScope();
+            var unitScopeRoot = scope.IsAdmin ? null : scope.UnitId;
+            var effectiveUnitId = scope.IsAdmin ? unitId : (unitId ?? scope.UnitId);
+            var boxes = await _dossierRepository.GetBoxesDetailLookup(unitScopeRoot, effectiveUnitId);
+            return Ok(boxes);
+        }
+
+        /// <summary>
         /// Lookup danh sách tầng hồ sơ — dùng cho báo cáo thống kê theo tầng lưu trữ.
         /// GET /api/v1/reports/statistics/lookups/floors
         /// </summary>

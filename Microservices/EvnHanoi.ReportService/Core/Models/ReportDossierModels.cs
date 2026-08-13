@@ -16,6 +16,15 @@ public class ReportDossierLookupItem
     public long? ParentId { get; set; }
 }
 
+public class ReportBoxsesDetailLookupItem
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Code { get; set; }
+    public string? FloorCode { get; set; }
+    public string? ShelfCode { get; set; }
+}
+
 public class ReportDossierBhsColumn
 {
     public string Key { get; set; } = string.Empty;

@@ -241,6 +241,30 @@ public class ReportDossierRepository : IReportDossierRepository
         return await _connection.QueryAsync<ReportDossierLookupItem>(sql, parameters);
     }
 
+    public async Task<IEnumerable<ReportBoxsesDetailLookupItem>> GetBoxesDetailLookup(long? unitScopeRoot, long? filterUnitId)
+    {
+        EnsureOpen();
+        var parameters = new DynamicParameters();
+        var sql = @"
+            SELECT CAST(b.Id AS VARCHAR2(50)) AS Id, b.Name, b.Code, f.Code AS FloorCode, s.Code AS ShelfCode
+            FROM PHYSICAL_BOX b
+            INNER JOIN PHYSICAL_FLOOR f ON b.FloorId = f.Id AND NVL(f.IS_DELETED, 0) = 0
+            INNER JOIN PHYSICAL_SHELF s ON f.ShelfId = s.Id AND NVL(s.IS_DELETED, 0) = 0
+            WHERE NVL(b.IS_DELETED, 0) = 0";
+
+        var effectiveUnitId = filterUnitId ?? unitScopeRoot;
+        if (effectiveUnitId.HasValue)
+        {
+            sql += @" AND s.UnitId IN (
+                SELECT Id FROM ORGANIZATION_UNIT START WITH Id = :UnitId CONNECT BY PRIOR Id = ParentId
+            )";
+            parameters.Add("UnitId", effectiveUnitId.Value);
+        }
+
+        sql += " ORDER BY b.Name ASC";
+        return await _connection.QueryAsync<ReportBoxsesDetailLookupItem>(sql, parameters);
+    }
+
     public Task<IEnumerable<ReportDossierLookupItem>> GetEquipmentsAsync(long? unitScopeRoot, long? filterUnitId) =>
         QueryPublishedLookupAsync(
             unitScopeRoot,
