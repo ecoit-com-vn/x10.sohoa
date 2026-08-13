@@ -66,10 +66,18 @@ export class ReportStatisticsDocumentListComponent {
 
   openDossierDetail(item: ReportStatisticsDocumentListItem): void {
     if (!item.dossierId) return;
+
     const url = this.router.serializeUrl(
-      this.router.createUrlTree(['/dossier-management/publish', item.dossierId])
+      this.router.createUrlTree(
+        ['/dossier-management/publish', item.dossierId],
+        {
+          queryParams: { from: 'report' }
+        }
+      )
     );
-    window.open(url, '_blank');
+
+    const fullUrl = `${window.location.origin}/#${url}`;
+    window.open(fullUrl, '_blank');
   }
 
   private loadData(): void {

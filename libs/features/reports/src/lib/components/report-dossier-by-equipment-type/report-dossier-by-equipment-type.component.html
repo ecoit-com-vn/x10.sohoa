@@ -3,7 +3,11 @@
 <div class="wf-page dossier-report-page equipment-type-report">
   <div class="list-toolbar standard-page-toolbar breadcrumb-container">
     <wf-breadcrumb
-      [suffix]="'Báo cáo thống kê hồ sơ nhập liệu theo loại thiết bị'"
+      [customItems]="[
+        { label: 'Báo cáo & Thống kê' },
+        { label: 'Thống kê báo cáo', url: '/reports/statistics' } ,
+        { label: 'Báo cáo thống kê hồ sơ nhập liệu theo loại thiết bị'} 
+      ]" 
     ></wf-breadcrumb>
   </div>
 

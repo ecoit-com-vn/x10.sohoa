@@ -8,6 +8,8 @@ export interface BoxLookupItem {
   id: string;
   name: string;
   code?: string;
+  floorCode?: string;
+  shelfCode?: string;
 }
 
 export interface DossierByBoxFilter {
@@ -55,7 +57,7 @@ export class ReportDossierByBoxService {
     if (unitId != null && unitId > 0) {
       params = params.set('unitId', unitId.toString());
     }
-    return this.http.get<BoxLookupItem[]>(`${this.baseUrl}/lookups/boxes`, { params });
+    return this.http.get<BoxLookupItem[]>(`${this.baseUrl}/lookups/boxes-detail`, { params });
   }
 
   getYearsLookup(): Observable<number[]> {

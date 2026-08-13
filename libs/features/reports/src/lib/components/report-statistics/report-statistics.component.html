@@ -1,7 +1,7 @@
 <!-- sohoa.frontend/libs/features/reports/src/lib/components/report-statistics/report-statistics.component.html -->
 <div class="wf-page">
     <p-toast></p-toast>
-    <div class="list-toolbar standard-page-toolbar">
+    <div class="standard-page-toolbar">
         <div class="toolbar-left">
             <wf-breadcrumb></wf-breadcrumb>
         </div>
@@ -67,11 +67,11 @@
                     <tbody>
                         <tr *ngFor="let report of pagedReports(); let i = index">
                             <td class="text-center text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-                            <td><span style="color: #0284c7; font-weight: 400;">{{ report.code }}</span></td>
+                            <td><span style="cursor: pointer; color: #0284c7; font-weight: 400;" (click)="viewReport(report)">{{ report.code }}</span></td>
                             <td>
                                 <span class="wf-name-link" style="cursor: pointer; color: #334155; font-weight: 400;" (click)="viewReport(report)">
-                {{ report.name }}
-              </span>
+                                {{ report.name }}
+                            </span>
                             </td>
                             <td class="text-center">
                                 <button type="button" class="act-btn-dot" (click)="viewReport(report)" pTooltip="Xem báo cáo" tooltipPosition="top" title="Xem báo cáo" style="background: transparent; border: none; cursor: pointer; padding: 4px 6px; border-radius: 4px; color: #64748b; transition: all 0.2s;">
