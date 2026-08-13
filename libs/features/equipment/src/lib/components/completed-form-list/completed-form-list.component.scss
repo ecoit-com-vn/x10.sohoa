@@ -392,16 +392,6 @@
     color: #ef4444;
 }
 
-// Keep the list breadcrumb identical to Dossier Management without touching shared styles.
-:host .standard-page-toolbar {
-    height: 40px;
-    min-height: 0;
-    margin: 0 0 3px;
-    padding: 16px 16px;
-    box-sizing: border-box;
-    align-items: center;
-}
-
 :host .standard-page-toolbar>.toolbar-left,
 :host .standard-page-toolbar wf-breadcrumb {
     display: flex;

@@ -98,6 +98,9 @@ export class EquipmentComponent implements OnInit {
 
   // Tab and Detail View States
   activeTab = signal<'info' | 'related' | 'profileDocs'>('info');
+  searchReadOnly = signal<boolean>(false);
+  dossierLookupMode = signal<boolean>(false);
+  lookupDossierId = signal<string | null>(null);
   eavTemplate = signal<any>(null);
   eavFields = signal<any[]>([]);
   formValuesObj = signal<any>({});
@@ -223,6 +226,7 @@ export class EquipmentComponent implements OnInit {
   // State lists
   items = signal<any[]>([]);
   totalCount = signal<number>(0);
+
 
   currentView = signal<'list' | 'add' | 'edit'>('list');
   currentItem = signal<any>({});
