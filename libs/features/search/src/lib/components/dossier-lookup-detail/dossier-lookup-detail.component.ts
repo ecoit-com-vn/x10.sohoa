@@ -56,6 +56,30 @@ export class DossierLookupDetailComponent implements OnInit {
   activeDetailTab = signal<'info' | 'documents' | 'related'>('info');
   dossierDocuments = signal<any[]>([]);
   loadingDossierDocuments = signal<boolean>(false);
+  filterDocumentKeyword = signal<string>('');
+  filterDocumentTypeId = signal<string>('');
+  private appliedDocumentKeyword = signal<string>('');
+  documentTypeOptions = computed(() => {
+    const map = new Map<string, string>();
+    for (const doc of this.dossierDocuments()) {
+      const id = doc.documentTypeId || doc.DocumentTypeId;
+      if (!id) continue;
+      const name = doc.documentTypeName || doc.DocumentTypeName || id;
+      if (!map.has(id)) map.set(id, name);
+    }
+    return Array.from(map, ([id, name]) => ({ id, name }));
+  });
+  filteredDossierDocuments = computed(() => {
+    const keyword = this.appliedDocumentKeyword().trim().toLowerCase();
+    const typeId = this.filterDocumentTypeId();
+    return this.dossierDocuments().filter((doc) => {
+      const name = (doc.name || doc.Name || '').toLowerCase();
+      const matchesKeyword = !keyword || name.includes(keyword);
+      const docTypeId = doc.documentTypeId || doc.DocumentTypeId || '';
+      const matchesType = !typeId || docTypeId === typeId;
+      return matchesKeyword && matchesType;
+    });
+  });
   relatedEquipments = signal<any[]>([]);
   loadingEquipments = signal<boolean>(false);
   dynamicFields = signal<EavField[]>([]);
@@ -135,7 +159,7 @@ export class DossierLookupDetailComponent implements OnInit {
   filterEquipmentId = '';
   filterDossierTypeId = '';
 
-  dossierMeta = computed(() => normalizeDossierDetail(this.dossier()));
+  dossierMeta = computed(() => this.dossier());
   dossierViewMeta = computed(() => {
     const meta = this.dossierMeta();
     const raw = meta?.raw ?? {};
@@ -359,6 +383,23 @@ export class DossierLookupDetailComponent implements OnInit {
   onRelatedFilterChange() {
     this.relatedFirst.set(0);
     this.loadRelatedDossiers(this.dossierId());
+  }
+
+  onResetRelatedSearch(): void {
+    this.filterKeyword = '';
+    this.filterEquipmentId = '';
+    this.filterDossierTypeId = '';
+    this.onRelatedFilterChange();
+  }
+
+  onApplyDocumentSearch(): void {
+    this.appliedDocumentKeyword.set(this.filterDocumentKeyword());
+  }
+
+  onResetDocumentSearch(): void {
+    this.filterDocumentKeyword.set('');
+    this.filterDocumentTypeId.set('');
+    this.appliedDocumentKeyword.set('');
   }
 
   onEquipmentPageChange(event: any) {

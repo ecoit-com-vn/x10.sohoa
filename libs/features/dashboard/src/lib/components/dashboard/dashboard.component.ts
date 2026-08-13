@@ -141,7 +141,7 @@ export class DashboardComponent implements OnInit {
   /** Tổng hồ sơ + danh sách hồ sơ mới nhất (đã sắp xếp theo ngày tạo giảm dần ở backend, không lọc theo trạng thái/tab) */
   private loadRecentDossiers() {
     this.http
-      .get<any>(`${environment.apiGatewayUrl}/api/v1/search/dossiers`, {
+      .get<any>(`${environment.apiGatewayUrl}/api/v1/search/dashboard/dossiers`, {
         params: { page: '1', pageSize: '5' }
       })
       .subscribe({
@@ -193,7 +193,7 @@ export class DashboardComponent implements OnInit {
   private loadDossierTypeStatistics() {
     this.http
       .get<DossierTypeChartStatDto[]>(
-        `${environment.apiGatewayUrl}/api/v1/reports/statistics/dossier-by-dossier-type/chart-stats`
+        `${environment.apiGatewayUrl}/api/v1/reports/statistics/dashboard/dossier-by-dossier-type/chart-stats`
       )
       .subscribe({
         next: (stats) => {
@@ -244,7 +244,7 @@ export class DashboardComponent implements OnInit {
       to.setHours(23, 59, 59, 999);
       return this.http
         .get<DossierGeneralInputChartStatDto[]>(
-          `${environment.apiGatewayUrl}/api/v1/reports/statistics/dossier-general-input/chart-stats`,
+          `${environment.apiGatewayUrl}/api/v1/reports/statistics/dashboard/dossier-general-input/chart-stats`,
           { params: { fromDate: from.toISOString(), toDate: to.toISOString() } }
         )
         .pipe(catchError(() => of([] as DossierGeneralInputChartStatDto[])));
@@ -271,7 +271,7 @@ export class DashboardComponent implements OnInit {
   /** Lượt tra cứu — cộng dồn từ LOOKUP_VIEW_DAILY_COUNTS (ghi nhận mỗi khi mở hồ sơ/tài liệu qua tra cứu/tìm kiếm) */
   private loadUsageCounters() {
     this.http
-      .get<any>(`${environment.apiGatewayUrl}/api/v1/reports/statistics/dossier-most-viewed/summary-stats`)
+      .get<any>(`${environment.apiGatewayUrl}/api/v1/reports/statistics/dashboard/dossier-most-viewed/summary-stats`)
       .subscribe({
         next: (res) => {
           const station = res?.stationViewCount ?? res?.StationViewCount ?? 0;
@@ -325,7 +325,7 @@ export class DashboardComponent implements OnInit {
     const fetchDossierDocTotals = (from: Date, to: Date) =>
       this.http
         .get<DossierGeneralInputChartStatDto[]>(
-          `${environment.apiGatewayUrl}/api/v1/reports/statistics/dossier-general-input/chart-stats`,
+          `${environment.apiGatewayUrl}/api/v1/reports/statistics/dashboard/dossier-general-input/chart-stats`,
           { params: { fromDate: from.toISOString(), toDate: to.toISOString() } }
         )
         .pipe(

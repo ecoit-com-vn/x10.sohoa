@@ -1896,7 +1896,11 @@
           <app-equipment-documents
             *ngIf="currentItem().id as profileEquipmentId"
             [equipmentId]="profileEquipmentId"
-            [canEdit]="canEdit()"
+            [canEdit]="canEdit() && !searchReadOnly()"
+            [publishedOnly]="true"
+            [hideDigitizationColumns]="searchReadOnly()"
+            [dossierLookupMode]="dossierLookupMode()"
+            [lookupDossierId]="lookupDossierId()"
             (documentProcessed)="reloadDetail(profileEquipmentId)"
           ></app-equipment-documents>
         </div>

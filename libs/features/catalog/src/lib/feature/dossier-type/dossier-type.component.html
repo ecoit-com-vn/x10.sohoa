@@ -2,7 +2,10 @@
     <p-toast></p-toast>
     <div class="list-toolbar standard-page-toolbar">
         <div class="toolbar-left">
-            <wf-breadcrumb [viewMode]="currentView()" (listClick)="currentView.set('list')" />
+            <wf-breadcrumb
+                [viewMode]="currentView()"
+                [suffix]="currentView() === 'configure' ? 'Cấu hình biểu mẫu' : null"
+                (listClick)="currentView.set('list')" />
         </div>
         <div class="toolbar-right" *ngIf="canCreate()">
             <button class="btn-green" (click)="onAddNew()">
@@ -191,8 +194,6 @@
 
         <!-- MÀN HÌNH CẤU HÌNH BIỂU MẪU ĐỘNG (EAV) -->
         <div *ngIf="currentView() === 'configure'" class="animate-fade-in" style="padding-top: 10px;">
-            <wf-breadcrumb suffix="Cấu hình biểu mẫu" (listClick)="currentView.set('list')" />
-
             <div class="form-builder-wrapper">
                 <!-- Top Header Bar -->
                 <div class="builder-header shadow-1" style="display: flex; justify-content: space-between; align-items: center; background-color: white; padding: 1.25rem 1.75rem; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.05);">
