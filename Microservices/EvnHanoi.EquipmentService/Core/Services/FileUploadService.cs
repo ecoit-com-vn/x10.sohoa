@@ -741,7 +741,7 @@ public class FileUploadService : IFileUploadService
             FilePath = mergedPath,
             MinioVersionId = minioVersionId,
             FileSize = mergedSize,
-            MimeType = mimeType,
+            MimeType = ResolveMimeType(session.FileName),
             PageCount = pageCount,
             UploadSessionId = session.Id,
             ChunksCount = session.TotalChunks,

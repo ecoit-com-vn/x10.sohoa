@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading.Tasks;
 using EvnHanoi.Infrastructure.Security;
@@ -25,13 +26,49 @@ namespace EvnHanoi.ReportService.Controllers
     {
         private readonly IReportRepository _reportRepository;
         private readonly IReportDossierRepository _dossierRepository;
+        private readonly IHttpClientFactory _httpClientFactory;
 
         public ReportStatisticsController(
             IReportRepository reportRepository,
-            IReportDossierRepository dossierRepository)
+            IReportDossierRepository dossierRepository,
+            IHttpClientFactory httpClientFactory)
         {
             _reportRepository = reportRepository;
             _dossierRepository = dossierRepository;
+            _httpClientFactory = httpClientFactory;
+        }
+
+        protected async Task<bool> HasDashboardPermissionAsync()
+        {
+            var roles = User.FindAll(ClaimTypes.Role).Select(claim => claim.Value);
+            var username = User.FindFirst(ClaimTypes.Name)?.Value ?? User.Identity?.Name;
+            if (roles.Any(role => role.Equals("ADMIN", StringComparison.OrdinalIgnoreCase)) ||
+                string.Equals(username, "admin", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var authHeader = Request.Headers.Authorization.ToString();
+            if (string.IsNullOrWhiteSpace(authHeader))
+                return false;
+
+            try
+            {
+                var client = _httpClientFactory.CreateClient("IdentityService");
+                using var request = new HttpRequestMessage(HttpMethod.Get, "api/v1/auth/permissions");
+                request.Headers.TryAddWithoutValidation("Authorization", authHeader);
+                using var response = await client.SendAsync(request);
+                if (!response.IsSuccessStatusCode)
+                    return false;
+
+                var permissions = await response.Content.ReadFromJsonAsync<List<string>>();
+                return permissions?.Any(permission =>
+                    permission.Equals("VIEW_DASHBOARD", StringComparison.OrdinalIgnoreCase)) == true;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         protected Core.Models.UserScope ResolveUserScope()
