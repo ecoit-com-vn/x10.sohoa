@@ -1455,6 +1455,10 @@ public class DocumentRepository : IDocumentRepository
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
+        // Một hồ sơ thuộc một đơn vị khi nó được gắn với một hạ tầng (lưới điện/trạm)
+        // thuộc cây đơn vị qua FK trực tiếp (d.InfrastructureId) HOẶC qua bảng trung gian
+        // DOSSIER_INFRASTRUCTURE (liên kết n-n). Giữ đúng logic "OR EXISTS" giống
+        // GetListDocumentIdsAsync để số lượng tài liệu trên cây khớp đúng thực tế.
         const string sql = @"
             SELECT 
                 d.ID as Id, 
@@ -1466,20 +1470,40 @@ public class DocumentRepository : IDocumentRepository
                 ds.NAME as DossierSetName,
                 f.GridTypeId as GridTypeId
             FROM DOSSIERS d
-            INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
             LEFT JOIN DOSSIER_TYPES dt ON d.DossierTypeId = dt.ID
             LEFT JOIN DOSSIER_SETS ds ON d.DossierSetId = ds.ID
             LEFT JOIN EavFormTemplates f ON dt.FORM_ID = f.Id
             WHERE d.ISDELETED = 0 
               AND d.PublishStatusId = 2
-              AND i.UNIT_ID IN (
-                  SELECT Id 
-                  FROM ORGANIZATION_UNIT
-                  START WITH Id = :UnitId
-                  CONNECT BY PRIOR Id = ParentId
-              )
-              AND i.IsDeleted = 0 
-              AND i.IS_ACTIVE = 1";
+              AND (
+                    EXISTS (
+                        SELECT 1
+                        FROM INFRASTRUCTURE i
+                        WHERE i.ID = d.InfrastructureId
+                          AND i.UNIT_ID IN (
+                              SELECT Id 
+                              FROM ORGANIZATION_UNIT
+                              START WITH Id = :UnitId
+                              CONNECT BY PRIOR Id = ParentId
+                          )
+                          AND i.IsDeleted = 0 
+                          AND i.IS_ACTIVE = 1
+                    )
+                    OR EXISTS (
+                        SELECT 1
+                        FROM DOSSIER_INFRASTRUCTURE di
+                        INNER JOIN INFRASTRUCTURE i2 ON i2.ID = di.InfrastructureId
+                        WHERE di.DossierId = d.ID
+                          AND i2.UNIT_ID IN (
+                              SELECT Id 
+                              FROM ORGANIZATION_UNIT
+                              START WITH Id = :UnitId
+                              CONNECT BY PRIOR Id = ParentId
+                          )
+                          AND i2.IsDeleted = 0 
+                          AND i2.IS_ACTIVE = 1
+                    )
+              )";
 
         return await _connection.QueryAsync<ActiveDossierQueryDto>(sql, new { UnitId = unitId });
     }
@@ -1565,7 +1589,27 @@ public class DocumentRepository : IDocumentRepository
         parameters.Add("Offset", (page - 1) * pageSize);
         parameters.Add("PageSize", pageSize);
 
-        var whereClause = "dos.IsDeleted = 0 AND d.IS_DELETED = 0 AND i.UNIT_ID = :UnitId AND dos.InfrastructureId = :InfrastructureId";
+        // Chỉ đếm tài liệu của hồ sơ thuộc hạ tầng được chọn qua FK trực tiếp HOẶC bảng
+        // trung gian DOSSIER_INFRASTRUCTURE (giống GetListDocumentIdsAsync), đồng thời
+        // hồ sơ phải đã xuất bản và hạ tầng phải thuộc cây đơn vị, đang hoạt động.
+        var whereClause = @"dos.IsDeleted = 0 AND dos.PublishStatusId = 2 AND d.IS_DELETED = 0
+    AND (
+        dos.InfrastructureId = :InfrastructureId
+        OR EXISTS (
+            SELECT 1 FROM DOSSIER_INFRASTRUCTURE di
+            WHERE di.DossierId = dos.ID AND di.InfrastructureId = :InfrastructureId
+        )
+    )
+    AND EXISTS (
+        SELECT 1 FROM INFRASTRUCTURE ia
+        WHERE ia.ID = :InfrastructureId
+          AND ia.UNIT_ID IN (
+              SELECT Id FROM ORGANIZATION_UNIT
+              START WITH Id = :UnitId
+              CONNECT BY PRIOR Id = ParentId
+          )
+          AND ia.IsDeleted = 0 AND ia.IS_ACTIVE = 1
+    )";
 
         if (!string.IsNullOrWhiteSpace(dossierTypeId))
         {
@@ -1583,7 +1627,6 @@ public class DocumentRepository : IDocumentRepository
             SELECT COUNT(1)
             FROM DOCUMENTS d
             JOIN DOSSIERS dos ON d.DOSSIER_ID = dos.ID
-            JOIN INFRASTRUCTURE i ON dos.InfrastructureId = i.ID
             WHERE {whereClause}";
 
         var countResult = await _connection.ExecuteScalarAsync(countSql, parameters);
@@ -1608,7 +1651,6 @@ public class DocumentRepository : IDocumentRepository
                 latest.LATEST_VERSION_ID AS LatestVersionId
             FROM DOCUMENTS d
             JOIN DOSSIERS dos ON d.DOSSIER_ID = dos.ID
-            JOIN INFRASTRUCTURE i ON dos.InfrastructureId = i.ID
             {DocumentCreatorJoin}
             LEFT JOIN (
                 SELECT dv.DOCUMENT_ID, dv.ID AS LATEST_VERSION_ID, dv.FILE_SIZE, dv.MIME_TYPE
