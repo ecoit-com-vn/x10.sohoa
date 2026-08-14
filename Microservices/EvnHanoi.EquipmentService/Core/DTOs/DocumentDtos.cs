@@ -125,7 +125,7 @@ public class DocumentVersionDto
     public Guid Id { get; set; }
     public Guid DocumentId { get; set; }
     public int VersionNumber { get; set; }
-    public int UploadSource { get; set; }  // 1: Thư mục, 2: Scan, 3: Web
+    public int UploadSource { get; set; }  // 1: Thư mục, 2: Scan, 3: Web, 4: Xử lý tự động (khử nhiễu...)
     public string? FilePath { get; set; }
     public string? MinioVersionId { get; set; }
     public long FileSize { get; set; }

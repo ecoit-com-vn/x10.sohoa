@@ -376,6 +376,45 @@ public partial class DocumentController : ControllerBase
     }
 
     /// <summary>
+    /// Khử nhiễu (cân bằng sáng/tương phản) tài liệu PDF hiện tại, lưu kết quả thành phiên bản mới
+    /// </summary>
+    [HttpPost("{documentId}/noise-reduction")]
+    public async Task<IActionResult> ApplyNoiseReduction(
+        [FromRoute] Guid documentId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userUnitId = GetUserUnitId();
+            if (userUnitId == 0)
+                return Unauthorized("Không thể xác định đơn vị của người dùng");
+
+            var result = await _documentService.ApplyNoiseReductionAsync(documentId, UserId, userUnitId, cancellationToken);
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Validation error for noise reduction");
+            return BadRequest(new { code = "VALIDATION_ERROR", message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Operation error for noise reduction");
+            return BadRequest(new { code = "OPERATION_ERROR", message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Permission denied for noise reduction");
+            return StatusCode(403, new { code = "FORBIDDEN", message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error applying noise reduction");
+            return StatusCode(500, new { code = "NOISE_REDUCTION_ERROR", message = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Khởi tạo phiên chunked upload cho phiên bản mới (file > 10MB)
     /// </summary>
     [HttpPost("{documentId}/new-versions/initiate-chunked")]
