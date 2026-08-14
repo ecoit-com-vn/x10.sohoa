@@ -1376,3 +1376,76 @@
     </div>
   </ng-template>
 </p-dialog>
+
+<p-dialog
+  [header]="'Khử nhiễu: ' + (noiseReductionTargetDoc()?.name ?? '')"
+  [visible]="showNoiseReductionDialog()"
+  (visibleChange)="$event ? null : closeNoiseReductionDialog()"
+  [modal]="true"
+  [resizable]="true"
+  [draggable]="true"
+  [style]="{ width: '80vw', maxWidth: '1100px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="true"
+>
+  <div
+    style="
+      min-height: 400px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    "
+  >
+    <div *ngIf="noiseReductionLoading()" style="text-align: center; padding: 40px">
+      <i
+        class="pi pi-spin pi-spinner"
+        style="font-size: 2.5rem; color: #3b82f6"
+      ></i>
+      <div style="margin-top: 12px; color: #64748b; font-size: 0.95rem">
+        Đang tải dữ liệu xem trước...
+      </div>
+    </div>
+
+    <iframe
+      *ngIf="!noiseReductionLoading() && noiseReductionPreviewBlobUrl()"
+      [src]="getSafeNoiseReductionPreviewUrl()"
+      style="
+        width: 100%;
+        height: 75vh;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+      "
+    ></iframe>
+  </div>
+
+  <ng-template #footer>
+    <div
+      style="
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 12px;
+        border-top: 1px solid #e2e8f0;
+      "
+    >
+      <span style="font-size: 0.85rem; color: #64748b">
+        <i class="pi pi-info-circle"></i> Cân bằng lại độ sáng/tương phản từng trang PDF, lưu thành phiên bản mới.
+      </span>
+      <div style="display: flex; gap: 8px">
+        <button
+          class="btn-save btn-small"
+          [disabled]="noiseReductionLoading() || noiseReductionProcessing()"
+          (click)="onApplyNoiseReduction()"
+        >
+          <i [class]="noiseReductionProcessing() ? 'pi pi-spin pi-spinner' : 'pi pi-image'"></i>
+          {{ noiseReductionProcessing() ? 'Đang khử nhiễu...' : 'Khử nhiễu' }}
+        </button>
+        <button class="btn-cancel btn-small" (click)="closeNoiseReductionDialog()">
+          <i class="pi pi-times"></i> Đóng
+        </button>
+      </div>
+    </div>
+  </ng-template>
+</p-dialog>

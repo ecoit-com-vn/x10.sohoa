@@ -251,12 +251,12 @@ body {
     align-items: center;
     flex-wrap: nowrap;
     gap: 12px;
-    margin-bottom: 15px;
+    margin-bottom: 5px;
     margin-top: 5px;
     background: #ffffff;
     border: 1px solid #e2e8f0;
     padding: 5px 16px;
-    border-radius: 10px;
+    border-radius: 5px;
 }
 
 .standard-page-toolbar>.toolbar-left {
@@ -346,7 +346,6 @@ body {
     justify-content: flex-end;
     align-items: flex-end;
     gap: 8px;
-    margin-top: 16px;
     width: 100%;
     flex-basis: 100%;
 }
@@ -550,7 +549,7 @@ body {
 }
 
 .btn-excel {
-    height: 34px;
+    height: 30px;
     padding: 0 14px;
     background: #16a34a;
     color: #ffffff;

@@ -1067,7 +1067,13 @@ export class DossierFormComponent implements OnInit {
 
   loadInfrastructures() {
     this.service.getInfrastructureLookup().subscribe(res => {
-      const items = (res || []).map((inf: any) => this.enrichInfrastructureOption(inf));
+      const source = !this.isEditMode() && !this.usePublishApi
+        ? (res || []).filter((inf: any) => {
+            const isActive = inf.isActive ?? inf.IsActive;
+            return isActive === true || isActive === 1 || isActive === '1';
+          })
+        : (res || []);
+      const items = source.map((inf: any) => this.enrichInfrastructureOption(inf));
       const selectedIds = this.dossier.infrastructureIds?.length
         ? this.dossier.infrastructureIds
         : (this.dossier.infrastructureId ? [this.dossier.infrastructureId] : []);

@@ -5,8 +5,12 @@
   <div class="list-toolbar standard-page-toolbar breadcrumb-container">
     <div class="toolbar-left">
       <wf-breadcrumb
-        [suffix]="'Báo cáo thống kê hồ sơ nhập liệu theo năm'"
-      ></wf-breadcrumb>
+      [customItems]="[
+        { label: 'Báo cáo & Thống kê' },
+        { label: 'Thống kê báo cáo', url: '/reports/statistics' } ,
+        { label: 'Báo cáo thống kê hồ sơ nhập liệu theo năm'} 
+      ]" 
+    ></wf-breadcrumb>
     </div>
     <div class="toolbar-right" *ngIf="activeTab() === 'list'">
       <button

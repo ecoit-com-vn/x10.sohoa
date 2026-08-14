@@ -3,7 +3,8 @@
   <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
   <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
-      <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Người dùng', url: '/administration/user-management' }]" />
+      <wf-breadcrumb
+        [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Người dùng', url: '/administration/user-management' }]" />
     </div>
     <div class="toolbar-right">
       <button *ngIf="authService.hasPermission('USER_EXPORT')" class="btn-outlined" (click)="onExportExcel()"
@@ -15,14 +16,14 @@
       </button>
     </div>
   </div>
-    <div>
+  <div>
 
     <!-- MÀN HÌNH DANH SÁCH -->
     <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'"
       class="animate-fade-in">
       <!-- Toolbar -->
-            <div class="standard-search-card">
-                <div class="standard-search-grid">
+      <div class="standard-search-card">
+        <div class="standard-search-grid">
           <div class="standard-search-field">
             <label class="search-field-label">Từ khóa</label>
             <input type="text" class="wf-search-input" placeholder="Tìm kiếm tài khoản, tên..."
@@ -32,7 +33,9 @@
 
           <div class="standard-search-field">
             <label class="search-field-label">Đơn vị</label>
-            <eco-input-tree-select class="unit-filter-select" [showLabel]="false" placeholder="-- Tất cả đơn vị --" selectionMode="checkbox" display="chip" [nodes]="primengOrgUnitTree()" [ngModel]="searchUnitIds()" (ngModelChange)="onSearchUnitChange($event)" [showClear]="true" [enableSearch]="true" [border]="true" />
+            <eco-input-tree-select class="unit-filter-select" [showLabel]="false" placeholder="-- Tất cả đơn vị --"
+              selectionMode="checkbox" display="chip" [nodes]="primengOrgUnitTree()" [ngModel]="searchUnitIds()"
+              (ngModelChange)="onSearchUnitChange($event)" [showClear]="true" [enableSearch]="true" [border]="true" />
           </div>
 
           <div class="standard-search-field">
@@ -44,8 +47,8 @@
             </select>
           </div>
 
-        </div>
-        <div class="standard-search-actions">
+
+          <div class="standard-search-actions">
             <button type="button" class="btn-outlined" (click)="onResetSearch()">
               <i class="pi pi-refresh"></i> Làm mới
             </button>
@@ -53,93 +56,93 @@
               <i class="pi pi-check"></i> Áp dụng
             </button>
           </div>
+        </div>
       </div>
 
       <!-- Table -->
-            <div class="wf-card">
-            <div class="wf-table-wrap">
-        <table class="wf-table">
-          <thead>
-            <tr>
-              <th class="col-stt">STT</th>
-              <th>Tên đăng nhập</th>
-              <th>Họ và tên</th>
-              <th>Đơn vị thành viên</th>
-              <th>Email</th>
-              <th class="col-tt">Trạng thái</th>
-              <th class="col-hd">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- skeleton loading rows -->
-            <ng-container *ngIf="loading()">
-              <tr *ngFor="let item of [1, 2, 3, 4, 5]">
-                <td class="col-stt">
-                  <div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div>
-                </td>
-                <td>
-                  <div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div>
-                </td>
-                <td>
-                  <div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div>
-                </td>
-                <td>
-                  <div class="skeleton-shimmer" style="height: 16px; width: 130px; border-radius: 4px;"></div>
-                </td>
-                <td>
-                  <div class="skeleton-shimmer" style="height: 16px; width: 180px; border-radius: 4px;"></div>
-                </td>
-                <td class="col-tt">
-                  <div class="skeleton-shimmer" style="height: 24px; width: 80px; border-radius: 12px;"></div>
-                </td>
-                <td class="col-hd">
-                  <div class="skeleton-shimmer" style="height: 24px; width: 60px; border-radius: 4px;"></div>
-                </td>
+      <div class="wf-card">
+        <div class="wf-table-wrap">
+          <table class="wf-table">
+            <thead>
+              <tr>
+                <th class="col-stt">STT</th>
+                <th>Tên đăng nhập</th>
+                <th>Họ và tên</th>
+                <th>Đơn vị thành viên</th>
+                <th>Email</th>
+                <th class="col-tt">Trạng thái</th>
+                <th class="col-hd">Thao tác</th>
               </tr>
-            </ng-container>
+            </thead>
+            <tbody>
+              <!-- skeleton loading rows -->
+              <ng-container *ngIf="loading()">
+                <tr *ngFor="let item of [1, 2, 3, 4, 5]">
+                  <td class="col-stt">
+                    <div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div>
+                  </td>
+                  <td>
+                    <div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div>
+                  </td>
+                  <td>
+                    <div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div>
+                  </td>
+                  <td>
+                    <div class="skeleton-shimmer" style="height: 16px; width: 130px; border-radius: 4px;"></div>
+                  </td>
+                  <td>
+                    <div class="skeleton-shimmer" style="height: 16px; width: 180px; border-radius: 4px;"></div>
+                  </td>
+                  <td class="col-tt">
+                    <div class="skeleton-shimmer" style="height: 24px; width: 80px; border-radius: 12px;"></div>
+                  </td>
+                  <td class="col-hd">
+                    <div class="skeleton-shimmer" style="height: 24px; width: 60px; border-radius: 4px;"></div>
+                  </td>
+                </tr>
+              </ng-container>
 
-            <ng-container *ngIf="!loading()">
-              <tr *ngFor="let user of paginatedUsers(); let i = index">
-                <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-                <td>
-                  <b *ngIf="authService.hasPermission('USER_EDIT')" class="wf-name-link" (click)="onEdit(user)">{{
-                    user.username }}</b>
-                  <span *ngIf="!authService.hasPermission('USER_EDIT')">{{ user.username }}</span>
-                </td>
-                <td>{{ user.fullName }}</td>
-                <td>{{ user.organizationUnit?.name || getUnitLabel(user.organizationUnitId) }}</td>
-                <td><span class="text-muted">{{ user.email }}</span></td>
-                <td class="col-tt">
-                  <span class="status-pill" [class.status-active]="user.isActive"
-                    [class.status-inactive]="!user.isActive">
-                    {{ user.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
-                  </span>
-                </td>
-                <td class="col-hd">
-                  <div class="action-buttons-group">
-                    <button type="button" class="act-btn act-more" (click)="openActionMenu(user, $event, actionMenu)" title="Thao tác khác">
-                      <i class="pi pi-ellipsis-h"></i>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              <tr *ngIf="filteredUsers().length === 0">
-                <td colspan="7" class="empty-row">
-                  <i class="pi pi-inbox"></i>
-                  <div>Không tìm thấy người dùng phù hợp.</div>
-                </td>
-              </tr>
-            </ng-container>
-          </tbody>
-        </table>
+              <ng-container *ngIf="!loading()">
+                <tr *ngFor="let user of paginatedUsers(); let i = index">
+                  <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
+                  <td>
+                    <b *ngIf="authService.hasPermission('USER_EDIT')" class="wf-name-link" (click)="onEdit(user)">{{
+                      user.username }}</b>
+                    <span *ngIf="!authService.hasPermission('USER_EDIT')">{{ user.username }}</span>
+                  </td>
+                  <td>{{ user.fullName }}</td>
+                  <td>{{ user.organizationUnit?.name || getUnitLabel(user.organizationUnitId) }}</td>
+                  <td><span class="text-muted">{{ user.email }}</span></td>
+                  <td class="col-tt">
+                    <span class="status-pill" [class.status-active]="user.isActive"
+                      [class.status-inactive]="!user.isActive">
+                      {{ user.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
+                    </span>
+                  </td>
+                  <td class="col-hd">
+                    <div class="action-buttons-group">
+                      <button type="button" class="act-btn act-more" (click)="openActionMenu(user, $event, actionMenu)"
+                        title="Thao tác khác">
+                        <i class="pi pi-ellipsis-h"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr *ngIf="filteredUsers().length === 0">
+                  <td colspan="7" class="empty-row">
+                    <i class="pi pi-inbox"></i>
+                    <div>Không tìm thấy người dùng phù hợp.</div>
+                  </td>
+                </tr>
+              </ng-container>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Footer with Pagination -->
+        <app-eco-paginator *ngIf="totalCount() > 0" [first]="(currentPage() - 1) * pageSize()" [rows]="pageSize()"
+          [totalRecords]="totalCount()" [rowsPerPageOptions]="[10, 20, 50]" (onPageChange)="onUserPageChange($event)" />
       </div>
-
-      <!-- Footer with Pagination -->
-      <app-eco-paginator *ngIf="totalCount() > 0"
-        [first]="(currentPage() - 1) * pageSize()" [rows]="pageSize()"
-        [totalRecords]="totalCount()" [rowsPerPageOptions]="[10, 20, 50]"
-        (onPageChange)="onUserPageChange($event)" />
-    </div>
     </div>
 
     <!-- Dialog Thêm/Sửa Người dùng -->
@@ -168,17 +171,10 @@
 
         <!-- Đơn vị thành viên — Tree Picker -->
         <div class="form-group">
-          <eco-input-tree-select
-            label="Đơn vị thành viên"
-            placeholder="-- Chọn đơn vị thành viên --"
-            [nodes]="primengOrgUnitTree()"
-            [ngModel]="currentUser().organizationUnitId"
+          <eco-input-tree-select label="Đơn vị thành viên" placeholder="-- Chọn đơn vị thành viên --"
+            [nodes]="primengOrgUnitTree()" [ngModel]="currentUser().organizationUnitId"
             (ngModelChange)="currentUser().organizationUnitId = $event; onFieldChange('organizationUnitId')"
-            [required]="true"
-            [enableSearch]="true"
-            [showClear]="true"
-            [border]="true"
-            [errorMessage]="unitError()">
+            [required]="true" [enableSearch]="true" [showClear]="true" [border]="true" [errorMessage]="unitError()">
           </eco-input-tree-select>
         </div>
 
@@ -207,19 +203,10 @@
 
         <!-- Vai trò trực tiếp -->
         <div class="form-group">
-          <eco-input-select
-            label="Vai trò trực tiếp"
-            [options]="systemRoles()"
-            [multiSelect]="true"
-            optionLabel="name"
-            optionValue="id"
-            placeholder="-- Chọn vai trò --"
-            [filter]="true"
-            scrollHeight="320px"
-            [ngModel]="selectedRoleIdsInForm()"
-            (ngModelChange)="selectedRoleIdsInForm.set($event || [])"
-            [readonly]="saving()"
-            [border]="true">
+          <eco-input-select label="Vai trò trực tiếp" [options]="systemRoles()" [multiSelect]="true" optionLabel="name"
+            optionValue="id" placeholder="-- Chọn vai trò --" [filter]="true" scrollHeight="320px"
+            [ngModel]="selectedRoleIdsInForm()" (ngModelChange)="selectedRoleIdsInForm.set($event || [])"
+            [readonly]="saving()" [border]="true">
           </eco-input-select>
         </div>
 
@@ -231,6 +218,14 @@
             <option [ngValue]="true">Hoạt động</option>
             <option [ngValue]="false">Ngừng hoạt động</option>
           </select>
+        </div>
+
+        <div class="form-group">
+          <label class="sso-option">
+            <input type="checkbox" class="perm-checkbox" [(ngModel)]="currentUser().isSsoEnabled"
+              [disabled]="saving()" />
+            <span>Cho phép đăng nhập SSO</span>
+          </label>
         </div>
       </div>
       <ng-template #footer>
@@ -249,15 +244,9 @@
     </p-dialog>
 
     <!-- Popup xác nhận xóa dùng chung toàn hệ thống. -->
-    <app-delete-confirm-dialog
-      [visible]="showDeleteConfirm()"
-      header="Xác nhận xóa tài khoản"
-      entityLabel="Tài khoản"
-      [targetName]="deleteTargetLabel()"
-      [loading]="deleting()"
-      (cancelled)="onCancelDelete()"
-      (confirmed)="onConfirmDelete()"
-    />
+    <app-delete-confirm-dialog [visible]="showDeleteConfirm()" header="Xác nhận xóa tài khoản" entityLabel="Tài khoản"
+      [targetName]="deleteTargetLabel()" [loading]="deleting()" (cancelled)="onCancelDelete()"
+      (confirmed)="onConfirmDelete()" />
 
 
     <!-- MÀN HÌNH QUYỀN THEO ĐƠN VỊ -->
@@ -514,4 +503,4 @@
       </ng-template>
     </p-dialog>
 
-</div>
+  </div>

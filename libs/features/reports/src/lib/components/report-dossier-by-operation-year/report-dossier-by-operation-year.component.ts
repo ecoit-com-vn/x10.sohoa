@@ -201,6 +201,13 @@ export class ReportDossierByOperationYearComponent implements OnInit, AfterViewI
     this.stationGrid?.resetPagination();
     this.loadStatsData();
   }
+ onResetSearch(): void {
+    this.selectedUnitId.set(null);
+    this.selectedObjectType.set(null);
+    this.selectedYear.set(new Date().getFullYear());
+    this.applyDefaultUnitFilter();
+    this.onFilter();
+  }
 
   switchTab(tab: MainTabMode): void {
     this.activeTab.set(tab);

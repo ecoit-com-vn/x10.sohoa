@@ -234,6 +234,23 @@
   width: 100%;
 }
 
+.sso-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  color: #334155;
+  cursor: pointer;
+
+  .perm-checkbox {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: #002D72;
+    cursor: pointer;
+  }
+}
+
 /* Checkbox item cards */
 .permission-checkbox-item {
   display: flex;

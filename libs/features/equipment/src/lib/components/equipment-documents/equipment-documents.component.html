@@ -199,12 +199,6 @@
   ></app-dossier-document-edit-dialog>
 </ng-container>
 
-<lib-ocr-insights-panel
-  [visible]="ocrInsightsVisible()"
-  (visibleChange)="ocrInsightsVisible.set($event)"
-  [sourceDocument]="ocrInsightsSource()"
-></lib-ocr-insights-panel>
-
 <!--
   Xác nhận chung cho 4 thao tác OCR/bóc tách (OCR, OCR + bóc tách, Xử lý lại OCR/bóc tách,
   Bóc tách lại). Trước đây tất cả gọi API ngay khi bấm. Với các loại có chạy lại OCR thì thêm

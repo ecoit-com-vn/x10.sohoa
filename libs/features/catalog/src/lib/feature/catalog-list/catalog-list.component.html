@@ -2,59 +2,68 @@
     <p-toast></p-toast>
     <div class="list-toolbar standard-page-toolbar">
         <div class="toolbar-left">
-            <wf-breadcrumb
-                [viewMode]="currentView()"
-                [customItems]="sharedCatalogBreadcrumbItems()"
+            <wf-breadcrumb [viewMode]="currentView()" [customItems]="sharedCatalogBreadcrumbItems()"
                 (listClick)="currentView.set('list')" />
         </div>
         <div class="toolbar-right" *ngIf="canCreate()">
             <button class="btn-green" (click)="onAddNew()">
-        <i class="pi pi-plus"></i> Thêm mới
-      </button>
+                <i class="pi pi-plus"></i> Thêm mới
+            </button>
         </div>
     </div>
     <!-- MÀN HÌNH DANH SÁCH -->
-    <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
+    <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'"
+        class="animate-fade-in">
 
         <!-- Toolbar -->
         <div *ngIf="isUnitScopedCatalog(); else defaultCatalogFilters">
             <div class="standard-search-card">
-            <div class="standard-search-grid">
-                <div class="standard-search-field">
-                    <label class="search-field-label">Tên danh mục</label>
-                    <input type="text" class="wf-search-input" style="width: 100%;" placeholder="Tên danh mục..." [ngModel]="searchName()" (ngModelChange)="searchName.set($event)" (keyup.enter)="onSearch()" />
+                <div class="standard-search-grid">
+                    <div class="standard-search-field">
+                        <label class="search-field-label">Tên danh mục</label>
+                        <input type="text" class="wf-search-input" style="width: 100%;" placeholder="Tên danh mục..."
+                            [ngModel]="searchName()" (ngModelChange)="searchName.set($event)"
+                            (keyup.enter)="onSearch()" />
+                    </div>
+                    <div class="standard-search-field">
+                        <label class="search-field-label">Mã danh mục</label>
+                        <input type="text" class="wf-search-input" placeholder="Mã danh mục..." [ngModel]="searchCode()"
+                            (ngModelChange)="searchCode.set($event)" (keyup.enter)="onSearch()" />
+                    </div>
+                    <div class="standard-search-field">
+                        <label class="search-field-label">Trạng thái</label>
+                        <select class="wf-input" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)">
+                            <option value="">-- Trạng thái --</option>
+                            <option value="1">Hoạt động</option>
+                            <option value="0">Ngừng hoạt động</option>
+                        </select>
+                    </div>
+                    <div class="standard-search-field" *ngIf="isMucLucCatalog()">
+                        <label class="search-field-label">Đơn vị</label>
+                        <p-treeSelect [options]="organizationUnitTree()" [ngModel]="searchUnitNodes()"
+                            (ngModelChange)="onSearchUnitNodeChange($event)" placeholder="-- Chọn đơn vị --"
+                            [filter]="true" filterPlaceholder="Tìm đơn vị..." selectionMode="multiple"
+                            [metaKeySelection]="false" appendTo="body" scrollHeight="260px" styleClass="w-full"
+                            [style]="{ width: '100%', height: '38px' }">
+                            <ng-template pTemplate="default" let-node>
+                                <span style="display:inline-flex;align-items:center;gap:8px"><span
+                                        style="width:18px;height:18px;border:1px solid #cbd5e1;border-radius:4px;display:inline-flex;align-items:center;justify-content:center"><i
+                                            *ngIf="isSearchUnitNodeSelected(node)" class="pi pi-check"
+                                            style="font-size:11px;color:#2563eb"></i></span>{{
+                                    node.label }}</span>
+                            </ng-template>
+                        </p-treeSelect>
+                    </div>
+
+                    <div class="standard-search-actions">
+                        <button type="button" class="btn-outlined" (click)="onResetSearch()">
+                            <i class="pi pi-refresh"></i> Làm mới
+                        </button>
+                        <button type="button" class="btn-save" (click)="onSearch()">
+                            <i class="pi pi-check"></i> Áp dụng
+                        </button>
+                    </div>
                 </div>
-                <div class="standard-search-field">
-                    <label class="search-field-label">Mã danh mục</label>
-                    <input type="text" class="wf-search-input" placeholder="Mã danh mục..." [ngModel]="searchCode()" (ngModelChange)="searchCode.set($event)" (keyup.enter)="onSearch()" />
-                </div>
-                <div class="standard-search-field">
-                    <label class="search-field-label">Trạng thái</label>
-                    <select class="wf-input" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)">
-                <option value="">-- Trạng thái --</option>
-                <option value="1">Hoạt động</option>
-                <option value="0">Ngừng hoạt động</option>
-              </select>
-                </div>
-                <div class="standard-search-field" *ngIf="isMucLucCatalog()">
-                    <label class="search-field-label">Đơn vị</label>
-                    <p-treeSelect [options]="organizationUnitTree()" [ngModel]="searchUnitNodes()" (ngModelChange)="onSearchUnitNodeChange($event)" placeholder="-- Chọn đơn vị --" [filter]="true" filterPlaceholder="Tìm đơn vị..." selectionMode="multiple" [metaKeySelection]="false"
-                        appendTo="body" scrollHeight="260px" styleClass="w-full" [style]="{ width: '100%', height: '38px' }">
-                        <ng-template pTemplate="default" let-node>
-                            <span style="display:inline-flex;align-items:center;gap:8px"><span style="width:18px;height:18px;border:1px solid #cbd5e1;border-radius:4px;display:inline-flex;align-items:center;justify-content:center"><i *ngIf="isSearchUnitNodeSelected(node)" class="pi pi-check" style="font-size:11px;color:#2563eb"></i></span>{{
-                            node.label }}</span>
-                        </ng-template>
-                    </p-treeSelect>
-                </div>
-            </div>
-            <div class="standard-search-actions">
-                    <button type="button" class="btn-outlined" (click)="onResetSearch()">
-                <i class="pi pi-refresh"></i> Làm mới
-              </button>
-                    <button type="button" class="btn-save" (click)="onSearch()">
-                <i class="pi pi-check"></i> Áp dụng
-              </button>
-            </div>
             </div>
         </div>
 
@@ -63,20 +72,25 @@
                 <div class="standard-search-grid">
                     <div class="standard-search-field">
                         <label class="search-field-label">Từ khóa</label>
-                        <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
+                        <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên..."
+                            [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)"
+                            (keyup.enter)="onSearch()" />
                     </div>
                     <div class="standard-search-field">
                         <label class="search-field-label">Trạng thái</label>
-                        <select class="wf-input" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event); onSearch()">
-                <option value="">-- Trạng thái --</option>
-                <option value="1">Hoạt động</option>
-                <option value="0">Ngừng hoạt động</option>
-              </select>
+                        <select class="wf-input" [ngModel]="searchStatus()"
+                            (ngModelChange)="searchStatus.set($event); onSearch()">
+                            <option value="">-- Trạng thái --</option>
+                            <option value="1">Hoạt động</option>
+                            <option value="0">Ngừng hoạt động</option>
+                        </select>
                     </div>
                 </div>
                 <div class="standard-search-actions">
-                    <button type="button" class="btn-outlined" (click)="onResetSearch()"><i class="pi pi-refresh"></i> Làm mới</button>
-                    <button type="button" class="btn-save" (click)="onSearch()"><i class="pi pi-check"></i> Áp dụng</button>
+                    <button type="button" class="btn-outlined" (click)="onResetSearch()"><i class="pi pi-refresh"></i>
+                        Làm mới</button>
+                    <button type="button" class="btn-save" (click)="onSearch()"><i class="pi pi-check"></i> Áp
+                        dụng</button>
                 </div>
             </div>
         </ng-template>
@@ -92,7 +106,8 @@
                             <th>Tên danh mục</th>
                             <th *ngIf="isUnitScopedCatalog()">Đơn vị</th>
                             <th *ngIf="showParentColumn()">Danh mục cha</th>
-                            <th style="width: 100px; text-align: center;">{{ usesStandardAuditColumns() ? 'Số thứ tự' : 'Thứ tự' }}</th>
+                            <th style="width: 100px; text-align: center;">{{ usesStandardAuditColumns() ? 'Số thứ tự' :
+                                'Thứ tự' }}</th>
                             <th *ngIf="usesStandardAuditColumns()">Ngày tạo</th>
                             <th *ngIf="usesStandardAuditColumns()">Người tạo</th>
                             <th>Trạng thái</th>
@@ -109,8 +124,7 @@
                             </td>
                             <td>
                                 <ng-container *ngIf="usesStandardCatalogTableStyle(); else defaultCatalogCode">
-                                    <button *ngIf="canEdit(); else processingCodeViewOnly"
-                                        type="button"
+                                    <button *ngIf="canEdit(); else processingCodeViewOnly" type="button"
                                         class="wf-name-link"
                                         style="padding: 0; border: 0; background: transparent; color: #2563eb; font: inherit; font-weight: 400; cursor: pointer;"
                                         (click)="onEdit(item)">
@@ -125,16 +139,13 @@
                                 </ng-template>
                             </td>
                             <td>
-                                <div *ngIf="isMucLucCatalog(); else nonTreeCatalogName"
-                                    class="catalog-tree-name"
+                                <div *ngIf="isMucLucCatalog(); else nonTreeCatalogName" class="catalog-tree-name"
                                     [style.padding-left.px]="getCatalogTreeLevel(item) * 20">
-                                    <button *ngIf="item.hasChildren; else catalogTreeLeafPlaceholder"
-                                        type="button"
+                                    <button *ngIf="item.hasChildren; else catalogTreeLeafPlaceholder" type="button"
                                         class="catalog-tree-toggle"
                                         [attr.aria-label]="isCatalogExpanded(item.id) ? 'Thu gọn danh mục con' : 'Mở danh mục con'"
                                         (click)="toggleCatalogNode(item, $event)">
-                                        <i class="pi"
-                                            [class.pi-angle-down]="isCatalogExpanded(item.id)"
+                                        <i class="pi" [class.pi-angle-down]="isCatalogExpanded(item.id)"
                                             [class.pi-angle-right]="!isCatalogExpanded(item.id)"></i>
                                     </button>
                                     <ng-template #catalogTreeLeafPlaceholder>
@@ -146,46 +157,55 @@
                                     <ng-template #treeViewOnlyName><b>{{ item.name }}</b></ng-template>
                                 </div>
                                 <ng-template #nonTreeCatalogName>
-                                <span *ngIf="usesStandardCatalogTableStyle(); else defaultCatalogName"
-                                    style="color: #111827;">{{ item.name }}</span>
-                                <ng-template #defaultCatalogName>
-                                    <span *ngIf="canEdit(); else viewOnlyName">
-                                        <b class="wf-name-link" (click)="onEdit(item)">{{ item.name }}</b>
-                                    </span>
-                                    <ng-template #viewOnlyName>
-                                        <b>{{ item.name }}</b>
+                                    <span *ngIf="usesStandardCatalogTableStyle(); else defaultCatalogName"
+                                        style="color: #111827;">{{ item.name }}</span>
+                                    <ng-template #defaultCatalogName>
+                                        <span *ngIf="canEdit(); else viewOnlyName">
+                                            <b class="wf-name-link" (click)="onEdit(item)">{{ item.name }}</b>
+                                        </span>
+                                        <ng-template #viewOnlyName>
+                                            <b>{{ item.name }}</b>
+                                        </ng-template>
                                     </ng-template>
                                 </ng-template>
-                                </ng-template>
                             </td>
-                            <td *ngIf="isUnitScopedCatalog()" [style.color]="usesStandardCatalogTableStyle() ? '#111827' : null">
+                            <td *ngIf="isUnitScopedCatalog()"
+                                [style.color]="usesStandardCatalogTableStyle() ? '#111827' : null">
                                 {{ item.unitName || getUnitLabel(item.unitId) || '-' }}
                             </td>
                             <td *ngIf="showParentColumn()">
                                 <span class="text-primary font-semibold" *ngIf="item.parentId">
-                  {{ getParentName(item.parentId) || 'ID: ' + item.parentId }}
-                </span>
+                                    {{ getParentName(item.parentId) || 'ID: ' + item.parentId }}
+                                </span>
                                 <span class="text-muted italic" *ngIf="!item.parentId">-</span>
                             </td>
-                            <td style="text-align: center;" [style.color]="usesStandardCatalogTableStyle() ? '#111827' : null">{{ item.priority }}</td>
-                            <td *ngIf="usesStandardAuditColumns()" [style.color]="usesStandardCatalogTableStyle() ? '#111827' : null">{{ item.createdAt ? (item.createdAt | date:'dd/MM/yyyy HH:mm') : '-' }}</td>
-                            <td *ngIf="usesStandardAuditColumns()" [style.color]="usesStandardCatalogTableStyle() ? '#111827' : null">{{ item.createdByName || item.createdBy || '-' }}</td>
+                            <td style="text-align: center;"
+                                [style.color]="usesStandardCatalogTableStyle() ? '#111827' : null">{{ item.priority }}
+                            </td>
+                            <td *ngIf="usesStandardAuditColumns()"
+                                [style.color]="usesStandardCatalogTableStyle() ? '#111827' : null">{{ item.createdAt ?
+                                (item.createdAt | date:'dd/MM/yyyy HH:mm') : '-' }}</td>
+                            <td *ngIf="usesStandardAuditColumns()"
+                                [style.color]="usesStandardCatalogTableStyle() ? '#111827' : null">{{ item.createdByName
+                                || item.createdBy || '-' }}</td>
                             <td>
                                 <span *ngIf="item.status === 1" class="status-pill status-active">
-                  Hoạt động
-                </span>
+                                    Hoạt động
+                                </span>
                                 <span *ngIf="item.status === 0" class="status-pill status-inactive">
-                  Ngừng hoạt động
-                </span>
+                                    Ngừng hoạt động
+                                </span>
                             </td>
                             <td class="col-hd">
-                                <button type="button" class="act-btn act-more" title="Thao tác khác" (click)="openActionMenu(item, $event, actionMenu)">
-                  <i class="pi pi-ellipsis-h"></i>
-                </button>
+                                <button type="button" class="act-btn act-more" title="Thao tác khác"
+                                    (click)="openActionMenu(item, $event, actionMenu)">
+                                    <i class="pi pi-ellipsis-h"></i>
+                                </button>
                             </td>
                         </tr>
                         <tr *ngIf="items().length === 0">
-                            <td [attr.colspan]="(showParentColumn() ? 7 : 6) + (isUnitScopedCatalog() ? 1 : 0) + (usesStandardAuditColumns() ? 2 : 0)" class="empty-row">
+                            <td [attr.colspan]="(showParentColumn() ? 7 : 6) + (isUnitScopedCatalog() ? 1 : 0) + (usesStandardAuditColumns() ? 2 : 0)"
+                                class="empty-row">
                                 <i class="pi pi-inbox"></i>
                                 <div>Không tìm thấy dữ liệu danh mục nào.</div>
                             </td>
@@ -194,38 +214,53 @@
                 </table>
             </div>
 
-            <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
+            <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body"
+                styleClass="row-action-menu"></p-menu>
 
-            <app-eco-paginator *ngIf="totalCount() > 0" [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalCount()" [recordLabel]="isMucLucCatalog() ? 'nhóm mục lục' : 'bản ghi'" (pageChange)="goToPage($event)" (pageSizeChange)="onPageSizeChange($event)" />
+            <app-eco-paginator *ngIf="totalCount() > 0" [currentPage]="currentPage()" [pageSize]="pageSize()"
+                [totalRecords]="totalCount()" [recordLabel]="isMucLucCatalog() ? 'nhóm mục lục' : 'bản ghi'"
+                (pageChange)="goToPage($event)" (pageSizeChange)="onPageSizeChange($event)" />
         </div>
     </div>
 
     <!-- Dialog Thêm/Sửa Danh mục -->
-    <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'" (visibleChange)="$event ? null : currentView.set('list')" [header]="currentView() === 'add' ? 'Thêm mới ' + catalogTitle() : 'Chỉnh sửa ' + catalogTitle()" [modal]="true" [style]="{ width: '500px', 'max-height': 'calc(100vh - 32px)' }"
+    <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'"
+        (visibleChange)="$event ? null : currentView.set('list')"
+        [header]="currentView() === 'add' ? 'Thêm mới ' + catalogTitle() : 'Chỉnh sửa ' + catalogTitle()" [modal]="true"
+        [style]="{ width: '500px', 'max-height': 'calc(100vh - 32px)' }"
         [contentStyle]="{ 'max-height': 'calc(100vh - 190px)', overflow: 'auto' }" styleClass="evn-dialog-custom">
         <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
             <div class="form-group">
                 <label class="form-label">Mã danh mục <span class="required">*</span></label>
-                <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().code" (ngModelChange)="onFieldChange('code')" placeholder="Ví dụ: CODE_01, LOAI_A..." [disabled]="currentView() === 'edit' || isSaving()" />
+                <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().code"
+                    (ngModelChange)="onFieldChange('code')" placeholder="Ví dụ: CODE_01, LOAI_A..."
+                    [disabled]="currentView() === 'edit' || isSaving()" />
                 <span class="field-error" *ngIf="codeError()">{{ codeError() }}</span>
             </div>
 
             <div class="form-group">
                 <label class="form-label">Tên danh mục <span class="required">*</span></label>
-                <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().name" (ngModelChange)="onFieldChange('name')" placeholder="Nhập tên hiển thị..." [disabled]="isSaving()" />
+                <input type="text" class="wf-input w-full" [(ngModel)]="currentItem().name"
+                    (ngModelChange)="onFieldChange('name')" placeholder="Nhập tên hiển thị..."
+                    [disabled]="isSaving()" />
                 <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
             </div>
 
             <div class="form-group" *ngIf="isUnitScopedCatalog()">
                 <label class="form-label">Đơn vị tạo <span class="required">*</span></label>
-                <p-treeSelect [options]="organizationUnitTree()" [ngModel]="selectedUnitNodes()" (ngModelChange)="onUnitNodeChange($event)" placeholder="-- Chọn đơn vị --" [filter]="true" filterPlaceholder="Tìm đơn vị..." selectionMode="multiple" [metaKeySelection]="false"
-                    appendTo="body" scrollHeight="260px" styleClass="w-full" [style]="{ width: '100%' }" [disabled]="isSaving() || !isAdmin()">
+                <p-treeSelect [options]="organizationUnitTree()" [ngModel]="selectedUnitNodes()"
+                    (ngModelChange)="onUnitNodeChange($event)" placeholder="-- Chọn đơn vị --" [filter]="true"
+                    filterPlaceholder="Tìm đơn vị..." selectionMode="multiple" [metaKeySelection]="false"
+                    appendTo="body" scrollHeight="260px" styleClass="w-full" [style]="{ width: '100%' }"
+                    [disabled]="isSaving() || !isAdmin()">
                     <ng-template pTemplate="default" let-node>
                         <span style="display: inline-flex; align-items: center; gap: 8px;">
-                <span style="width: 18px; height: 18px; border: 1px solid #cbd5e1; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; background: #fff;">
-                  <i *ngIf="isUnitNodeSelected(node)" class="pi pi-check" style="font-size: 11px; color: #2563eb;"></i>
-                </span>
-                        <span>{{ node.label }}</span>
+                            <span
+                                style="width: 18px; height: 18px; border: 1px solid #cbd5e1; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; background: #fff;">
+                                <i *ngIf="isUnitNodeSelected(node)" class="pi pi-check"
+                                    style="font-size: 11px; color: #2563eb;"></i>
+                            </span>
+                            <span>{{ node.label }}</span>
                         </span>
                     </ng-template>
                 </p-treeSelect>
@@ -235,73 +270,93 @@
             <!-- Priority field -->
             <div class="form-group">
                 <label class="form-label">Thứ tự ưu tiên</label>
-                <input type="number" class="wf-input w-full" [(ngModel)]="currentItem().priority" placeholder="Mặc định: 1" min="1" [disabled]="isSaving()" />
+                <input type="number" class="wf-input w-full" [(ngModel)]="currentItem().priority"
+                    placeholder="Mặc định: 1" min="1" [disabled]="isSaving()" />
             </div>
 
             <!-- Parent drop-down for hierarchical catalogs -->
             <div class="form-group" *ngIf="hasParent()">
                 <label class="form-label">Danh mục cha</label>
-                <p-select [options]="parentsList()" [(ngModel)]="currentItem().parentId" optionLabel="name" optionValue="id" [showClear]="true" placeholder="-- Chọn danh mục cha (không bắt buộc) --" [disabled]="isSaving()" [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px'}">
+                <p-select [options]="parentsList()" [(ngModel)]="currentItem().parentId" optionLabel="name"
+                    optionValue="id" [showClear]="true" placeholder="-- Chọn danh mục cha (không bắt buộc) --"
+                    [disabled]="isSaving()"
+                    [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px'}">
                 </p-select>
                 <span class="field-error" *ngIf="parentError()">{{ parentError() }}</span>
             </div>
 
             <div class="form-group">
                 <label class="form-label">Mô tả chi tiết</label>
-                <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentItem().description" placeholder="Mô tả phạm vi áp dụng, thông tin chi tiết..." [disabled]="isSaving()"></textarea>
+                <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentItem().description"
+                    placeholder="Mô tả phạm vi áp dụng, thông tin chi tiết..." [disabled]="isSaving()"></textarea>
             </div>
 
-            <div class="form-group" *ngIf="!isUnitScopedCatalog()" style="display: flex; align-items: center; gap: 8px; padding-top: 5px;">
-                <input type="checkbox" id="chkPrivate" [ngModel]="isPrivate()" (ngModelChange)="isPrivate.set($event)" style="scale: 1.1; cursor: pointer;" [disabled]="isSaving()" />
-                <label for="chkPrivate" style="font-size: 0.9rem; font-weight: 600; cursor: pointer; user-select: none; margin: 0;">
-            Dùng riêng cho đơn vị của tôi
-          </label>
+            <div class="form-group" *ngIf="!isUnitScopedCatalog()"
+                style="display: flex; align-items: center; gap: 8px; padding-top: 5px;">
+                <input type="checkbox" id="chkPrivate" [ngModel]="isPrivate()" (ngModelChange)="isPrivate.set($event)"
+                    style="scale: 1.1; cursor: pointer;" [disabled]="isSaving()" />
+                <label for="chkPrivate"
+                    style="font-size: 0.9rem; font-weight: 600; cursor: pointer; user-select: none; margin: 0;">
+                    Dùng riêng cho đơn vị của tôi
+                </label>
             </div>
         </div>
         <ng-template #footer>
-            <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+            <div class="flex gap-2 justify-content-end pt-3"
+                style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
                 <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="isSaving()"><i
-              class="pi pi-times"></i> Đóng</button>
+                        class="pi pi-times"></i> Đóng</button>
                 <button class="btn-save btn-small" (click)="onSaveItem()" [disabled]="isSaving()">
-            <i class="pi pi-spin pi-spinner" *ngIf="isSaving()" style="margin-right: 4px;"></i>
-            <i class="pi pi-save" *ngIf="!isSaving()" style="margin-right: 4px;"></i>
-            Lưu
-          </button>
+                    <i class="pi pi-spin pi-spinner" *ngIf="isSaving()" style="margin-right: 4px;"></i>
+                    <i class="pi pi-save" *ngIf="!isSaving()" style="margin-right: 4px;"></i>
+                    Lưu
+                </button>
             </div>
         </ng-template>
     </p-dialog>
 
     <!-- Popup xác nhận xóa danh mục dùng chung toàn hệ thống. -->
-    <app-delete-confirm-dialog [visible]="showDeleteConfirm()" [header]="'Xác nhận xóa ' + catalogTitle().toLowerCase()" [entityLabel]="catalogTitle()" [targetName]="deleteTargetLabel()" consequence="sẽ bị xóa khỏi danh sách. Mã danh mục sẽ không thể sử dụng lại để tạo mới."
-        [loading]="deleting()" (cancelled)="onCancelDelete()" (confirmed)="onConfirmDelete()" />
+    <app-delete-confirm-dialog [visible]="showDeleteConfirm()" [header]="'Xác nhận xóa ' + catalogTitle().toLowerCase()"
+        [entityLabel]="catalogTitle()" [targetName]="deleteTargetLabel()"
+        consequence="sẽ bị xóa khỏi danh sách. Mã danh mục sẽ không thể sử dụng lại để tạo mới." [loading]="deleting()"
+        (cancelled)="onCancelDelete()" (confirmed)="onConfirmDelete()" />
 
     <!-- Dialog Xác nhận Khóa / Mở khóa -->
-    <p-dialog [visible]="showStatusConfirm()" (visibleChange)="$event ? null : onCancelToggleStatus()" [header]="statusTarget()?.status === 1 ? 'Xác nhận khóa ' + catalogTitle().toLowerCase() : 'Xác nhận mở khóa ' + catalogTitle().toLowerCase()" [modal]="true"
-        [style]="{ width: '420px' }" styleClass="evn-dialog-custom" [closable]="!togglingStatus()">
+    <p-dialog [visible]="showStatusConfirm()" (visibleChange)="$event ? null : onCancelToggleStatus()"
+        [header]="statusTarget()?.status === 1 ? 'Xác nhận khóa ' + catalogTitle().toLowerCase() : 'Xác nhận mở khóa ' + catalogTitle().toLowerCase()"
+        [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom" [closable]="!togglingStatus()">
         <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 12px;">
             <div style="display: flex; align-items: flex-start; gap: 12px;">
-                <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+                <i class="pi pi-exclamation-triangle"
+                    style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
                 <div>
                     <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">
-                        {{ statusTarget()?.status === 1 ? 'Bạn có chắc muốn khóa danh mục này?' : 'Bạn có chắc muốn mở khóa danh mục này?' }}
+                        {{ statusTarget()?.status === 1 ? 'Bạn có chắc muốn khóa danh mục này?' : 'Bạn có chắc muốn mở
+                        khóa danh mục này?' }}
                     </p>
                     <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-                        {{ catalogTitle() }} <b style="color: #1e293b;">{{ statusTarget()?.name }}</b> ({{ statusTarget()?.code }}) sẽ được {{ statusTarget()?.status === 1 ? 'khóa và ngừng hoạt động' : 'mở khóa và hoạt động trở lại' }}.
+                        {{ catalogTitle() }} <b style="color: #1e293b;">{{ statusTarget()?.name }}</b> ({{
+                        statusTarget()?.code }}) sẽ được {{ statusTarget()?.status === 1 ? 'khóa và ngừng hoạt động' :
+                        'mở khóa và hoạt động trở lại' }}.
                     </p>
                 </div>
             </div>
         </div>
         <ng-template #footer>
-            <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+            <div
+                style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
                 <button class="btn-cancel btn-small" (click)="onCancelToggleStatus()" [disabled]="togglingStatus()">
-            <i class="pi pi-times"></i> Hủy
-          </button>
-                <button class="btn-save btn-small" (click)="onConfirmToggleStatus()" [disabled]="togglingStatus()" [style.background-color]="statusTarget()?.status === 1 ? '#dc2626' : '#4790e9'" [style.border-color]="statusTarget()?.status === 1 ? '#dc2626' : '#4790e9'">
-            <i class="pi pi-spin pi-spinner" *ngIf="togglingStatus()" style="margin-right: 4px;"></i>
-            <i class="pi" *ngIf="!togglingStatus()"
-              [ngClass]="statusTarget()?.status === 1 ? 'pi-lock' : 'pi-lock-open'" style="margin-right: 4px;"></i>
-            {{ statusTarget()?.status === 1 ? 'Khóa' : 'Mở khóa' }}
-          </button>
+                    <i class="pi pi-times"></i> Hủy
+                </button>
+                <button class="btn-save btn-small" (click)="onConfirmToggleStatus()" [disabled]="togglingStatus()"
+                    [style.background-color]="statusTarget()?.status === 1 ? '#dc2626' : '#4790e9'"
+                    [style.border-color]="statusTarget()?.status === 1 ? '#dc2626' : '#4790e9'">
+                    <i class="pi pi-spin pi-spinner" *ngIf="togglingStatus()" style="margin-right: 4px;"></i>
+                    <i class="pi" *ngIf="!togglingStatus()"
+                        [ngClass]="statusTarget()?.status === 1 ? 'pi-lock' : 'pi-lock-open'"
+                        style="margin-right: 4px;"></i>
+                    {{ statusTarget()?.status === 1 ? 'Khóa' : 'Mở khóa' }}
+                </button>
             </div>
         </ng-template>
     </p-dialog>

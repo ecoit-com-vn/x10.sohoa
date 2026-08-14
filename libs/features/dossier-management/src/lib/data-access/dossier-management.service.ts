@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, switchMap, forkJoin, of, catchError, map } from 'rxjs';
 import { APP_CONFIG } from '@sohoa.frontend/shared/core';
+import { DossierReportContext } from './dossier-report-context.service';
 import { DossierListTab, DossierMenuScope, DossierTabCounts } from '../utils/dossier-status.util';
 
 export interface DossierWorkflowAction {
@@ -61,6 +62,7 @@ export interface BhsCatalogColumn {
 export class DossierManagementService {
   private http = inject(HttpClient);
   private config = inject(APP_CONFIG);
+  private reportContext = inject(DossierReportContext);
   private kindId = 2;
 
   /** Gọi từ shell component theo route data (kindId: 1 = digitization). */
@@ -226,7 +228,9 @@ export class DossierManagementService {
   // ===== CHI TIẾT =====
 
   getDossierById(id: string): Observable<any> {
-    return this.http.get<any>(`${this.base}/${id}`);
+    let params = new HttpParams();
+    if (this.reportContext.from) params = params.set('from', this.reportContext.from);
+    return this.http.get<any>(`${this.base}/${id}`, { params });
   }
 
   getNextDossierCode(infrastructureId: string, dossierTypeId: string): Observable<{ code: string }> {
@@ -297,13 +301,14 @@ export class DossierManagementService {
 
   getRelatedDossiers(
     dossierId: string,
-    filter: { keyword?: string; equipmentId?: string; dossierTypeId?: string; page?: number; pageSize?: number },
+    filter: { keyword?: string; equipmentId?: string; dossierTypeId?: string; from?: string; page?: number; pageSize?: number },
     kindId?: number
   ): Observable<any> {
     let params = new HttpParams();
     if (filter.keyword) params = params.set('keyword', filter.keyword);
     if (filter.equipmentId) params = params.set('equipmentId', filter.equipmentId);
     if (filter.dossierTypeId) params = params.set('dossierTypeId', filter.dossierTypeId);
+    if (filter.from) params = params.set('from', filter.from);
     if (filter.page) params = params.set('page', filter.page.toString());
     if (filter.pageSize) params = params.set('pageSize', filter.pageSize.toString());
 

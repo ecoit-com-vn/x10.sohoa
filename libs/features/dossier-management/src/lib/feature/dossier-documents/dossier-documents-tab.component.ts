@@ -59,6 +59,7 @@ import {
   canRetryDigitization,
   canReExtract,
   canSubmitOcrAndExtract,
+  hasExtractionEverRun,
   isReExtracting,
   isRetryingDigitization,
 } from '../../utils/dossier-digitization.util';
@@ -484,17 +485,6 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
         overflowOnly: true,
         run: (d) => this.onOcrAndExtract(d),
       });
-      actions.push({
-        key: 'extract-only',
-        title: 'Bóc tách',
-        btnClass: 'act-reextract',
-        iconClasses: this.isReExtracting(doc.id, this.reExtractingIds())
-          ? 'pi pi-spin pi-spinner'
-          : 'pi pi-sync',
-        disabled: this.isReExtracting(doc.id, this.reExtractingIds()),
-        overflowOnly: true,
-        run: (d) => this.onReExtract(d, 'extract'),
-      });
     } else if (this.canRetryDigitization(doc) && this.canEdit) {
       actions.push({
         key: 'retry',
@@ -511,7 +501,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
     if (showDigitization && this.canReExtract(doc)) {
       actions.push({
         key: 'reextract',
-        title: 'Bóc tách lại',
+        title: hasExtractionEverRun(doc) ? 'Bóc tách lại' : 'Bóc tách',
         btnClass: 'act-reextract',
         iconClasses: this.isReExtracting(doc.id, this.reExtractingIds())
           ? 'pi pi-spin pi-spinner'
@@ -527,7 +517,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
       // Ý "tải biểu mẫu mới" không mất: dialog xác nhận đã ghi "theo biểu mẫu EAV mới nhất".
       actions.push({
         key: 'reextract',
-        title: 'Bóc tách lại',
+        title: hasExtractionEverRun(doc) ? 'Bóc tách lại' : 'Bóc tách',
         btnClass: 'act-reextract',
         iconClasses: this.isReExtracting(doc.id, this.reExtractingIds())
           ? 'pi pi-spin pi-spinner'
@@ -890,10 +880,10 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
       });
   }
 
-  onReExtract(doc: DossierDocumentItem, kind: 'extract' | 'reextract' = 'reextract'): void {
+  onReExtract(doc: DossierDocumentItem): void {
     if (!doc.latestVersionId || !this.canEdit) return;
     this.reExtractTarget.set(doc);
-    this.reExtractKind.set(kind);
+    this.reExtractKind.set(hasExtractionEverRun(doc) ? 'reextract' : 'extract');
     this.showReExtractConfirm.set(true);
   }
 

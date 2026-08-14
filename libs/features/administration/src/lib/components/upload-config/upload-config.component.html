@@ -47,12 +47,11 @@
                         <option [value]="false">Ngừng hoạt động</option>
                     </select>
                 </div>
-
-            </div>
-            <div class="standard-search-actions">
+                <div class="standard-search-actions">
                     <button type="button" class="btn-outlined" (click)="onResetSearch()"><i class="pi pi-refresh"></i>
                         Làm mới</button>
                     <button class="btn-save" (click)="onSearch()"><i class="pi pi-check"></i> Áp dụng</button>
+                </div>
             </div>
         </div>
 
@@ -171,8 +170,7 @@
             <div class="form-group">
                 <label class="form-label">Tên cấu hình <span class="required">*</span></label>
                 <input type="text" class="wf-input w-full" [ngModel]="currentConfig().name"
-                    (ngModelChange)="updateCurrentConfig('name', $event)"
-                    (blur)="onFieldTouched('name')"
+                    (ngModelChange)="updateCurrentConfig('name', $event)" (blur)="onFieldTouched('name')"
                     placeholder="Ví dụ: Cấu hình tài liệu, Cấu hình hình ảnh..." [disabled]="saving()" />
                 <span class="field-error" *ngIf="configNameError()">{{ configNameError() }}</span>
             </div>
@@ -191,8 +189,8 @@
                         class="required">*</span></label>
                 <input type="text" class="wf-input w-full" [ngModel]="currentConfig().allowedExtensions"
                     (ngModelChange)="updateCurrentConfig('allowedExtensions', $event)"
-                    (blur)="onFieldTouched('allowedExtensions')"
-                    placeholder="Ví dụ: pdf,docx,xlsx,jpg" [disabled]="saving()" />
+                    (blur)="onFieldTouched('allowedExtensions')" placeholder="Ví dụ: pdf,docx,xlsx,jpg"
+                    [disabled]="saving()" />
                 <small class="text-muted" style="font-size: 0.75rem;">Chỉ nhập phần mở rộng của file, không chứa dấu
                     chấm.</small>
                 <span class="field-error" *ngIf="configAllowedExtensionsError()">{{ configAllowedExtensionsError()
@@ -203,8 +201,7 @@
                 <label class="form-label">Dung lượng tối đa của một file (MB) <span class="required">*</span></label>
                 <input type="number" class="wf-input w-full" [ngModel]="currentConfig().maxFileSizeMb"
                     (ngModelChange)="updateCurrentConfig('maxFileSizeMb', $event)" min="1"
-                    (blur)="onFieldTouched('maxFileSizeMb')"
-                    [disabled]="saving()" />
+                    (blur)="onFieldTouched('maxFileSizeMb')" [disabled]="saving()" />
                 <span class="field-error" *ngIf="configMaxFileSizeMbError()">{{ configMaxFileSizeMbError() }}</span>
             </div>
 
@@ -222,8 +219,8 @@
         <ng-template #footer>
             <div class="flex gap-2 justify-content-end pt-3"
                 style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9;">
-                <button class="btn-cancel btn-small" (click)="displayDialog.set(false)"
-                    [disabled]="saving()"><i class="pi pi-times"></i> Đóng</button>
+                <button class="btn-cancel btn-small" (click)="displayDialog.set(false)" [disabled]="saving()"><i
+                        class="pi pi-times"></i> Đóng</button>
                 <button class="btn-save btn-small" (click)="onSaveConfig()" [disabled]="saving()">
                     <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
                     <i class="pi pi-save" *ngIf="!saving()" style="margin-right: 4px;"></i>

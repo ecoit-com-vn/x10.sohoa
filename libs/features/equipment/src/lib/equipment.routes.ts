@@ -20,6 +20,10 @@ export const EQUIPMENT_ROUTES: Routes = [
     loadComponent: () => import('./components/equipment/equipment.component').then(m => m.EquipmentComponent)
   },
   {
+    path: 'device-list/:id/documents/:documentVersionId/ocr-analysis',
+    loadComponent: () => import('./components/equipment-ocr-insights-page/equipment-ocr-insights-page.component').then(m => m.EquipmentOcrInsightsPageComponent)
+  },
+  {
     path: 'equipment-external',
     loadComponent: () => import('./components/equipment-external/equipment-external.component').then(m => m.EquipmentExternalComponent)
   },

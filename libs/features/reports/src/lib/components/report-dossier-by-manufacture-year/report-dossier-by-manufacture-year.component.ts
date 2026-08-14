@@ -241,7 +241,13 @@ export class ReportDossierByManufactureYearComponent implements OnInit, AfterVie
     this.equipmentGrid?.resetPagination();
     this.loadStatsData();
   }
-
+  onResetSearch(): void {
+    this.selectedUnitId.set(null);
+    this.selectedStationIds.set([]);
+    this.selectedManufactureYear.set(new Date().getFullYear());
+    this.applyDefaultUnitFilter();
+    this.onFilter();
+  }
   switchTab(tab: MainTabMode): void {
     this.activeTab.set(tab);
     queueMicrotask(() => {

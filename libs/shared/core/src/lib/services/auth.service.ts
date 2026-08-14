@@ -19,6 +19,15 @@ export interface UserProfile {
   isActive?: boolean;
   roles?: string[];
   permissions?: string[];
+  authProvider?: 'LOCAL' | 'SSO' | 'HYBRID' | string;
+}
+
+export interface SsoPublicConfig {
+  enabled: boolean;
+  appCode: string;
+  loginUrl: string;
+  logoutUrl: string;
+  changePasswordUrl: string;
 }
 
 export interface UpdateProfileRequest {
@@ -51,6 +60,7 @@ export class AuthService {
   currentUserPermissions = signal<string[]>([]);
   currentUserProfile = signal<UserProfile | null>(null);
   private refreshInFlight: Observable<string> | null = null;
+  private ssoConfigRequest: Observable<SsoPublicConfig> | null = null;
 
   constructor() {
     this.restorePermissionsFromStorage();
@@ -291,18 +301,65 @@ export class AuthService {
   }
 
   verifySsoTicket(ticket: string): Observable<any> {
-    return this.http.post<any>(`${this.base}/login?ticket=${ticket}`, {});
+    return this.http.post<any>(`${this.base}/sso-login?ticket=${encodeURIComponent(ticket)}`, {});
   }
 
   redirectToSso(): void {
-    if (typeof window !== 'undefined') {
-      const appCode = 'SOHOAX10';
-      const redirectUrl = encodeURIComponent(window.location.origin + '/login');
-      window.location.href = `https://sso.evnhanoi.vn//sso/login?appCode=${appCode}&returnUrl=${redirectUrl}`;
-    }
+    if (typeof window === 'undefined') return;
+    this.getSsoConfig().subscribe(config => {
+      if (config.enabled) window.location.href = this.buildSsoUrl(config.loginUrl, config);
+    });
   }
 
-  logout(): void {
+  redirectToSsoChangePassword(): void {
+    if (typeof window === 'undefined') return;
+    this.getSsoConfig().subscribe(config => {
+      window.location.href = this.buildSsoUrl(config.changePasswordUrl, config);
+    });
+  }
+
+  logout(redirectToIdentityProvider = false): void {
+    const isSso = this.isSsoUser();
+    if (redirectToIdentityProvider && isSso && typeof window !== 'undefined') {
+      this.getSsoConfig().subscribe({
+        next: config => {
+          this.clearSession();
+          window.location.href = this.buildSsoUrl(config.logoutUrl, config);
+        },
+        error: () => this.clearSession()
+      });
+      return;
+    }
+    this.clearSession();
+  }
+
+  isSsoUser(): boolean {
+    const token = this.getToken();
+    if (!token) return false;
+    const payload = this.decodeTokenPayload(token);
+    return String(payload?.['auth_provider'] ?? '').toUpperCase() === 'SSO';
+  }
+
+  private getSsoConfig(): Observable<SsoPublicConfig> {
+    if (!this.ssoConfigRequest) {
+      this.ssoConfigRequest = this.http.get<SsoPublicConfig>(`${this.base}/sso/config`).pipe(
+        shareReplay(1),
+        catchError(error => {
+          this.ssoConfigRequest = null;
+          return throwError(() => error);
+        })
+      );
+    }
+    return this.ssoConfigRequest;
+  }
+
+  private buildSsoUrl(baseUrl: string, config: SsoPublicConfig): string {
+    const redirectUrl = `${window.location.origin}/#/login`;
+    const separator = baseUrl.includes('?') ? '&' : '?';
+    return `${baseUrl}${separator}appCode=${encodeURIComponent(config.appCode)}&redirectUrl=${encodeURIComponent(redirectUrl)}`;
+  }
+
+  private clearSession(): void {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
