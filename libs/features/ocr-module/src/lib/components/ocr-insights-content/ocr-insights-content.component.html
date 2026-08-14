@@ -60,6 +60,7 @@
               <tr>
                 <th>Trang</th>
                 <th>Nội dung</th>
+                <th>Loại chữ viết</th>
                 <th>Độ tin cậy</th>
               </tr>
             </thead>
@@ -68,6 +69,7 @@
                 <tr>
                   <td>{{ region.pageNumber }}</td>
                   <td class="text-cell">{{ region.textRaw }}</td>
+                  <td>{{ scriptTypeLabel(region.textRaw) }}</td>
                   <td>{{ region.confidence != null ? (region.confidence * 100).toFixed(0) + '%' : '—' }}</td>
                 </tr>
               }
