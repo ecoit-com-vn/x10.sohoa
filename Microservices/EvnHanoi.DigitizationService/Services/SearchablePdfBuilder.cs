@@ -16,7 +16,7 @@ public interface ISearchablePdfBuilder : IDisposable
     (int WidthPx, int HeightPx) GetImagePixelSize(byte[] jpegBytes);
 
     /// <summary>Thêm 1 trang, trả về số box thực sự vẽ được text (dùng để phát hiện lớp text rỗng toàn tài liệu).</summary>
-    int AddPage(PdfDocument document, byte[] jpegBytes, IReadOnlyList<TextBoxResponse> ocrResults, double dpi = 200);
+    int AddPage(PdfDocument document, byte[] jpegBytes, IReadOnlyList<TextBoxResponse> ocrResults, double dpi = 150);
 
     void MarkAsSearchable(PdfDocument document);
 
@@ -37,7 +37,7 @@ public class SearchablePdfBuilder : ISearchablePdfBuilder
         return (info.Width, info.Height);
     }
 
-    public int AddPage(PdfDocument document, byte[] jpegBytes, IReadOnlyList<TextBoxResponse> ocrResults, double dpi = 200)
+    public int AddPage(PdfDocument document, byte[] jpegBytes, IReadOnlyList<TextBoxResponse> ocrResults, double dpi = 150)
     {
         var page = document.AddPage();
         using var gfx = XGraphics.FromPdfPage(page);

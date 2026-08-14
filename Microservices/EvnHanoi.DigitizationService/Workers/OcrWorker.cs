@@ -21,6 +21,7 @@ using System.Text.RegularExpressions;
 using EvnHanoi.DigitizationService.Models;
 using EvnHanoi.DigitizationService.Repositories;
 using EvnHanoi.DigitizationService.Services;
+using EvnHanoi.DigitizationService.Services.OcrModule;
 using EvnHanoi.DigitizationService.Helpers;
 using EvnHanoi.Infrastructure.Messaging;
 using PdfSharpCore.Pdf;
@@ -226,9 +227,13 @@ namespace EvnHanoi.DigitizationService.Workers
                             {
                                 _logger.LogInformation("Đang xử lý trang {Page}/{TotalPages}...", i + 1, pageCount);
 
-                                // 2. Render trang PDF → JPEG (200 DPI)
+                                // 2. Render trang PDF → JPEG (OcrModuleImageDpi.OcrSourceDpi — khớp với DPI file
+                                // đã được nén lúc upload ở EquipmentService, xem EvnHanoi.DocumentProcessing;
+                                // render lại cao hơn từ nguồn đã 150 DPI chỉ tốn CPU, không thêm chi tiết thật).
+                                // Toạ độ box OCR trả về theo hệ pixel của DPI này — OcrJsonMaterializer sẽ quy
+                                // đổi sang OcrModuleImageDpi.DisplayDpi trước khi lưu, để khớp ảnh hiển thị cho FE.
                                 using var imgStream = new MemoryStream();
-                                var renderOptions = new PDFtoImage.RenderOptions { Dpi = 200, WithAnnotations = true };
+                                var renderOptions = new PDFtoImage.RenderOptions { Dpi = OcrModuleImageDpi.OcrSourceDpi, WithAnnotations = true };
                                 PDFtoImage.Conversion.SaveJpeg(imgStream, pdfBytes, password: null, page: i, options: renderOptions);
                                 imgStream.Position = 0;
                                 byte[] pageImageBytes = imgStream.ToArray();

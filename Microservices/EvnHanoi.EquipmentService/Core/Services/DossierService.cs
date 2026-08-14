@@ -691,7 +691,28 @@ public class DossierService : IDossierService
         var existing = await _dossierRepository.GetByIdAsync(dossierId);
         if (existing == null)
             throw new KeyNotFoundException($"Không tìm thấy hồ sơ với ID = {dossierId}");
+
+        // Hồ sơ số hóa (/dossier-management/digitization/my-dossiers) dùng bộ kiểm tra riêng,
+        // tách biệt hoàn toàn khỏi luồng workflow/status của hồ sơ thường (/dossier-management/my-dossiers).
+        if (existing.KindId == DossierKind.Digitization.Id)
+        {
+            EnsureCanEditDigitizationDocumentsAsync(existing);
+            return;
+        }
+
         await EnsureCanEditFormDataAsync(existing);
+    }
+
+    /// <summary>
+    /// Kiểm tra quyền sửa/thêm/xóa tài liệu cho hồ sơ số hóa (KindId = Digitization) — chỉ dựa vào
+    /// phân quyền role/permission (đã được DynamicPermissionFilter chặn ở tầng controller theo
+    /// DossierDigitizationController), KHÔNG kiểm tra StatusId/WorkflowInstanceId/bước phê duyệt như
+    /// EnsureCanEditFormDataAsync(Dossier) dùng cho hồ sơ thường. Để trống có chủ đích.
+    /// </summary>
+    private void EnsureCanEditDigitizationDocumentsAsync(Dossier dossier)
+    {
+        // Không cần kiểm tra gì thêm ở đây — quyền đã được xác định bởi phân quyền role/permission
+        // (DOSSIER_EDIT/DOSSIER_CREATE) tại tầng DynamicPermissionFilter trước khi vào tới đây.
     }
 
     public async Task RecordDocumentListChangeAsync(Guid dossierId, string changeNote, string userId)

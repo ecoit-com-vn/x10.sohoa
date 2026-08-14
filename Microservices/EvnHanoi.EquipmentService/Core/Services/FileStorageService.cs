@@ -70,6 +70,18 @@ public interface IFileStorageService
         string unitCode,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Ghi đè bytes của 1 object đã tồn tại (cùng bucket + object key) — dùng để thay bản merge-chunk
+    /// gốc bằng bản đã nén (~150 DPI) ngay sau khi merge xong, tránh phải giữ lại bản chưa nén.
+    /// </summary>
+    Task<(long Size, string VersionId)> ReplaceObjectAsync(
+        string objectKey,
+        string bucketName,
+        Stream stream,
+        long size,
+        string mimeType,
+        CancellationToken cancellationToken = default);
+
     Task<(string ObjectKey, string VersionId)> UploadFileToDossierAsync(
         Stream fileStream,
         string fileName,
@@ -226,6 +238,43 @@ public class FileStorageService : IFileStorageService
         var (size, versionId) = await MergeUploadChunksAsync(
             uploadId, totalChunks, unitCode, objectKey, _documentBucket, cancellationToken);
         return (objectKey, size, versionId);
+    }
+
+    public async Task<(long Size, string VersionId)> ReplaceObjectAsync(
+        string objectKey,
+        string bucketName,
+        Stream stream,
+        long size,
+        string mimeType,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var putArgs = new PutObjectArgs()
+                .WithBucket(bucketName)
+                .WithObject(objectKey)
+                .WithStreamData(stream)
+                .WithObjectSize(size)
+                .WithContentType(mimeType);
+
+            await _minioClient.PutObjectAsync(putArgs, cancellationToken);
+
+            var statArgs = new StatObjectArgs()
+                .WithBucket(bucketName)
+                .WithObject(objectKey);
+            var stat = await _minioClient.StatObjectAsync(statArgs, cancellationToken);
+
+            _logger.LogInformation(
+                "Ghi đè object trên MinIO (nén file): {Bucket}/{ObjectKey} (Size: {Size} bytes, Version: {Version})",
+                bucketName, objectKey, size, stat.VersionId);
+
+            return (size, stat.VersionId ?? "");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to replace object: {Bucket}/{ObjectKey}", bucketName, objectKey);
+            throw;
+        }
     }
 
     public async Task<Stream> DownloadFileAsync(

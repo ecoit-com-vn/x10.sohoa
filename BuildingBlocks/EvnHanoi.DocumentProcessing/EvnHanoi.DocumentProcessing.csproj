@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.8" />
+    <PackageReference Include="PdfSharpCore" Version="1.3.67" />
+    <PackageReference Include="PDFtoImage" Version="4.0.1" />
+    <!-- Ghim đúng bằng version PdfSharpCore 1.3.67 biên dịch sẵn để gọi — xem comment tương tự trong
+         EvnHanoi.DigitizationService.csproj. PdfSharpCore gắn chặt với API ImageSharp 1.x ở nhiều điểm
+         nội bộ (Image.Load, JpegEncoder.Quality...); dùng bản 3.x+ sẽ vỡ (MissingMethodException) khi
+         PdfSharpCore tự gọi vào ImageSharp lúc runtime.
+         LƯU Ý BẢO MẬT: 1.0.4 là bản 1.x cuối cùng từng phát hành (không có bản vá 1.0.5+), có các CVE đã
+         biết (xem cảnh báo NU1902/NU1903 lúc restore). Khác với DigitizationService (chỉ xử lý JPEG nội bộ
+         do OCR tự render), project này xử lý TRỰC TIẾP bytes ảnh/PDF do người dùng tải lên — rủi ro được
+         giảm nhẹ bằng: (1) ClamAV đã quét file trước khi tới bước nén (xem FileUploadService), (2) kiểm
+         tra kích thước ảnh qua Image.Identify() (chỉ đọc header) trước khi decode toàn bộ để chặn
+         decompression-bomb, (3) mọi lỗi trong lúc nén đều được bắt và fallback về lưu file gốc thay vì
+         crash request. Cần theo dõi nâng cấp PdfSharpCore/thay thế thư viện nếu có bản mới hỗ trợ
+         ImageSharp hiện đại. -->
+    <PackageReference Include="SixLabors.ImageSharp" Version="1.0.4" />
+    <PackageReference Include="UglyToad.PdfPig" Version="1.7.0-custom-5" />
+  </ItemGroup>
+
+</Project>

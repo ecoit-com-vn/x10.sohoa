@@ -4,6 +4,7 @@
   </Folder>
   <Folder Name="/BuildingBlocks/">
     <Project Path="BuildingBlocks/EvnHanoi.Core/EvnHanoi.Core.csproj" />
+    <Project Path="BuildingBlocks/EvnHanoi.DocumentProcessing/EvnHanoi.DocumentProcessing.csproj" />
     <Project Path="BuildingBlocks/EvnHanoi.Infrastructure/EvnHanoi.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/Microservices/">
