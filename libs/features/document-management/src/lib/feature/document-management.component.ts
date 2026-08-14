@@ -92,6 +92,13 @@ export class DocumentManagementComponent implements OnInit {
   previewBlobUrl = signal<string | null>(null);
   previewFileType = signal<'pdf' | 'image' | 'unsupported'>('unsupported');
 
+  // ===== NOISE REDUCTION SIGNALS =====
+  showNoiseReductionDialog = signal(false);
+  noiseReductionLoading = signal(false);
+  noiseReductionProcessing = signal(false);
+  noiseReductionTargetDoc = signal<Document | null>(null);
+  noiseReductionPreviewBlobUrl = signal<string | null>(null);
+
   // ===== SIGNALS =====
   currentView = signal<ViewMode>('list');
   uploadMode = signal<FolderUploadMode>('web');
@@ -631,6 +638,13 @@ export class DocumentManagementComponent implements OnInit {
         icon: 'pi pi-upload color-blue',
         disabled: this.uploadingNewVersion(),
         command: () => this.onOpenQuickNewVersionUpload(doc),
+      },
+      {
+        label: 'Khử nhiễu',
+        title: 'Khử nhiễu',
+        icon: 'pi pi-image color-blue',
+        disabled: !doc.latestVersionId || doc.mimeType?.toLowerCase() !== 'application/pdf',
+        command: () => this.onOpenNoiseReductionDialog(doc),
       },
       {
         label: 'Lịch sử phiên bản',
@@ -1317,5 +1331,85 @@ export class DocumentManagementComponent implements OnInit {
     this.showPreviewDialog.set(false);
     this.previewTargetDoc.set(null);
     this.previewVersionId.set('');
+  }
+
+  // ===== NOISE REDUCTION LOGIC =====
+
+  async onOpenNoiseReductionDialog(doc: Document) {
+    if (!doc.latestVersionId) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Cảnh báo',
+        detail: 'Tài liệu chưa có phiên bản file để khử nhiễu.',
+      });
+      return;
+    }
+
+    this.noiseReductionTargetDoc.set(doc);
+    this.showNoiseReductionDialog.set(true);
+    await this.loadNoiseReductionPreview(doc.latestVersionId);
+  }
+
+  private async loadNoiseReductionPreview(versionId: string) {
+    this.cleanupNoiseReductionPreview();
+    this.noiseReductionLoading.set(true);
+    try {
+      const blobUrl = await this.fileDownloadService.getPreviewBlobUrl(versionId);
+      this.noiseReductionPreviewBlobUrl.set(blobUrl);
+    } catch (error: unknown) {
+      const msg = extractApiErrorMessage(error, 'Không thể tải file xem trước');
+      this.messageService.add({ severity: 'error', summary: 'Lỗi xem trước', detail: msg });
+      this.closeNoiseReductionDialog();
+    } finally {
+      this.noiseReductionLoading.set(false);
+    }
+  }
+
+  getSafeNoiseReductionPreviewUrl(): SafeResourceUrl | null {
+    const url = this.noiseReductionPreviewBlobUrl();
+    return url ? this.sanitizer.bypassSecurityTrustResourceUrl(url) : null;
+  }
+
+  onApplyNoiseReduction(): void {
+    const doc = this.noiseReductionTargetDoc();
+    if (!doc) return;
+
+    this.noiseReductionProcessing.set(true);
+    this.documentService.applyNoiseReduction(doc.id)
+      .pipe(finalize(() => this.noiseReductionProcessing.set(false)))
+      .subscribe({
+        next: async (result) => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: `Đã khử nhiễu tài liệu "${doc.name}"`,
+          });
+          this.noiseReductionTargetDoc.set({ ...doc, latestVersionId: result.documentVersionId });
+          await this.loadNoiseReductionPreview(result.documentVersionId);
+          this.loadDocuments();
+          this.loadDocumentVersions(doc.id);
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: extractApiErrorMessage(err, 'Khử nhiễu thất bại'),
+          });
+        },
+      });
+  }
+
+  cleanupNoiseReductionPreview(): void {
+    const url = this.noiseReductionPreviewBlobUrl();
+    if (url) {
+      this.fileDownloadService.revokePreviewBlobUrl(url);
+      this.noiseReductionPreviewBlobUrl.set(null);
+    }
+  }
+
+  closeNoiseReductionDialog(): void {
+    this.cleanupNoiseReductionPreview();
+    this.showNoiseReductionDialog.set(false);
+    this.noiseReductionTargetDoc.set(null);
   }
 }

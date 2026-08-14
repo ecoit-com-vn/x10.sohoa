@@ -148,6 +148,15 @@ export class DocumentManagementService {
     );
   }
 
+  applyNoiseReduction(documentId: string): Observable<{
+    documentVersionId: string;
+    documentId: string;
+    versionNumber: number;
+    status: string;
+  }> {
+    return this.api.post(`${this.base}/${documentId}/noise-reduction`, {});
+  }
+
   rollbackDocumentVersion(versionId: string): Observable<void> {
     return this.api.post<void>(`${this.base}/versions/${versionId}/rollback`, {});
   }
