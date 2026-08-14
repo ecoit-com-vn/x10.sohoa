@@ -353,7 +353,7 @@ export class UserManagement implements OnInit {
       return;
     }
     this.isEdit.set(false);
-    this.currentUser.set({ username: '', fullName: '', email: '', organizationUnitId: null, positionId: null, positionName: '', isActive: true });
+    this.currentUser.set({ username: '', fullName: '', email: '', organizationUnitId: null, positionId: null, positionName: '', isActive: true, isSsoEnabled: false });
     this.selectedRoleIdsInForm.set([]);
     this.formSubmitted.set(false);
     this.serverErrors.set({});
