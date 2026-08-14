@@ -87,6 +87,23 @@ public class DynamicPermissionFilter : IAsyncActionFilter
             return;
         }
 
+        // Bypass the DOSSIER_VIEW check for the "Related dossiers" panel when the publish
+        // page is opened from a report (…#/publish/{id}?from=report). The user already
+        // reached this screen through the correctly-permissioned publish flow
+        // (DOSSIER_PUBLISH_VIEW on the parent endpoint), so the same-infrastructure
+        // catalog data may be shown without requiring DOSSIER_VIEW.
+        var fromQuery = context.HttpContext.Request.Query["from"].ToString();
+        if (string.Equals(controllerName, "Dossier", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(fromQuery, "report", StringComparison.OrdinalIgnoreCase) &&
+            new[] { "GetRelatedDossiers", "GetDetail", "GetDocumentTypes" }
+                .Contains(actionName, StringComparer.OrdinalIgnoreCase))
+        {
+            Log.Information("Shared DynamicPermissionFilter: Bypassing permission check for {Controller}/{Action} because the request comes from a report (from=report)",
+                controllerName, actionName);
+            await next();
+            return;
+        }
+
         // Check if user has ADMIN role bypass
         var roles = user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
         var username = user.FindFirst(ClaimTypes.Name)?.Value ?? user.Identity?.Name;
