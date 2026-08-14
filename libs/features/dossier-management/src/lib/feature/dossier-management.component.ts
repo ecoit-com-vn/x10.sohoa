@@ -15,6 +15,7 @@ import { DossierFormComponent } from './dossier-form/dossier-form.component';
 import { DossierDetailComponent } from './dossier-detail/dossier-detail.component';
 import { DossierPublishComponent } from './dossier-publish/dossier-publish.component';
 import { DossierManagementService } from '../data-access/dossier-management.service';
+import { DossierReportContext } from '../data-access/dossier-report-context.service';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { hasDossierCreatePermission } from '../utils/dossier-permission.util';
 
@@ -179,6 +180,7 @@ import { DossierMenuScope } from '../utils/dossier-status.util';
         *ngIf="currentView() === 'detail' && selectedDossierId()"
         [dossierId]="selectedDossierId()!"
         [menuScope]="menuScope()"
+        [fromContext]="menuFrom() ?? undefined"
         (cancel)="onBackToList()"
         (edit)="onEdit(selectedDossierId()!)"
       ></app-dossier-detail>
@@ -204,6 +206,7 @@ export class DossierManagementComponent implements OnInit {
 
 
   private dossierService = inject(DossierManagementService);
+  private reportContext = inject(DossierReportContext);
   private authService = inject(AuthService);
 
   currentView = signal<'list' | 'form' | 'detail'>('list');
@@ -211,6 +214,8 @@ export class DossierManagementComponent implements OnInit {
   inputCompleted = signal(false);
   menuScope = signal<DossierMenuScope>('creator');
   kindId = signal<number>(2);
+  /** Nguồn mở hồ sơ từ route: 'report' khi URL có ?from=report. */
+  menuFrom = signal<string | null>(null);
   /** Chờ sync route trước khi mount list — chỉ cần cho digitization (kindId=1); hồ sơ mới mặc định kindId=2. */
   routeReady = signal(false);
   listTitle = signal('Quản lý hồ sơ');
@@ -312,6 +317,8 @@ export class DossierManagementComponent implements OnInit {
     const kind = (node.data['kindId'] as number) ?? 2;
     this.menuScope.set(scope);
     this.kindId.set(kind);
+    this.menuFrom.set(node.queryParamMap.get('from'));
+    this.reportContext.setFrom(node.queryParamMap.get('from'));
     this.dossierService.setKindContext(kind);
     this.listTitle.set((node.data['listTitle'] as string) ?? 'Quản lý hồ sơ');
 

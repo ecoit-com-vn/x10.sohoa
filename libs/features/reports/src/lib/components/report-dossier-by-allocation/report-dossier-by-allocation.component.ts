@@ -14,7 +14,7 @@ import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { TooltipModule } from 'primeng/tooltip';
 import { TreeNode } from 'primeng/api';
-import { WfBreadcrumbComponent, EcoInputTreeSelectComponent } from '@sohoa.frontend/shared/layout';
+import { WfBreadcrumbComponent, EcoInputTreeSelectComponent, EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import {
   ReportDossierByAllocationService,
@@ -55,6 +55,7 @@ interface OrgTreeNode {
     SelectModule,
     TooltipModule,
     WfBreadcrumbComponent,
+    EcoPaginatorComponent,
     EcoInputTreeSelectComponent,
     ReportStatisticsDossierListComponent,
     ReportStatisticsCreatorGridComponent
