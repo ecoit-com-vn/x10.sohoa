@@ -3,7 +3,11 @@
 <div class="wf-page dossier-report-page box-report">
   <div class="list-toolbar standard-page-toolbar breadcrumb-container">
     <wf-breadcrumb
-      [suffix]="'Báo cáo thống kê hồ sơ theo hộp lưu trữ'"
+      [customItems]="[
+        { label: 'Báo cáo & Thống kê' },
+        { label: 'Thống kê báo cáo', url: '/reports/statistics' } ,
+        { label: 'Báo cáo thống kê hồ sơ theo hộp lưu trữ'} 
+      ]" 
     ></wf-breadcrumb>
   </div>
 
