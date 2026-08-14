@@ -27,11 +27,21 @@
   </label>
 
     <div class="eco-paginator__page-size">
-        <span class="eco-paginator__page-size-label">{{ effectivePageSize }} / trang</span>
-        <select aria-label="Số bản ghi trên mỗi trang" [value]="effectivePageSize" (change)="selectPageSize($event)">
-      <option *ngFor="let option of rowsPerPageOptions" [value]="option">
-        {{ option }}
-      </option>
-    </select>
+      <span class="eco-paginator__page-size-label">
+        {{ effectivePageSize }} / trang
+      </span>
+
+      <select
+        aria-label="Số bản ghi trên mỗi trang"
+        (change)="selectPageSize($event)"
+      >
+        <option
+          *ngFor="let option of rowsPerPageOptions"
+          [value]="option"
+          [selected]="option === effectivePageSize"
+        >
+          {{ option }}
+        </option>
+      </select>
     </div>
 </nav>

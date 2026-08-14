@@ -14,7 +14,7 @@ import { Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
-import { MultiSelectModule } from 'primeng/multiselect';
+import { TreeSelectModule } from 'primeng/treeselect';
 import { TooltipModule } from 'primeng/tooltip';
 import { TreeNode } from 'primeng/api';
 import { WfBreadcrumbComponent, EcoInputTreeSelectComponent } from '@sohoa.frontend/shared/layout';
@@ -48,11 +48,6 @@ interface OrgTreeNode {
   children: OrgTreeNode[];
 }
 
-interface BoxOption {
-  id: string;
-  name: string;
-}
-
 @Component({
   selector: 'app-report-dossier-by-box',
   standalone: true,
@@ -61,7 +56,7 @@ interface BoxOption {
     FormsModule,
     ToastModule,
     SelectModule,
-    MultiSelectModule,
+    TreeSelectModule,
     TooltipModule,
     WfBreadcrumbComponent,
     EcoInputTreeSelectComponent,
@@ -96,15 +91,17 @@ export class ReportDossierByBoxComponent implements OnInit, AfterViewInit {
 
   reportFilter = computed(() => ({
     unitId: this.selectedUnitId(),
-    boxIds: this.selectedBoxIds().filter((id) => id?.trim()),
+    boxIds: this.selectedBoxIds()
+      ? Object.keys(this.selectedBoxIds()).filter(key => !key.startsWith('shelf-') && !key.startsWith('floor-'))
+      : [],
     ...yearToFilterParam(this.selectedYear())
   }));
 
   units = signal<UnitLookupItem[]>([]);
-  boxOptions = signal<BoxOption[]>([]);
+  boxOptions = signal<TreeNode[]>([]);
   years = signal<number[]>([]);
   yearOptions = computed(() => buildYearOptions(this.years()));
-
+  
   orgUnitTree = computed(() => this.buildOrgTree(this.units()));
   primengOrgUnitTree = computed((): TreeNode[] => {
     const buildNodes = (nodes: OrgTreeNode[]): TreeNode[] =>
@@ -120,7 +117,7 @@ export class ReportDossierByBoxComponent implements OnInit, AfterViewInit {
   });
 
   selectedUnitId = signal<number | null>(null);
-  selectedBoxIds = signal<string[]>([]);
+  selectedBoxIds = signal<any>(null); // Changed type to any for p-treeSelect object
   selectedYear = signal<number>(new Date().getFullYear());
 
   activeTab = signal<MainTabMode>('stats');
@@ -161,21 +158,8 @@ export class ReportDossierByBoxComponent implements OnInit, AfterViewInit {
 
   onUnitChange(unitId: number | null): void {
     this.selectedUnitId.set(unitId);
-    this.selectedBoxIds.set([]);
+    this.selectedBoxIds.set(null);
     this.loadBoxOptions();
-  }
-
-  private loadBoxOptions(): void {
-    this.reportService.getBoxesLookup(this.selectedUnitId()).subscribe({
-      next: (boxes) => {
-        const options: BoxOption[] = (boxes || []).map((b: BoxLookupItem) => ({
-          id: String(b.id),
-          name: b.code ? `${b.code} — ${b.name}` : b.name
-        }));
-        this.boxOptions.set(options);
-      },
-      error: (err) => console.error('Lỗi tải hộp hồ sơ:', err)
-    });
   }
 
   private loadYearsLookup(): void {
@@ -235,7 +219,7 @@ export class ReportDossierByBoxComponent implements OnInit, AfterViewInit {
   }
 
   onResetSearch(): void {
-    this.selectedBoxIds.set([]);
+    this.selectedBoxIds.set(null); // Reset for p-treeSelect
     this.selectedUnitId.set(null);
 
     this.applyDefaultUnitFilter();
@@ -271,7 +255,9 @@ export class ReportDossierByBoxComponent implements OnInit, AfterViewInit {
   loadStatsData(): void {
     const filter: DossierByBoxFilter = {
       unitId: this.selectedUnitId(),
-      boxIds: this.selectedBoxIds(),
+      boxIds: this.selectedBoxIds()
+        ? Object.keys(this.selectedBoxIds()).filter(key => !key.startsWith('shelf-') && !key.startsWith('floor-'))
+        : [],
       ...yearToFilterParam(this.selectedYear())
     };
 
@@ -305,7 +291,9 @@ export class ReportDossierByBoxComponent implements OnInit, AfterViewInit {
     this.exporting.set(true);
     const filter: DossierByBoxFilter = {
       unitId: this.selectedUnitId(),
-      boxIds: this.selectedBoxIds(),
+      boxIds: this.selectedBoxIds()
+        ? Object.keys(this.selectedBoxIds()).filter(key => !key.startsWith('shelf-') && !key.startsWith('floor-'))
+        : [],
       ...yearToFilterParam(this.selectedYear())
     };
 
@@ -372,6 +360,79 @@ export class ReportDossierByBoxComponent implements OnInit, AfterViewInit {
       severity: 'error',
       summary: 'Lỗi',
       detail
+    });
+  }
+
+  // New method to build tree nodes for boxes
+  private buildBoxTreeNodes(boxes: BoxLookupItem[]): TreeNode[] {
+    const shelfMap = new Map<string, TreeNode>(); // Key: shelfCode
+    const floorMap = new Map<string, TreeNode>(); // Key: shelfCode_floorCode
+
+    boxes.forEach(box => {
+      if (!box.shelfCode || !box.floorCode) {
+        // Handle boxes without shelf/floor codes if necessary, e.g., add them as root nodes or ignore
+        // For now, we'll skip them if they don't fit the desired hierarchy
+        return;
+      }
+
+      // Get or create Shelf Node
+      let shelfNode = shelfMap.get(box.shelfCode);
+      if (!shelfNode) {
+        shelfNode = {
+          key: `shelf-${box.shelfCode}`, // Unique key for shelf
+          label: box.shelfCode,
+          data: { type: 'shelf', code: box.shelfCode },
+          children: []
+        };
+        shelfMap.set(box.shelfCode, shelfNode);
+      }
+
+      // Get or create Floor Node
+      const floorKey = `${box.shelfCode}-${box.floorCode}`;
+      let floorNode = floorMap.get(floorKey);
+      if (!floorNode) {
+        floorNode = {
+          key: `floor-${floorKey}`, // Unique key for floor
+          label: box.floorCode,
+          data: { type: 'floor', code: box.floorCode },
+          children: []
+        };
+        floorMap.set(floorKey, floorNode);
+        shelfNode.children?.push(floorNode); // Add floor to shelf
+      }
+
+      // Create Box Node
+      const boxNode: TreeNode = {
+        key: box.id, // Actual box ID for selection
+        label: box.code ? `${box.code} - ${box.name}` : box.name,
+        data: { type: 'box', id: box.id, code: box.code, name: box.name },
+        icon: 'pi pi-box', // Optional icon
+        leaf: true
+      };
+      floorNode.children?.push(boxNode); // Add box to floor
+    });
+
+    // Sort children for better presentation
+    shelfMap.forEach(shelfNode => {
+      shelfNode.children?.sort((a, b) => (a.label || '').localeCompare(b.label || ''));
+      shelfNode.children?.forEach(floorNode => {
+        floorNode.children?.sort((a, b) => (a.label || '').localeCompare(b.label || ''));
+      });
+    });
+
+    const rootNodes = Array.from(shelfMap.values());
+    rootNodes.sort((a, b) => (a.label || '').localeCompare(b.label || ''));
+    return rootNodes;
+  }
+
+  // Modified loadBoxOptions to use the new tree builder
+  private loadBoxOptions(): void {
+    this.reportService.getBoxesLookup(this.selectedUnitId()).subscribe({
+      next: (boxes) => {
+        const treeNodes = this.buildBoxTreeNodes(boxes || []);
+        this.boxOptions.set(treeNodes);
+      },
+      error: (err) => console.error('Lỗi tải hộp hồ sơ:', err)
     });
   }
 }

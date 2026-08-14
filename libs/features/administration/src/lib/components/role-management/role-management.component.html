@@ -3,24 +3,29 @@
 
     <div class="list-toolbar standard-page-toolbar">
         <div class="toolbar-left">
-            <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Vai trò', url: '/administration/roles' }]" [suffix]="currentView() === 'permission' ? 'Phân quyền' : null" />
+            <wf-breadcrumb
+                [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Vai trò', url: '/administration/roles' }]"
+                [suffix]="currentView() === 'permission' ? 'Phân quyền' : null" />
         </div>
         <div class="toolbar-right">
-            <button *ngIf="currentView() === 'list' && authService.hasPermission('ROLE_CREATE')" class="btn-green" (click)="onAddNew()">
-        <i class="pi pi-plus"></i> Thêm vai trò mới
-      </button>
+            <button *ngIf="currentView() === 'list' && authService.hasPermission('ROLE_CREATE')" class="btn-green"
+                (click)="onAddNew()">
+                <i class="pi pi-plus"></i> Thêm vai trò mới
+            </button>
             <ng-container *ngIf="currentView() === 'permission'">
                 <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="savingPermissions()">
-              <i class="pi pi-times"></i> Hủy
-            </button>
-                <button *ngIf="permissionTab() === 'permissions'" class="btn-save btn-small" (click)="onSavePermissions()" [disabled]="savingPermissions()">
-              <i class="pi pi-spin pi-spinner" *ngIf="savingPermissions()"></i>
-              <i class="pi pi-check" *ngIf="!savingPermissions()"></i>
-              Lưu
-            </button>
-                <button class="btn-outlined btn-small" (click)="currentView.set('list')" [disabled]="savingPermissions()">
-              Quay lại
-            </button>
+                    <i class="pi pi-times"></i> Hủy
+                </button>
+                <button *ngIf="permissionTab() === 'permissions'" class="btn-save btn-small"
+                    (click)="onSavePermissions()" [disabled]="savingPermissions()">
+                    <i class="pi pi-spin pi-spinner" *ngIf="savingPermissions()"></i>
+                    <i class="pi pi-check" *ngIf="!savingPermissions()"></i>
+                    Lưu
+                </button>
+                <button class="btn-outlined btn-small" (click)="currentView.set('list')"
+                    [disabled]="savingPermissions()">
+                    Quay lại
+                </button>
             </ng-container>
         </div>
     </div>
@@ -28,14 +33,17 @@
     <div>
 
         <!-- MÀN HÌNH DANH SÁCH -->
-        <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'" class="animate-fade-in">
+        <div *ngIf="currentView() === 'list' || currentView() === 'add' || currentView() === 'edit'"
+            class="animate-fade-in">
 
             <!-- Toolbar -->
             <div class="standard-search-card">
                 <div class="standard-search-grid">
                     <div class="standard-search-field">
                         <label class="search-field-label">Từ khóa</label>
-                        <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên vai trò..." [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearch()" />
+                        <input type="text" class="wf-search-input" placeholder="Tìm theo mã hoặc tên vai trò..."
+                            [ngModel]="searchKeyword()" (ngModelChange)="searchKeyword.set($event)"
+                            (keyup.enter)="onSearch()" />
                     </div>
                     <div class="standard-search-field">
                         <label class="search-field-label">Trạng thái</label>
@@ -45,148 +53,178 @@
                             <option [ngValue]="false">Ngừng hoạt động</option>
                         </select>
                     </div>
-                </div>
-                <div class="standard-search-actions">
+
+                    <div class="standard-search-actions">
                         <button type="button" class="btn-outlined" (click)="onResetSearch()">
-              <i class="pi pi-refresh"></i> Làm mới
-            </button>
+                            <i class="pi pi-refresh"></i> Làm mới
+                        </button>
                         <button class="btn-save" (click)="onSearch()"><i class="pi pi-check"></i> Áp dụng</button>
+                    </div>
                 </div>
             </div>
 
             <!-- Table -->
             <div class="wf-card">
-            <div class="wf-table-wrap">
-                <table class="wf-table">
-                    <thead>
-                        <tr>
-                            <th class="col-stt">STT</th>
-                            <th>Mã vai trò</th>
-                            <th>Tên vai trò</th>
-                            <th class="col-created-date">Ngày tạo</th>
-                            <th>Người tạo</th>
-                            <th class="col-tt">Trạng thái</th>
-                            <th class="col-hd">Thao tác</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- skeleton loading rows -->
-                        <ng-container *ngIf="loading()">
-                            <tr *ngFor="let item of [1, 2, 3, 4]">
-                                <td class="col-stt">
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div>
-                                </td>
-                                <td>
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 100px; border-radius: 4px;"></div>
-                                </td>
-                                <td>
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div>
-                                </td>
-                                <td>
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 200px; border-radius: 4px;"></div>
-                                </td>
-                                <td>
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div>
-                                </td>
-                                <td style="text-align: center;">
-                                    <div class="skeleton-shimmer" style="height: 16px; width: 80px; margin: 0 auto; border-radius: 12px;"></div>
-                                </td>
-                                <td class="col-hd">
-                                    <div class="skeleton-shimmer" style="height: 24px; width: 180px; border-radius: 4px;"></div>
-                                </td>
+                <div class="wf-table-wrap">
+                    <table class="wf-table">
+                        <thead>
+                            <tr>
+                                <th class="col-stt">STT</th>
+                                <th>Mã vai trò</th>
+                                <th>Tên vai trò</th>
+                                <th class="col-created-date">Ngày tạo</th>
+                                <th>Người tạo</th>
+                                <th class="col-tt">Trạng thái</th>
+                                <th class="col-hd">Thao tác</th>
                             </tr>
-                        </ng-container>
+                        </thead>
+                        <tbody>
+                            <!-- skeleton loading rows -->
+                            <ng-container *ngIf="loading()">
+                                <tr *ngFor="let item of [1, 2, 3, 4]">
+                                    <td class="col-stt">
+                                        <div class="skeleton-shimmer"
+                                            style="height: 16px; width: 24px; border-radius: 4px;"></div>
+                                    </td>
+                                    <td>
+                                        <div class="skeleton-shimmer"
+                                            style="height: 16px; width: 100px; border-radius: 4px;"></div>
+                                    </td>
+                                    <td>
+                                        <div class="skeleton-shimmer"
+                                            style="height: 16px; width: 150px; border-radius: 4px;"></div>
+                                    </td>
+                                    <td>
+                                        <div class="skeleton-shimmer"
+                                            style="height: 16px; width: 200px; border-radius: 4px;"></div>
+                                    </td>
+                                    <td>
+                                        <div class="skeleton-shimmer"
+                                            style="height: 16px; width: 120px; border-radius: 4px;"></div>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <div class="skeleton-shimmer"
+                                            style="height: 16px; width: 80px; margin: 0 auto; border-radius: 12px;">
+                                        </div>
+                                    </td>
+                                    <td class="col-hd">
+                                        <div class="skeleton-shimmer"
+                                            style="height: 24px; width: 180px; border-radius: 4px;"></div>
+                                    </td>
+                                </tr>
+                            </ng-container>
 
-                        <ng-container *ngIf="!loading()">
-                            <tr *ngFor="let role of paginatedRoles(); let i = index">
-                                <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-                                <td>
-                                    <b *ngIf="authService.hasPermission('ROLE_EDIT')" class="wf-name-link" (click)="onEdit(role)">{{ role.code }}</b>
-                                    <span *ngIf="!authService.hasPermission('ROLE_EDIT')">{{ role.code }}</span>
-                                </td>
-                                <td>
-                                    <span>{{ role.name }}</span>
-                                </td>
-                                <td class="col-created-date">{{ role.createdAt ? (role.createdAt | date:'dd/MM/yyyy') : '—' }}</td>
-                                <td>{{ role.createdByName || role.createdBy || '—' }}</td>
-                                <td style="text-align: center;">
-                                    <span class="status-pill" [class.status-active]="role.isActive" [class.status-inactive]="!role.isActive">
-                    {{ role.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
-                  </span>
-                                </td>
-                                <td class="col-hd">
-                                    <div class="action-buttons-group">
-                                        <button type="button" class="act-btn act-more" (click)="openActionMenu(role, $event, actionMenu)" title="Thao tác khác">
-                      <i class="pi pi-ellipsis-h"></i>
-                    </button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr *ngIf="filteredRoles().length === 0">
-                                <td colspan="7" class="empty-row">
-                                    <i class="pi pi-inbox"></i>
-                                    <div>Không tìm thấy vai trò phù hợp.</div>
-                                </td>
-                            </tr>
-                        </ng-container>
-                    </tbody>
-                </table>
-            </div>
+                            <ng-container *ngIf="!loading()">
+                                <tr *ngFor="let role of paginatedRoles(); let i = index">
+                                    <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
+                                    <td>
+                                        <b *ngIf="authService.hasPermission('ROLE_EDIT')" class="wf-name-link"
+                                            (click)="onEdit(role)">{{ role.code }}</b>
+                                        <span *ngIf="!authService.hasPermission('ROLE_EDIT')">{{ role.code }}</span>
+                                    </td>
+                                    <td>
+                                        <span>{{ role.name }}</span>
+                                    </td>
+                                    <td class="col-created-date">{{ role.createdAt ? (role.createdAt |
+                                        date:'dd/MM/yyyy') : '—' }}</td>
+                                    <td>{{ role.createdByName || role.createdBy || '—' }}</td>
+                                    <td style="text-align: center;">
+                                        <span class="status-pill" [class.status-active]="role.isActive"
+                                            [class.status-inactive]="!role.isActive">
+                                            {{ role.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
+                                        </span>
+                                    </td>
+                                    <td class="col-hd">
+                                        <div class="action-buttons-group">
+                                            <button type="button" class="act-btn act-more"
+                                                (click)="openActionMenu(role, $event, actionMenu)"
+                                                title="Thao tác khác">
+                                                <i class="pi pi-ellipsis-h"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr *ngIf="filteredRoles().length === 0">
+                                    <td colspan="7" class="empty-row">
+                                        <i class="pi pi-inbox"></i>
+                                        <div>Không tìm thấy vai trò phù hợp.</div>
+                                    </td>
+                                </tr>
+                            </ng-container>
+                        </tbody>
+                    </table>
+                </div>
 
-            <!-- Footer with Pagination -->
-            <app-eco-paginator *ngIf="totalCount() > 0 && !loading()" [currentPage]="currentPage()" [pageSize]="pageSize()" [totalRecords]="totalCount()" (pageChange)="goToPage($event)" (pageSizeChange)="onPageSizeChange($event)" />
+                <!-- Footer with Pagination -->
+                <app-eco-paginator *ngIf="totalCount() > 0 && !loading()" [currentPage]="currentPage()"
+                    [pageSize]="pageSize()" [totalRecords]="totalCount()" (pageChange)="goToPage($event)"
+                    (pageSizeChange)="onPageSizeChange($event)" />
             </div>
         </div>
 
-        <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu"></p-menu>
+        <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body"
+            styleClass="row-action-menu"></p-menu>
 
         <!-- Dialog Thêm/Sửa Vai trò -->
-        <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'" (visibleChange)="$event ? null : currentView.set('list')" [header]="dialogHeader()" [modal]="true" [style]="{ width: '500px' }" styleClass="evn-dialog-custom">
+        <p-dialog [visible]="currentView() === 'add' || currentView() === 'edit'"
+            (visibleChange)="$event ? null : currentView.set('list')" [header]="dialogHeader()" [modal]="true"
+            [style]="{ width: '500px' }" styleClass="evn-dialog-custom">
             <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
                 <div class="form-group">
                     <label class="form-label">Mã vai trò <span class="required">*</span></label>
-                    <input type="text" class="wf-input w-full" [(ngModel)]="currentRole().code" (ngModelChange)="onFieldChange('code')" placeholder="Ví dụ: QUAN_TRI, CAN_BO..." maxlength="50" [disabled]="isEdit() || saving()" />
+                    <input type="text" class="wf-input w-full" [(ngModel)]="currentRole().code"
+                        (ngModelChange)="onFieldChange('code')" placeholder="Ví dụ: QUAN_TRI, CAN_BO..." maxlength="50"
+                        [disabled]="isEdit() || saving()" />
                     <span class="field-error" *ngIf="codeError()">{{ codeError() }}</span>
-                    <small class="text-muted" *ngIf="!codeError()">Chỉ dùng chữ không dấu, chữ số và dấu gạch dưới (_).</small>
+                    <small class="text-muted" *ngIf="!codeError()">Chỉ dùng chữ không dấu, chữ số và dấu gạch dưới
+                        (_).</small>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Tên vai trò <span class="required">*</span></label>
-                    <input type="text" class="wf-input w-full" [(ngModel)]="currentRole().name" (ngModelChange)="onFieldChange('name')" placeholder="Ví dụ: Quản trị viên hệ thống..." [disabled]="saving()" />
+                    <input type="text" class="wf-input w-full" [(ngModel)]="currentRole().name"
+                        (ngModelChange)="onFieldChange('name')" placeholder="Ví dụ: Quản trị viên hệ thống..."
+                        [disabled]="saving()" />
                     <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
                 </div>
 
                 <ng-container *ngIf="isCentralAdmin()">
                     <div class="form-group">
                         <label class="form-label">Phạm vi vai trò <span class="required">*</span></label>
-                        <select class="wf-select w-full" [(ngModel)]="currentRole().scopeTypeId" (ngModelChange)="currentRole().organizationUnitId = ($event == 1 ? null : currentRole().organizationUnitId)" [disabled]="isEdit() || saving()">
-            <option [value]="1">Toàn hệ thống (Global)</option>
-            <option [value]="2">Đơn vị (Unit)</option>
-          </select>
+                        <select class="wf-select w-full" [(ngModel)]="currentRole().scopeTypeId"
+                            (ngModelChange)="currentRole().organizationUnitId = ($event == 1 ? null : currentRole().organizationUnitId)"
+                            [disabled]="isEdit() || saving()">
+                            <option [value]="1">Toàn hệ thống (Global)</option>
+                            <option [value]="2">Đơn vị (Unit)</option>
+                        </select>
                     </div>
 
                     <div class="form-group" *ngIf="currentRole().scopeTypeId == 2">
                         <label class="form-label">Đơn vị thành viên <span class="required">*</span></label>
-                        <select class="wf-select w-full" [(ngModel)]="currentRole().organizationUnitId" [disabled]="isEdit() || saving()">
-            <option [value]="null">-- Chọn đơn vị --</option>
-            <option *ngFor="let ou of organizationUnits()" [value]="ou.id">{{ ou.name }}</option>
-          </select>
+                        <select class="wf-select w-full" [(ngModel)]="currentRole().organizationUnitId"
+                            [disabled]="isEdit() || saving()">
+                            <option [value]="null">-- Chọn đơn vị --</option>
+                            <option *ngFor="let ou of organizationUnits()" [value]="ou.id">{{ ou.name }}</option>
+                        </select>
                     </div>
                 </ng-container>
 
                 <div class="form-group">
                     <label class="form-label">Mô tả chi tiết</label>
-                    <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentRole().description" placeholder="Ghi chú về phạm vi của vai trò này..." [disabled]="saving()"></textarea>
+                    <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentRole().description"
+                        placeholder="Ghi chú về phạm vi của vai trò này..." [disabled]="saving()"></textarea>
                 </div>
             </div>
             <ng-template #footer>
-                <div class="flex gap-2 justify-content-end pt-3" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-                    <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="saving()"><i class="pi pi-times"></i> Đóng</button>
+                <div class="flex gap-2 justify-content-end pt-3"
+                    style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+                    <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="saving()"><i
+                            class="pi pi-times"></i> Đóng</button>
                     <button class="btn-save btn-small" (click)="onSaveRole()" [disabled]="saving()">
-            <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
-            <i class="pi pi-save" *ngIf="!saving()" style="margin-right: 4px;"></i>
-            Lưu
-          </button>
+                        <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
+                        <i class="pi pi-save" *ngIf="!saving()" style="margin-right: 4px;"></i>
+                        Lưu
+                    </button>
                 </div>
             </ng-template>
         </p-dialog>
@@ -194,18 +232,21 @@
         <!-- MÀN HÌNH PHÂN QUYỀN -->
         <div *ngIf="currentView() === 'permission'" class="animate-fade-in">
             <div class="tab-bar">
-                <button type="button" class="tab-item" [class.tab-active]="permissionTab() === 'permissions'" (click)="switchPermissionTab('permissions')">
-          Phân bổ nhóm quyền
-        </button>
-                <button type="button" class="tab-item" [class.tab-active]="permissionTab() === 'accounts'" (click)="switchPermissionTab('accounts')">
-          Danh sách tài khoản
-        </button>
+                <button type="button" class="tab-item" [class.tab-active]="permissionTab() === 'permissions'"
+                    (click)="switchPermissionTab('permissions')">
+                    Phân bổ nhóm quyền
+                </button>
+                <button type="button" class="tab-item" [class.tab-active]="permissionTab() === 'accounts'"
+                    (click)="switchPermissionTab('accounts')">
+                    Danh sách tài khoản
+                </button>
             </div>
 
             <div *ngIf="permissionTab() === 'permissions'" class="permission-tab-content">
                 <div class="permissions-scroll-container" style="padding: 20px;">
                     <p class="text-muted" style="margin-bottom: 16px;">
-                        Chọn nhóm quyền gán vào vai trò. Quản trị đơn vị chỉ thấy nhóm quyền đơn vị thuộc phạm vi quản lý.
+                        Chọn nhóm quyền gán vào vai trò. Quản trị đơn vị chỉ thấy nhóm quyền đơn vị thuộc phạm vi quản
+                        lý.
                     </p>
                     <div *ngIf="permissionGroupsLoading()" class="permission-groups-loading">
                         <i class="pi pi-spin pi-spinner"></i>
@@ -215,26 +256,24 @@
                     <div *ngFor="let g of availablePermissionGroups()" class="role-permission-group-card">
                         <div class="role-permission-group-header">
                             <label class="role-permission-group-select">
-                <input
-                  type="checkbox"
-                  class="perm-checkbox"
-                  [checked]="isPermissionGroupSelected(g.id)"
-                  [disabled]="savingPermissions()"
-                  (change)="togglePermissionGroup(g.id)"
-                />
-                <span class="role-permission-group-title">
-                  <b>{{ g.name || g.code || ('Nhóm quyền #' + g.id) }}</b>
-                  <small *ngIf="g.code">{{ g.code }}</small>
-                </span>
-              </label>
+                                <input type="checkbox" class="perm-checkbox" [checked]="isPermissionGroupSelected(g.id)"
+                                    [disabled]="savingPermissions()" (change)="togglePermissionGroup(g.id)" />
+                                <span class="role-permission-group-title">
+                                    <b>{{ g.name || g.code || ('Nhóm quyền #' + g.id) }}</b>
+                                    <small *ngIf="g.code">{{ g.code }}</small>
+                                </span>
+                            </label>
 
-                            <button type="button" class="permission-group-detail-toggle" [attr.aria-expanded]="isPermissionGroupExpanded(g.id)" (click)="togglePermissionGroupDetails(g.id, $event)">
-                <span>
-                  {{ isPermissionGroupExpanded(g.id) ? 'Ẩn menu chức năng' : 'Xem menu chức năng' }}
-                  ({{ getPermissionGroupMenuCount(g.id) }})
-                </span>
-                <i class="pi" [ngClass]="isPermissionGroupExpanded(g.id) ? 'pi-chevron-up' : 'pi-chevron-down'"></i>
-              </button>
+                            <button type="button" class="permission-group-detail-toggle"
+                                [attr.aria-expanded]="isPermissionGroupExpanded(g.id)"
+                                (click)="togglePermissionGroupDetails(g.id, $event)">
+                                <span>
+                                    {{ isPermissionGroupExpanded(g.id) ? 'Ẩn menu chức năng' : 'Xem menu chức năng' }}
+                                    ({{ getPermissionGroupMenuCount(g.id) }})
+                                </span>
+                                <i class="pi"
+                                    [ngClass]="isPermissionGroupExpanded(g.id) ? 'pi-chevron-up' : 'pi-chevron-down'"></i>
+                            </button>
                         </div>
 
                         <div *ngIf="isPermissionGroupExpanded(g.id)" class="permission-group-menu-detail">
@@ -243,14 +282,17 @@
                                 <span>Menu chức năng được phân trong nhóm</span>
                             </div>
                             <div class="permission-group-menu-detail-content">
-                                <ng-container *ngIf="getPermissionGroupMenuSummary(g.id).length > 0; else noAssignedMenus">
-                                    <div *ngFor="let parentMenu of getPermissionGroupMenuSummary(g.id)" class="assigned-menu-parent">
+                                <ng-container
+                                    *ngIf="getPermissionGroupMenuSummary(g.id).length > 0; else noAssignedMenus">
+                                    <div *ngFor="let parentMenu of getPermissionGroupMenuSummary(g.id)"
+                                        class="assigned-menu-parent">
                                         <div class="assigned-menu-parent-name">
                                             <i class="pi pi-folder"></i>
                                             <span>{{ parentMenu.name }}</span>
                                         </div>
                                         <div *ngIf="parentMenu.children.length > 0" class="assigned-menu-children">
-                                            <div *ngFor="let childMenu of parentMenu.children" class="assigned-menu-child">
+                                            <div *ngFor="let childMenu of parentMenu.children"
+                                                class="assigned-menu-child">
                                                 <i class="pi pi-circle-fill"></i>
                                                 <span>{{ childMenu.name }}</span>
                                             </div>
@@ -258,13 +300,15 @@
                                     </div>
                                 </ng-container>
                                 <ng-template #noAssignedMenus>
-                                    <div class="no-assigned-menus">Nhóm quyền này chưa được phân menu chức năng nào.</div>
+                                    <div class="no-assigned-menus">Nhóm quyền này chưa được phân menu chức năng nào.
+                                    </div>
                                 </ng-template>
                             </div>
                         </div>
                     </div>
 
-                    <div *ngIf="!permissionGroupsLoading() && availablePermissionGroups().length === 0" class="text-muted" style="padding: 10px 0;">Không có nhóm quyền khả dụng.</div>
+                    <div *ngIf="!permissionGroupsLoading() && availablePermissionGroups().length === 0"
+                        class="text-muted" style="padding: 10px 0;">Không có nhóm quyền khả dụng.</div>
                 </div>
             </div>
 
@@ -273,11 +317,12 @@
                     <div class="toolbar-left">
                         <div class="standard-search-field">
                             <label class="search-field-label"> Từ khóa</label>
-                            <input type="text" class="wf-search-input" placeholder="Tìm kiếm tài khoản..." [ngModel]="roleUsersKeyword()" (ngModelChange)="roleUsersKeyword.set($event)" />
+                            <input type="text" class="wf-search-input" placeholder="Tìm kiếm tài khoản..."
+                                [ngModel]="roleUsersKeyword()" (ngModelChange)="roleUsersKeyword.set($event)" />
                         </div>
                         <button class="btn-tim" (click)="onRoleUsersSearch()">
-              <i class="pi pi-search"></i> Tìm
-            </button>
+                            <i class="pi pi-search"></i> Tìm
+                        </button>
                     </div>
                 </div>
 
@@ -297,37 +342,45 @@
                             <ng-container *ngIf="roleUsersLoading()">
                                 <tr *ngFor="let item of [1, 2, 3, 4]">
                                     <td class="col-stt">
-                                        <div class="skeleton-shimmer" style="height: 16px; width: 24px; border-radius: 4px;"></div>
+                                        <div class="skeleton-shimmer"
+                                            style="height: 16px; width: 24px; border-radius: 4px;"></div>
                                     </td>
                                     <td>
-                                        <div class="skeleton-shimmer" style="height: 16px; width: 100px; border-radius: 4px;"></div>
+                                        <div class="skeleton-shimmer"
+                                            style="height: 16px; width: 100px; border-radius: 4px;"></div>
                                     </td>
                                     <td>
-                                        <div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div>
+                                        <div class="skeleton-shimmer"
+                                            style="height: 16px; width: 150px; border-radius: 4px;"></div>
                                     </td>
                                     <td>
-                                        <div class="skeleton-shimmer" style="height: 16px; width: 120px; border-radius: 4px;"></div>
+                                        <div class="skeleton-shimmer"
+                                            style="height: 16px; width: 120px; border-radius: 4px;"></div>
                                     </td>
                                     <td>
-                                        <div class="skeleton-shimmer" style="height: 16px; width: 160px; border-radius: 4px;"></div>
+                                        <div class="skeleton-shimmer"
+                                            style="height: 16px; width: 160px; border-radius: 4px;"></div>
                                     </td>
                                     <td class="col-tt">
-                                        <div class="skeleton-shimmer" style="height: 24px; width: 80px; border-radius: 4px;"></div>
+                                        <div class="skeleton-shimmer"
+                                            style="height: 24px; width: 80px; border-radius: 4px;"></div>
                                     </td>
                                 </tr>
                             </ng-container>
 
                             <ng-container *ngIf="!roleUsersLoading()">
                                 <tr *ngFor="let user of roleUsers(); let i = index">
-                                    <td class="col-stt text-muted">{{ (roleUsersPage() - 1) * roleUsersPageSize() + i + 1 }}</td>
+                                    <td class="col-stt text-muted">{{ (roleUsersPage() - 1) * roleUsersPageSize() + i +
+                                        1 }}</td>
                                     <td>{{ user.username }}</td>
                                     <td>{{ user.fullName }}</td>
                                     <td>{{ user.organizationUnitName || '—' }}</td>
                                     <td>{{ user.email || '—' }}</td>
                                     <td class="col-tt">
-                                        <span class="status-pill" [class.status-active]="user.isActive" [class.status-inactive]="!user.isActive">
-                            {{ user.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
-                    </span>
+                                        <span class="status-pill" [class.status-active]="user.isActive"
+                                            [class.status-inactive]="!user.isActive">
+                                            {{ user.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
+                                        </span>
                                     </td>
                                 </tr>
                                 <tr *ngIf="roleUsers().length === 0">
@@ -341,44 +394,55 @@
                     </table>
                 </div>
 
-                <app-eco-paginator *ngIf="roleUsersTotal() > 0 && !roleUsersLoading()" [currentPage]="roleUsersPage()" [pageSize]="roleUsersPageSize()" [totalRecords]="roleUsersTotal()" (pageChange)="onRoleUsersPageChange($event)" (pageSizeChange)="onRoleUsersPageSizeChange($event)"
-                />
+                <app-eco-paginator *ngIf="roleUsersTotal() > 0 && !roleUsersLoading()" [currentPage]="roleUsersPage()"
+                    [pageSize]="roleUsersPageSize()" [totalRecords]="roleUsersTotal()"
+                    (pageChange)="onRoleUsersPageChange($event)" (pageSizeChange)="onRoleUsersPageSizeChange($event)" />
             </div>
         </div>
 
     </div>
 
     <!-- Dialog Xác nhận Khóa/Mở khóa -->
-    <p-dialog [visible]="showLockUnlockConfirm()" (visibleChange)="$event ? null : onCancelLockUnlock()" [header]="lockUnlockTarget()?.isActive ? 'Xác nhận khóa' : 'Xác nhận mở khóa'" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
-        [closable]="!lockUnlockLoading()">
+    <p-dialog [visible]="showLockUnlockConfirm()" (visibleChange)="$event ? null : onCancelLockUnlock()"
+        [header]="lockUnlockTarget()?.isActive ? 'Xác nhận khóa' : 'Xác nhận mở khóa'" [modal]="true"
+        [style]="{ width: '420px' }" styleClass="evn-dialog-custom" [closable]="!lockUnlockLoading()">
         <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 12px;">
             <div style="display: flex; align-items: flex-start; gap: 12px;">
-                <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+                <i class="pi pi-exclamation-triangle"
+                    style="font-size: 1.8rem; color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
                 <div>
                     <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">
-                        {{ lockUnlockTarget()?.isActive ? 'Bạn có chắc muốn khóa vai trò này?' : 'Bạn có chắc muốn mở khóa vai trò này?' }}
+                        {{ lockUnlockTarget()?.isActive ? 'Bạn có chắc muốn khóa vai trò này?' : 'Bạn có chắc muốn mở
+                        khóa vai trò này?' }}
                     </p>
                     <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
-                        Vai trò <b style="color: #1e293b;">{{ lockUnlockTarget()?.name }}</b> sẽ được {{ lockUnlockTarget()?.isActive ? 'khóa và ngừng hoạt động' : 'mở khóa và hoạt động trở lại' }}.
+                        Vai trò <b style="color: #1e293b;">{{ lockUnlockTarget()?.name }}</b> sẽ được {{
+                        lockUnlockTarget()?.isActive ? 'khóa và ngừng hoạt động' : 'mở khóa và hoạt động trở lại' }}.
                     </p>
                 </div>
             </div>
         </div>
         <ng-template #footer>
-            <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+            <div
+                style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
                 <button class="btn-cancel btn-small" (click)="onCancelLockUnlock()" [disabled]="lockUnlockLoading()">
-          <i class="pi pi-times"></i> Hủy
-        </button>
-                <button class="btn-save btn-small" (click)="onConfirmLockUnlock()" [disabled]="lockUnlockLoading()" [style.background-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'" [style.border-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'">
-          <i class="pi pi-spin pi-spinner" *ngIf="lockUnlockLoading()" style="margin-right: 4px;"></i>
-          <i class="pi" [ngClass]="lockUnlockTarget()?.isActive ? 'pi-lock' : 'pi-lock-open'" *ngIf="!lockUnlockLoading()" style="margin-right: 4px;"></i>
-          {{ lockUnlockTarget()?.isActive ? 'Khóa' : 'Mở khóa' }}
-        </button>
+                    <i class="pi pi-times"></i> Hủy
+                </button>
+                <button class="btn-save btn-small" (click)="onConfirmLockUnlock()" [disabled]="lockUnlockLoading()"
+                    [style.background-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'"
+                    [style.border-color]="lockUnlockTarget()?.isActive ? '#dc2626' : '#4790e9'">
+                    <i class="pi pi-spin pi-spinner" *ngIf="lockUnlockLoading()" style="margin-right: 4px;"></i>
+                    <i class="pi" [ngClass]="lockUnlockTarget()?.isActive ? 'pi-lock' : 'pi-lock-open'"
+                        *ngIf="!lockUnlockLoading()" style="margin-right: 4px;"></i>
+                    {{ lockUnlockTarget()?.isActive ? 'Khóa' : 'Mở khóa' }}
+                </button>
             </div>
         </ng-template>
     </p-dialog>
 
     <!-- Popup xác nhận xóa dùng chung. -->
-    <app-delete-confirm-dialog [visible]="showDeleteConfirm()" header="Xác nhận xóa vai trò" entityLabel="Vai trò" [targetName]="deleteTargetLabel()" [loading]="deleteLoading()" (cancelled)="onCancelDelete()" (confirmed)="onConfirmDelete()" />
+    <app-delete-confirm-dialog [visible]="showDeleteConfirm()" header="Xác nhận xóa vai trò" entityLabel="Vai trò"
+        [targetName]="deleteTargetLabel()" [loading]="deleteLoading()" (cancelled)="onCancelDelete()"
+        (confirmed)="onConfirmDelete()" />
 
 </div>

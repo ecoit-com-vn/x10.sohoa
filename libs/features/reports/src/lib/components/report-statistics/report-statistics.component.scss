@@ -155,12 +155,6 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.standard-search-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 16px;
-    align-items: initial;
-}
-
 .standard-search-field {
     gap: 6px;
     min-width: 0;

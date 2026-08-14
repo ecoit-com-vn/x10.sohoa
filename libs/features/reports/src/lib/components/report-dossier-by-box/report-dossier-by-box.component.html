@@ -25,23 +25,21 @@
 
       <div class="standard-search-field filter-col">
         <label class="filter-label">Hộp hồ sơ</label>
-        <p-multiSelect
+        <p-treeSelect
           [options]="boxOptions()"
           [ngModel]="selectedBoxIds()"
-          (ngModelChange)="selectedBoxIds.set($event ?? [])"
-          optionLabel="name"
-          optionValue="id"
+          (ngModelChange)="selectedBoxIds.set($event)"
+          selectionMode="multiple"
           placeholder="-- Chọn hộp hồ sơ --"
           [filter]="true"
-          filterBy="name"
-          filterPlaceholder="Tìm kiếm..."
           [showClear]="true"
-          display="comma"
-          [maxSelectedLabels]="2"
-          selectedItemsLabel="{0} hộp đã chọn"
-          styleClass="w-full wf-select-custom box-multiselect"
           appendTo="body"
-        ></p-multiSelect>
+          display="chip"
+          [metaKeySelection]="false"
+          [propagateSelectionUp]="false"
+          [propagateSelectionDown]="false"
+          styleClass="w-full wf-select-custom box-treeselect"
+        ></p-treeSelect>
       </div>
 
       <div class="standard-search-field filter-col">

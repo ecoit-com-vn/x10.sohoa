@@ -3,19 +3,19 @@
 
   <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
-      <wf-breadcrumb
-        [viewMode]="currentCatalogView()"
-        [customItems]="catalogBreadcrumbItems"
+      <wf-breadcrumb [viewMode]="currentCatalogView()" [customItems]="catalogBreadcrumbItems"
         (listClick)="currentCatalogView.set('list')" />
     </div>
   </div>
 
   <div class="split-container">
     <!-- LEFT PANEL: Catalog Types (Width: 33%) -->
-    <div class="panel-left wf-card" style="padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column;">
+    <div class="panel-left wf-card"
+      style="padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column;">
       <div class="panel-header">
         <h3 class="panel-title">Danh sách loại danh mục</h3>
-        <button class="btn-save btn-small" (click)="onAddNewType()" *ngIf="canCreateType()" style="background-color: #3BA962; border-color: #3BA962; color: #ffffff; padding: 6px 12px; font-size: 0.8rem; border-radius: 6px;">
+        <button class="btn-save btn-small" (click)="onAddNewType()" *ngIf="canCreateType()"
+          style="background-color: #3BA962; border-color: #3BA962; color: #ffffff; padding: 6px 12px; font-size: 0.8rem; border-radius: 6px;">
           <i class="pi pi-plus" style="font-size: 0.8rem;"></i> Thêm mới
         </button>
       </div>
@@ -24,22 +24,21 @@
       <div class="filter-row standard-search-field" style="margin-bottom: 12px;">
         <label class="search-field-label">Tên loại danh mục</label>
         <input type="text" class="wf-search-input" style="width: 100%; box-sizing: border-box; height: 38px;"
-          placeholder="Tên loại danh mục..."
-          [ngModel]="typeSearchKeyword()"
+          placeholder="Tên loại danh mục..." [ngModel]="typeSearchKeyword()"
           (ngModelChange)="typeSearchKeyword.set($event); loadCatalogTypes()" />
       </div>
 
       <!-- Scrollable List of Catalog Types -->
-      <div class="type-list-container" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
-        <div *ngFor="let type of types()" 
-             class="type-item-card" 
-             [class.type-item-selected]="selectedTypeId() === type.id"
-             (click)="onSelectType(type)"
-             style="padding: 8px 12px; display: flex; flex-direction: column; gap: 4px; border: 1px solid #cbd5e1; border-radius: 8px; position: relative;">
+      <div class="type-list-container"
+        style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+        <div *ngFor="let type of types()" class="type-item-card"
+          [class.type-item-selected]="selectedTypeId() === type.id" (click)="onSelectType(type)"
+          style="padding: 8px 12px; display: flex; flex-direction: column; gap: 4px; border: 1px solid #cbd5e1; border-radius: 8px; position: relative;">
 
           <!-- Top Row: Name and Status Badge -->
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-            <span class="type-item-name" style="font-size: 0.9rem; font-weight: 700; color: #1e293b;">{{ type.name }}</span>
+            <span class="type-item-name" style="font-size: 0.9rem; font-weight: 700; color: #1e293b;">{{ type.name
+              }}</span>
 
             <span *ngIf="type.status === 1" class="status-pill"
               style="background-color: #ecfdf5; color: #065f46; border-color: #a7f3d0; padding: 2px 6px; border-radius: 9999px; font-size: 0.7rem; font-weight: 500; border: 1px solid;">
@@ -53,7 +52,9 @@
 
           <!-- Bottom Row: Code and Actions -->
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 8px;">
-            <span class="type-item-code" style="font-size: 0.75rem; color: #64748b; flex: 1; min-width: 0; white-space: nowrap; text-overflow: ellipsis;">Mã: <code>{{ type.code }}</code></span>
+            <span class="type-item-code"
+              style="font-size: 0.75rem; color: #64748b; flex: 1; min-width: 0; white-space: nowrap; text-overflow: ellipsis;">Mã:
+              <code>{{ type.code }}</code></span>
 
             <div class="type-item-actions action-buttons-group" style="display: inline-flex; gap: 4px; flex-shrink: 0;">
               <button type="button" class="act-btn btn-view-detail" title="Xem chi tiết"
@@ -64,9 +65,9 @@
                 (click)="$event.stopPropagation(); onEditType(type)">
                 <i class="pi pi-pencil"></i>
               </button>
-              <button type="button" class="act-btn" [class.act-lock]="type.status === 1" [class.act-unlock]="type.status !== 1"
-                [title]="type.status === 1 ? 'Khóa' : 'Mở khóa'" *ngIf="canManageType()"
-                (click)="$event.stopPropagation(); onToggleTypeStatusRequest(type)">
+              <button type="button" class="act-btn" [class.act-lock]="type.status === 1"
+                [class.act-unlock]="type.status !== 1" [title]="type.status === 1 ? 'Khóa' : 'Mở khóa'"
+                *ngIf="canManageType()" (click)="$event.stopPropagation(); onToggleTypeStatusRequest(type)">
                 <i class="pi" [ngClass]="type.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
               </button>
               <button type="button" class="act-btn act-delete" title="Xóa" *ngIf="canDeleteType()"
@@ -85,41 +86,35 @@
     </div>
 
     <!-- RIGHT PANEL: Catalogs of Selected Type (Width: 67%) -->
-    <div class="panel-right wf-card" style="padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column;">
+    <div class="panel-right wf-card"
+      style="padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column;">
       <div *ngIf="selectedTypeId(); else noTypeSelected" style="display: flex; flex-direction: column; height: 100%;">
         <div class="panel-header">
           <h3 class="panel-title">Danh sách danh mục: <b>{{ selectedTypeName() }}</b></h3>
-          <button class="btn-save btn-small" (click)="onAddNewCatalog()" *ngIf="canCreateCatalog()" style="background-color: #3BA962; border-color: #3BA962; color: #ffffff; padding: 8px 16px; font-size: 0.85rem; border-radius: 6px;">
+          <button class="btn-save btn-small" (click)="onAddNewCatalog()" *ngIf="canCreateCatalog()"
+            style="background-color: #3BA962; border-color: #3BA962; color: #ffffff; padding: 8px 16px; font-size: 0.85rem; border-radius: 6px;">
             <i class="pi pi-plus"></i> Thêm mới
           </button>
         </div>
 
         <!-- Catalog search: layout synchronized with "Tìm kiếm hồ sơ trong kho". -->
-      <div class="standard-search-card dossier-search-bar catalog-search-bar">
+        <div class="standard-search-card dossier-search-bar catalog-search-bar">
           <div class="standard-search-grid">
             <div class="standard-search-field">
               <label class="search-field-label">Tên danh mục</label>
-              <input type="text" class="wf-search-input"
-                placeholder="Tên danh mục..."
-                [ngModel]="searchKeyword()"
-                (ngModelChange)="searchKeyword.set($event)"
-                (keyup.enter)="onSearchCatalogs()" />
+              <input type="text" class="wf-search-input" placeholder="Tên danh mục..." [ngModel]="searchKeyword()"
+                (ngModelChange)="searchKeyword.set($event)" (keyup.enter)="onSearchCatalogs()" />
             </div>
 
             <div class="standard-search-field">
               <label class="search-field-label">Mã danh mục</label>
-              <input type="text" class="wf-search-input"
-                placeholder="Mã danh mục..."
-                [ngModel]="catalogSearchCode()"
-                (ngModelChange)="catalogSearchCode.set($event)"
-                (keyup.enter)="onSearchCatalogs()" />
+              <input type="text" class="wf-search-input" placeholder="Mã danh mục..." [ngModel]="catalogSearchCode()"
+                (ngModelChange)="catalogSearchCode.set($event)" (keyup.enter)="onSearchCatalogs()" />
             </div>
 
             <div class="standard-search-field">
               <label class="search-field-label">Trạng thái</label>
-              <select class="wf-input"
-                [ngModel]="searchStatus()"
-                (ngModelChange)="searchStatus.set($event)">
+              <select class="wf-input" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event)">
                 <option value="">-- Trạng thái --</option>
                 <option value="1">Hoạt động</option>
                 <option value="0">Ngừng hoạt động</option>
@@ -129,27 +124,29 @@
             <div *ngIf="isUnitScopedSelected()" class="standard-search-field">
               <label class="search-field-label">Đơn vị</label>
               <p-treeSelect [options]="organizationUnitTree()" [ngModel]="catalogSearchUnitNodes()"
-                (ngModelChange)="onCatalogSearchUnitNodeChange($event)" placeholder="-- Chọn đơn vị --"
-                [filter]="true" filterPlaceholder="Tìm đơn vị..." selectionMode="multiple" [metaKeySelection]="false"
-                appendTo="body" scrollHeight="260px" styleClass="w-full" [style]="{ width: '100%' }">
+                (ngModelChange)="onCatalogSearchUnitNodeChange($event)" placeholder="-- Chọn đơn vị --" [filter]="true"
+                filterPlaceholder="Tìm đơn vị..." selectionMode="multiple" [metaKeySelection]="false" appendTo="body"
+                scrollHeight="260px" styleClass="w-full" [style]="{ width: '100%' }">
                 <ng-template pTemplate="default" let-node>
                   <span style="display: inline-flex; align-items: center; gap: 8px;">
-                    <span style="width: 18px; height: 18px; border: 1px solid #cbd5e1; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; background: #fff;">
-                      <i *ngIf="isCatalogUnitNodeSelected(node)" class="pi pi-check" style="font-size: 11px; color: #2563eb;"></i>
+                    <span
+                      style="width: 18px; height: 18px; border: 1px solid #cbd5e1; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; background: #fff;">
+                      <i *ngIf="isCatalogUnitNodeSelected(node)" class="pi pi-check"
+                        style="font-size: 11px; color: #2563eb;"></i>
                     </span><span>{{ node.label }}</span>
                   </span>
                 </ng-template>
               </p-treeSelect>
             </div>
-          </div>
 
-          <div class="standard-search-actions">
-            <button type="button" class="btn-outlined" (click)="onResetSearchCatalogs()">
-              <i class="pi pi-refresh"></i> Làm mới
-            </button>
-            <button type="button" class="btn-save" (click)="onSearchCatalogs()">
-              <i class="pi pi-check"></i> Áp dụng
-            </button>
+            <div class="standard-search-actions">
+              <button type="button" class="btn-outlined" (click)="onResetSearchCatalogs()">
+                <i class="pi pi-refresh"></i> Làm mới
+              </button>
+              <button type="button" class="btn-save" (click)="onSearchCatalogs()">
+                <i class="pi pi-check"></i> Áp dụng
+              </button>
+            </div>
           </div>
         </div>
 
@@ -169,10 +166,12 @@
             </thead>
             <tbody>
               <tr *ngFor="let item of items(); let i = index">
-                <td class="col-stt text-muted" style="text-align: center;">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
+                <td class="col-stt text-muted" style="text-align: center;">{{ (currentPage() - 1) * pageSize() + i + 1
+                  }}</td>
                 <td>
                   <span *ngIf="canEditCatalog(); else viewOnlyCatalogName">
-                    <b class="wf-name-link" (click)="onEditCatalog(item)" style="color: #1a3593; cursor: pointer;">{{ item.name }}</b>
+                    <b class="wf-name-link" (click)="onEditCatalog(item)" style="color: #1a3593; cursor: pointer;">{{
+                      item.name }}</b>
                   </span>
                   <ng-template #viewOnlyCatalogName>
                     <b>{{ item.name }}</b>
@@ -193,15 +192,18 @@
                 </td>
                 <td class="col-hd" style="text-align: center;">
                   <div class="action-buttons-group dropdown-actions-container" (click)="$event.stopPropagation()">
-                    <button class="act-btn act-more" title="Thao tác khác" (click)="openCatalogMenu(item, $event, actionMenu)">
+                    <button class="act-btn act-more" title="Thao tác khác"
+                      (click)="openCatalogMenu(item, $event, actionMenu)">
                       <i class="pi pi-ellipsis-h"></i>
                     </button>
                   </div>
                 </td>
               </tr>
               <tr *ngIf="items().length === 0">
-                <td [attr.colspan]="isUnitScopedSelected() ? 7 : 6" class="empty-row" style="text-align: center; padding: 30px; color: #64748b;">
-                  <i class="pi pi-inbox" style="font-size: 2rem; color: #94a3b8; display: block; margin-bottom: 8px;"></i>
+                <td [attr.colspan]="isUnitScopedSelected() ? 7 : 6" class="empty-row"
+                  style="text-align: center; padding: 30px; color: #64748b;">
+                  <i class="pi pi-inbox"
+                    style="font-size: 2rem; color: #94a3b8; display: block; margin-bottom: 8px;"></i>
                   <div>Không tìm thấy dữ liệu danh mục nào.</div>
                 </td>
               </tr>
@@ -212,20 +214,19 @@
         <!-- Pagination -->
         <div class="table-footer-paginator" *ngIf="items().length > 0">
           <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> bản ghi.</span>
-          <app-eco-paginator
-            [first]="(currentPage() - 1) * pageSize()"
-            [rows]="pageSize()"
-            [totalRecords]="totalCount()"
-            [rowsPerPageOptions]="[10, 20, 50]"
+          <app-eco-paginator [first]="(currentPage() - 1) * pageSize()" [rows]="pageSize()"
+            [totalRecords]="totalCount()" [rowsPerPageOptions]="[10, 20, 50]"
             (onPageChange)="onCatalogPageChange($event)">
           </app-eco-paginator>
         </div>
       </div>
 
       <ng-template #noTypeSelected>
-        <div class="no-selection-wrapper" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 40px; color: #64748b;">
+        <div class="no-selection-wrapper"
+          style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 40px; color: #64748b;">
           <i class="pi pi-folder-open" style="font-size: 3.5rem; color: #cbd5e1; margin-bottom: 16px;"></i>
-          <p style="font-size: 0.95rem; font-weight: 500; max-width: 320px;">Vui lòng chọn một loại danh mục ở danh sách bên trái để quản lý danh mục chi tiết.</p>
+          <p style="font-size: 0.95rem; font-weight: 500; max-width: 320px;">Vui lòng chọn một loại danh mục ở danh sách
+            bên trái để quản lý danh mục chi tiết.</p>
         </div>
       </ng-template>
     </div>
@@ -234,51 +235,52 @@
   </div>
 
   <!-- DIALOG: Thêm/Sửa Loại Danh mục (Left Side CRUD) -->
-  <p-dialog 
-    [visible]="showTypeDialog()" 
-    (visibleChange)="$event ? null : onCloseTypeDialog()" 
-    [header]="isViewingType() ? 'Xem loại danh mục' : (isEditingType() ? 'Chỉnh sửa loại danh mục' : 'Thêm mới loại danh mục')" 
-    [modal]="true" 
-    [style]="{ width: '450px' }" 
-    styleClass="evn-dialog-custom">
+  <p-dialog [visible]="showTypeDialog()" (visibleChange)="$event ? null : onCloseTypeDialog()"
+    [header]="isViewingType() ? 'Xem loại danh mục' : (isEditingType() ? 'Chỉnh sửa loại danh mục' : 'Thêm mới loại danh mục')"
+    [modal]="true" [style]="{ width: '450px' }" styleClass="evn-dialog-custom">
 
     <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
       <div class="form-group">
         <label class="form-label">Mã loại danh mục <span class="required">*</span></label>
-        <input type="text" class="wf-input w-full" [(ngModel)]="currentTypeItem().code" 
-          (ngModelChange)="onTypeFieldChange('code')"
-          placeholder="Ví dụ: MA_LOAI..." [disabled]="isViewingType() || isEditingType() || typeSaving()" />
+        <input type="text" class="wf-input w-full" [(ngModel)]="currentTypeItem().code"
+          (ngModelChange)="onTypeFieldChange('code')" placeholder="Ví dụ: MA_LOAI..."
+          [disabled]="isViewingType() || isEditingType() || typeSaving()" />
         <span class="field-error" *ngIf="typeCodeError()">{{ typeCodeError() }}</span>
       </div>
 
       <div class="form-group">
         <label class="form-label">Tên loại danh mục <span class="required">*</span></label>
-        <input type="text" class="wf-input w-full" [(ngModel)]="currentTypeItem().name" 
-          (ngModelChange)="onTypeFieldChange('name')"
-          placeholder="Nhập tên loại danh mục..." [disabled]="isViewingType() || typeSaving()" />
+        <input type="text" class="wf-input w-full" [(ngModel)]="currentTypeItem().name"
+          (ngModelChange)="onTypeFieldChange('name')" placeholder="Nhập tên loại danh mục..."
+          [disabled]="isViewingType() || typeSaving()" />
         <span class="field-error" *ngIf="typeNameError()">{{ typeNameError() }}</span>
       </div>
 
       <div class="form-group">
         <label class="form-label">Mô tả</label>
-        <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentTypeItem().description" 
+        <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentTypeItem().description"
           placeholder="Nhập mô tả loại danh mục..." [disabled]="isViewingType() || typeSaving()"></textarea>
       </div>
 
       <div class="form-group" style="display: flex; align-items: center; gap: 8px; padding-top: 5px;">
-        <input type="checkbox" id="chkHasParent" [ngModel]="currentTypeItem().hasParent === 1" (ngModelChange)="currentTypeItem().hasParent = $event ? 1 : 0" style="scale: 1.1; cursor: pointer;" [disabled]="isViewingType() || typeSaving()" />
-        <label for="chkHasParent" style="font-size: 0.9rem; font-weight: 600; cursor: pointer; user-select: none; margin: 0; color: #334155;">
+        <input type="checkbox" id="chkHasParent" [ngModel]="currentTypeItem().hasParent === 1"
+          (ngModelChange)="currentTypeItem().hasParent = $event ? 1 : 0" style="scale: 1.1; cursor: pointer;"
+          [disabled]="isViewingType() || typeSaving()" />
+        <label for="chkHasParent"
+          style="font-size: 0.9rem; font-weight: 600; cursor: pointer; user-select: none; margin: 0; color: #334155;">
           Hỗ trợ cấp cha - con (Hierarchy)
         </label>
       </div>
     </div>
 
     <ng-template #footer>
-      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <div
+        style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
         <button class="btn-cancel btn-small" (click)="onCloseTypeDialog()" [disabled]="typeSaving()">
           <i class="pi pi-times"></i> Hủy
         </button>
-        <button *ngIf="!isViewingType()" class="btn-save btn-small" (click)="onSaveType()" [disabled]="typeSaving()" style="background-color: #4790e9; border-color: #4790e9; color: #ffffff;">
+        <button *ngIf="!isViewingType()" class="btn-save btn-small" (click)="onSaveType()" [disabled]="typeSaving()"
+          style="background-color: #4790e9; border-color: #4790e9; color: #ffffff;">
           <i class="pi pi-spin pi-spinner" *ngIf="typeSaving()" style="margin-right: 4px;"></i>
           <i class="pi pi-save" *ngIf="!typeSaving()" style="margin-right: 4px;"></i>
           Lưu
@@ -288,42 +290,42 @@
   </p-dialog>
 
   <!-- DIALOG: Thêm/Sửa Danh mục (Right Side CRUD) -->
-  <p-dialog 
-    [visible]="currentCatalogView() === 'add' || currentCatalogView() === 'edit' || currentCatalogView() === 'view'" 
-    (visibleChange)="$event ? null : currentCatalogView.set('list')" 
-    [header]="currentCatalogView() === 'view' ? 'Xem danh mục' : (currentCatalogView() === 'add' ? 'Thêm mới danh mục' : 'Chỉnh sửa danh mục')" 
-    [modal]="true" 
-    [style]="{ width: '480px' }" 
-    styleClass="evn-dialog-custom">
+  <p-dialog
+    [visible]="currentCatalogView() === 'add' || currentCatalogView() === 'edit' || currentCatalogView() === 'view'"
+    (visibleChange)="$event ? null : currentCatalogView.set('list')"
+    [header]="currentCatalogView() === 'view' ? 'Xem danh mục' : (currentCatalogView() === 'add' ? 'Thêm mới danh mục' : 'Chỉnh sửa danh mục')"
+    [modal]="true" [style]="{ width: '480px' }" styleClass="evn-dialog-custom">
 
     <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
       <div class="form-group">
         <label class="form-label">Mã danh mục <span class="required">*</span></label>
-        <input type="text" class="wf-input w-full" [(ngModel)]="currentCatalogItem().code" 
-          (ngModelChange)="onCatalogFieldChange('code')"
-          placeholder="Ví dụ: CODE_01..." [disabled]="currentCatalogView() === 'view' || currentCatalogView() === 'edit' || catalogSaving()" />
+        <input type="text" class="wf-input w-full" [(ngModel)]="currentCatalogItem().code"
+          (ngModelChange)="onCatalogFieldChange('code')" placeholder="Ví dụ: CODE_01..."
+          [disabled]="currentCatalogView() === 'view' || currentCatalogView() === 'edit' || catalogSaving()" />
         <span class="field-error" *ngIf="catalogCodeError()">{{ catalogCodeError() }}</span>
       </div>
 
       <div class="form-group">
         <label class="form-label">Tên danh mục <span class="required">*</span></label>
-        <input type="text" class="wf-input w-full" [(ngModel)]="currentCatalogItem().name" 
-          (ngModelChange)="onCatalogFieldChange('name')"
-          placeholder="Nhập tên danh mục..." [disabled]="currentCatalogView() === 'view' || catalogSaving()" />
+        <input type="text" class="wf-input w-full" [(ngModel)]="currentCatalogItem().name"
+          (ngModelChange)="onCatalogFieldChange('name')" placeholder="Nhập tên danh mục..."
+          [disabled]="currentCatalogView() === 'view' || catalogSaving()" />
         <span class="field-error" *ngIf="catalogNameError()">{{ catalogNameError() }}</span>
       </div>
 
       <div class="form-group" *ngIf="isUnitScopedSelected()">
         <label class="form-label">Đơn vị <span class="required">*</span></label>
         <p-treeSelect [options]="organizationUnitTree()" [ngModel]="selectedCatalogUnitNodes()"
-          (ngModelChange)="onCatalogUnitNodeChange($event)" placeholder="-- Chọn đơn vị --"
-          [filter]="true" filterPlaceholder="Tìm đơn vị..." selectionMode="multiple" [metaKeySelection]="false"
-          appendTo="body" scrollHeight="260px" styleClass="w-full" [style]="{ width: '100%' }"
+          (ngModelChange)="onCatalogUnitNodeChange($event)" placeholder="-- Chọn đơn vị --" [filter]="true"
+          filterPlaceholder="Tìm đơn vị..." selectionMode="multiple" [metaKeySelection]="false" appendTo="body"
+          scrollHeight="260px" styleClass="w-full" [style]="{ width: '100%' }"
           [disabled]="currentCatalogView() === 'view' || catalogSaving()">
           <ng-template pTemplate="default" let-node>
             <span style="display: inline-flex; align-items: center; gap: 8px;">
-              <span style="width: 18px; height: 18px; border: 1px solid #cbd5e1; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; background: #fff;">
-                <i *ngIf="isCatalogUnitNodeSelected(node, true)" class="pi pi-check" style="font-size: 11px; color: #2563eb;"></i>
+              <span
+                style="width: 18px; height: 18px; border: 1px solid #cbd5e1; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; background: #fff;">
+                <i *ngIf="isCatalogUnitNodeSelected(node, true)" class="pi pi-check"
+                  style="font-size: 11px; color: #2563eb;"></i>
               </span><span>{{ node.label }}</span>
             </span>
           </ng-template>
@@ -333,15 +335,15 @@
 
       <div class="form-group">
         <label class="form-label">Thứ tự ưu tiên</label>
-        <input type="number" class="wf-input w-full" [(ngModel)]="currentCatalogItem().priority" 
+        <input type="number" class="wf-input w-full" [(ngModel)]="currentCatalogItem().priority"
           placeholder="Mặc định: 1" min="1" [disabled]="currentCatalogView() === 'view' || catalogSaving()" />
       </div>
 
       <!-- Hierarchical drop-down (if selected type has hierarchy) -->
       <div class="form-group" *ngIf="selectedTypeHasParent() === 1">
         <label class="form-label">Danh mục cha</label>
-        <p-select [options]="parentsList()" [(ngModel)]="currentCatalogItem().parentId" 
-          optionLabel="name" optionValue="id" [showClear]="true" placeholder="-- Chọn danh mục cha --"
+        <p-select [options]="parentsList()" [(ngModel)]="currentCatalogItem().parentId" optionLabel="name"
+          optionValue="id" [showClear]="true" placeholder="-- Chọn danh mục cha --"
           [disabled]="currentCatalogView() === 'view' || catalogSaving()"
           [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px'}">
         </p-select>
@@ -349,17 +351,19 @@
 
       <div class="form-group">
         <label class="form-label">Mô tả chi tiết</label>
-        <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentCatalogItem().description" 
+        <textarea class="wf-textarea w-full" rows="3" [(ngModel)]="currentCatalogItem().description"
           placeholder="Mô tả danh mục..." [disabled]="currentCatalogView() === 'view' || catalogSaving()"></textarea>
       </div>
     </div>
 
     <ng-template #footer>
-      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <div
+        style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
         <button class="btn-cancel btn-small" (click)="currentCatalogView.set('list')" [disabled]="catalogSaving()">
           <i class="pi pi-times"></i> Hủy
         </button>
-        <button *ngIf="currentCatalogView() !== 'view'" class="btn-save btn-small" (click)="onSaveCatalog()" [disabled]="catalogSaving()" style="background-color: #4790e9; border-color: #4790e9; color: #ffffff;">
+        <button *ngIf="currentCatalogView() !== 'view'" class="btn-save btn-small" (click)="onSaveCatalog()"
+          [disabled]="catalogSaving()" style="background-color: #4790e9; border-color: #4790e9; color: #ffffff;">
           <i class="pi pi-spin pi-spinner" *ngIf="catalogSaving()" style="margin-right: 4px;"></i>
           <i class="pi pi-save" *ngIf="!catalogSaving()" style="margin-right: 4px;"></i>
           Lưu
@@ -369,13 +373,8 @@
   </p-dialog>
 
   <!-- Dialog Xác nhận Xóa Loại Danh mục -->
-  <p-dialog
-    [visible]="showTypeDeleteConfirm()"
-    (visibleChange)="$event ? null : onCancelDeleteType()"
-    header="Xác nhận xóa loại danh mục"
-    [modal]="true"
-    [style]="{ width: '420px' }"
-    styleClass="evn-dialog-custom"
+  <p-dialog [visible]="showTypeDeleteConfirm()" (visibleChange)="$event ? null : onCancelDeleteType()"
+    header="Xác nhận xóa loại danh mục" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
     [closable]="!typeDeleting()">
     <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
       <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
@@ -388,12 +387,13 @@
       </div>
     </div>
     <ng-template #footer>
-      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <div
+        style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
         <button class="btn-cancel btn-small" (click)="onCancelDeleteType()" [disabled]="typeDeleting()">
           <i class="pi pi-times"></i> Hủy
         </button>
         <button class="btn-save btn-small" (click)="onConfirmDeleteType()" [disabled]="typeDeleting()"
-                style="background-color: #dc2626; border-color: #dc2626; color: #ffffff;">
+          style="background-color: #dc2626; border-color: #dc2626; color: #ffffff;">
           <i class="pi pi-spin pi-spinner" *ngIf="typeDeleting()"></i>
           <i class="pi pi-trash" *ngIf="!typeDeleting()"></i>
           Xóa
@@ -403,13 +403,8 @@
   </p-dialog>
 
   <!-- Dialog Xác nhận Xóa Danh mục -->
-  <p-dialog
-    [visible]="showCatalogDeleteConfirm()"
-    (visibleChange)="$event ? null : onCancelDeleteCatalog()"
-    header="Xác nhận xóa danh mục"
-    [modal]="true"
-    [style]="{ width: '420px' }"
-    styleClass="evn-dialog-custom"
+  <p-dialog [visible]="showCatalogDeleteConfirm()" (visibleChange)="$event ? null : onCancelDeleteCatalog()"
+    header="Xác nhận xóa danh mục" [modal]="true" [style]="{ width: '420px' }" styleClass="evn-dialog-custom"
     [closable]="!catalogDeleting()">
     <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
       <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
@@ -421,12 +416,13 @@
       </div>
     </div>
     <ng-template #footer>
-      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <div
+        style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
         <button class="btn-cancel btn-small" (click)="onCancelDeleteCatalog()" [disabled]="catalogDeleting()">
           <i class="pi pi-times"></i> Hủy
         </button>
         <button class="btn-save btn-small" (click)="onConfirmDeleteCatalog()" [disabled]="catalogDeleting()"
-                style="background-color: #dc2626; border-color: #dc2626; color: #ffffff;">
+          style="background-color: #dc2626; border-color: #dc2626; color: #ffffff;">
           <i class="pi pi-spin pi-spinner" *ngIf="catalogDeleting()"></i>
           <i class="pi pi-trash" *ngIf="!catalogDeleting()"></i>
           Xóa
@@ -436,14 +432,9 @@
   </p-dialog>
 
   <!-- Dialog Xác nhận Khóa / Mở khóa Loại Danh mục -->
-  <p-dialog
-    [visible]="showTypeLockConfirm()"
-    (visibleChange)="$event ? null : onCancelTypeLock()"
-    [header]="typeLockTarget()?.status === 1 ? 'Xác nhận khóa' : 'Xác nhận mở khóa'"
-    [modal]="true"
-    [style]="{ width: '420px' }"
-    styleClass="evn-dialog-custom"
-    [closable]="!typeLockLoading()">
+  <p-dialog [visible]="showTypeLockConfirm()" (visibleChange)="$event ? null : onCancelTypeLock()"
+    [header]="typeLockTarget()?.status === 1 ? 'Xác nhận khóa' : 'Xác nhận mở khóa'" [modal]="true"
+    [style]="{ width: '420px' }" styleClass="evn-dialog-custom" [closable]="!typeLockLoading()">
     <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
       <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
       <div>
@@ -457,16 +448,17 @@
       </div>
     </div>
     <ng-template #footer>
-      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <div
+        style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
         <button class="btn-cancel btn-small" (click)="onCancelTypeLock()" [disabled]="typeLockLoading()">
           <i class="pi pi-times"></i> Hủy
         </button>
         <button class="btn-save btn-small" (click)="onConfirmTypeLock()" [disabled]="typeLockLoading()"
-                [style.background-color]="typeLockTarget()?.status === 1 ? '#dc2626' : '#4790e9'"
-                [style.border-color]="typeLockTarget()?.status === 1 ? '#dc2626' : '#4790e9'">
+          [style.background-color]="typeLockTarget()?.status === 1 ? '#dc2626' : '#4790e9'"
+          [style.border-color]="typeLockTarget()?.status === 1 ? '#dc2626' : '#4790e9'">
           <i class="pi pi-spin pi-spinner" *ngIf="typeLockLoading()"></i>
           <i class="pi" *ngIf="!typeLockLoading()"
-             [ngClass]="typeLockTarget()?.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
+            [ngClass]="typeLockTarget()?.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
           {{ typeLockTarget()?.status === 1 ? 'Khóa' : 'Mở khóa' }}
         </button>
       </div>
@@ -474,14 +466,9 @@
   </p-dialog>
 
   <!-- Dialog Xác nhận Khóa / Mở khóa Danh mục -->
-  <p-dialog
-    [visible]="showCatalogLockConfirm()"
-    (visibleChange)="$event ? null : onCancelCatalogLock()"
-    [header]="catalogLockTarget()?.status === 1 ? 'Xác nhận khóa' : 'Xác nhận mở khóa'"
-    [modal]="true"
-    [style]="{ width: '420px' }"
-    styleClass="evn-dialog-custom"
-    [closable]="!catalogLockLoading()">
+  <p-dialog [visible]="showCatalogLockConfirm()" (visibleChange)="$event ? null : onCancelCatalogLock()"
+    [header]="catalogLockTarget()?.status === 1 ? 'Xác nhận khóa' : 'Xác nhận mở khóa'" [modal]="true"
+    [style]="{ width: '420px' }" styleClass="evn-dialog-custom" [closable]="!catalogLockLoading()">
     <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
       <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #f59e0b;"></i>
       <div>
@@ -496,16 +483,17 @@
       </div>
     </div>
     <ng-template #footer>
-      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <div
+        style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
         <button class="btn-cancel btn-small" (click)="onCancelCatalogLock()" [disabled]="catalogLockLoading()">
           <i class="pi pi-times"></i> Hủy
         </button>
         <button class="btn-save btn-small" (click)="onConfirmCatalogLock()" [disabled]="catalogLockLoading()"
-                [style.background-color]="catalogLockTarget()?.status === 1 ? '#dc2626' : '#4790e9'"
-                [style.border-color]="catalogLockTarget()?.status === 1 ? '#dc2626' : '#4790e9'">
+          [style.background-color]="catalogLockTarget()?.status === 1 ? '#dc2626' : '#4790e9'"
+          [style.border-color]="catalogLockTarget()?.status === 1 ? '#dc2626' : '#4790e9'">
           <i class="pi pi-spin pi-spinner" *ngIf="catalogLockLoading()"></i>
           <i class="pi" *ngIf="!catalogLockLoading()"
-             [ngClass]="catalogLockTarget()?.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
+            [ngClass]="catalogLockTarget()?.status === 1 ? 'pi-lock' : 'pi-lock-open'"></i>
           {{ catalogLockTarget()?.status === 1 ? 'Khóa' : 'Mở khóa' }}
         </button>
       </div>

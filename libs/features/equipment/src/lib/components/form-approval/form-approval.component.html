@@ -89,7 +89,7 @@
               </span>
                             </td>
                             <td>v{{ form.version }}.0</td>
-                            <td>{{ form.createdBy || 'admin' }}</td>
+                            <td>{{ form.creatorFullName }}</td>
                             <td class="col-tt">
                                 <span class="status-pill" [class.status-pending]="form.status === 'Chờ duyệt'" [class.status-approved]="form.status === 'Hoàn thành'" [class.status-rejected]="form.status === 'Từ chối'">
                 {{ form.status || 'Chờ duyệt' }}
@@ -178,16 +178,16 @@
                     </div>
                     <div>
                         <label class="metadata-field-label">Người tạo: </label>
-                        <div class="metadata-field-value">{{ form.createdBy || 'admin' }}</div>
+                        <div class="metadata-field-value">{{ form.creatorFullName || 'admin' }}</div>
                     </div>
                     <div>
                         <label class="metadata-field-label">Ngày tạo: </label>
-                        <div class="metadata-field-value">{{ form.createdAt | date:'dd/MM/yyyy HH:mm' }}</div>
+                        <div class="metadata-field-value">{{ form.createdAt | date:'dd/MM/yyyy' }}</div>
                     </div>
                 </div>
                 <div class="metadata-desc-group">
                     <label class="metadata-field-label">Mô tả: </label>
-                    <div class="metadata-desc-box">{{ form.descriptionInfo || form.description || 'Không có mô tả' }}</div>
+                    <div class="metadata-desc-box">{{ form.descriptionInfo || form.description || '' }}</div>
                 </div>
 
                 <div class="mt-4">

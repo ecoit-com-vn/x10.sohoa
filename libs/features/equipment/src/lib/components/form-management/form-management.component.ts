@@ -272,7 +272,7 @@ export class FormManagementComponent implements OnInit {
     const isCompleted = form.status === 'Hoàn thành';
     const isNewOrRejected = form.status === 'Tạo mới' || !form.status || form.status === 'Từ chối';
     this.actionMenuItems = [
-      { label: 'Xem trước', title: 'Xem trước', icon: 'pi pi-eye color-teal', command: () => this.onPreview(form) },
+      { label: 'Xem chi tiết', title: 'Xem chi tiết', icon: 'pi pi-eye color-teal', command: () => this.onPreview(form) },
       { label: 'Lịch sử phiên bản', title: 'Lịch sử phiên bản', icon: 'pi pi-history color-blue', command: () => this.viewVersions(form) },
       ...(this.canEdit() && !isPending && !isCompleted ? [{ label: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(form) }] : []),
       ...(this.canSubmit() && isNewOrRejected ? [{ label: 'Gửi duyệt', icon: 'pi pi-send color-teal', command: () => this.submitForm(form) }] : []),

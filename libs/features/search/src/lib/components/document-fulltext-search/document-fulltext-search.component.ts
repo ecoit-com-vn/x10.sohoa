@@ -1,5 +1,5 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
+import { Component, OnInit, inject, signal } from '@angular/core';
+import { EcoPaginatorComponent, WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -16,7 +16,7 @@ import { LookupTrackingService } from '../../data-access/lookup-tracking.service
 @Component({
   selector: 'app-document-fulltext-search',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, ToastModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, RouterLink, ToastModule, WfBreadcrumbComponent, EcoPaginatorComponent],
   providers: [MessageService],
   templateUrl: './document-fulltext-search.component.html',
   styleUrl: './document-fulltext-search.component.scss'
@@ -38,7 +38,6 @@ export class DocumentFulltextSearchComponent implements OnInit {
   activeKeyword = signal('');
   sort = signal<DocumentFulltextSort>('newest');
 
-  totalPages = computed(() => Math.max(1, Math.ceil(this.totalCount() / this.pageSize())));
   pageSizeOptions = [10, 20, 50];
 
   ngOnInit() {
@@ -65,15 +64,11 @@ export class DocumentFulltextSearchComponent implements OnInit {
     this.loadData();
   }
 
-  onPageSizeChange(value: number) {
-    this.pageSize.set(value);
-    this.currentPage.set(1);
-    this.loadData();
-  }
+  onPageChange(event: { page: number; rows: number }) {
+    const pageSizeChanged = event.rows !== this.pageSize();
 
-  changePage(page: number) {
-    if (page < 1 || page > this.totalPages()) return;
-    this.currentPage.set(page);
+    this.pageSize.set(event.rows);
+    this.currentPage.set(pageSizeChanged ? 1 : event.page + 1);
     this.loadData();
   }
 

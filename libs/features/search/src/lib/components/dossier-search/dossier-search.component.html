@@ -14,59 +14,32 @@
       <div class="standard-search-field">
         <label class="search-field-label">Đơn vị quản lý</label>
         <div class="org-tree-picker">
-          <div
-            class="org-tree-trigger"
-            (click)="toggleSearchOrgTree($event)"
-            [class.has-value]="searchUnitId()"
-            [class.open]="searchOrgTreeOpen()"
-          >
+          <div class="org-tree-trigger" (click)="toggleSearchOrgTree($event)" [class.has-value]="searchUnitId()"
+            [class.open]="searchOrgTreeOpen()">
             <span class="org-tree-selected-label">
-              <i
-                class="pi pi-building"
-                style="margin-right: 6px; color: #6b7280"
-              ></i>
+              <i class="pi pi-building" style="margin-right: 6px; color: #6b7280"></i>
               {{ getUnitLabel(searchUnitId()) || '-- Tất cả đơn vị --' }}
             </span>
             <span style="display: flex; align-items: center; gap: 8px">
-              <i
-                class="pi pi-times-circle clear-btn"
-                *ngIf="searchUnitId()"
-                (click)="clearSearchOrgUnit($event)"
-                style="color: #94a3b8; font-size: 0.95rem; cursor: pointer"
-              ></i>
-              <i
-                class="pi"
-                [class.pi-chevron-down]="!searchOrgTreeOpen()"
-                [class.pi-chevron-up]="searchOrgTreeOpen()"
-              ></i>
+              <i class="pi pi-times-circle clear-btn" *ngIf="searchUnitId()" (click)="clearSearchOrgUnit($event)"
+                style="color: #94a3b8; font-size: 0.95rem; cursor: pointer"></i>
+              <i class="pi" [class.pi-chevron-down]="!searchOrgTreeOpen()"
+                [class.pi-chevron-up]="searchOrgTreeOpen()"></i>
             </span>
           </div>
-          <div
-            class="org-tree-dropdown"
-            *ngIf="searchOrgTreeOpen()"
-            (click)="$event.stopPropagation()"
-          >
+          <div class="org-tree-dropdown" *ngIf="searchOrgTreeOpen()" (click)="$event.stopPropagation()">
             <div class="org-tree-search">
               <i class="pi pi-search"></i>
-              <input
-                type="text"
-                placeholder="Tìm kiếm đơn vị..."
-                [ngModel]="searchOrgSearchKeyword()"
-                (ngModelChange)="searchOrgSearchKeyword.set($event)"
-              />
+              <input type="text" placeholder="Tìm kiếm đơn vị..." [ngModel]="searchOrgSearchKeyword()"
+                (ngModelChange)="searchOrgSearchKeyword.set($event)" />
             </div>
             <ng-container *ngFor="let node of searchOrgUnitTree()">
-              <ng-container
-                *ngTemplateOutlet="
+              <ng-container *ngTemplateOutlet="
                   searchOrgTreeNode;
                   context: { $implicit: node, depth: 0 }
-                "
-              ></ng-container>
+                "></ng-container>
             </ng-container>
-            <div
-              *ngIf="searchOrgUnitTree().length === 0"
-              class="org-tree-empty"
-            >
+            <div *ngIf="searchOrgUnitTree().length === 0" class="org-tree-empty">
               Không có đơn vị phù hợp.
             </div>
           </div>
@@ -76,18 +49,14 @@
       <!-- Tiêu chí 2: Loại lưới điện -->
       <div class="standard-search-field">
         <label class="search-field-label">Loại lưới điện</label>
-        <select
-          class="wf-select w-full"
-          [ngModel]="searchGridType()"
-          (ngModelChange)="searchGridType.set($event)"
+        <select class="wf-select w-full" [ngModel]="searchGridType()" (ngModelChange)="searchGridType.set($event)"
           style="
             height: 38px;
             border-radius: 6px;
             border: 1px solid #cbd5e1;
             padding: 0 12px;
             outline: none;
-          "
-        >
+          ">
           <option value="ALL">Tất cả</option>
           <option value="HIGH">Lưới điện cao áp</option>
           <option value="MEDIUM">Lưới điện trung áp</option>
@@ -97,104 +66,67 @@
       <!-- Tiêu chí 3: Trạm / Đường dây -->
       <div class="standard-search-field">
         <label class="search-field-label">Trạm / Đường dây</label>
-        <p-select
-          [options]="infrastructures()"
-          [ngModel]="searchInfraName()"
-          (ngModelChange)="searchInfraName.set($event)"
-          optionLabel="name"
-          optionValue="name"
-          placeholder="Tất cả"
-          [showClear]="true"
-          [filter]="true"
-          filterPlaceholder="Tìm kiếm..."
-          appendTo="body"
-          [style]="{
+        <p-select [options]="infrastructures()" [ngModel]="searchInfraName()"
+          (ngModelChange)="searchInfraName.set($event)" optionLabel="name" optionValue="name" placeholder="Tất cả"
+          [showClear]="true" [filter]="true" filterPlaceholder="Tìm kiếm..." appendTo="body" [style]="{
             width: '100%',
             height: '38px',
             'border-radius': '6px',
             border: '1px solid #cbd5e1',
-          }"
-        ></p-select>
+          }"></p-select>
       </div>
 
       <!-- Tiêu chí 4: Loại hồ sơ -->
       <div class="standard-search-field">
         <label class="search-field-label">Loại hồ sơ</label>
-        <select
-          class="wf-select w-full"
-          [ngModel]="searchDossierTypeId()"
-          (ngModelChange)="searchDossierTypeId.set($event || null)"
-          style="
+        <select class="wf-select w-full" [ngModel]="searchDossierTypeId()"
+          (ngModelChange)="searchDossierTypeId.set($event || null)" style="
             height: 38px;
             border-radius: 6px;
             border: 1px solid #cbd5e1;
             padding: 0 12px;
             outline: none;
-          "
-        >
+          ">
           <option [ngValue]="null">-- Tất cả loại hồ sơ --</option>
           <option *ngFor="let item of dossierTypes()" [value]="item.id">
             {{ item.name }}
           </option>
         </select>
       </div>
-    </div>
 
-    <div class="standard-search-actions">
-      <button type="button" class="btn-outlined" (click)="onClearFilters()">
-        <i class="pi pi-refresh"></i> Làm mới
-      </button>
-      <button type="button" class="btn-save" (click)="onSearch()">
-        <i class="pi pi-check"></i> Áp dụng
-      </button>
+
+      <div class="standard-search-actions">
+        <button type="button" class="btn-outlined" (click)="onClearFilters()">
+          <i class="pi pi-refresh"></i> Làm mới
+        </button>
+        <button type="button" class="btn-save" (click)="onSearch()">
+          <i class="pi pi-check"></i> Áp dụng
+        </button>
+      </div>
     </div>
 
     <ng-template #searchOrgTreeNode let-node let-depth="depth">
-      <div
-        class="org-tree-node"
-        [style.padding-left.px]="depth * 18 + 8"
-        [class.selected]="searchUnitId() == node.id"
-      >
-        <button
-          type="button"
-          class="org-tree-expand-btn"
-          *ngIf="node.children && node.children.length > 0"
-          (click)="toggleSearchUnitNode(node.id, $event)"
-        >
-          <i
-            class="pi"
-            [class.pi-chevron-right]="!isSearchNodeExpanded(node.id)"
-            [class.pi-chevron-down]="isSearchNodeExpanded(node.id)"
-          ></i>
+      <div class="org-tree-node" [style.padding-left.px]="depth * 18 + 8" [class.selected]="searchUnitId() == node.id">
+        <button type="button" class="org-tree-expand-btn" *ngIf="node.children && node.children.length > 0"
+          (click)="toggleSearchUnitNode(node.id, $event)">
+          <i class="pi" [class.pi-chevron-right]="!isSearchNodeExpanded(node.id)"
+            [class.pi-chevron-down]="isSearchNodeExpanded(node.id)"></i>
         </button>
-        <span
-          class="org-tree-node-spacer"
-          *ngIf="!node.children || node.children.length === 0"
-        ></span>
-        <span
-          class="org-tree-node-label"
-          (click)="selectSearchOrgUnit(node.id)"
-        >
-          <i
-            class="pi pi-building"
-            style="margin-right: 5px; font-size: 0.8rem; color: #6b7280"
-          ></i>
+        <span class="org-tree-node-spacer" *ngIf="!node.children || node.children.length === 0"></span>
+        <span class="org-tree-node-label" (click)="selectSearchOrgUnit(node.id)">
+          <i class="pi pi-building" style="margin-right: 5px; font-size: 0.8rem; color: #6b7280"></i>
           {{ node.name }}
         </span>
       </div>
-      <ng-container
-        *ngIf="
+      <ng-container *ngIf="
           (searchOrgSearchKeyword() || isSearchNodeExpanded(node.id)) &&
           node.children?.length
-        "
-      >
+        ">
         <ng-container *ngFor="let child of node.children">
-          <ng-container
-            *ngTemplateOutlet="
+          <ng-container *ngTemplateOutlet="
               searchOrgTreeNode;
               context: { $implicit: child, depth: depth + 1 }
-            "
-          ></ng-container>
+            "></ng-container>
         </ng-container>
       </ng-container>
     </ng-template>
@@ -215,34 +147,25 @@
 
       <!-- Folder tree (simplified list view) -->
       <div *ngIf="!loadingTree(); else loadingTreeSpinner">
-        <div
-          *ngIf="filteredFolderTree().length === 0"
-          class="empty-tree-message"
-        >
+        <div *ngIf="filteredFolderTree().length === 0" class="empty-tree-message">
           Chưa có thư mục nào
         </div>
 
         <!-- Recursive tree rendering -->
-        <ng-container
-          *ngTemplateOutlet="
+        <ng-container *ngTemplateOutlet="
             folderTreeTemplate;
             context: { $implicit: filteredFolderTree(), isRoot: true }
-          "
-        ></ng-container>
+          "></ng-container>
       </div>
 
       <!-- Template để render cây thư mục (recursive) -->
       <ng-template #folderTreeTemplate let-folders let-isRoot="isRoot">
-        <div
-          *ngFor="
+        <div *ngFor="
             let folder of folders;
             first as isFirst;
             last as isLast;
             trackBy: trackByFolderId
-          "
-          [class.first-node]="isFirst"
-          [class.last-node]="isLast"
-        >
+          " [class.first-node]="isFirst" [class.last-node]="isLast">
           <!-- Folder row -->
           <div class="folder-row">
             <!-- Connector space (for tree lines) -->
@@ -252,16 +175,9 @@
             </div>
 
             <!-- Folder name button -->
-            <button
-              (click)="toggleFolderExpand(folder, $event)"
-              class="folder-tree-btn"
-              [class.active]="selectedFolder()?.id === folder.id"
-              [class.root-node]="isRoot"
-              [title]="folder.name"
-            >
-              <i
-                class="pi"
-                [ngClass]="
+            <button (click)="toggleFolderExpand(folder, $event)" class="folder-tree-btn"
+              [class.active]="selectedFolder()?.id === folder.id" [class.root-node]="isRoot" [title]="folder.name">
+              <i class="pi" [ngClass]="
                   (
                     folder.children && folder.children.length > 0
                       ? expandedFolders().has(folder.id)
@@ -269,8 +185,7 @@
                   )
                     ? 'pi-folder-open'
                     : 'pi-folder'
-                "
-              ></i>
+                "></i>
               <span class="folder-name-text">
                 {{ folder.name }}
               </span>
@@ -278,21 +193,15 @@
           </div>
 
           <!-- Children (recursive) -->
-          <div
-            *ngIf="
+          <div *ngIf="
               folder.children &&
               folder.children.length > 0 &&
               expandedFolders().has(folder.id)
-            "
-            class="folder-children-wrapper"
-            [class.root-children]="isRoot"
-          >
-            <ng-container
-              *ngTemplateOutlet="
+            " class="folder-children-wrapper" [class.root-children]="isRoot">
+            <ng-container *ngTemplateOutlet="
                 folderTreeTemplate;
                 context: { $implicit: folder.children, isRoot: false }
-              "
-            ></ng-container>
+              "></ng-container>
           </div>
         </div>
       </ng-template>
@@ -311,33 +220,22 @@
       <div class="breadcrumb-container">
         <div class="breadcrumb-wrapper">
           <span class="breadcrumb-label"> Vị trí: </span>
-          <button
-            (click)="
+          <button (click)="
               selectedFolder() &&
                 selectedFolder()!.id &&
                 selectedFolder.set(null)
-            "
-            class="breadcrumb-btn"
-            [style.color]="!selectedFolder() ? '#1f2937' : '#6b7280'"
-          >
+            " class="breadcrumb-btn" [style.color]="!selectedFolder() ? '#1f2937' : '#6b7280'">
             Kho tài liệu thiết bị
           </button>
-          <span *ngIf="breadcrumbPath().length > 0" class="breadcrumb-separator"
-            >/</span
-          >
+          <span *ngIf="breadcrumbPath().length > 0" class="breadcrumb-separator">/</span>
 
           <ng-container *ngIf="breadcrumbPath().length > 0">
-            <button
-              *ngFor="let folder of breadcrumbPath(); let isLast = last"
-              (click)="selectFolder(folder)"
-              class="breadcrumb-item-btn"
-              [style.font-weight]="
+            <button *ngFor="let folder of breadcrumbPath(); let isLast = last" (click)="selectFolder(folder)"
+              class="breadcrumb-item-btn" [style.font-weight]="
                 selectedFolder()?.id === folder.id ? 'bold' : 'normal'
-              "
-              [style.color]="
+              " [style.color]="
                 selectedFolder()?.id === folder.id ? '#1f2937' : '#6b7280'
-              "
-            >
+              ">
               {{ folder.name }}
               <span *ngIf="!isLast" class="breadcrumb-sub-separator">/</span>
             </button>
@@ -346,10 +244,7 @@
       </div>
 
       <!-- Folder list table -->
-      <div
-        class="wf-table-wrap"
-        *ngIf="!selectedFolder() || !isSelectableFolder(selectedFolder()!.id)"
-      >
+      <div class="wf-table-wrap" *ngIf="!selectedFolder() || !isSelectableFolder(selectedFolder()!.id)">
         <table class="wf-table">
           <thead>
             <tr>
@@ -364,10 +259,7 @@
               <td class="col-stt text-muted">{{ i + 1 }}</td>
               <td>
                 <div class="table-item-name-container">
-                  <i
-                    class="pi table-item-icon"
-                    [ngClass]="getFolderIcon(folder)"
-                  ></i>
+                  <i class="pi table-item-icon" [ngClass]="getFolderIcon(folder)"></i>
                   <a (click)="onSelectSubFolder(folder)" class="wf-name-link">
                     {{ folder.name }}
                   </a>
@@ -387,11 +279,7 @@
       </div>
 
       <!-- Dossier list table -->
-      <div
-        class="wf-table-wrap"
-        [class.loading]="loadingDocuments()"
-        *ngIf="false"
-      >
+      <div class="wf-table-wrap" [class.loading]="loadingDocuments()" *ngIf="false">
         <table class="wf-table">
           <thead>
             <tr>
@@ -404,25 +292,15 @@
           </thead>
           <tbody>
             <tr *ngIf="loadingDocuments()">
-              <td
-                [attr.colspan]="dossierBhsColumns().length + 4"
-                class="empty-row"
-              >
+              <td [attr.colspan]="dossierBhsColumns().length + 4" class="empty-row">
                 <i class="pi pi-spin pi-spinner"></i>
                 <div>Đang tải danh sách hồ sơ...</div>
               </td>
             </tr>
-            <tr
-              *ngFor="let item of dossiersList(); let i = index"
-              [hidden]="loadingDocuments()"
-            >
+            <tr *ngFor="let item of dossiersList(); let i = index" [hidden]="loadingDocuments()">
               <td class="col-stt text-muted">{{ first() + i + 1 }}</td>
               <td *ngFor="let col of dossierBhsColumns(); let firstCol = first">
-                <a
-                  *ngIf="firstCol"
-                  (click)="onViewDossierDetail(item)"
-                  class="wf-name-link"
-                >
+                <a *ngIf="firstCol" (click)="onViewDossierDetail(item)" class="wf-name-link">
                   {{ getCatalogValue(item, col) }}
                 </a>
                 <span *ngIf="!firstCol">{{ getCatalogValue(item, col) }}</span>
@@ -431,22 +309,15 @@
               <td>{{ item.infrastructureName || 'EVNHANOI' }}</td>
               <td class="col-hd">
                 <div class="action-buttons-group">
-                  <button
-                    type="button"
-                    class="act-btn act-more"
-                    title="Thao tác"
-                    (click)="openActionMenu(item, $event, actionMenu)"
-                  >
+                  <button type="button" class="act-btn act-more" title="Thao tác"
+                    (click)="openActionMenu(item, $event, actionMenu)">
                     <i class="pi pi-ellipsis-h"></i>
                   </button>
                 </div>
               </td>
             </tr>
             <tr *ngIf="!loadingDocuments() && dossiersList().length === 0">
-              <td
-                [attr.colspan]="dossierBhsColumns().length + 4"
-                class="empty-row"
-              >
+              <td [attr.colspan]="dossierBhsColumns().length + 4" class="empty-row">
                 <i class="pi pi-inbox"></i>
                 <div>Không có hồ sơ nào trong loại hồ sơ này.</div>
               </td>
@@ -456,15 +327,11 @@
       </div>
 
       <!-- File list table -->
-      <div
-        class="wf-table-wrap"
-        [class.loading]="loadingDocuments()"
-        *ngIf="
+      <div class="wf-table-wrap" [class.loading]="loadingDocuments()" *ngIf="
           selectedFolder() &&
           isSelectableFolder(selectedFolder()!.id) &&
           !selectedDossier()
-        "
-      >
+        ">
         <div class="wf-table-wrap">
           <table class="wf-table">
             <thead>
@@ -483,17 +350,10 @@
                   <div>Đang tải tài liệu...</div>
                 </td>
               </tr>
-              <tr
-                *ngFor="let doc of dossiersList(); let i = index"
-                [hidden]="loadingDossierDocuments()"
-              >
+              <tr *ngFor="let doc of dossiersList(); let i = index" [hidden]="loadingDossierDocuments()">
                 <td class="col-stt text-muted">{{ i + 1 }}</td>
                 <td>
-                  <span
-                    class="wf-name-link"
-                    (click)="onViewDocumentDetail(doc)"
-                    >{{ doc.name }}</span
-                  >
+                  <span class="wf-name-link" (click)="onViewDocumentDetail(doc)">{{ doc.name }}</span>
                 </td>
                 <td>{{ doc.documentTypeName || doc.mimeType || '-' }}</td>
                 <td>{{ formatDate(doc.createdDate) }}</td>
@@ -510,51 +370,27 @@
         </div>
 
         <!-- Footer / Paginator for Dossier List -->
-        <div
-          class="table-footer-paginator"
-          *ngIf="
+        <div class="table-footer-paginator" *ngIf="
             selectedFolder() &&
             isSelectableFolder(selectedFolder()!.id) &&
             !selectedDossier() &&
             totalDossiersList() > 0
-          "
-        >
-          <span class="record-count"
-            >Tổng số: <b>{{ totalDossiersList() }}</b> tài liệu.</span
-          >
-          <app-eco-paginator
-            [first]="first()"
-            [rows]="rows()"
-            [totalRecords]="totalDossiersList()"
-            [rowsPerPageOptions]="[10, 20, 50]"
-            (onPageChange)="onDossierPageChange($event)"
-          >
+          ">
+          <span class="record-count">Tổng số: <b>{{ totalDossiersList() }}</b> tài liệu.</span>
+          <app-eco-paginator [first]="first()" [rows]="rows()" [totalRecords]="totalDossiersList()"
+            [rowsPerPageOptions]="[10, 20, 50]" (onPageChange)="onDossierPageChange($event)">
           </app-eco-paginator>
         </div>
       </div>
     </div>
 
-    <app-dossier-document-edit-dialog
-      *ngIf="showViewDocument() && viewTarget()?.latestVersionId as versionId"
-      [dossierId]="viewTarget()?.dossierId ?? ''"
-      [versionId]="versionId"
-      [documentName]="viewTarget()?.name ?? ''"
-      [mimeType]="viewTarget()?.mimeType ?? null"
-      [documentTypeId]="viewTarget()?.documentTypeId ?? null"
-      [formId]="null"
-      [canEdit]="false"
-      [totalPagesHint]="viewTarget()?.ocrProgress?.totalPages ?? 0"
-      [visible]="showViewDocument()"
-      (visibleChange)="showViewDocument.set($event)"
-    ></app-dossier-document-edit-dialog>
+    <app-dossier-document-edit-dialog *ngIf="showViewDocument() && viewTarget()?.latestVersionId as versionId"
+      [dossierId]="viewTarget()?.dossierId ?? ''" [versionId]="versionId" [documentName]="viewTarget()?.name ?? ''"
+      [mimeType]="viewTarget()?.mimeType ?? null" [documentTypeId]="viewTarget()?.documentTypeId ?? null"
+      [formId]="null" [canEdit]="false" [totalPagesHint]="viewTarget()?.ocrProgress?.totalPages ?? 0"
+      [visible]="showViewDocument()" (visibleChange)="showViewDocument.set($event)"></app-dossier-document-edit-dialog>
 
-    <p-menu
-      #actionMenu
-      [model]="actionMenuItems"
-      [popup]="true"
-      appendTo="body"
-      styleClass="row-action-menu"
-    >
+    <p-menu #actionMenu [model]="actionMenuItems" [popup]="true" appendTo="body" styleClass="row-action-menu">
     </p-menu>
   </div>
 </div>

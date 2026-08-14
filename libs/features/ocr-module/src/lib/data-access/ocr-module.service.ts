@@ -95,6 +95,8 @@ export interface OcrModuleTemplateDiffResult {
 export interface SpellcheckRunResult {
   totalRegionsChecked: number;
   suggestionCount: number;
+  /** false = AI đã trả lời nhưng không đọc được JSON hợp lệ — khác với "chạy xong, không có lỗi". */
+  llmResponseParsed: boolean;
 }
 
 export interface OcrModuleErrorAnalysis {
@@ -187,12 +189,21 @@ export class OcrModuleService {
     return this.http.put<void>(`${this.baseUrl}/jobs/${jobId}/regions/${regionId}/spellcheck`, payload);
   }
 
+  /** Sửa tay nội dung 1 box (tab "Kiểm tra chính tả và hiệu chỉnh nội dung") — đồng bộ lại MinIO/PDF/Elasticsearch. */
+  updateRegionText(jobId: string, regionId: string, textRaw: string): Observable<OcrModuleRegionDto> {
+    return this.http.put<OcrModuleRegionDto>(`${this.baseUrl}/jobs/${jobId}/regions/${regionId}/text`, { textRaw });
+  }
+
   runErrorAnalysis(jobId: string, pageNumber?: number): Observable<OcrModuleErrorAnalysis[]> {
     return this.http.post<OcrModuleErrorAnalysis[]>(
       `${this.baseUrl}/jobs/${jobId}/error-analysis/run`,
       {},
       { params: pageNumber != null ? { pageNumber } : {} },
     );
+  }
+
+  getErrorAnalysis(jobId: string): Observable<OcrModuleErrorAnalysis[]> {
+    return this.http.get<OcrModuleErrorAnalysis[]>(`${this.baseUrl}/jobs/${jobId}/error-analysis`);
   }
 
   resolveErrorAnalysis(jobId: string, errorId: string): Observable<void> {
