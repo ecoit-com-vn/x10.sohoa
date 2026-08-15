@@ -34,10 +34,10 @@ public sealed class SsoClient : ISsoClient
         {
             throw new SsoException("SSO-CONFIG", "Thiếu cấu hình Sso:AppCode.", 500);
         }
-        //if (_options.AllowMockTicket && ticket == "mock-sso-ticket-123456")
-        //{
-        //    return CreateMockValidationData(ticket);
-        //}
+        if (_options.AllowMockTicket && ticket.StartsWith("mock-sso-ticket", StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateMockValidationData(ticket);
+        }
 
         var url = AppendQuery(_options.ServiceValidateUrl,
             ("ticket", ticket.Trim()),
@@ -84,12 +84,17 @@ public sealed class SsoClient : ISsoClient
         ServiceTicket = ticket,
         Identity = new SsoIdentity
         {
-            Username = "admin",
-            UsernameLocal = "admin",
-            FullName = "Quản trị viên Hệ thống",
-            Email = "admin@evnhanoi.vn",
-            DeptId = "281",
-            UserId = "mock-admin"
+            Username = "X01\\CANBO_TEST",
+            UsernameLocal = "",
+            FullName = "Nguyễn Văn Cán Bộ (Test SSO)",
+            Email = "canbo.test@evnhanoi.vn",
+            UserId = "mock-sso-user-9999",
+            NsId = "281000000099999",
+            DeptId = "281000000000196",
+            StaffCode = "198888",
+            PositionName = "Chuyên viên Kỹ thuật An toàn",
+            Phone = "0988776655",
+            OrgId = "1"
         }
     };
 }

@@ -145,16 +145,17 @@ public sealed class SsoAccountService : ISsoAccountService
         var organizationUnitId = await _connection.QuerySingleOrDefaultAsync<long?>(@"
             SELECT Id
             FROM ORGANIZATION_UNIT
-            WHERE ORGIDSSO = :OrgIdSso
+            WHERE (TO_CHAR(ORGIDSSO) = :OrgIdSso OR TO_CHAR(Id) = :OrgIdSso)
               AND IsActive = 1
               AND IsDeleted = 0
+            ORDER BY CASE WHEN TO_CHAR(ORGIDSSO) = :OrgIdSso THEN 0 ELSE 1 END
             FETCH FIRST 1 ROWS ONLY",
             new { OrgIdSso = normalizedOrgId });
         if (!organizationUnitId.HasValue)
         {
             throw new SsoException(
                 "SSO-ORG-MAPPING",
-                $"Không tìm thấy đơn vị nội bộ đang hoạt động có ORGIDSSO = '{normalizedOrgId}'.",
+                $"Không tìm thấy đơn vị nội bộ đang hoạt động có ORGIDSSO hoặc Id = '{normalizedOrgId}'.",
                 500);
         }
 

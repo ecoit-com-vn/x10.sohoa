@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Oracle.ManagedDataAccess.Client;
 using Dapper;
@@ -21,18 +19,8 @@ class Program
             using (var conn = new OracleConnection(connStr))
             {
                 conn.Open();
-                
-                Console.WriteLine("=== COLUMNS IN TABLE 'ORGANIZATION_UNIT' ===");
-                var columns = await conn.QueryAsync<dynamic>(@"
-                    SELECT COLUMN_NAME, DATA_TYPE, DATA_LENGTH, NULLABLE 
-                    FROM USER_TAB_COLUMNS 
-                    WHERE TABLE_NAME = 'ORGANIZATION_UNIT'
-                    ORDER BY COLUMN_ID");
-
-                foreach (var c in columns)
-                {
-                    Console.WriteLine($"   - {c.COLUMN_NAME}: {c.DATA_TYPE}({c.DATA_LENGTH}), Nullable: {c.NULLABLE}");
-                }
+                await conn.ExecuteAsync("UPDATE ORGANIZATION_UNIT SET ORGIDSSO = 1 WHERE Id = 1");
+                Console.WriteLine("Updated ORGIDSSO = 1 for unit Id = 1 successfully!");
             }
         }
         catch (Exception ex)
