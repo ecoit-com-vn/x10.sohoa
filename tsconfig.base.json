@@ -10,19 +10,12 @@
     "importHelpers": true,
     "target": "es2015",
     "module": "esnext",
-    "lib": [
-      "es2020",
-      "dom"
-    ],
+    "lib": ["es2020", "dom"],
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
     "paths": {
-      "@sohoa.frontend/shared/core": [
-        "./libs/shared/core/src/index.ts"
-      ],
-      "@sohoa.frontend/shared/layout": [
-        "./libs/shared/layout/src/index.ts"
-      ],
+      "@sohoa.frontend/shared/core": ["./libs/shared/core/src/index.ts"],
+      "@sohoa.frontend/shared/layout": ["./libs/shared/layout/src/index.ts"],
       "@sohoa.frontend/shared/ocr-viewer": [
         "./libs/shared/ocr-viewer/src/index.ts"
       ],
@@ -41,9 +34,7 @@
       "@sohoa.frontend/features/equipment": [
         "./libs/features/equipment/src/index.ts"
       ],
-      "@sohoa.frontend/features/error": [
-        "./libs/features/error/src/index.ts"
-      ],
+      "@sohoa.frontend/features/error": ["./libs/features/error/src/index.ts"],
       "@sohoa.frontend/features/ocr-correction": [
         "./libs/features/ocr-correction/src/index.ts"
       ],
@@ -70,11 +61,11 @@
       ],
       "@env/environment": [
         "./apps/admin-portal/src/environments/environment.ts"
+      ],
+      "@sohoa.frontend/features/pmis-sync": [
+        "./libs/features/pmis-sync/src/index.ts"
       ]
     }
   },
-  "exclude": [
-    "node_modules",
-    "tmp"
-  ]
+  "exclude": ["node_modules", "tmp"]
 }

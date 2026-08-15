@@ -5,6 +5,14 @@ import { catchError, map } from 'rxjs/operators';
 import { APP_CONFIG } from '@sohoa.frontend/shared/core';
 import { DigitizationProcessOption } from '@sohoa.frontend/features/dossier-management';
 
+export interface PmisSpecDiffResponse {
+  formSchema: string | null;
+  localFormValues: string | null;
+  pmisFormValues: string | null;
+  pmisSyncedAt: string | null;
+  fieldMappingWarnings: { fieldName: string; label: string }[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -152,6 +160,11 @@ export class EquipmentService {
   /** Biểu mẫu EAV thông số theo loại thiết bị — quyền EQUIPMENT_VIEW. */
   getFormTemplate(id: string): Observable<{ id?: string; name?: string; formSchema?: string }> {
     return this.http.get<{ id?: string; name?: string; formSchema?: string }>(`${this.base}/${id}/form-template`);
+  }
+
+  /** Module 6 — so sánh thông số kỹ thuật đồng bộ từ PMIS với dữ liệu nội bộ. */
+  getPmisSpecDiff(id: string): Observable<PmisSpecDiffResponse> {
+    return this.http.get<PmisSpecDiffResponse>(`${this.base}/${id}/pmis-spec-diff`);
   }
 
   /** Lấy danh sách tài liệu lý lịch thiết bị kỹ thuật EAV/OCR. */
