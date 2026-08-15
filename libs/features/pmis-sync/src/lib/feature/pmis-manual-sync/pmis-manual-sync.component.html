@@ -25,9 +25,6 @@
         <span class="text-muted" *ngIf="resultsLoaded()">Tìm thấy {{ results().length }} bản ghi — đã chọn {{ selectedCount() }}</span>
       </div>
       <div class="toolbar-right">
-        <button class="btn-outlined btn-small" type="button" (click)="openHistory()">
-          <i class="pi pi-history"></i> Lịch sử đồng bộ
-        </button>
         <button class="btn-green" type="button" (click)="openSearchDialog()">
           <i class="pi pi-search"></i> Đồng bộ {{ activeTabLabel() }}
         </button>
@@ -72,6 +69,65 @@
         <ng-template #saveIcon><i class="pi pi-save"></i></ng-template>
         Lưu ({{ selectedCount() }})
       </button>
+    </div>
+  </div>
+
+  <!-- Lịch sử đồng bộ — hiển thị ngay dưới danh sách kết quả tìm kiếm, không dùng popup -->
+  <div class="wf-card" style="margin-top: 16px">
+    <div class="list-toolbar">
+      <div class="toolbar-left">
+        <span style="font-weight: 700; color: #002d72"><i class="pi pi-history"></i> Lịch sử đồng bộ — {{ activeTabLabel() }}</span>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn-outlined btn-small" type="button" (click)="loadHistory()" [disabled]="historyLoading()">
+          <i class="pi pi-spin pi-spinner" *ngIf="historyLoading(); else refreshIcon"></i>
+          <ng-template #refreshIcon><i class="pi pi-refresh"></i></ng-template>
+          Làm mới
+        </button>
+      </div>
+    </div>
+
+    <div class="wf-table-wrap">
+      <table class="wf-table">
+        <thead>
+          <tr>
+            <th class="col-stt">STT</th>
+            <th>Thời gian</th>
+            <th>Hình thức</th>
+            <th>Trạng thái</th>
+            <th>Tổng số</th>
+            <th>Thành công</th>
+            <th>Lỗi</th>
+            <th class="col-hd">Chi tiết</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="historyLoading()">
+            <td colspan="8" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
+          </tr>
+          <ng-container *ngIf="!historyLoading()">
+            <tr *ngFor="let h of historyItems(); let index = index">
+              <td class="col-stt text-muted">{{ index + 1 }}</td>
+              <td>{{ formatDate(h.startTime) }}</td>
+              <td>{{ h.syncType === 'MANUAL' ? 'Thủ công' : 'Tự động' }}</td>
+              <td>
+                <span
+                  [class]="h.status === 'SUCCESS' ? 'status-pill status-active' : h.status === 'FAILED' ? 'status-pill status-inactive' : 'status-pill'"
+                >{{ h.status === 'SUCCESS' ? 'Thành công' : h.status === 'FAILED' ? 'Thất bại' : 'Đang chạy' }}</span>
+              </td>
+              <td>{{ h.totalRecords }}</td>
+              <td>{{ h.successRecords }}</td>
+              <td>{{ h.failedRecords }}</td>
+              <td class="col-hd">
+                <button type="button" class="act-btn act-view" title="Xem chi tiết" (click)="openHistoryDetail(h)"><i class="pi pi-eye"></i></button>
+              </td>
+            </tr>
+            <tr *ngIf="historyItems().length === 0">
+              <td colspan="8" class="empty-row"><i class="pi pi-inbox"></i><div>Chưa có lịch sử đồng bộ nào.</div></td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -143,65 +199,6 @@
   </ng-template>
 </p-dialog>
 
-<!-- Dialog lịch sử đồng bộ -->
-<p-dialog
-  [visible]="historyDialogVisible()"
-  (visibleChange)="historyDialogVisible.set($event)"
-  [header]="'Lịch sử đồng bộ - ' + activeTabLabel()"
-  [modal]="true"
-  [style]="{ width: '860px' }"
-  styleClass="evn-dialog-custom"
->
-  <div class="wf-table-wrap">
-    <table class="wf-table">
-      <thead>
-        <tr>
-          <th class="col-stt">STT</th>
-          <th>Thời gian</th>
-          <th>Hình thức</th>
-          <th>Trạng thái</th>
-          <th>Tổng số</th>
-          <th>Thành công</th>
-          <th>Lỗi</th>
-          <th class="col-hd">Chi tiết</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngIf="historyLoading()">
-          <td colspan="8" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
-        </tr>
-        <ng-container *ngIf="!historyLoading()">
-          <tr *ngFor="let h of historyItems(); let index = index">
-            <td class="col-stt text-muted">{{ index + 1 }}</td>
-            <td>{{ formatDate(h.startTime) }}</td>
-            <td>{{ h.syncType === 'MANUAL' ? 'Thủ công' : 'Tự động' }}</td>
-            <td>
-              <span
-                [class]="h.status === 'SUCCESS' ? 'status-pill status-active' : h.status === 'FAILED' ? 'status-pill status-inactive' : 'status-pill'"
-              >{{ h.status === 'SUCCESS' ? 'Thành công' : h.status === 'FAILED' ? 'Thất bại' : 'Đang chạy' }}</span>
-            </td>
-            <td>{{ h.totalRecords }}</td>
-            <td>{{ h.successRecords }}</td>
-            <td>{{ h.failedRecords }}</td>
-            <td class="col-hd">
-              <button type="button" class="act-btn act-view" title="Xem chi tiết" (click)="openHistoryDetail(h)"><i class="pi pi-eye"></i></button>
-            </td>
-          </tr>
-          <tr *ngIf="historyItems().length === 0">
-            <td colspan="8" class="empty-row"><i class="pi pi-inbox"></i><div>Chưa có lịch sử đồng bộ nào.</div></td>
-          </tr>
-        </ng-container>
-      </tbody>
-    </table>
-  </div>
-
-  <ng-template #footer>
-    <div class="dialog-footer">
-      <button type="button" class="btn-outlined btn-small" (click)="historyDialogVisible.set(false)">Đóng</button>
-    </div>
-  </ng-template>
-</p-dialog>
-
 <!-- Dialog chi tiết 1 lần đồng bộ -->
 <p-dialog
   [visible]="historyDetailDialogVisible()"
@@ -218,6 +215,7 @@
           <th class="col-stt">STT</th>
           <th>Mã PMIS</th>
           <th>Tên</th>
+          <th>Trạm/Đường dây trực thuộc</th>
           <th>Hành động</th>
           <th>Trạng thái</th>
           <th>Lỗi</th>
@@ -225,13 +223,14 @@
       </thead>
       <tbody>
         <tr *ngIf="historyDetailLoading()">
-          <td colspan="6" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
+          <td colspan="7" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
         </tr>
         <ng-container *ngIf="!historyDetailLoading()">
           <tr *ngFor="let d of historyDetails(); let index = index">
             <td class="col-stt text-muted">{{ index + 1 }}</td>
             <td>{{ d.sourceCode }}</td>
             <td>{{ d.sourceName }}</td>
+            <td>{{ getParentName(d.dataContent) }}</td>
             <td>{{ d.actionType === 'CREATE' ? 'Tạo mới' : d.actionType === 'UPDATE' ? 'Cập nhật' : 'Bỏ qua' }}</td>
             <td>
               <span [class]="d.status === 'SUCCESS' ? 'status-pill status-active' : 'status-pill status-inactive'">
@@ -241,7 +240,7 @@
             <td class="note-cell">{{ d.errorMessage || '---' }}</td>
           </tr>
           <tr *ngIf="historyDetails().length === 0">
-            <td colspan="6" class="empty-row"><i class="pi pi-inbox"></i><div>Không có dữ liệu.</div></td>
+            <td colspan="7" class="empty-row"><i class="pi pi-inbox"></i><div>Không có dữ liệu.</div></td>
           </tr>
         </ng-container>
       </tbody>

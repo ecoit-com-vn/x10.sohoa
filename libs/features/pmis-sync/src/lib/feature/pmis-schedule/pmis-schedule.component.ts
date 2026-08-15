@@ -155,6 +155,21 @@ export class PmisScheduleComponent implements OnInit {
     return Number.isNaN(date.getTime()) ? value : date.toLocaleString('vi-VN');
   }
 
+  /**
+   * Tên trạm biến áp/đường dây mà thiết bị trực thuộc — đọc từ dataContent (JSON gốc PMIS trả về).
+   * Backend serialize RawData bằng PascalCase (TenTBA/TenDuongDay) nên tra cứu phải không phân biệt hoa/thường.
+   */
+  getParentName(dataContent: string | null | undefined): string {
+    if (!dataContent) return '---';
+    try {
+      const obj = JSON.parse(dataContent);
+      const key = Object.keys(obj).find((k) => k.toLowerCase() === 'tentba' || k.toLowerCase() === 'tenduongday');
+      return (key && obj[key]) || '---';
+    } catch {
+      return '---';
+    }
+  }
+
   private showError(error: any, fallback: string): void {
     this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: error?.error?.message || fallback });
   }

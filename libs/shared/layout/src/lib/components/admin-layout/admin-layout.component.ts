@@ -413,7 +413,7 @@ export class AdminLayout implements OnInit, OnDestroy {
       if (administrationParentForPmisSchedule) {
         menusCopy.push({
           id: 999992,
-          name: 'Lịch đồng bộ PMIS',
+          name: 'Đồng bộ tự động PMIS',
           icon: 'pi pi-calendar-clock',
           url: '/pmis-sync/schedule',
           parentId: administrationParentForPmisSchedule.id,
