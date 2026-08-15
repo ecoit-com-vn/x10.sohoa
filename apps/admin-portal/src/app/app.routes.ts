@@ -7,6 +7,10 @@ export const appRoutes: Route[] = [
     loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.Login)
   },
   {
+    path: 'sso-login',
+    loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.Login)
+  },
+  {
     path: '',
     loadComponent: () => import('@sohoa.frontend/shared/layout').then(m => m.AdminLayout),
     canActivate: [authGuard],
