@@ -15,9 +15,14 @@ import { Menu, MenuModule } from 'primeng/menu';
 import { DatePickerModule } from 'primeng/datepicker';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '@sohoa.frontend/shared/core';
-import { EquipmentService } from '../../data-access/equipment.service';
+import { EquipmentService, PmisSpecDiffResponse } from '../../data-access/equipment.service';
 import { FormTemplateService } from '../../data-access/form-template.service';
-import { DossierManagementService } from '@sohoa.frontend/features/dossier-management';
+import {
+  DossierManagementService,
+  EavField,
+  formatFieldDisplayValue,
+  parseFormSchemaFields,
+} from '@sohoa.frontend/features/dossier-management';
 import { EMPTY, forkJoin, of } from 'rxjs';
 import { catchError, finalize, switchMap, map } from 'rxjs/operators';
 import { EquipmentDocumentsComponent } from '../equipment-documents/equipment-documents.component';
@@ -104,6 +109,47 @@ export class EquipmentComponent implements OnInit {
   eavTemplate = signal<any>(null);
   eavFields = signal<any[]>([]);
   formValuesObj = signal<any>({});
+
+  // Module 6 — so sánh thông số kỹ thuật với PMIS
+  pmisSpecDiff = signal<PmisSpecDiffResponse | null>(null);
+  pmisDiffLoading = signal(false);
+
+  /** 1 dòng/field: giá trị hệ thống vs PMIS, hoặc cảnh báo "chưa cấu hình mapping" nếu chưa khai báo pmisFieldName khớp được. */
+  pmisDiffRows = computed(() => {
+    const diff = this.pmisSpecDiff();
+    if (!diff?.formSchema || !diff.pmisFormValues) return [];
+
+    const fields: EavField[] = parseFormSchemaFields(diff.formSchema);
+    const localValues = this.formValuesObj() || {};
+    let pmisValues: Record<string, unknown> = {};
+    try {
+      pmisValues = JSON.parse(diff.pmisFormValues) || {};
+    } catch {
+      pmisValues = {};
+    }
+
+    const warningKeys = new Set((diff.fieldMappingWarnings || []).map((w) => w.fieldName));
+
+    return fields.map((field) => {
+      const hasMappingWarning = warningKeys.has(field.key) || warningKeys.has(field.name || '');
+      const pmisKey = field.pmisFieldName?.trim() || field.key;
+      const pmisRawValue = hasMappingWarning ? undefined : this.lookupIgnoreCase(pmisValues, pmisKey);
+      const localValue = localValues[field.key];
+      const hasDifference =
+        !hasMappingWarning && formatFieldDisplayValue(field, localValue) !== formatFieldDisplayValue(field, pmisRawValue);
+
+      return {
+        field,
+        localDisplay: formatFieldDisplayValue(field, localValue),
+        pmisDisplay: hasMappingWarning ? null : formatFieldDisplayValue(field, pmisRawValue),
+        hasMappingWarning,
+        hasDifference,
+      };
+    });
+  });
+
+  pmisDiffCount = computed(() => this.pmisDiffRows().filter((r) => r.hasDifference).length);
+  pmisDiffWarningCount = computed(() => this.pmisDiffRows().filter((r) => r.hasMappingWarning).length);
   isEditingGeneral = signal<boolean>(false);
   isEditingFormValues = signal<boolean>(false);
   isLoadingTemplate = signal<boolean>(false);
@@ -434,6 +480,9 @@ export class EquipmentComponent implements OnInit {
 
               // Load dossier columns (for dossier tab)
               this.loadBhsColumns();
+
+              // So sánh thông số kỹ thuật với PMIS
+              this.loadPmisSpecDiff(id);
 
               // Nếu mode là view-specs hoặc edit-specs, tự động scroll xuống specs section
               if (mode === 'view-specs' || mode === 'edit-specs') {
@@ -1177,6 +1226,28 @@ export class EquipmentComponent implements OnInit {
 
   loadBhsColumns() {
     // Không cần gọi riêng lẻ ở client nữa, API by-equipment đã tích hợp trả về columns
+  }
+
+  loadPmisSpecDiff(id: string) {
+    this.pmisDiffLoading.set(true);
+    this.equipmentService.getPmisSpecDiff(id).subscribe({
+      next: (res) => {
+        this.pmisSpecDiff.set(res);
+        this.pmisDiffLoading.set(false);
+      },
+      error: () => {
+        this.pmisSpecDiff.set(null);
+        this.pmisDiffLoading.set(false);
+      }
+    });
+  }
+
+  private lookupIgnoreCase(obj: Record<string, unknown>, key: string): unknown {
+    if (!obj || !key) return undefined;
+    if (Object.prototype.hasOwnProperty.call(obj, key)) return obj[key];
+    const lowerKey = key.toLowerCase();
+    const foundKey = Object.keys(obj).find((k) => k.toLowerCase() === lowerKey);
+    return foundKey !== undefined ? obj[foundKey] : undefined;
   }
 
   loadDossiers() {

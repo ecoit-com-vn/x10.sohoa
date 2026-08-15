@@ -15,6 +15,8 @@ export interface FormField {
   placeholder?: string;
   width?: number; // 50 or 100
   active?: boolean;
+  /** Tên trường tương ứng trong dữ liệu thongSoKyThuat do PMIS trả về — dùng để so khớp khi so sánh sai khác. */
+  pmisFieldName?: string;
 }
 
 export interface FormDefinition {

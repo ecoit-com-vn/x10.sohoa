@@ -1,0 +1,195 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb [customItems]="[{ label: 'Đồng bộ PMIS' }, { label: 'Lịch đồng bộ', url: '/pmis-sync/schedule' }]" />
+    </div>
+  </div>
+
+  <div class="wf-card">
+    <div class="wf-table-wrap">
+      <table class="wf-table">
+        <thead>
+          <tr>
+            <th class="col-stt">STT</th>
+            <th>Đối tượng</th>
+            <th>Bật/Tắt</th>
+            <th>Tần suất</th>
+            <th>Lần đồng bộ gần nhất</th>
+            <th>Lần tiếp theo</th>
+            <th class="col-hd">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading()">
+            <td colspan="7" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
+          </tr>
+          <ng-container *ngIf="!loading()">
+            <tr *ngFor="let config of configs(); let index = index">
+              <td class="col-stt text-muted">{{ index + 1 }}</td>
+              <td><b>{{ objectTypeLabels[config.objectType] || config.objectType }}</b></td>
+              <td>
+                <label class="toggle-inline">
+                  <input
+                    type="checkbox"
+                    [checked]="form(config.objectType)?.isEnabled"
+                    (change)="updateField(config.objectType, 'isEnabled', $any($event.target).checked)"
+                  />
+                  {{ form(config.objectType)?.isEnabled ? 'Đang bật' : 'Đang tắt' }}
+                </label>
+              </td>
+              <td>
+                <div class="frequency-inputs">
+                  <input
+                    class="wf-input"
+                    type="number"
+                    min="1"
+                    [ngModel]="form(config.objectType)?.frequencyValue"
+                    (ngModelChange)="updateField(config.objectType, 'frequencyValue', $event)"
+                  />
+                  <select
+                    class="wf-select"
+                    [ngModel]="form(config.objectType)?.frequencyUnit"
+                    (ngModelChange)="updateField(config.objectType, 'frequencyUnit', $event)"
+                  >
+                    <option *ngFor="let unit of frequencyUnitOptions" [ngValue]="unit">{{ frequencyUnitLabels[unit] }}</option>
+                  </select>
+                </div>
+              </td>
+              <td>{{ formatDate(config.lastSyncAt) }}</td>
+              <td>{{ formatDate(config.nextSyncAt) }}</td>
+              <td class="col-hd">
+                <button
+                  type="button"
+                  class="act-btn act-edit"
+                  title="Lưu"
+                  (click)="save(config.objectType)"
+                  [disabled]="savingType() === config.objectType"
+                >
+                  <i class="pi pi-spin pi-spinner" *ngIf="savingType() === config.objectType; else saveIcon"></i>
+                  <ng-template #saveIcon><i class="pi pi-save"></i></ng-template>
+                </button>
+                <button type="button" class="act-btn act-history" title="Lịch sử đồng bộ" (click)="openHistory(config.objectType)">
+                  <i class="pi pi-history"></i>
+                </button>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Dialog lịch sử đồng bộ -->
+<p-dialog
+  [visible]="historyDialogVisible()"
+  (visibleChange)="historyDialogVisible.set($event)"
+  [header]="'Lịch sử đồng bộ - ' + (objectTypeLabels[historyTarget() || ''] || '')"
+  [modal]="true"
+  [style]="{ width: '860px' }"
+  styleClass="evn-dialog-custom"
+>
+  <div class="wf-table-wrap">
+    <table class="wf-table">
+      <thead>
+        <tr>
+          <th class="col-stt">STT</th>
+          <th>Thời gian</th>
+          <th>Hình thức</th>
+          <th>Trạng thái</th>
+          <th>Tổng số</th>
+          <th>Thành công</th>
+          <th>Lỗi</th>
+          <th class="col-hd">Chi tiết</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngIf="historyLoading()">
+          <td colspan="8" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
+        </tr>
+        <ng-container *ngIf="!historyLoading()">
+          <tr *ngFor="let h of historyItems(); let index = index">
+            <td class="col-stt text-muted">{{ index + 1 }}</td>
+            <td>{{ formatDate(h.startTime) }}</td>
+            <td>{{ h.syncType === 'MANUAL' ? 'Thủ công' : 'Tự động' }}</td>
+            <td>
+              <span
+                [class]="h.status === 'SUCCESS' ? 'status-pill status-active' : h.status === 'FAILED' ? 'status-pill status-inactive' : 'status-pill'"
+              >{{ h.status === 'SUCCESS' ? 'Thành công' : h.status === 'FAILED' ? 'Thất bại' : 'Đang chạy' }}</span>
+            </td>
+            <td>{{ h.totalRecords }}</td>
+            <td>{{ h.successRecords }}</td>
+            <td>{{ h.failedRecords }}</td>
+            <td class="col-hd">
+              <button type="button" class="act-btn act-view" title="Xem chi tiết" (click)="openHistoryDetail(h)"><i class="pi pi-eye"></i></button>
+            </td>
+          </tr>
+          <tr *ngIf="historyItems().length === 0">
+            <td colspan="8" class="empty-row"><i class="pi pi-inbox"></i><div>Chưa có lịch sử đồng bộ nào.</div></td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+  </div>
+
+  <ng-template #footer>
+    <div class="dialog-footer">
+      <button type="button" class="btn-outlined btn-small" (click)="historyDialogVisible.set(false)">Đóng</button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog chi tiết 1 lần đồng bộ -->
+<p-dialog
+  [visible]="historyDetailDialogVisible()"
+  (visibleChange)="historyDetailDialogVisible.set($event)"
+  header="Danh sách bản ghi đã đồng bộ"
+  [modal]="true"
+  [style]="{ width: '900px' }"
+  styleClass="evn-dialog-custom"
+>
+  <div class="wf-table-wrap">
+    <table class="wf-table">
+      <thead>
+        <tr>
+          <th class="col-stt">STT</th>
+          <th>Mã PMIS</th>
+          <th>Tên</th>
+          <th>Hành động</th>
+          <th>Trạng thái</th>
+          <th>Lỗi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngIf="historyDetailLoading()">
+          <td colspan="6" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
+        </tr>
+        <ng-container *ngIf="!historyDetailLoading()">
+          <tr *ngFor="let d of historyDetails(); let index = index">
+            <td class="col-stt text-muted">{{ index + 1 }}</td>
+            <td>{{ d.sourceCode }}</td>
+            <td>{{ d.sourceName }}</td>
+            <td>{{ d.actionType === 'CREATE' ? 'Tạo mới' : d.actionType === 'UPDATE' ? 'Cập nhật' : 'Bỏ qua' }}</td>
+            <td>
+              <span [class]="d.status === 'SUCCESS' ? 'status-pill status-active' : 'status-pill status-inactive'">
+                {{ d.status === 'SUCCESS' ? 'Thành công' : 'Lỗi' }}
+              </span>
+            </td>
+            <td class="note-cell">{{ d.errorMessage || '---' }}</td>
+          </tr>
+          <tr *ngIf="historyDetails().length === 0">
+            <td colspan="6" class="empty-row"><i class="pi pi-inbox"></i><div>Không có dữ liệu.</div></td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+  </div>
+
+  <ng-template #footer>
+    <div class="dialog-footer">
+      <button type="button" class="btn-outlined btn-small" (click)="historyDetailDialogVisible.set(false)">Đóng</button>
+    </div>
+  </ng-template>
+</p-dialog>

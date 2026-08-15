@@ -137,6 +137,10 @@ export const appRoutes: Route[] = [
         loadChildren: () => import('@sohoa.frontend/features/document-management').then(m => m.DOCUMENT_MANAGEMENT_ROUTES)
       },
       {
+        path: 'pmis-sync',
+        loadChildren: () => import('@sohoa.frontend/features/pmis-sync').then(m => m.PMIS_SYNC_ROUTES)
+      },
+      {
         path: 'error',
         loadComponent: () => import('@sohoa.frontend/features/error').then(m => m.GlobalErrorComponent)
       },

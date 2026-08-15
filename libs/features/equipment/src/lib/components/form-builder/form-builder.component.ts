@@ -31,6 +31,8 @@ interface FormField {
   description?: string;
   selectAll?: boolean;
   active?: boolean;
+  /** Tên trường tương ứng trong dữ liệu thongSoKyThuat do PMIS trả về — dùng để so khớp khi so sánh sai khác. */
+  pmisFieldName?: string;
 }
 
 interface ToolboxItem {

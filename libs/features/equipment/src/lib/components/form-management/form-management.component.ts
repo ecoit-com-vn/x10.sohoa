@@ -45,6 +45,8 @@ interface FormField {
   selectAll?: boolean;
   active?: boolean;
   extractionPosition?: string;
+  /** Tên trường tương ứng trong dữ liệu thongSoKyThuat do PMIS trả về — dùng để so khớp khi so sánh sai khác. */
+  pmisFieldName?: string;
 }
 
 interface ToolboxItem {
