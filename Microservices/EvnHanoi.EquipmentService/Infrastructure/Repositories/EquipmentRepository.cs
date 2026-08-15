@@ -1497,4 +1497,87 @@ StatusTransition,
 
         return await _connection.ExecuteScalarAsync<int>(sql, new { InfrastructureId = infrastructureId.ToString() });
     }
+
+    public async Task<EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult> UpsertFromPmisAsync(
+        string pmisCode, string code, string name, string? serialNumber,
+        string equipmentTypeCode, string? parentPmisCode, string? unitCode,
+        int? manufactureYear, string? qrCodeBase64)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var equipmentTypeId = await _connection.QuerySingleOrDefaultAsync<string?>(
+            "SELECT Id FROM EquipmentTypes WHERE Code = :Code AND IsDeleted = 0", new { Code = equipmentTypeCode });
+        if (equipmentTypeId == null)
+        {
+            return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
+                $"Chưa cấu hình loại thiết bị '{equipmentTypeCode}' trong hệ thống — cần Admin ánh xạ EquipmentTypes.Code trước khi đồng bộ được.");
+        }
+
+        string? infrastructureId = null;
+        if (!string.IsNullOrWhiteSpace(parentPmisCode))
+        {
+            infrastructureId = await _connection.QuerySingleOrDefaultAsync<string?>(
+                "SELECT Id FROM INFRASTRUCTURE WHERE PMIS_CODE = :PmisCode AND IsDeleted = 0", new { PmisCode = parentPmisCode });
+        }
+
+        long? unitId = null;
+        if (!string.IsNullOrWhiteSpace(unitCode))
+        {
+            unitId = await _connection.QuerySingleOrDefaultAsync<long?>(
+                "SELECT Id FROM ORGANIZATION_UNIT WHERE Code = :Code", new { Code = unitCode });
+        }
+
+        var existingId = await _connection.QuerySingleOrDefaultAsync<string?>(
+            "SELECT Id FROM EQUIPMENTS WHERE PMIS_CODE = :PmisCode AND IsDeleted = 0", new { PmisCode = pmisCode });
+
+        if (existingId != null)
+        {
+            const string updateSql = @"UPDATE EQUIPMENTS
+                        SET Name = :Name, Code = :Code, SerialNumber = :SerialNumber,
+                            INFRASTRUCTURE_ID = :InfrastructureId, MANUFACTURE_YEAR = :ManufactureYear,
+                            UnitId = :UnitId, QR_CODE = :QrCode, LAST_SYNCED_FROM_PMIS_AT = SYSTIMESTAMP,
+                            ModifiedBy = :ModifiedBy, ModifiedDate = SYSTIMESTAMP
+                        WHERE Id = :Id";
+
+            await _connection.ExecuteAsync(updateSql, new
+            {
+                Id = existingId,
+                Name = name,
+                Code = code,
+                SerialNumber = serialNumber,
+                InfrastructureId = infrastructureId,
+                ManufactureYear = manufactureYear,
+                UnitId = unitId,
+                QrCode = EvnHanoi.Infrastructure.Database.OracleClob.Param(qrCodeBase64),
+                ModifiedBy = "PMIS_SYNC"
+            });
+            return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Ok(Guid.Parse(existingId), false);
+        }
+
+        var newId = Guid.Parse(EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid());
+        const string insertSql = @"INSERT INTO EQUIPMENTS (
+                        Id, EquipmentTypeId, Name, Code, SerialNumber, INFRASTRUCTURE_ID, MANUFACTURE_YEAR,
+                        IS_ACTIVE, UnitId, CreatedBy, CreatedAt, IsDeleted, PMIS_CODE, QR_CODE, LAST_SYNCED_FROM_PMIS_AT
+                    ) VALUES (
+                        :Id, :EquipmentTypeId, :Name, :Code, :SerialNumber, :InfrastructureId, :ManufactureYear,
+                        1, :UnitId, :CreatedBy, SYSTIMESTAMP, 0, :PmisCode, :QrCode, SYSTIMESTAMP
+                    )";
+
+        await _connection.ExecuteAsync(insertSql, new
+        {
+            Id = newId.ToString(),
+            EquipmentTypeId = equipmentTypeId,
+            Name = name,
+            Code = code,
+            SerialNumber = serialNumber,
+            InfrastructureId = infrastructureId,
+            ManufactureYear = manufactureYear,
+            UnitId = unitId,
+            CreatedBy = "PMIS_SYNC",
+            PmisCode = pmisCode,
+            QrCode = EvnHanoi.Infrastructure.Database.OracleClob.Param(qrCodeBase64)
+        });
+        return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Ok(newId, true);
+    }
 }

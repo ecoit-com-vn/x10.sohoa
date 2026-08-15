@@ -67,9 +67,13 @@ builder.Services.AddScoped<IValidator<UpdateProfileRequest>, UpdateProfileReques
 builder.Services.AddScoped<IValidator<ChangePasswordRequest>, ChangePasswordRequestValidator>();
 
 // RabbitMQ Configuration & Consumer Registration
+// VirtualHost phải đọc từ config như EquipmentService/WorkflowService/DigitizationService/ReportService
+// và AuditServiceCollectionExtensions — thiếu dòng này khiến service luôn nối vhost "/" bất kể
+// RabbitMQ:VirtualHost cấu hình gì, gây lỗi khi trỏ vào RabbitMQ có vhost khác "/".
 var rabbitFactory = new RabbitMQ.Client.ConnectionFactory
 {
     HostName = builder.Configuration["RabbitMQ:Host"] ?? "localhost",
+    VirtualHost = builder.Configuration["RabbitMQ:VirtualHost"] ?? "/",
     UserName = builder.Configuration["RabbitMQ:Username"] ?? "guest",
     Password = builder.Configuration["RabbitMQ:Password"] ?? "guest",
     Port = int.TryParse(builder.Configuration["RabbitMQ:Port"], out var port) ? port : 5672
