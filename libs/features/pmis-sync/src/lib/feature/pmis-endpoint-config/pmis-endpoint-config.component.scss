@@ -1,0 +1,53 @@
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+th.col-hd,
+td.col-hd {
+  text-align: center;
+}
+
+.api-key-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 8px;
+}
+
+.note-cell {
+  max-width: 320px;
+  white-space: normal;
+  word-break: break-all;
+}
+
+.loading-row {
+  padding: 28px;
+  color: #64748b;
+  text-align: center;
+}
+
+.header-list-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.header-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.header-secret-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: #475569;
+  white-space: nowrap;
+}

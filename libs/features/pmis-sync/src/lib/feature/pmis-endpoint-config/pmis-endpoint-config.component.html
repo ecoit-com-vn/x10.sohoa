@@ -1,0 +1,152 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb [customItems]="[{ label: 'Đồng bộ PMIS' }, { label: 'Cấu hình kết nối API', url: '/pmis-sync/endpoint-config' }]" />
+    </div>
+  </div>
+
+  <div class="wf-card">
+    <div class="wf-table-wrap">
+      <table class="wf-table">
+        <thead>
+          <tr>
+            <th class="col-stt">STT</th>
+            <th>Tên API</th>
+            <th>Url</th>
+            <th>Trạng thái</th>
+            <th>Số header</th>
+            <th class="col-hd">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading()">
+            <td colspan="6" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
+          </tr>
+          <ng-container *ngIf="!loading()">
+            <tr *ngFor="let item of endpoints(); let index = index">
+              <td class="col-stt text-muted">{{ index + 1 }}</td>
+              <td><b>{{ item.displayName }}</b><br /><small class="text-muted">{{ item.apiCode }}</small></td>
+              <td class="note-cell">{{ item.url || '(chưa cấu hình)' }}</td>
+              <td>
+                <span [class]="item.isActive ? 'status-pill status-active' : 'status-pill status-inactive'">
+                  {{ item.isActive ? 'Đang bật' : 'Đang tắt' }}
+                </span>
+              </td>
+              <td>{{ item.headerCount }}</td>
+              <td class="col-hd">
+                <button type="button" class="act-btn act-edit" title="Sửa cấu hình" (click)="openEdit(item)">
+                  <i class="pi pi-pencil"></i>
+                </button>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<p-dialog
+  [visible]="dialogVisible()"
+  (visibleChange)="closeDialog()"
+  [header]="'Cấu hình - ' + form().displayName"
+  [modal]="true"
+  [style]="{ width: '640px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!saving()"
+>
+  <div class="api-key-form">
+    <div class="form-group">
+      <label class="form-label">Endpoint Url</label>
+      <input
+        class="wf-input w-full"
+        type="text"
+        [ngModel]="form().url"
+        (ngModelChange)="updateFormField('url', $event)"
+        [disabled]="saving()"
+        placeholder="https://pmis.evn.com.vn/api/..."
+      />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Timeout (giây)</label>
+      <input
+        class="wf-input w-full"
+        type="number"
+        min="1"
+        [ngModel]="form().timeoutSeconds"
+        (ngModelChange)="updateFormField('timeoutSeconds', $event)"
+        [disabled]="saving()"
+        placeholder="Mặc định theo cấu hình chung"
+      />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Trạng thái</label>
+      <select
+        class="wf-select w-full"
+        [ngModel]="form().isActive"
+        (ngModelChange)="updateFormField('isActive', $event)"
+        [disabled]="saving()"
+      >
+        <option [ngValue]="true">Bật</option>
+        <option [ngValue]="false">Tắt</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <div class="header-list-title">
+        <label class="form-label">Header gửi kèm khi gọi PMIS</label>
+        <button type="button" class="btn-outlined btn-small" (click)="addHeaderRow()" [disabled]="saving()">
+          <i class="pi pi-plus"></i> Thêm header
+        </button>
+      </div>
+
+      <div class="header-row" *ngFor="let h of headers(); let i = index">
+        <input
+          class="wf-input"
+          type="text"
+          placeholder="Tên header (vd: Authorization)"
+          [ngModel]="h.headerKey"
+          (ngModelChange)="updateHeaderField(i, 'headerKey', $event)"
+          [disabled]="saving()"
+        />
+        <input
+          class="wf-input"
+          [type]="h.isSecret ? 'password' : 'text'"
+          [placeholder]="h.isSecret && h.hasStoredValue ? 'Để trống nếu không đổi giá trị đã lưu' : 'Giá trị header'"
+          [ngModel]="h.headerValue"
+          (ngModelChange)="updateHeaderField(i, 'headerValue', $event)"
+          [disabled]="saving()"
+        />
+        <label class="header-secret-toggle">
+          <input
+            type="checkbox"
+            [ngModel]="h.isSecret"
+            (ngModelChange)="updateHeaderField(i, 'isSecret', $event)"
+            [disabled]="saving()"
+          />
+          Bí mật
+        </label>
+        <button type="button" class="act-btn act-delete" title="Xóa header" (click)="removeHeaderRow(i)" [disabled]="saving()">
+          <i class="pi pi-trash"></i>
+        </button>
+      </div>
+
+      <p *ngIf="headers().length === 0" class="text-muted">Chưa có header nào.</p>
+    </div>
+  </div>
+
+  <ng-template #footer>
+    <div class="dialog-footer">
+      <button type="button" class="btn-outlined btn-small" (click)="closeDialog()" [disabled]="saving()">Đóng</button>
+      <button type="button" class="btn-save btn-small" (click)="save()" [disabled]="saving()">
+        <i *ngIf="saving(); else saveIcon" class="pi pi-spin pi-spinner"></i>
+        <ng-template #saveIcon><i class="pi pi-save"></i></ng-template>
+        Lưu thông tin
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>

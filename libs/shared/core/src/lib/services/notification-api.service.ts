@@ -23,6 +23,14 @@ export interface NotificationListResponse {
   pageSize: number;
 }
 
+export interface DossierLookupItem {
+  id: string;
+  title?: string | null;
+  dossierTypeName?: string | null;
+  infrastructureName?: string | null;
+  dossierSetName?: string | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -37,6 +45,18 @@ export class NotificationApiService {
   getNotifications(page = 1, pageSize = 20, onlyUnread = false): Observable<NotificationListResponse> {
     return this.http.get<NotificationListResponse>(
       `${this.base}?page=${page}&pageSize=${pageSize}&onlyUnread=${onlyUnread}`
+    );
+  }
+
+  getDossierLookup(page = 1, pageSize = 1000): Observable<{ items: DossierLookupItem[] }> {
+    return this.http.get<{ items: DossierLookupItem[] }>(
+      `${this.config.apiGatewayUrl}/api/v1/dossiers?page=${page}&pageSize=${pageSize}`
+    );
+  }
+
+  getDossierById(id: string): Observable<DossierLookupItem> {
+    return this.http.get<DossierLookupItem>(
+      `${this.config.apiGatewayUrl}/api/v1/dossiers/${encodeURIComponent(id)}`
     );
   }
 
