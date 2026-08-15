@@ -21,5 +21,13 @@ namespace EvnHanoi.DigitizationService.Models
         /// trang, giữ nguyên hành vi cũ. Bước OCR không bị ảnh hưởng, luôn chạy đủ trang.
         /// </summary>
         public string ExtractionScope { get; set; } = ExtractionScopes.Default;
+
+        /// <summary>
+        /// Chỉ set cho luồng "Quản lý dữ liệu huấn luyện AI-OCR" (upload PDF độc lập, không gắn
+        /// Dossier/Equipment) — khi có giá trị, OcrWorker sau khi OCR xong sẽ nạp thẳng kết quả vào
+        /// OCR_MODULE_REGION của Job này thay vì publish extraction.process.task. Luồng dossier/equipment
+        /// hiện tại không set field này nên hành vi giữ nguyên không đổi.
+        /// </summary>
+        public string? OcrModuleJobId { get; set; }
     }
 }

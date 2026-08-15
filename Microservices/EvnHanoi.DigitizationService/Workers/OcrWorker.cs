@@ -20,6 +20,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using EvnHanoi.DigitizationService.Models;
 using EvnHanoi.DigitizationService.Repositories;
+using EvnHanoi.DigitizationService.Repositories.OcrModule;
 using EvnHanoi.DigitizationService.Services;
 using EvnHanoi.DigitizationService.Services.OcrModule;
 using EvnHanoi.DigitizationService.Helpers;
@@ -129,11 +130,57 @@ namespace EvnHanoi.DigitizationService.Workers
                             var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
                             var publisher = scope.ServiceProvider.GetRequiredService<IMessagePublisher>();
                             var pdfBuilder = scope.ServiceProvider.GetRequiredService<ISearchablePdfBuilder>();
+                            // Dùng chung cho việc cập nhật % tiến trình mỗi trang (bên dưới) và nhánh
+                            // materialize khi hoàn tất (trong PublishExtractionAndAckAsync) — chỉ áp dụng
+                            // cho luồng "Quản lý dữ liệu huấn luyện AI-OCR" (có OcrModuleJobId).
+                            var ocrModuleRepo = scope.ServiceProvider.GetRequiredService<IOcrModuleRepository>();
 
                             // Bàn giao sang ExtractionWorker — dùng chung cho luồng bình thường và
                             // luồng bỏ qua khi phát hiện file đã là PDF 2 lớp (idempotency, xem dưới).
                             async Task PublishExtractionAndAckAsync(string extractionFilePath)
                             {
+                                // Luồng "Quản lý dữ liệu huấn luyện AI-OCR" (upload PDF độc lập từ màn hình
+                                // quản trị, không gắn Dossier/Equipment): không cần bóc tách LLM, chỉ nạp
+                                // thẳng kết quả OCR vừa ghi ra MinIO vào OCR_MODULE_REGION rồi đóng Job.
+                                // Mọi luồng dossier/equipment hiện tại không set OcrModuleJobId nên rơi
+                                // xuống nhánh publish extraction.process.task như cũ, không đổi hành vi.
+                                if (!string.IsNullOrEmpty(taskMsg.OcrModuleJobId))
+                                {
+                                    var ocrJsonMaterializer = scope.ServiceProvider.GetRequiredService<IOcrJsonMaterializer>();
+
+                                    try
+                                    {
+                                        var job = await ocrModuleRepo.GetJobByIdAsync(taskMsg.OcrModuleJobId);
+                                        var totalPages = job?.TotalPages ?? 0;
+                                        var regions = await ocrJsonMaterializer.MaterializeAsync(
+                                            taskMsg.OcrModuleJobId, taskMsg.BucketName, extractionFilePath, totalPages);
+                                        await ocrModuleRepo.InsertRegionsAsync(regions);
+
+                                        var actualPages = regions.Count > 0 ? regions.Max(r => r.PageNumber) : totalPages;
+                                        await ocrModuleRepo.UpdateJobStateAsync(taskMsg.OcrModuleJobId, "Ready", actualPages, null);
+                                        _logger.LogInformation(
+                                            "Job huấn luyện AI-OCR {JobId} đã nạp {RegionCount} vùng, chuyển trạng thái Ready.",
+                                            taskMsg.OcrModuleJobId, regions.Count);
+                                    }
+                                    catch (Exception materializeEx)
+                                    {
+                                        _logger.LogError(materializeEx,
+                                            "Lỗi nạp OCR_MODULE_REGION cho Job huấn luyện AI-OCR {JobId}.", taskMsg.OcrModuleJobId);
+                                        try
+                                        {
+                                            await ocrModuleRepo.UpdateJobStateAsync(taskMsg.OcrModuleJobId, "Failed", 0, materializeEx.Message);
+                                        }
+                                        catch (Exception updateFailedEx)
+                                        {
+                                            _logger.LogError(updateFailedEx,
+                                                "Không thể cập nhật trạng thái Failed cho Job huấn luyện AI-OCR {JobId}.", taskMsg.OcrModuleJobId);
+                                        }
+                                    }
+
+                                    await _channel!.BasicAckAsync(ea.DeliveryTag, false);
+                                    return;
+                                }
+
                                 var extractionTask = new ExtractionTaskMessage
                                 {
                                     FileId = taskMsg.FileId,
@@ -356,6 +403,22 @@ namespace EvnHanoi.DigitizationService.Workers
                                     Progress = (int)Math.Round((double)(i + 1) / pageCount * 100)
                                 };
                                 await publisher.TryPublishMessageAsync(progressMsg, "digitization.topic", "ocr.process.progress");
+
+                                // Job huấn luyện AI-OCR (không dossier/equipment): cập nhật % ngay trong
+                                // OCR_MODULE_JOB — best-effort, không được chặn vòng lặp OCR nếu lỗi tạm thời.
+                                if (!string.IsNullOrEmpty(taskMsg.OcrModuleJobId))
+                                {
+                                    try
+                                    {
+                                        await ocrModuleRepo.UpdateJobProgressAsync(taskMsg.OcrModuleJobId, i + 1, pageCount);
+                                    }
+                                    catch (Exception progressEx)
+                                    {
+                                        _logger.LogWarning(progressEx,
+                                            "Không cập nhật được % tiến trình cho Job huấn luyện AI-OCR {JobId} (trang {Page}).",
+                                            taskMsg.OcrModuleJobId, i + 1);
+                                    }
+                                }
                             }
 
                             // Chốt chặn: nếu KHÔNG vẽ được bất kỳ text nào trên toàn tài liệu (OCR

@@ -1,9 +1,12 @@
+using EvnHanoi.DigitizationService.Models;
 using EvnHanoi.DigitizationService.Models.Dto;
 using EvnHanoi.DigitizationService.Models.OcrModule;
 using EvnHanoi.DigitizationService.Repositories.OcrModule;
 using EvnHanoi.DigitizationService.Services;
 using EvnHanoi.DigitizationService.Services.OcrModule;
 using EvnHanoi.Infrastructure.Database;
+using EvnHanoi.Infrastructure.Utils;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EvnHanoi.DigitizationService.Controllers.OcrModule;
@@ -19,18 +22,130 @@ public class OcrModuleJobController : ControllerBase
     private readonly IOcrModuleRepository _repository;
     private readonly IOcrJsonMaterializer _materializer;
     private readonly IMinioStorageService _minioStorageService;
+    private readonly IMessagePublisher _messagePublisher;
+    private readonly EvnHanoi.DocumentProcessing.IDocumentCompressionService _documentCompressionService;
     private readonly ILogger<OcrModuleJobController> _logger;
+    private readonly string _trainingBucketName;
+
+    private static readonly string[] AllowedUploadContentTypes = { "application/pdf" };
 
     public OcrModuleJobController(
         IOcrModuleRepository repository,
         IOcrJsonMaterializer materializer,
         IMinioStorageService minioStorageService,
+        IMessagePublisher messagePublisher,
+        EvnHanoi.DocumentProcessing.IDocumentCompressionService documentCompressionService,
+        IConfiguration configuration,
         ILogger<OcrModuleJobController> logger)
     {
         _repository = repository;
         _materializer = materializer;
         _minioStorageService = minioStorageService;
+        _messagePublisher = messagePublisher;
+        _documentCompressionService = documentCompressionService;
         _logger = logger;
+        // Bucket riêng cho dữ liệu huấn luyện AI-OCR (đã dùng sẵn bởi OcrTrainingDataController) —
+        // tách biệt hoàn toàn khỏi bucket "digitization" chứa file hồ sơ/thiết bị thật.
+        _trainingBucketName = configuration["MinIO:TrainingBucketName"] ?? "ocr-training";
+    }
+
+    /// <summary>
+    /// Màn hình "Quản lý dữ liệu huấn luyện AI-OCR" — tải lên 1 file PDF độc lập (không gắn Dossier/
+    /// Equipment) và đưa vào xử lý OCR ngay. Job tạo với SourceType=NewUpload, trạng thái Materializing
+    /// cho tới khi OcrWorker OCR xong và nạp region (xem OcrWorker.PublishExtractionAndAckAsync).
+    /// </summary>
+    [HttpPost("from-upload")]
+    [RequestSizeLimit(50_000_000)]
+    public async Task<ActionResult<CreateJobResponse>> CreateFromUpload([FromForm] IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { code = "ERR_OCR_MODULE_NO_FILE", message = "Vui lòng chọn file PDF để tải lên." });
+
+        if (file.Length > 50_000_000)
+            return BadRequest(new { code = "ERR_OCR_MODULE_FILE_TOO_LARGE", message = "Kích thước file không được vượt quá 50MB." });
+
+        var extension = Path.GetExtension(file.FileName);
+        if (!string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase) ||
+            Array.IndexOf(AllowedUploadContentTypes, file.ContentType?.ToLowerInvariant()) < 0)
+        {
+            return BadRequest(new { code = "ERR_OCR_MODULE_INVALID_FILE_TYPE", message = "Chỉ chấp nhận file PDF." });
+        }
+
+        OcrModuleJob? job = null;
+
+        try
+        {
+            using var inputStream = file.OpenReadStream();
+            var compression = await _documentCompressionService.CompressAsync(inputStream, file.FileName, file.ContentType);
+            using var compressedStream = compression.Stream;
+
+            using var msPdf = new MemoryStream();
+            await compressedStream.CopyToAsync(msPdf);
+            var pdfBytes = msPdf.ToArray();
+            var totalPages = PDFtoImage.Conversion.GetPageCount(pdfBytes);
+
+            var objectName = $"training-upload/{DateTime.UtcNow:yyyy/MM/dd}/{Guid.NewGuid()}_{FileNameHelper.ToMinioObjectFileName(compression.FileName)}";
+            using var uploadStream = new MemoryStream(pdfBytes);
+            var filePath = await _minioStorageService.UploadFileAsync(_trainingBucketName, objectName, uploadStream, compression.MimeType);
+
+            job = new OcrModuleJob
+            {
+                Id = UuidHelper.NewUuid(),
+                SourceType = "NewUpload",
+                SourceBucket = _trainingBucketName,
+                SourceFilePath = filePath,
+                TotalPages = totalPages,
+                State = "Materializing",
+                CreatedBy = User?.Identity?.Name ?? "System",
+            };
+            await _repository.CreateJobAsync(job);
+
+            var taskMessage = new OcrTaskMessage
+            {
+                FileId = Guid.NewGuid(),
+                FilePath = filePath,
+                BucketName = _trainingBucketName,
+                OcrModuleJobId = job.Id,
+            };
+            await _messagePublisher.PublishMessageAsync(taskMessage, "digitization.topic", "ocr.process.task");
+
+            return Ok(new CreateJobResponse { JobId = job.Id, RegionCount = 0, State = job.State });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi khi tải lên file huấn luyện AI-OCR {FileName}", file.FileName);
+
+            if (job != null)
+            {
+                try { await _repository.UpdateJobStateAsync(job.Id, "Failed", job.TotalPages, ex.Message); }
+                catch { /* best-effort — không che lỗi gốc */ }
+            }
+
+            return StatusCode(500, new { code = "ERR_OCR_MODULE_UPLOAD_FAILED", message = "Không tải lên được file huấn luyện.", details = new[] { ex.Message } });
+        }
+    }
+
+    /// <summary>Danh sách file đã tải lên cho màn hình "Quản lý dữ liệu huấn luyện AI-OCR".</summary>
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<OcrModuleJobListItemDto>>> GetUploadedJobs(
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    {
+        if (page < 1) page = 1;
+        if (pageSize < 1 || pageSize > 100) pageSize = 10;
+
+        var result = await _repository.GetUploadedJobsPagedAsync(page, pageSize);
+        return Ok(result);
+    }
+
+    /// <summary>Xóa mềm 1 file dữ liệu huấn luyện AI-OCR khỏi danh sách (không xóa vật lý trên MinIO).</summary>
+    [HttpDelete("{jobId}")]
+    public async Task<IActionResult> DeleteJob(string jobId)
+    {
+        var deleted = await _repository.SoftDeleteJobAsync(jobId);
+        if (!deleted)
+            return NotFound(new { code = "ERR_OCR_MODULE_JOB_NOT_FOUND", message = "Không tìm thấy Job." });
+
+        return Ok(new { message = "Đã xóa dữ liệu huấn luyện." });
     }
 
     /// <summary>
