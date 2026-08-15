@@ -15,6 +15,7 @@ using Scalar.AspNetCore;
 
 using EvnHanoi.Infrastructure.Security;
 using EvnHanoi.Infrastructure.Audit;
+using EvnHanoi.IdentityService.Core.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,15 +54,26 @@ builder.Services.AddScoped<IExternalApiCallLogRepository, ExternalApiCallLogRepo
 builder.Services.AddSingleton<IExternalApiKeyProtector, ExternalApiKeyProtector>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 builder.Services.AddScoped<IAvatarStorageService, AvatarStorageService>();
+builder.Services.Configure<SsoOptions>(builder.Configuration.GetSection(SsoOptions.SectionName));
+builder.Services.AddHttpClient<ISsoClient, SsoClient>((services, client) =>
+{
+    var options = services.GetRequiredService<Microsoft.Extensions.Options.IOptions<SsoOptions>>().Value;
+    client.Timeout = TimeSpan.FromSeconds(Math.Max(1, options.TimeoutSeconds));
+});
+builder.Services.AddScoped<ISsoAccountService, SsoAccountService>();
 builder.Services.AddScoped<EvnHanoi.IdentityService.Infrastructure.Security.DynamicSeederService>();
 builder.Services.AddPermissionDiscovery("IdentityService");
 builder.Services.AddScoped<IValidator<UpdateProfileRequest>, UpdateProfileRequestValidator>();
 builder.Services.AddScoped<IValidator<ChangePasswordRequest>, ChangePasswordRequestValidator>();
 
 // RabbitMQ Configuration & Consumer Registration
+// VirtualHost phải đọc từ config như EquipmentService/WorkflowService/DigitizationService/ReportService
+// và AuditServiceCollectionExtensions — thiếu dòng này khiến service luôn nối vhost "/" bất kể
+// RabbitMQ:VirtualHost cấu hình gì, gây lỗi khi trỏ vào RabbitMQ có vhost khác "/".
 var rabbitFactory = new RabbitMQ.Client.ConnectionFactory
 {
     HostName = builder.Configuration["RabbitMQ:Host"] ?? "localhost",
+    VirtualHost = builder.Configuration["RabbitMQ:VirtualHost"] ?? "/",
     UserName = builder.Configuration["RabbitMQ:Username"] ?? "guest",
     Password = builder.Configuration["RabbitMQ:Password"] ?? "guest",
     Port = int.TryParse(builder.Configuration["RabbitMQ:Port"], out var port) ? port : 5672

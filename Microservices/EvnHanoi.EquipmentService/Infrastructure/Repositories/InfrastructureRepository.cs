@@ -318,4 +318,89 @@ public class InfrastructureRepository : IInfrastructureRepository
         var affected = await _connection.ExecuteAsync(sql, new { Id = id.ToString() });
         return affected > 0;
     }
+
+    public async Task<(Guid Id, bool WasCreated)> UpsertFromPmisAsync(
+        int infraTypeId, string pmisCode, string code, string name, string? address, string? unitCode, DateTime? operationDate)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        long? unitId = null;
+        if (!string.IsNullOrWhiteSpace(unitCode))
+        {
+            unitId = await _connection.QuerySingleOrDefaultAsync<long?>(
+                "SELECT Id FROM ORGANIZATION_UNIT WHERE Code = :Code", new { Code = unitCode });
+        }
+
+        var existingId = await _connection.QuerySingleOrDefaultAsync<string?>(
+            $"SELECT {nameof(Infrastructure.Id)} FROM INFRASTRUCTURE WHERE PMIS_CODE = :PmisCode AND {nameof(Infrastructure.IsDeleted)} = 0",
+            new { PmisCode = pmisCode });
+
+        if (existingId != null)
+        {
+            var updateSql = $@"UPDATE INFRASTRUCTURE
+                        SET {nameof(Infrastructure.Code)} = :Code,
+                            {nameof(Infrastructure.Name)} = :Name,
+                            {nameof(Infrastructure.Address)} = :Address,
+                            UNIT_ID = :UnitId,
+                            OPERATION_DATE = :OperationDate,
+                            LAST_SYNCED_FROM_PMIS_AT = SYSTIMESTAMP,
+                            {nameof(Infrastructure.ModifiedBy)} = :ModifiedBy,
+                            {nameof(Infrastructure.ModifiedDate)} = SYSTIMESTAMP
+                        WHERE {nameof(Infrastructure.Id)} = :Id";
+
+            await _connection.ExecuteAsync(updateSql, new
+            {
+                Id = existingId,
+                Code = code,
+                Name = name,
+                Address = address,
+                UnitId = unitId,
+                OperationDate = operationDate,
+                ModifiedBy = "PMIS_SYNC"
+            });
+            return (Guid.Parse(existingId), false);
+        }
+
+        var newId = Guid.Parse(EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid());
+        var insertSql = $@"INSERT INTO INFRASTRUCTURE (
+                        {nameof(Infrastructure.Id)}, {nameof(Infrastructure.Code)}, {nameof(Infrastructure.Name)},
+                        {nameof(Infrastructure.Address)}, INFRA_TYPE_ID, UNIT_ID, OPERATION_DATE, IS_ACTIVE,
+                        PMIS_CODE, LAST_SYNCED_FROM_PMIS_AT,
+                        {nameof(Infrastructure.CreatedBy)}, {nameof(Infrastructure.CreatedDate)}, {nameof(Infrastructure.IsDeleted)}
+                    ) VALUES (
+                        :Id, :Code, :Name, :Address, :InfraTypeId, :UnitId, :OperationDate, 1,
+                        :PmisCode, SYSTIMESTAMP, :CreatedBy, SYSTIMESTAMP, 0
+                    )";
+
+        await _connection.ExecuteAsync(insertSql, new
+        {
+            Id = newId.ToString(),
+            Code = code,
+            Name = name,
+            Address = address,
+            InfraTypeId = infraTypeId,
+            UnitId = unitId,
+            OperationDate = operationDate,
+            PmisCode = pmisCode,
+            CreatedBy = "PMIS_SYNC"
+        });
+        return (newId, true);
+    }
+
+    private class SyncedPmisCodeRow
+    {
+        public string PmisCode { get; set; } = string.Empty;
+        public int InfraTypeId { get; set; }
+    }
+
+    public async Task<IEnumerable<(string PmisCode, int InfraTypeId)>> GetSyncedPmisCodesAsync()
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var rows = await _connection.QueryAsync<SyncedPmisCodeRow>(
+            $"SELECT PMIS_CODE AS PmisCode, INFRA_TYPE_ID AS InfraTypeId FROM INFRASTRUCTURE WHERE PMIS_CODE IS NOT NULL AND {nameof(Infrastructure.IsDeleted)} = 0");
+        return rows.Select(r => (r.PmisCode, r.InfraTypeId));
+    }
 }

@@ -9,6 +9,7 @@ public class User
     public string PasswordHash { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+    public string? PhoneNumber { get; set; }
     public long? OrganizationUnitId { get; set; }
 
     /// <summary>
@@ -21,6 +22,14 @@ public class User
     /// </summary>
     public string? PositionName { get; set; }
     public string? AvatarObjectKey { get; set; }
+    public string AuthProvider { get; set; } = "LOCAL";
+    public string? SsoUserId { get; set; }
+    public string? SsoUsername { get; set; }
+    public string? SsoNsId { get; set; }
+    public string? SsoDeptId { get; set; }
+    public string? SsoOrgId { get; set; }
+    public string? StaffCode { get; set; }
+    public bool IsSsoEnabled { get; set; }
 
     public bool IsActive { get; set; } = true;
     public bool IsDeleted { get; set; }

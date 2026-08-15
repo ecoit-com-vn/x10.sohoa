@@ -305,7 +305,7 @@ public class PermissionRepository : IPermissionRepository
                 SELECT {nameof(UserPermission.PermissionId)} 
                 FROM USER_PERMISSION 
                 WHERE {nameof(UserPermission.UserId)} = :UserId
-                
+
                 UNION
                 
                 -- 2. Quyền qua Nhóm người dùng
@@ -386,8 +386,8 @@ public class PermissionRepository : IPermissionRepository
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
         var sql = $@"
-            SELECT {nameof(UserPermission.PermissionId)} 
-            FROM USER_PERMISSION 
+            SELECT {nameof(UserPermission.PermissionId)}
+            FROM USER_PERMISSION
             WHERE {nameof(UserPermission.UserId)} = :UserId";
         return await _connection.QueryAsync<string>(sql, new { UserId = userId });
     }
@@ -411,7 +411,7 @@ public class PermissionRepository : IPermissionRepository
             WHERE p.IsActive = 1 AND p.Id IN (
                 -- 1. Quyền gán trực tiếp cho User
                 SELECT PermissionId FROM USER_PERMISSION WHERE UserId = :UserId
-                
+
                 UNION
                 
                 -- 2. Quyền gán qua Nhóm người dùng (User Group)

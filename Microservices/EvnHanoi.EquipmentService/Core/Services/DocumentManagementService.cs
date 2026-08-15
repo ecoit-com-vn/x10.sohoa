@@ -1,4 +1,5 @@
 using DocumentFormat.OpenXml.Office2010.Word;
+using EvnHanoi.DocumentProcessing;
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
@@ -43,6 +44,11 @@ public interface IDocumentManagementService
       string userId,
       long userUnitId,
       CancellationToken cancellationToken);
+    Task<FileUploadResponse> ApplyNoiseReductionAsync(
+      Guid documentId,
+      string userId,
+      long userUnitId,
+      CancellationToken cancellationToken);
 
     // Dossier Catalog tree operations
     Task<IEnumerable<FolderCatalogNodeDto>> GetDossierCatalogTreeAsync(long unitId);
@@ -62,17 +68,20 @@ public class DocumentManagementService : IDocumentManagementService
     private readonly IClamAvService _antivirusService;
     private readonly ILogger<DocumentManagementService> _logger;
     private readonly IMimeTypeValidationService _mimeTypeValidator;
+    private readonly INoiseReductionService _noiseReductionService;
     public DocumentManagementService(
         IDocumentRepository documentRepository,
         IFileStorageService fileStorageService,
         IClamAvService antivirusService,
         IMimeTypeValidationService mimeTypeValidator,
+        INoiseReductionService noiseReductionService,
         ILogger<DocumentManagementService> logger)
     {
         _documentRepository = documentRepository ?? throw new ArgumentNullException(nameof(documentRepository));
         _fileStorageService = fileStorageService ?? throw new ArgumentNullException(nameof(fileStorageService));
         _mimeTypeValidator = mimeTypeValidator ?? throw new ArgumentNullException(nameof(mimeTypeValidator));
         _antivirusService = antivirusService ?? throw new ArgumentNullException(nameof(antivirusService));
+        _noiseReductionService = noiseReductionService ?? throw new ArgumentNullException(nameof(noiseReductionService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -506,6 +515,57 @@ public class DocumentManagementService : IDocumentManagementService
             _logger.LogError(ex, "Error uploading file: {FileName}", fileName);
             throw;
         }
+    }
+
+    public async Task<FileUploadResponse> ApplyNoiseReductionAsync(
+        Guid documentId,
+        string userId,
+        long userUnitId,
+        CancellationToken cancellationToken)
+    {
+        var document = await _documentRepository.GetDocumentByIdAsync(documentId);
+        if (document == null)
+            throw new InvalidOperationException("Tài liệu không tồn tại");
+
+        if (!document.FolderId.HasValue)
+            throw new InvalidOperationException("Tính năng khử nhiễu chỉ áp dụng cho tài liệu trong kho thư mục.");
+
+        if (!string.Equals(document.MimeType, "application/pdf", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Chỉ hỗ trợ khử nhiễu cho tài liệu PDF.");
+
+        if (!document.LatestVersionId.HasValue)
+            throw new InvalidOperationException("Tài liệu chưa có phiên bản file.");
+
+        var latestVersion = await _documentRepository.GetDocumentVersionByIdAsync(document.LatestVersionId.Value);
+        if (latestVersion == null || string.IsNullOrEmpty(latestVersion.FilePath))
+            throw new InvalidOperationException("Không tìm thấy file của phiên bản mới nhất.");
+
+        // Xác thực quyền truy cập thư mục — cùng luật với upload phiên bản mới thủ công.
+        await ValidateFolderPermissionAsync(document.FolderId.Value, userUnitId);
+
+        byte[] sourceBytes;
+        using (var sourceStream = await _fileStorageService.DownloadFileAsync(
+            latestVersion.FilePath, null, latestVersion.MinioVersionId))
+        {
+            using var buffer = new MemoryStream();
+            await sourceStream.CopyToAsync(buffer, cancellationToken);
+            sourceBytes = buffer.ToArray();
+        }
+
+        var processedBytes = await _noiseReductionService.ApplyAsync(sourceBytes, cancellationToken);
+
+        using var processedStream = new MemoryStream(processedBytes);
+        return await UploadNewDocumentVersionAsync(
+            processedStream,
+            document.Name,
+            "application/pdf",
+            processedBytes.LongLength,
+            documentId,
+            document.FolderId.Value,
+            uploadSource: 4, // Xử lý tự động (khử nhiễu)
+            userId,
+            userUnitId,
+            cancellationToken);
     }
 
     // ===== DOSSIER CATALOG TREE OPERATIONS =====

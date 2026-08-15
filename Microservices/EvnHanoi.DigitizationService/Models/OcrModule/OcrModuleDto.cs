@@ -19,6 +19,22 @@ public class CreateJobResponse
     public string State { get; set; } = string.Empty;
 }
 
+/// <summary>
+/// 1 dòng danh sách màn hình "Quản lý dữ liệu huấn luyện AI-OCR" (chỉ Job có SourceType=NewUpload).
+/// </summary>
+public class OcrModuleJobListItemDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string FileName { get; set; } = string.Empty;
+    public int TotalPages { get; set; }
+    /// <summary>Số trang đã OCR xong — FE dùng để tính % khi State = Materializing.</summary>
+    public int? CurrentPage { get; set; }
+    public string State { get; set; } = string.Empty;
+    public string? ErrorMessage { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedDate { get; set; }
+}
+
 public class OcrModuleRegionDto
 {
     public string Id { get; set; } = string.Empty;

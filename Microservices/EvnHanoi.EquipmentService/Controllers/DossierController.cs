@@ -431,6 +431,7 @@ public abstract partial class DossierControllerBase : ControllerBase
         Guid id,
         [FromQuery] string? keyword,
         [FromQuery] Guid? dossierTypeId,
+        [FromQuery] string? from = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {

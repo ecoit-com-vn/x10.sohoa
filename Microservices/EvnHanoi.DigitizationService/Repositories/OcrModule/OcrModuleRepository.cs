@@ -35,7 +35,8 @@ public class OcrModuleRepository : IOcrModuleRepository
             SELECT ID AS {nameof(OcrModuleJob.Id)}, SOURCE_TYPE AS {nameof(OcrModuleJob.SourceType)},
                    SOURCE_BUCKET AS {nameof(OcrModuleJob.SourceBucket)}, SOURCE_FILE_PATH AS {nameof(OcrModuleJob.SourceFilePath)},
                    SOURCE_DOCUMENT_VERSION_ID AS {nameof(OcrModuleJob.SourceDocumentVersionId)},
-                   TOTAL_PAGES AS {nameof(OcrModuleJob.TotalPages)}, STATE AS {nameof(OcrModuleJob.State)},
+                   TOTAL_PAGES AS {nameof(OcrModuleJob.TotalPages)}, CURRENT_PAGE AS {nameof(OcrModuleJob.CurrentPage)},
+                   STATE AS {nameof(OcrModuleJob.State)},
                    ERROR_MESSAGE AS {nameof(OcrModuleJob.ErrorMessage)}, CREATED_DATE AS {nameof(OcrModuleJob.CreatedDate)}
             FROM OCR_MODULE_JOB WHERE ID = :JobId AND IS_DELETED = 0";
 
@@ -51,6 +52,101 @@ public class OcrModuleRepository : IOcrModuleRepository
              WHERE ID = :JobId";
 
         await _connection.ExecuteAsync(sql, new { JobId = jobId, State = state, TotalPages = totalPages, ErrorMessage = errorMessage });
+    }
+
+    public async Task UpdateJobProgressAsync(string jobId, int currentPage, int totalPages)
+    {
+        var sql = @"
+            UPDATE OCR_MODULE_JOB
+               SET CURRENT_PAGE = :CurrentPage, TOTAL_PAGES = :TotalPages,
+                   MODIFIED_DATE = SYSTIMESTAMP, ROW_VERSION = ROW_VERSION + 1
+             WHERE ID = :JobId AND IS_DELETED = 0";
+
+        await _connection.ExecuteAsync(sql, new { JobId = jobId, CurrentPage = currentPage, TotalPages = totalPages });
+    }
+
+    /// <summary>Row nội bộ dùng để Dapper map kết quả JOIN — FileName suy ra từ SourceFilePath ở tầng C#
+    /// (đường dẫn MinIO không có cột tên file riêng), không phải cột DB.</summary>
+    private class OcrModuleJobRow
+    {
+        public string Id { get; set; } = string.Empty;
+        public string SourceFilePath { get; set; } = string.Empty;
+        public int TotalPages { get; set; }
+        public int? CurrentPage { get; set; }
+        public string State { get; set; } = string.Empty;
+        public string? ErrorMessage { get; set; }
+        public string? CreatedBy { get; set; }
+        public DateTime CreatedDate { get; set; }
+    }
+
+    public async Task<PagedResult<OcrModuleJobListItemDto>> GetUploadedJobsPagedAsync(int page, int pageSize)
+    {
+        var offset = (page - 1) * pageSize;
+
+        var countSql = "SELECT COUNT(*) FROM OCR_MODULE_JOB WHERE SOURCE_TYPE = 'NewUpload' AND IS_DELETED = 0";
+        var dataSql = $@"
+            SELECT * FROM (
+                SELECT ID AS {nameof(OcrModuleJobRow.Id)}, SOURCE_FILE_PATH AS {nameof(OcrModuleJobRow.SourceFilePath)},
+                       TOTAL_PAGES AS {nameof(OcrModuleJobRow.TotalPages)}, CURRENT_PAGE AS {nameof(OcrModuleJobRow.CurrentPage)},
+                       STATE AS {nameof(OcrModuleJobRow.State)},
+                       ERROR_MESSAGE AS {nameof(OcrModuleJobRow.ErrorMessage)}, CREATED_BY AS {nameof(OcrModuleJobRow.CreatedBy)},
+                       CREATED_DATE AS {nameof(OcrModuleJobRow.CreatedDate)},
+                       ROW_NUMBER() OVER (ORDER BY CREATED_DATE DESC) AS RN
+                FROM OCR_MODULE_JOB WHERE SOURCE_TYPE = 'NewUpload' AND IS_DELETED = 0
+            ) WHERE RN > :Offset AND RN <= :OffsetPlusSize";
+
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql);
+        var rows = (await _connection.QueryAsync<OcrModuleJobRow>(
+            dataSql, new { Offset = offset, OffsetPlusSize = offset + pageSize })).ToList();
+
+        var items = rows.Select(r => new OcrModuleJobListItemDto
+        {
+            Id = r.Id,
+            FileName = ExtractFileName(r.SourceFilePath),
+            TotalPages = r.TotalPages,
+            CurrentPage = r.CurrentPage,
+            State = r.State,
+            ErrorMessage = r.ErrorMessage,
+            CreatedBy = r.CreatedBy,
+            CreatedDate = r.CreatedDate
+        }).ToList();
+
+        return new PagedResult<OcrModuleJobListItemDto>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    /// <summary>Bỏ tiền tố thư mục + "{guid}_" mà OcrModuleJobController.CreateFromUpload đặt tên object
+    /// MinIO, trả lại đúng tên file gốc người dùng đã chọn lúc tải lên.</summary>
+    private static string ExtractFileName(string sourceFilePath)
+    {
+        var lastSlash = sourceFilePath.LastIndexOf('/');
+        var name = lastSlash >= 0 ? sourceFilePath[(lastSlash + 1)..] : sourceFilePath;
+
+        var underscoreIndex = name.IndexOf('_');
+        if (underscoreIndex == 36) // độ dài chuỗi UUID
+        {
+            var candidateGuid = name[..36];
+            if (Guid.TryParse(candidateGuid, out _))
+                return name[(underscoreIndex + 1)..];
+        }
+
+        return name;
+    }
+
+    public async Task<bool> SoftDeleteJobAsync(string jobId)
+    {
+        var sql = @"
+            UPDATE OCR_MODULE_JOB
+               SET IS_DELETED = 1, MODIFIED_DATE = SYSTIMESTAMP, ROW_VERSION = ROW_VERSION + 1
+             WHERE ID = :JobId AND IS_DELETED = 0";
+
+        var rowsAffected = await _connection.ExecuteAsync(sql, new { JobId = jobId });
+        return rowsAffected > 0;
     }
 
     public async Task InsertRegionsAsync(IReadOnlyList<OcrModuleRegion> regions)

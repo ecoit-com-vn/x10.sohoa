@@ -93,6 +93,7 @@ builder.Services.AddHostedService<EvnHanoi.EquipmentService.Infrastructure.Messa
 builder.Services.AddScoped<IClamAvService, ClamAvService>();
 builder.Services.AddScoped<IMimeTypeValidationService, MimeTypeValidationService>();
 builder.Services.AddScoped<EvnHanoi.DocumentProcessing.IDocumentCompressionService, EvnHanoi.DocumentProcessing.DocumentCompressionService>();
+builder.Services.AddScoped<EvnHanoi.DocumentProcessing.INoiseReductionService, EvnHanoi.DocumentProcessing.NoiseReductionService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IExternalApiKeyValidator, EvnHanoi.EquipmentService.Infrastructure.Repositories.ExternalApiKeyValidator>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IExternalApiCallLogRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.ExternalApiCallLogRepository>();
@@ -104,6 +105,7 @@ builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEavFormTem
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierTypeRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DossierTypeRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDocumentTypeRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DocumentTypeRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IInfrastructureRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.InfrastructureRepository>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentPmisSpecRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentPmisSpecRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEavFormTemplateService, EvnHanoi.EquipmentService.Core.Services.EavFormTemplateService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierTypeService, EvnHanoi.EquipmentService.Core.Services.DossierTypeService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IElasticsearchService, EvnHanoi.EquipmentService.Infrastructure.Services.ElasticsearchService>();

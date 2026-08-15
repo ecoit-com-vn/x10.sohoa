@@ -28,7 +28,7 @@ public class OrganizationUnitsController : ControllerBase
     [HttpGet("lookup")]
     [Authorize]
     [BypassDynamicPermission]
-    public async Task<IActionResult> GetLookup()
+    public async Task<IActionResult> GetLookup([FromQuery] int? status)
     {
         var isAdmin = User.IsInRole("ADMIN") || 
                       User.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "ADMIN") || 
@@ -52,6 +52,7 @@ public class OrganizationUnitsController : ControllerBase
         if (!_cache.TryGetValue(cacheKey, out IEnumerable<object>? result))
         {
             var units = await _unitRepository.GetOrganizationUnitsHierarchicalAsync(startUnitId);
+            units = status != null ? units.Where(x => x.IsActive == (status == 1 ? true : false)) : units; 
             result = units.Select(u => new { u.Id, u.Code, u.Name, u.ParentId }).ToList();
             var cacheOptions = new MemoryCacheEntryOptions()
                 .SetAbsoluteExpiration(TimeSpan.FromMinutes(5));

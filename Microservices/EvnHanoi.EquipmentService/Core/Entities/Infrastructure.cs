@@ -45,4 +45,8 @@ public class Infrastructure
     public string? ModifiedBy { get; set; }
     public DateTime? ModifiedDate { get; set; }
     public bool IsDeleted { get; set; } = false;
+
+    // Đồng bộ PMIS
+    public string? PmisCode { get; set; }
+    public DateTime? LastSyncedFromPmisAt { get; set; }
 }
