@@ -1,0 +1,68 @@
+.upload-hint {
+  margin: 0 0 12px;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+// Cột "OCR" — % tiến trình + icon hoàn thành/lỗi, đồng bộ giao diện với cột OCR ở tab
+// "Tài liệu đính kèm" của hồ sơ (dossier-documents-tab.component.scss).
+.col-digitization {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.digitization-progress-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  min-height: 15px;
+}
+
+.digitization-bar-wrap {
+  position: relative;
+  width: 120px;
+  height: 15px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.digitization-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+  background: #22c55e;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+  min-width: 0;
+}
+
+.digitization-bar-fill.digitization-bar-active {
+  background: #3b82f6;
+}
+
+.digitization-bar-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #1f2937;
+  line-height: 1;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.digitization-done-icon {
+  font-size: 1.1rem;
+  color: #22c55e;
+}
+
+.digitization-failed-icon {
+  font-size: 1.1rem;
+  color: #ef4444;
+}

@@ -1,0 +1,158 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb
+        [customItems]="[
+          { label: 'Quản trị hệ thống' },
+          { label: 'Quản lý dữ liệu huấn luyện AI-OCR', url: '/administration/trainning-ai-ocr' }
+        ]"
+      />
+    </div>
+    <div class="toolbar-right">
+      <button class="btn-green" type="button" (click)="openUploadDialog()">
+        <i class="pi pi-upload"></i> Tải lên file PDF
+      </button>
+    </div>
+  </div>
+
+  <div class="wf-card">
+    <div class="wf-table-wrap">
+      <table class="wf-table">
+        <thead>
+          <tr>
+            <th class="col-stt">STT</th>
+            <th>Tên file</th>
+            <th>Số trang</th>
+            <th>OCR</th>
+            <th>Người tải lên</th>
+            <th>Ngày tải lên</th>
+            <th class="col-hd">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading()">
+            <td colspan="7" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
+          </tr>
+          <ng-container *ngIf="!loading()">
+            <tr *ngFor="let item of jobs(); let index = index">
+              <td class="col-stt text-muted">{{ (page() - 1) * pageSize() + index + 1 }}</td>
+              <td><b>{{ item.fileName }}</b></td>
+              <td>{{ item.totalPages || '---' }}</td>
+              <td class="col-digitization">
+                <div class="digitization-progress-cell">
+                  <i
+                    *ngIf="isOcrComplete(item)"
+                    class="pi pi-check-circle digitization-done-icon"
+                    title="OCR hoàn thành"
+                  ></i>
+                  <i
+                    *ngIf="isOcrBarFailed(item)"
+                    class="pi pi-times-circle digitization-failed-icon"
+                    title="Lỗi OCR"
+                  ></i>
+                  <div
+                    *ngIf="!isOcrComplete(item) && !isOcrBarFailed(item)"
+                    class="digitization-bar-wrap"
+                  >
+                    <div
+                      class="digitization-bar-fill"
+                      [style.width.%]="getOcrBarPercent(item)"
+                      [class.digitization-bar-active]="isOcrBarActive(item)"
+                    ></div>
+                    <span class="digitization-bar-label">{{ getOcrBarPercent(item) }}%</span>
+                  </div>
+                </div>
+              </td>
+              <td>{{ item.createdBy || '---' }}</td>
+              <td>{{ formatDate(item.createdDate) }}</td>
+              <td class="col-hd">
+                <div class="api-key-actions">
+                  <button
+                    type="button"
+                    class="act-btn act-view"
+                    title="Phân tích OCR nâng cao"
+                    [disabled]="!canOpenOcrAnalysis(item)"
+                    (click)="openOcrAnalysis(item)"
+                  >
+                    <i class="pi pi-search"></i>
+                  </button>
+                  <button type="button" class="act-btn act-delete" title="Xóa" (click)="requestDelete(item)">
+                    <i class="pi pi-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="jobs().length === 0">
+              <td colspan="7" class="empty-row"><i class="pi pi-inbox"></i><div>Chưa có dữ liệu huấn luyện AI-OCR nào.</div></td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+
+    <app-eco-paginator
+      *ngIf="totalCount() > 0 && !loading()"
+      [currentPage]="page()"
+      [pageSize]="pageSize()"
+      [totalRecords]="totalCount()"
+      recordLabel="file"
+      (pageChange)="onPageChange($event)"
+      (pageSizeChange)="onPageSizeChange($event)"
+    />
+  </div>
+</div>
+
+<p-dialog
+  [visible]="uploadDialogVisible()"
+  (visibleChange)="$event ? null : closeUploadDialog()"
+  header="Tải lên file PDF huấn luyện AI-OCR"
+  [modal]="true"
+  [style]="{ width: '560px' }"
+  styleClass="evn-dialog-custom"
+>
+  <p class="upload-hint">Chọn 1 file PDF để tải lên — hệ thống sẽ đưa file vào xử lý OCR ngay sau khi tải lên xong.</p>
+  <app-file-upload-zone
+    [allowedExtensions]="['.pdf']"
+    [maxFileSize]="50 * 1024 * 1024"
+    [uploadHandler]="uploadHandler"
+    (fileUploaded)="onFileUploaded()"
+  ></app-file-upload-zone>
+
+  <ng-template #footer>
+    <div class="dialog-footer">
+      <button type="button" class="btn-outlined btn-small" (click)="closeUploadDialog()">Đóng</button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  [visible]="deleteDialogVisible()"
+  (visibleChange)="$event ? null : cancelDelete()"
+  header="Xác nhận xóa"
+  [modal]="true"
+  [style]="{ width: '420px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!deleting()"
+>
+  <p>Bạn có chắc muốn xóa dữ liệu huấn luyện <b>{{ deleteTarget()?.fileName }}</b>?</p>
+  <ng-template #footer>
+    <div class="dialog-footer">
+      <button type="button" class="btn-cancel btn-small" (click)="cancelDelete()" [disabled]="deleting()">
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button
+        type="button"
+        class="btn-save btn-small"
+        style="background-color: #dc2626; border-color: #dc2626;"
+        (click)="confirmDelete()"
+        [disabled]="deleting()"
+      >
+        <i *ngIf="deleting(); else deleteIcon" class="pi pi-spin pi-spinner"></i>
+        <ng-template #deleteIcon><i class="pi pi-trash"></i></ng-template>
+        Xóa
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
