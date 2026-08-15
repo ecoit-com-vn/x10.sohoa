@@ -12,6 +12,8 @@ public class OcrModuleJob
     public string SourceFilePath { get; set; } = string.Empty;
     public string? SourceDocumentVersionId { get; set; }
     public int TotalPages { get; set; }
+    /// <summary>Số trang đã OCR xong — dùng để tính % tiến trình khi State = Materializing.</summary>
+    public int? CurrentPage { get; set; }
     public string State { get; set; } = "Materializing"; // Materializing | Ready | Failed
     public string? ErrorMessage { get; set; }
     public string? CreatedBy { get; set; }

@@ -8,6 +8,12 @@ public interface IOcrModuleRepository
     Task CreateJobAsync(OcrModuleJob job);
     Task<OcrModuleJob?> GetJobByIdAsync(string jobId);
     Task UpdateJobStateAsync(string jobId, string state, int totalPages, string? errorMessage);
+    /// <summary>Cập nhật số trang đã OCR xong — không đổi State (vẫn Materializing), dùng để FE hiển thị %.</summary>
+    Task UpdateJobProgressAsync(string jobId, int currentPage, int totalPages);
+    /// <summary>Danh sách Job của màn hình "Quản lý dữ liệu huấn luyện AI-OCR" (SourceType=NewUpload).</summary>
+    Task<PagedResult<OcrModuleJobListItemDto>> GetUploadedJobsPagedAsync(int page, int pageSize);
+    /// <summary>Xóa mềm 1 Job huấn luyện AI-OCR. Trả về false nếu không tìm thấy.</summary>
+    Task<bool> SoftDeleteJobAsync(string jobId);
     Task InsertRegionsAsync(IReadOnlyList<OcrModuleRegion> regions);
     Task<int> CountRegionsAsync(string jobId);
     Task<PagedResult<OcrModuleRegionDto>> GetRegionsPagedAsync(string jobId, int page, int pageSize);
