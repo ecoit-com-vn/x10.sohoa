@@ -25,6 +25,7 @@ public class OrganizationUnitRepository : IOrganizationUnitRepository
             SELECT {nameof(OrganizationUnit.Id)}, 
                    {nameof(OrganizationUnit.Code)}, 
                    {nameof(OrganizationUnit.Name)}, 
+                   ORGIDSSO AS {nameof(OrganizationUnit.OrgIdSso)},
                    {nameof(OrganizationUnit.ParentId)}, 
                    {nameof(OrganizationUnit.Description)},
                    SORTORDER,
@@ -47,6 +48,7 @@ public class OrganizationUnitRepository : IOrganizationUnitRepository
             SELECT {nameof(OrganizationUnit.Id)}, 
                    {nameof(OrganizationUnit.Code)}, 
                    {nameof(OrganizationUnit.Name)}, 
+                   ORGIDSSO AS {nameof(OrganizationUnit.OrgIdSso)},
                    {nameof(OrganizationUnit.ParentId)}, 
                    {nameof(OrganizationUnit.Description)},
                    SORTORDER,
@@ -64,18 +66,20 @@ public class OrganizationUnitRepository : IOrganizationUnitRepository
             INSERT INTO ORGANIZATION_UNIT (
                 {nameof(OrganizationUnit.Code)}, 
                 {nameof(OrganizationUnit.Name)}, 
+                ORGIDSSO,
                 {nameof(OrganizationUnit.ParentId)}, 
                 {nameof(OrganizationUnit.Description)},
                 SORTORDER,
                 {nameof(OrganizationUnit.IsActive)},
                 {nameof(OrganizationUnit.IsDeleted)}
             )
-            VALUES (:Code, :Name, :ParentId, :Description, :SortOrder, :IsActive, 0)
+            VALUES (:Code, :Name, :OrgIdSso, :ParentId, :Description, :SortOrder, :IsActive, 0)
             RETURNING {nameof(OrganizationUnit.Id)} INTO :Id";
             
         var parameters = new DynamicParameters();
         parameters.Add("Code", unit.Code);
         parameters.Add("Name", unit.Name);
+        parameters.Add("OrgIdSso", unit.OrgIdSso);
         parameters.Add("ParentId", unit.ParentId);
         parameters.Add("Description", unit.Description);
         parameters.Add("SortOrder", unit.SortOrder);
@@ -93,6 +97,7 @@ public class OrganizationUnitRepository : IOrganizationUnitRepository
             UPDATE ORGANIZATION_UNIT 
             SET {nameof(OrganizationUnit.Code)} = :Code, 
                 {nameof(OrganizationUnit.Name)} = :Name, 
+                ORGIDSSO = :OrgIdSso,
                 {nameof(OrganizationUnit.ParentId)} = :ParentId,
                 {nameof(OrganizationUnit.Description)} = :Description,
                 SORTORDER = :SortOrder,
@@ -103,6 +108,7 @@ public class OrganizationUnitRepository : IOrganizationUnitRepository
         {
             unit.Code,
             unit.Name,
+            unit.OrgIdSso,
             unit.ParentId,
             unit.Description,
             unit.SortOrder,
@@ -122,6 +128,7 @@ public class OrganizationUnitRepository : IOrganizationUnitRepository
         var sql = $@"SELECT {nameof(OrganizationUnit.Id)},
                            {nameof(OrganizationUnit.Code)},
                            {nameof(OrganizationUnit.Name)},
+                           ORGIDSSO AS {nameof(OrganizationUnit.OrgIdSso)},
                            {nameof(OrganizationUnit.ParentId)},
                            {nameof(OrganizationUnit.Description)},
                            SORTORDER,

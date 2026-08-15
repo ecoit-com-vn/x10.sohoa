@@ -18,17 +18,20 @@ class Program
         string connStr = $"Data Source={host}:{port}/{service};User Id={user};Password={password};Pooling=false;";
         try
         {
-            Console.WriteLine("Connecting to Oracle database...");
             using (var conn = new OracleConnection(connStr))
             {
                 conn.Open();
-                Console.WriteLine("Connected!");
+                
+                Console.WriteLine("=== COLUMNS IN TABLE 'ORGANIZATION_UNIT' ===");
+                var columns = await conn.QueryAsync<dynamic>(@"
+                    SELECT COLUMN_NAME, DATA_TYPE, DATA_LENGTH, NULLABLE 
+                    FROM USER_TAB_COLUMNS 
+                    WHERE TABLE_NAME = 'ORGANIZATION_UNIT'
+                    ORDER BY COLUMN_ID");
 
-                Console.WriteLine("\n--- Listing Database Tables ---");
-                var tables = await conn.QueryAsync<string>("SELECT table_name FROM user_tables ORDER BY table_name");
-                foreach (var table in tables)
+                foreach (var c in columns)
                 {
-                    Console.WriteLine(table);
+                    Console.WriteLine($"   - {c.COLUMN_NAME}: {c.DATA_TYPE}({c.DATA_LENGTH}), Nullable: {c.NULLABLE}");
                 }
             }
         }
@@ -38,4 +41,3 @@ class Program
         }
     }
 }
-
