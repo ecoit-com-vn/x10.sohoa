@@ -81,6 +81,14 @@ export const appRoutes: Route[] = [
         loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.ExternalApiKeyHistoryComponent)
       },
       {
+        path: 'administration/trainning-ai-ocr',
+        loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.AiOcrTrainingDocumentListComponent)
+      },
+      {
+        path: 'administration/trainning-ai-ocr/:jobId/ocr-analysis',
+        loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.AiOcrTrainingDocumentOcrInsightsPageComponent)
+      },
+      {
         path: 'administration/workflow-builder/new',
         loadComponent: () => import('@sohoa.frontend/features/workflow').then(m => m.WorkflowBuilderComponent)
       },

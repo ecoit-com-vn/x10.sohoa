@@ -42,7 +42,8 @@ export class BoundingBoxOverlayComponent {
   @Input() regions: OcrOverlayRegion[] = [];
   @Output() regionClick = new EventEmitter<OcrOverlayRegion>();
 
-  zoom = signal(1);
+  /** Mặc định 50% — ảnh trang gốc thường lớn hơn khung xem preview, thu nhỏ sẵn cho vừa khung. */
+  zoom = signal(0.5);
 
   /** Kích thước ảnh thật lấy từ sự kiện (load) của thẻ img — ưu tiên hơn @Input naturalWidth/Height
    *  (chỉ dùng làm giá trị fallback trong lúc ảnh chưa tải xong). */
@@ -66,7 +67,7 @@ export class BoundingBoxOverlayComponent {
   }
 
   resetZoom(): void {
-    this.zoom.set(1);
+    this.zoom.set(0.5);
   }
 
   onImageLoad(event: Event): void {

@@ -1,6 +1,9 @@
 ::ng-deep .evn-tabs {
+  margin-bottom: 16px;
+
   .p-tablist {
     background-color: transparent;
+    border-bottom: 1px solid #e5e7eb;
   }
 
   .p-tablist-active-bar {
@@ -66,8 +69,51 @@
   }
 }
 
+// Layout 2 cột: trái xem ảnh trang PDF (cố định, không đổi theo tab), phải nội dung phân tích theo tab.
+// Tabs nằm riêng phía trên (::ng-deep .evn-tabs), không thuộc cột nào — chuyển tab chỉ đổi nội dung
+// cột phải, cột trái giữ nguyên vị trí xem.
+.insights-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.insights-left {
+  flex: 1 1 60%;
+  max-width: 60%;
+  position: sticky;
+  top: 12px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.insights-right {
+  flex: 1 1 40%;
+  max-width: 40%;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .insights-layout {
+    flex-direction: column;
+  }
+
+  .insights-left,
+  .insights-right {
+    flex: 1 1 auto;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .insights-left {
+    position: static;
+  }
+}
+
 .tab-content {
-  padding: 12px 4px 4px;
+  padding: 4px;
   min-height: 200px;
 }
 
@@ -104,6 +150,22 @@
     border-color: #1a3593;
     background-color: #eef1fb !important;
     color: #1a3593 !important;
+  }
+}
+
+// Bên trong khung xem PDF (.insights-left) đã có nền/viền riêng — bỏ khung lồng khung, chỉ giữ hàng chip gọn.
+.insights-left .page-tabs-global {
+  padding: 0 0 10px;
+  margin-bottom: 10px;
+  background-color: transparent;
+  border: none;
+  border-bottom: 1px dashed #e2e8f0;
+  border-radius: 0;
+
+  .btn-chip {
+    min-width: 30px;
+    justify-content: center;
+    padding: 4px 8px;
   }
 }
 
