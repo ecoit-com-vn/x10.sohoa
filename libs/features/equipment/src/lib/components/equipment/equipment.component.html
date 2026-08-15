@@ -1093,6 +1093,109 @@
               </div>
             </div>
 
+            <!-- So sánh với PMIS (module 6) -->
+            <div *ngIf="pmisSpecDiff() as diff" style="
+                background: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                padding: 24px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+                margin-bottom: 25px;
+              ">
+              <div style="
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  border-bottom: 1px dashed #cbd5e1;
+                  padding-bottom: 12px;
+                  margin-bottom: 16px;
+                ">
+                <span style="
+                    font-size: 0.95rem;
+                    font-weight: 700;
+                    color: #002d72;
+                    text-transform: uppercase;
+                  ">
+                  <i class="pi pi-sync" style="color: #2563eb; margin-right: 6px"></i>
+                  So sánh với PMIS
+                </span>
+                <span *ngIf="diff.pmisSyncedAt" style="font-size: 0.8rem; color: #64748b">
+                  Đồng bộ lần cuối: {{ diff.pmisSyncedAt | date: 'dd/MM/yyyy HH:mm' }}
+                </span>
+              </div>
+
+              <div *ngIf="!diff.pmisFormValues" class="org-tree-empty" style="text-align: center; padding: 20px 0">
+                <i class="pi pi-info-circle" style="font-size: 1.8rem; color: #94a3b8; margin-bottom: 8px"></i>
+                <div style="color: #64748b; font-weight: 600">
+                  Thiết bị chưa có dữ liệu thông số kỹ thuật đồng bộ từ PMIS.
+                </div>
+              </div>
+
+              <ng-container *ngIf="diff.pmisFormValues">
+                <div [style.background]="pmisDiffCount() > 0 ? '#fef2f2' : '#f0fdf4'"
+                  [style.border]="pmisDiffCount() > 0 ? '1px solid #fecaca' : '1px solid #bbf7d0'" style="
+                    border-radius: 6px;
+                    padding: 10px 14px;
+                    margin-bottom: 16px;
+                    font-size: 0.85rem;
+                  " [style.color]="pmisDiffCount() > 0 ? '#b91c1c' : '#15803d'">
+                  <i class="pi" [ngClass]="pmisDiffCount() > 0 ? 'pi-exclamation-triangle' : 'pi-check-circle'"></i>
+                  <span *ngIf="pmisDiffCount() > 0">
+                    Phát hiện {{ pmisDiffCount() }} trường có sai khác giữa dữ liệu hệ thống và PMIS.
+                  </span>
+                  <span *ngIf="pmisDiffCount() === 0">
+                    Không phát hiện sai khác giữa dữ liệu hệ thống và PMIS.
+                  </span>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 10px">
+                  <ng-container *ngFor="let row of pmisDiffRows()">
+                    <div *ngIf="!row.hasMappingWarning" [style.background]="row.hasDifference ? '#fff7ed' : 'transparent'"
+                      style="
+                        display: flex;
+                        align-items: center;
+                        border-bottom: 1px solid #f1f5f9;
+                        padding: 8px;
+                        border-radius: 4px;
+                      ">
+                      <span style="width: 260px; font-weight: 600">{{ row.field.label }}:</span>
+                      <span style="flex: 1; display: flex; gap: 24px">
+                        <span style="flex: 1">
+                          <span style="font-size: 0.7rem; color: #94a3b8; display: block">Hệ thống</span>
+                          {{ row.localDisplay || '—' }}
+                        </span>
+                        <span style="flex: 1" [style.color]="row.hasDifference ? '#c2410c' : 'inherit'"
+                          [style.font-weight]="row.hasDifference ? '700' : 'normal'">
+                          <span style="font-size: 0.7rem; color: #94a3b8; display: block">PMIS</span>
+                          {{ row.pmisDisplay || '—' }}
+                        </span>
+                      </span>
+                    </div>
+                  </ng-container>
+                </div>
+
+                <div *ngIf="pmisDiffWarningCount() > 0" style="margin-top: 16px">
+                  <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 6px">
+                    Các trường chưa cấu hình ánh xạ PMIS (vào Form Builder để bổ sung "Tên trường PMIS"):
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 4px">
+                    <ng-container *ngFor="let row of pmisDiffRows()">
+                      <div *ngIf="row.hasMappingWarning" style="
+                          background: #f8fafc;
+                          color: #94a3b8;
+                          font-size: 0.85rem;
+                          padding: 6px 10px;
+                          border-radius: 4px;
+                        ">
+                        <i class="pi pi-question-circle" style="margin-right: 6px"></i>
+                        {{ row.field.label }}
+                      </div>
+                    </ng-container>
+                  </div>
+                </div>
+              </ng-container>
+            </div>
+
             <!-- Chế độ Chỉnh sửa thông số kỹ thuật (Form EAV động) -->
             <div *ngIf="isEditingFormValues()" class="docs-style-view" style="
                 background: #ffffff;

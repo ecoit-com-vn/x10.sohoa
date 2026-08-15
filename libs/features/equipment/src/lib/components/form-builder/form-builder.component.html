@@ -292,6 +292,13 @@
                     (ngModelChange)="updateSelectedField('name', $event)" class="w-full p-inputtext-sm" />
                 </div>
 
+                <div class="field mb-2">
+                  <label class="block font-bold text-sm text-muted mb-1">Tên trường PMIS</label>
+                  <input type="text" pInputText [ngModel]="fields()[selectedFieldIndex()!].pmisFieldName"
+                    (ngModelChange)="updateSelectedField('pmisFieldName', $event)" class="w-full p-inputtext-sm"
+                    placeholder="Key trong thongSoKyThuat PMIS trả về (vd: congSuatDinhMuc)" />
+                </div>
+
                 <div class="field mb-2" *ngIf="fields()[selectedFieldIndex()!].type !== 'checkbox'">
                   <label class="block font-bold text-sm text-muted mb-1">Gợi ý nhập liệu  </label>
                   <input type="text" pInputText [ngModel]="fields()[selectedFieldIndex()!].placeholder"

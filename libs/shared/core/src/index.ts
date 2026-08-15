@@ -2,6 +2,7 @@ export * from './lib/config/app-config.token';
 export * from './lib/guards/auth.guard';
 export * from './lib/guards/dossier-menu.guard';
 export * from './lib/guards/eav-form-menu.guard';
+export * from './lib/guards/pmis-sync-menu.guard';
 export * from './lib/interceptors/auth.interceptor';
 export * from './lib/interceptors/auth-refresh.interceptor';
 export * from './lib/interceptors/http-error.interceptor';

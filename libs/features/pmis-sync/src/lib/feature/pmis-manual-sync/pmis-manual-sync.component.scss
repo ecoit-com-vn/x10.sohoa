@@ -1,0 +1,58 @@
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+th.col-hd,
+td.col-hd,
+th.col-checkbox,
+td.col-checkbox {
+  text-align: center;
+  width: 40px;
+}
+
+.api-key-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 8px;
+}
+
+.note-cell {
+  max-width: 320px;
+  white-space: normal;
+}
+
+.loading-row,
+.empty-row {
+  padding: 28px;
+  color: #64748b;
+  text-align: center;
+}
+
+.pmis-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.pmis-tab-btn {
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #64748b;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+}
+
+.pmis-tab-btn.active {
+  color: #1a3593;
+  border-bottom-color: #1a3593;
+}
+
+.dialog-footer {
+  padding: 12px 0 0;
+}
