@@ -9,6 +9,7 @@ public class User
     public string PasswordHash { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+    public string? PhoneNumber { get; set; }
     public long? OrganizationUnitId { get; set; }
 
     /// <summary>
@@ -27,7 +28,6 @@ public class User
     public string? SsoNsId { get; set; }
     public string? SsoDeptId { get; set; }
     public string? SsoOrgId { get; set; }
-    public string? SsoPositionId { get; set; }
     public string? StaffCode { get; set; }
     public bool IsSsoEnabled { get; set; }
 
