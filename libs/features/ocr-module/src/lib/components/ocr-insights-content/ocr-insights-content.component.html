@@ -62,26 +62,28 @@
         @if (regions().length === 0) {
           <p class="empty-hint">Tài liệu này chưa có dữ liệu OCR chi tiết theo từng vùng để hiển thị.</p>
         } @else {
-          <table class="region-table">
-            <thead>
-              <tr>
-                <th>Trang</th>
-                <th>Nội dung</th>
-                <th>Loại chữ viết</th>
-                <th>Độ tin cậy</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (region of regions(); track region.id) {
+          <div class="region-table-wrap">
+            <table class="region-table">
+              <thead>
                 <tr>
-                  <td>{{ region.pageNumber }}</td>
-                  <td class="text-cell">{{ region.textRaw }}</td>
-                  <td>{{ scriptTypeLabel(region.textRaw) }}</td>
-                  <td>{{ region.confidence != null ? (region.confidence * 100).toFixed(0) + '%' : '—' }}</td>
+                  <th>Trang</th>
+                  <th>Nội dung</th>
+                  <th>Loại chữ viết</th>
+                  <th>Độ tin cậy</th>
                 </tr>
-              }
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                @for (region of regions(); track region.id) {
+                  <tr>
+                    <td>{{ region.pageNumber }}</td>
+                    <td class="text-cell">{{ region.textRaw }}</td>
+                    <td>{{ scriptTypeLabel(region.textRaw) }}</td>
+                    <td>{{ region.confidence != null ? (region.confidence * 100).toFixed(0) + '%' : '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         }
       }
       @case ('1') {
@@ -104,36 +106,38 @@
         @if (errorAnalysisList().length === 0) {
           <p class="empty-hint">Chưa có dữ liệu lỗi. Bấm "Phân tích lỗi" để tổng hợp.</p>
         } @else {
-          <table class="region-table">
-            <thead>
-              <tr>
-                <th>Trang</th>
-                <th>Danh mục lỗi</th>
-                <th>Mức độ</th>
-                <th>Chi tiết</th>
-                <th>Trạng thái</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (error of errorAnalysisList(); track error.id) {
+          <div class="region-table-wrap">
+            <table class="region-table">
+              <thead>
                 <tr>
-                  <td>{{ error.pageNumber }}</td>
-                  <td><span class="script-badge badge-diff">{{ error.errorCategory }}</span></td>
-                  <td>{{ error.severity }}</td>
-                  <td class="text-cell">{{ error.detail }}</td>
-                  <td>{{ error.resolvedStatus }}</td>
-                  <td>
-                    @if (error.resolvedStatus !== 'Resolved') {
-                      <button type="button" class="btn-chip btn-accept" (click)="resolveError(error)">
-                        <i class="pi pi-check"></i> Hoàn tất
-                      </button>
-                    }
-                  </td>
+                  <th>Trang</th>
+                  <th>Danh mục lỗi</th>
+                  <th>Mức độ</th>
+                  <th>Chi tiết</th>
+                  <th>Trạng thái</th>
+                  <th></th>
                 </tr>
-              }
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                @for (error of errorAnalysisList(); track error.id) {
+                  <tr>
+                    <td>{{ error.pageNumber }}</td>
+                    <td><span class="script-badge badge-diff">{{ error.errorCategory }}</span></td>
+                    <td>{{ error.severity }}</td>
+                    <td class="text-cell">{{ error.detail }}</td>
+                    <td>{{ error.resolvedStatus }}</td>
+                    <td>
+                      @if (error.resolvedStatus !== 'Resolved') {
+                        <button type="button" class="btn-chip btn-accept" (click)="resolveError(error)">
+                          <i class="pi pi-check"></i> Hoàn tất
+                        </button>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         }
       }
       @case ('4') {
@@ -163,68 +167,58 @@
         @if (spellcheckPageRegions().length === 0) {
           <p class="empty-hint">Trang {{ selectedPage() }} chưa có vùng văn bản nào.</p>
         } @else {
-          <table class="region-table">
-            <thead>
-              <tr>
-                <th>Nội dung</th>
-                <th>Gợi ý AI</th>
-                <th>Độ tin cậy</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (region of spellcheckPageRegions(); track region.id) {
-                <tr [class.row-low-confidence]="lowConfidenceRegionIds().has(region.id)">
-                  <td class="text-cell">
-                    @if (editingRegionId() === region.id) {
-                      <textarea
-                        class="template-name-input manual-edit-input"
-                        rows="2"
-                        [ngModel]="editText()[region.id] ?? region.textRaw"
-                        (ngModelChange)="onEditTextChange(region.id, $event)"
-                      ></textarea>
-                    } @else {
-                      {{ region.textRaw }}
-                    }
-                  </td>
-                  <td>
-                    @if (region.spellcheckSuggestion && region.spellcheckStatus !== 'Accepted' && region.spellcheckStatus !== 'Rejected') {
-                      <div class="spellcheck-suggestion">→ {{ region.spellcheckSuggestion }}</div>
-                      <button type="button" class="btn-chip btn-accept" (click)="acceptSuggestion(region)">
-                        <i class="pi pi-check"></i> Chấp nhận
-                      </button>
-                      <button type="button" class="btn-chip btn-reject" (click)="rejectSuggestion(region)">
-                        <i class="pi pi-times"></i> Từ chối
-                      </button>
-                    }
-                  </td>
-                  <td>
-                    {{ region.confidence != null ? (region.confidence * 100).toFixed(0) + '%' : '—' }}
-                    @if (lowConfidenceRegionIds().has(region.id)) {
-                      <span class="script-badge badge-diff">Thấp</span>
-                    }
-                  </td>
-                  <td>
-                    @if (editingRegionId() === region.id) {
-                      <button
-                        type="button"
-                        class="btn-chip btn-accept"
-                        [disabled]="savingRegionId() === region.id"
-                        (click)="saveRegionEdit(region)"
-                      >
-                        <i class="pi" [ngClass]="savingRegionId() === region.id ? 'pi-spin pi-spinner' : 'pi-check'"></i> Lưu
-                      </button>
-                      <button type="button" class="btn-chip" (click)="cancelEditRegion()">Hủy</button>
-                    } @else {
-                      <button type="button" class="btn-chip" (click)="startEditRegion(region)">
-                        <i class="pi pi-pencil"></i> Sửa
-                      </button>
-                    }
-                  </td>
+          <div class="region-table-wrap">
+            <table class="region-table">
+              <thead>
+                <tr>
+                  <th>Nội dung</th>
+                  <th>Độ tin cậy</th>
+                  <th></th>
                 </tr>
-              }
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                @for (region of spellcheckPageRegions(); track region.id) {
+                  <tr [class.row-low-confidence]="lowConfidenceRegionIds().has(region.id)">
+                    <td class="text-cell">
+                      @if (editingRegionId() === region.id) {
+                        <textarea
+                          class="template-name-input manual-edit-input"
+                          rows="2"
+                          [ngModel]="editText()[region.id] ?? region.textRaw"
+                          (ngModelChange)="onEditTextChange(region.id, $event)"
+                        ></textarea>
+                      } @else {
+                        {{ region.textRaw }}
+                      }
+                    </td>
+                    <td>
+                      {{ region.confidence != null ? (region.confidence * 100).toFixed(0) + '%' : '—' }}
+                      @if (lowConfidenceRegionIds().has(region.id)) {
+                        <span class="script-badge badge-diff">Thấp</span>
+                      }
+                    </td>
+                    <td>
+                      @if (editingRegionId() === region.id) {
+                        <button
+                          type="button"
+                          class="btn-chip btn-accept"
+                          [disabled]="savingRegionId() === region.id"
+                          (click)="saveRegionEdit(region)"
+                        >
+                          <i class="pi" [ngClass]="savingRegionId() === region.id ? 'pi-spin pi-spinner' : 'pi-check'"></i> Lưu
+                        </button>
+                        <button type="button" class="btn-chip" (click)="cancelEditRegion()">Hủy</button>
+                      } @else {
+                        <button type="button" class="btn-chip" (click)="startEditRegion(region)">
+                          <i class="pi pi-pencil"></i> Sửa
+                        </button>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         }
       }
       @case ('5') {
@@ -246,24 +240,26 @@
         @if (formulaRegions().length === 0) {
           <p class="empty-hint">Chưa có vùng nào được nhận dạng là công thức. Bấm "Nhận dạng công thức" để bắt đầu.</p>
         } @else {
-          <table class="region-table">
-            <thead>
-              <tr>
-                <th>Trang</th>
-                <th>Nội dung gốc</th>
-                <th>Công thức đã chuẩn hóa</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (region of formulaRegions(); track region.id) {
+          <div class="region-table-wrap">
+            <table class="region-table">
+              <thead>
                 <tr>
-                  <td>{{ region.pageNumber }}</td>
-                  <td class="text-cell">{{ region.textRaw }}</td>
-                  <td class="text-cell formula-cell">{{ region.formulaText }}</td>
+                  <th>Trang</th>
+                  <th>Nội dung gốc</th>
+                  <th>Công thức đã chuẩn hóa</th>
                 </tr>
-              }
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                @for (region of formulaRegions(); track region.id) {
+                  <tr>
+                    <td>{{ region.pageNumber }}</td>
+                    <td class="text-cell">{{ region.textRaw }}</td>
+                    <td class="text-cell formula-cell">{{ region.formulaText }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         }
       }
       @case ('6') {
@@ -288,30 +284,32 @@
           @if (sealSignatureOverlayRegions().length === 0) {
             <p class="empty-hint">Trang {{ selectedPage() }} chưa có vùng con dấu/chữ ký nào — chọn trang khác ở khung bên trái để xem.</p>
           }
-          <table class="region-table">
-            <thead>
-              <tr>
-                <th>Trang</th>
-                <th>Loại</th>
-                <th>Nội dung</th>
-                <th>Độ tin cậy</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (region of sealSignatureRegions(); track region.id) {
+          <div class="region-table-wrap">
+            <table class="region-table">
+              <thead>
                 <tr>
-                  <td>{{ region.pageNumber }}</td>
-                  <td>
-                    <span class="script-badge" [ngClass]="region.regionType === 'Seal' ? 'badge-seal' : 'badge-signature'">
-                      {{ region.regionType === 'Seal' ? 'Con dấu' : 'Chữ ký' }}
-                    </span>
-                  </td>
-                  <td class="text-cell">{{ region.textRaw }}</td>
-                  <td>{{ region.sealSignatureScore != null ? (region.sealSignatureScore * 100).toFixed(0) + '%' : '—' }}</td>
+                  <th>Trang</th>
+                  <th>Loại</th>
+                  <th>Nội dung</th>
+                  <th>Độ tin cậy</th>
                 </tr>
-              }
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                @for (region of sealSignatureRegions(); track region.id) {
+                  <tr>
+                    <td>{{ region.pageNumber }}</td>
+                    <td>
+                      <span class="script-badge" [ngClass]="region.regionType === 'Seal' ? 'badge-seal' : 'badge-signature'">
+                        {{ region.regionType === 'Seal' ? 'Con dấu' : 'Chữ ký' }}
+                      </span>
+                    </td>
+                    <td class="text-cell">{{ region.textRaw }}</td>
+                    <td>{{ region.sealSignatureScore != null ? (region.sealSignatureScore * 100).toFixed(0) + '%' : '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         }
       }
     }
