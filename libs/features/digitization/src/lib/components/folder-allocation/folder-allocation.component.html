@@ -195,8 +195,10 @@
         <button class="btn-cancel btn-small" (click)="onCancelReactivate()" [disabled]="reactivating()">
           <i class="pi pi-times"></i> Hủy
         </button>
-        <button class="btn-save btn-small" (click)="onConfirmReactivate()" [disabled]="reactivating()"
-          style="background-color: #22c55e; border-color: #22c55e;">
+        <button
+          class="btn-save btn-small"
+          (click)="onConfirmReactivate()"
+          [disabled]="reactivating()">
           <i class="pi pi-spin pi-spinner" *ngIf="reactivating()" style="margin-right: 4px;"></i>
           <i class="pi pi-check-circle" *ngIf="!reactivating()" style="margin-right: 4px;"></i>
           Phân bổ
@@ -232,7 +234,7 @@
           style="background-color: #1185bb; border-color: #f59e0b;">
           <i class="pi pi-spin pi-spinner" *ngIf="revoking()" style="margin-right: 4px;"></i>
           <i class="pi pi-ban" *ngIf="!revoking()" style="margin-right: 4px;"></i>
-          Thu hồi
+          Lưu
         </button>
       </div>
     </ng-template>

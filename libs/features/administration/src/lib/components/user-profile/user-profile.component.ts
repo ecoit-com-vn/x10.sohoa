@@ -244,6 +244,10 @@ export class UserProfileComponent implements OnInit, OnDestroy {
   }
 
   goToChangePassword(): void {
+    if (this.authService.isSsoUser()) {
+      this.authService.redirectToSsoChangePassword();
+      return;
+    }
     this.router.navigate(['/profile/change-password']);
   }
 

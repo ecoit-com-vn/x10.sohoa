@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
@@ -18,7 +18,7 @@ type PasswordField = 'currentPassword' | 'newPassword' | 'confirmPassword';
   templateUrl: './change-password.component.html',
   styleUrl: './change-password.component.scss'
 })
-export class ChangePasswordComponent {
+export class ChangePasswordComponent implements OnInit {
   private authService = inject(AuthService);
   private messageService = inject(MessageService);
   private router = inject(Router);
@@ -38,6 +38,12 @@ export class ChangePasswordComponent {
     newPassword: false,
     confirmPassword: false
   });
+
+  ngOnInit(): void {
+    if (this.authService.isSsoUser()) {
+      this.authService.redirectToSsoChangePassword();
+    }
+  }
 
   currentPasswordError = computed(() => {
     if (this.submitted() && !this.currentPassword().trim()) {

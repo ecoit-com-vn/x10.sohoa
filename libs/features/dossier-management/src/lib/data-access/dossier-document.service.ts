@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams, HttpErrorResponse, HttpContext } from '@angular/common/http';
 import { Observable, firstValueFrom, map, catchError, throwError, of } from 'rxjs';
 import { APP_CONFIG, SUPPRESS_HTTP_ERROR_TOAST } from '@sohoa.frontend/shared/core';
+import { DossierReportContext } from './dossier-report-context.service';
 import {
   extractApiErrorMessage,
   FileUploadResponse,
@@ -141,6 +142,7 @@ export interface DocumentExtractionResult {
 export class DossierDocumentService {
   private http = inject(HttpClient);
   private config = inject(APP_CONFIG);
+  private reportContext = inject(DossierReportContext);
 
   private readonly CHUNK_SIZE = 10 * 1024 * 1024;
   private readonly DIRECT_UPLOAD_THRESHOLD = 10 * 1024 * 1024;
@@ -219,8 +221,10 @@ export class DossierDocumentService {
    */
   getDocumentTypesForDossier(dossierId: string): Observable<DocumentTypeLookupItem[]> {
     const segment = this.kindId === 1 ? 'dossier-digitization/dossiers' : 'dossiers';
+    let params = new HttpParams();
+    if (this.reportContext.from) params = params.set('from', this.reportContext.from);
     return this.http
-      .get<unknown[]>(`${this.config.apiGatewayUrl}/api/v1/${segment}/${dossierId}/document-types`)
+      .get<unknown[]>(`${this.config.apiGatewayUrl}/api/v1/${segment}/${dossierId}/document-types`, { params })
       .pipe(map((items) => (items ?? []).map((item) => normalizeDocumentTypeLookup(item))));
   }
 
@@ -494,8 +498,11 @@ export class DossierDocumentService {
   }
 
   getDigitizationResult(dossierId: string, versionId: string, lookupMode = false): Observable<DocumentExtractionResult> {
+    let params = new HttpParams();
+    if (this.reportContext.from) params = params.set('from', this.reportContext.from);
     return this.http.get<DocumentExtractionResult>(
-      `${this.dossierBase(dossierId, lookupMode)}/${versionId}/digitization/result`
+      `${this.dossierBase(dossierId, lookupMode)}/${versionId}/digitization/result`,
+      { params }
     );
   }
 

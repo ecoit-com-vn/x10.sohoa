@@ -1,0 +1,45 @@
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+th.col-hd,
+td.col-hd {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.note-cell {
+  max-width: 320px;
+  white-space: normal;
+}
+
+.loading-row,
+.empty-row {
+  padding: 28px;
+  color: #64748b;
+  text-align: center;
+}
+
+.toggle-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.frequency-inputs {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.frequency-inputs input {
+  width: 80px;
+}
+
+.frequency-inputs select {
+  width: 90px;
+}

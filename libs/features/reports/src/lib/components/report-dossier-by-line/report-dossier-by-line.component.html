@@ -2,7 +2,13 @@
 
 <div class="wf-page dossier-report-page line-report">
   <div class="list-toolbar standard-page-toolbar breadcrumb-container">
-    <wf-breadcrumb [suffix]="'Báo cáo thống kê hồ sơ theo đường dây'"></wf-breadcrumb>
+    <wf-breadcrumb
+      [customItems]="[
+        { label: 'Báo cáo & Thống kê' },
+        { label: 'Thống kê báo cáo', url: '/reports/statistics' } ,
+        { label: 'Báo cáo thống kê hồ sơ theo đường dây'} 
+      ]" 
+    ></wf-breadcrumb>
   </div>
 
   <div class="standard-search-card filter-card">
@@ -56,8 +62,11 @@
       </div>
 
       <div class="standard-search-actions filter-actions">
-        <button type="button" class="btn-tim" (click)="onFilter()" [disabled]="loading()">
-          <i class="pi pi-search"></i> Tìm kiếm
+        <button type="button" class="btn-outlined" (click)="onResetSearch()">
+          <i class="pi pi-refresh"></i> Làm mới
+        </button>
+        <button type="button" class="btn-save" (click)="onFilter()" [disabled]="loading()">
+          <i class="pi pi-check"></i> Áp dụng
         </button>
         <button
           *ngIf="activeTab() === 'list'"

@@ -110,6 +110,31 @@ export interface OcrModuleErrorAnalysis {
   resolvedStatus: string;
 }
 
+/** 1 dòng danh sách màn hình "Quản lý dữ liệu huấn luyện AI-OCR" (Job SourceType=NewUpload). */
+export interface OcrModuleJobListItem {
+  id: string;
+  fileName: string;
+  totalPages: number;
+  /** Số trang đã OCR xong — dùng để tính % khi state = Materializing. */
+  currentPage?: number;
+  state: 'Materializing' | 'Ready' | 'Failed' | string;
+  errorMessage?: string;
+  createdBy?: string;
+  createdDate?: string;
+}
+
+/** Job đầy đủ trả về từ GET /jobs/{jobId} — dùng khi cần poll trạng thái 1 job cụ thể. */
+export interface OcrModuleJobDetail {
+  id: string;
+  sourceType: string;
+  sourceBucket: string;
+  sourceFilePath: string;
+  sourceDocumentVersionId?: string;
+  totalPages: number;
+  state: 'Materializing' | 'Ready' | 'Failed' | string;
+  errorMessage?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class OcrModuleService {
   private readonly baseUrl = `${environment.apiGatewayUrl}/api/v1/ocr-module`;
@@ -118,6 +143,27 @@ export class OcrModuleService {
 
   createJobFromExisting(payload: CreateJobFromExistingRequest): Observable<CreateJobResponse> {
     return this.http.post<CreateJobResponse>(`${this.baseUrl}/jobs/from-existing`, payload);
+  }
+
+  /** Màn hình "Quản lý dữ liệu huấn luyện AI-OCR" — tải lên 1 file PDF độc lập và đưa vào OCR ngay. */
+  uploadTrainingDocument(file: File): Observable<CreateJobResponse> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    return this.http.post<CreateJobResponse>(`${this.baseUrl}/jobs/from-upload`, formData);
+  }
+
+  getUploadedJobs(page = 1, pageSize = 10): Observable<PagedResult<OcrModuleJobListItem>> {
+    return this.http.get<PagedResult<OcrModuleJobListItem>>(`${this.baseUrl}/jobs`, {
+      params: { page, pageSize },
+    });
+  }
+
+  getJob(jobId: string): Observable<OcrModuleJobDetail> {
+    return this.http.get<OcrModuleJobDetail>(`${this.baseUrl}/jobs/${jobId}`);
+  }
+
+  deleteJob(jobId: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/jobs/${jobId}`);
   }
 
   getRegions(jobId: string, page = 1, pageSize = 50): Observable<PagedResult<OcrModuleRegionDto>> {

@@ -164,6 +164,10 @@ export class AdminLayout implements OnInit, OnDestroy {
   goToChangePassword(event: Event) {
     event.stopPropagation();
     this.profileMenuOpen.set(false);
+    if (this.authService.isSsoUser()) {
+      this.authService.redirectToSsoChangePassword();
+      return;
+    }
     this.router.navigate(['/profile/change-password']);
   }
 
@@ -347,6 +351,78 @@ export class AdminLayout implements OnInit, OnDestroy {
       }
     }
 
+    const canViewPmisEndpointConfig =
+      this.authService.hasPermission('SUPER_ADMIN') ||
+      this.authService.hasPermission('PMIS_ENDPOINT_CONFIG_VIEW') ||
+      this.authService.hasPermission('PMIS_ENDPOINT_CONFIG_EDIT');
+    const hasPmisEndpointConfigMenu = menusCopy.some((m) => m.url === '/pmis-sync/endpoint-config');
+    if (!hasPmisEndpointConfigMenu && canViewPmisEndpointConfig) {
+      const administrationParentForPmis = menusCopy.find(
+        (m) =>
+          !m.url &&
+          (m.name === 'Quản trị hệ thống' || m.permissionCode === 'USER_VIEW')
+      );
+      if (administrationParentForPmis) {
+        menusCopy.push({
+          id: 999994,
+          name: 'Cấu hình kết nối PMIS',
+          icon: 'pi pi-server',
+          url: '/pmis-sync/endpoint-config',
+          parentId: administrationParentForPmis.id,
+          sortOrder: 101,
+          permissionCode: 'PMIS_ENDPOINT_CONFIG_VIEW',
+        });
+      }
+    }
+
+    const canViewPmisManualSync =
+      this.authService.hasPermission('SUPER_ADMIN') ||
+      this.authService.hasPermission('PMIS_MANUAL_SYNC_VIEW') ||
+      this.authService.hasPermission('PMIS_MANUAL_SYNC_CREATE');
+    const hasPmisManualSyncMenu = menusCopy.some((m) => m.url === '/pmis-sync/manual-sync');
+    if (!hasPmisManualSyncMenu && canViewPmisManualSync) {
+      const administrationParentForPmisSync = menusCopy.find(
+        (m) =>
+          !m.url &&
+          (m.name === 'Quản trị hệ thống' || m.permissionCode === 'USER_VIEW')
+      );
+      if (administrationParentForPmisSync) {
+        menusCopy.push({
+          id: 999993,
+          name: 'Đồng bộ thủ công PMIS',
+          icon: 'pi pi-sync',
+          url: '/pmis-sync/manual-sync',
+          parentId: administrationParentForPmisSync.id,
+          sortOrder: 102,
+          permissionCode: 'PMIS_MANUAL_SYNC_VIEW',
+        });
+      }
+    }
+
+    const canViewPmisSchedule =
+      this.authService.hasPermission('SUPER_ADMIN') ||
+      this.authService.hasPermission('SYNC_SCHEDULE_VIEW') ||
+      this.authService.hasPermission('SYNC_SCHEDULE_EDIT');
+    const hasPmisScheduleMenu = menusCopy.some((m) => m.url === '/pmis-sync/schedule');
+    if (!hasPmisScheduleMenu && canViewPmisSchedule) {
+      const administrationParentForPmisSchedule = menusCopy.find(
+        (m) =>
+          !m.url &&
+          (m.name === 'Quản trị hệ thống' || m.permissionCode === 'USER_VIEW')
+      );
+      if (administrationParentForPmisSchedule) {
+        menusCopy.push({
+          id: 999992,
+          name: 'Lịch đồng bộ PMIS',
+          icon: 'pi pi-calendar-clock',
+          url: '/pmis-sync/schedule',
+          parentId: administrationParentForPmisSchedule.id,
+          sortOrder: 100,
+          permissionCode: 'SYNC_SCHEDULE_VIEW',
+        });
+      }
+    }
+
     menusCopy.forEach((m) => {
       const url = m.url === '/dossier-management' ? '/dossier-management/my-dossiers' : m.url;
       const item: MenuItem = {
@@ -424,6 +500,10 @@ export class AdminLayout implements OnInit, OnDestroy {
   }
 
   logout() {
+    if (this.authService.isSsoUser()) {
+      this.authService.logout(true);
+      return;
+    }
     this.authService.logout();
     this.router.navigate(['/login']);
   }

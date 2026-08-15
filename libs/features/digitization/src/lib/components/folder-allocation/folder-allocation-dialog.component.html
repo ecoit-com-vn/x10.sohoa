@@ -73,7 +73,7 @@
         <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
         <i class="pi pi-pencil" *ngIf="!saving() && allocationId" style="margin-right: 4px;"></i>
         <i class="pi pi-plus" *ngIf="!saving() && !allocationId" style="margin-right: 4px;"></i>
-        {{ saving() ? 'Đang lưu...' : (allocationId ? 'Cập nhật' : 'Thêm mới') }}
+        {{ saving() ? 'Đang lưu...' : 'Lưu' }}
       </button>
     </div>
   </ng-template>

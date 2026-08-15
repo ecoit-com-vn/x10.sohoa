@@ -40,6 +40,12 @@ export class Login implements OnInit {
       this.route.queryParams.subscribe(params => {
         const ticket = params['ticket'];
         if (ticket) {
+          this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { ticket: null },
+            queryParamsHandling: 'merge',
+            replaceUrl: true
+          });
           this.verifySsoTicket(ticket);
         }
       });
@@ -134,7 +140,7 @@ export class Login implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        this.error = 'Đăng nhập SSO thất bại hoặc tài khoản chưa được thiết lập. Vui lòng thử lại.';
+        this.error = err?.error?.message || 'Đăng nhập SSO thất bại. Vui lòng thử lại.';
         console.error('SSO Login error', err);
       }
     });

@@ -2,7 +2,13 @@
 
 <div class="wf-page dossier-report-page">
   <div class="list-toolbar standard-page-toolbar breadcrumb-container">
-    <wf-breadcrumb [suffix]="'Báo cáo thống kê hồ sơ nhập liệu theo tháng'"></wf-breadcrumb>
+    <wf-breadcrumb
+      [customItems]="[
+        { label: 'Báo cáo & Thống kê' },
+        { label: 'Thống kê báo cáo', url: '/reports/statistics' } ,
+        { label: 'Báo cáo thống kê hồ sơ nhập liệu theo tháng'} 
+      ]" 
+    ></wf-breadcrumb>
   </div>
 
   <div class="standard-search-card filter-card">

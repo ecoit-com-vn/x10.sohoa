@@ -38,6 +38,14 @@ export interface OcrInsightsSourceDocument {
 export class OcrInsightsContentComponent implements OnInit {
   @Input() sourceDocument: OcrInsightsSourceDocument | null = null;
 
+  /**
+   * Job đã tồn tại sẵn (vd. màn hình "Quản lý dữ liệu huấn luyện AI-OCR" — Job được tạo ngay lúc
+   * upload, không phải tài liệu hồ sơ/thiết bị). Khi có giá trị, bỏ qua bước tạo Job qua
+   * `createJobFromExisting()` và nạp thẳng region theo jobId này. Nơi gọi cũ (dossier/equipment)
+   * không truyền input này nên hành vi giữ nguyên không đổi.
+   */
+  @Input() existingJobId?: string;
+
   activeTab = signal('0');
   loading = signal(false);
   errorMessage = signal<string | null>(null);
@@ -53,6 +61,14 @@ export class OcrInsightsContentComponent implements OnInit {
     this.regions()
       .filter((r) => r.pageNumber === this.selectedPage())
       .map((r) => this.toOverlayRegion(r)),
+  );
+
+  /**
+   * Khung xem ảnh trang bên trái giờ hiển thị cố định bất kể tab đang chọn (layout 2 cột) — overlay
+   * đổi theo tab: tab "Con dấu/chữ ký" khoanh vùng con dấu/chữ ký, các tab còn lại khoanh vùng văn bản.
+   */
+  leftPanelOverlayRegions = computed(() =>
+    this.activeTab() === '6' ? this.sealSignatureOverlayRegions() : this.overviewOverlayRegions(),
   );
 
   formulaLoading = signal(false);
@@ -99,6 +115,12 @@ export class OcrInsightsContentComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    if (this.existingJobId) {
+      this.jobId.set(this.existingJobId);
+      this.loadRegions();
+      return;
+    }
+
     if (this.sourceDocument) {
       this.loadJob();
     }
@@ -126,6 +148,10 @@ export class OcrInsightsContentComponent implements OnInit {
   }
 
   retry(): void {
+    if (this.existingJobId) {
+      this.loadRegions();
+      return;
+    }
     this.loadJob();
   }
 
@@ -175,6 +201,16 @@ export class OcrInsightsContentComponent implements OnInit {
         this.loadPageImage();
       }
     });
+  }
+
+  scriptTypeLabel(text: string): string {
+    const letters = (text ?? '').replace(/[^\p{L}]/gu, '');
+    if (!letters) return '—';
+    const isUpper = letters === letters.toUpperCase() && letters !== letters.toLowerCase();
+    const isLower = letters === letters.toLowerCase() && letters !== letters.toUpperCase();
+    if (isUpper) return 'Chữ in hoa';
+    if (isLower) return 'Chữ thường';
+    return 'Hỗn hợp';
   }
 
   private toOverlayRegion(region: OcrModuleRegionDto): OcrOverlayRegion {

@@ -16,6 +16,8 @@ export interface EavField {
   /** Dữ liệu đã load từ danh mục (được fill sau khi load) */
   catalogItems?: { label: string; value: string }[];
   selectAll?: boolean;
+  /** Tên trường tương ứng trong dữ liệu thongSoKyThuat do PMIS trả về — khai báo qua Form Builder, dùng để so khớp khi so sánh sai khác PMIS. */
+  pmisFieldName?: string;
 }
 
 export interface NormalizedDossierDetail {
@@ -145,6 +147,7 @@ export function normalizeField(raw: Record<string, unknown>): EavField {
 
   const dataSourceType = (raw['dataSourceType'] as 'manual' | 'catalog') || 'manual';
   const catalogType = raw['catalogType'] as string | undefined;
+  const pmisFieldName = firstNonEmptyString(raw['pmisFieldName'], raw['PmisFieldName']);
 
   return {
     ...(raw as unknown as EavField),
@@ -153,6 +156,7 @@ export function normalizeField(raw: Record<string, unknown>): EavField {
     options,
     dataSourceType,
     catalogType,
+    pmisFieldName,
   };
 }
 

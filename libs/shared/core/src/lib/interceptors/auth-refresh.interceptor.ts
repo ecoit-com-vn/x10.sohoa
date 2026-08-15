@@ -4,7 +4,9 @@ import { catchError, switchMap, throwError } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 
 function isAuthEndpoint(url: string): boolean {
-  return url.includes('/auth/login') || url.includes('/auth/refresh');
+  return url.includes('/auth/login')
+    || url.includes('/auth/sso-login')
+    || url.includes('/auth/refresh');
 }
 
 export const authRefreshInterceptor: HttpInterceptorFn = (req, next) => {

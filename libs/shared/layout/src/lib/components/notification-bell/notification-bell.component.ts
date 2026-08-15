@@ -5,6 +5,7 @@ import { ButtonModule } from 'primeng/button';
 import { PopoverModule } from 'primeng/popover';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
+import { catchError, forkJoin, of } from 'rxjs';
 import {
   SignalRService,
   AuthService,
@@ -22,6 +23,7 @@ import {
 })
 export class NotificationBellComponent implements OnInit {
   notifications = signal<NotificationItem[]>([]);
+  dossierTitles = signal<Record<string, string>>({});
   unreadCount = computed(() => this.notifications().filter(n => !n.isRead).length);
 
   private signalRService = inject(SignalRService);
@@ -63,6 +65,16 @@ export class NotificationBellComponent implements OnInit {
         },
         ...list
       ]);
+      this.loadDossierTitles([{
+        id: evt.id as string,
+        notificationType: evt.notificationType,
+        title: evt.title,
+        body: evt.body,
+        relatedEntityType: evt.relatedEntityType,
+        relatedEntityId: evt.relatedEntityId,
+        createdAt: new Date().toISOString(),
+        isRead: false
+      }]);
 
       this.messageService.add({
         severity: 'info',
@@ -76,7 +88,56 @@ export class NotificationBellComponent implements OnInit {
   private loadNotifications() {
     this.notificationApi.getNotifications(1, 20).subscribe(res => {
       this.notifications.set(res.items);
+      this.loadDossierTitles(res.items);
     });
+  }
+
+  private loadDossierTitles(items: NotificationItem[]) {
+    const ids = [...new Set(items
+      .filter(item => item.relatedEntityType?.toUpperCase() === 'DOSSIER' && item.relatedEntityId)
+      .map(item => item.relatedEntityId!.trim()))];
+    if (ids.length === 0) {
+      return;
+    }
+
+    forkJoin(ids.map(id => this.notificationApi.getDossierById(id).pipe(catchError(() => of(null))))).subscribe(itemsById => {
+      const titles = { ...this.dossierTitles() };
+      itemsById.forEach((item, index) => {
+        const displayName = item?.title?.trim()
+          || [item?.dossierTypeName, item?.infrastructureName, item?.dossierSetName]
+            .filter(value => value?.trim())
+            .map(value => value!.trim())
+            .join(' - ');
+        if (displayName) titles[ids[index].toLowerCase()] = displayName;
+      });
+      this.dossierTitles.set(titles);
+    });
+  }
+
+  notificationTitle(notif: NotificationItem): string {
+    const title = notif.title?.trim() || 'Thông báo';
+    return title
+      .replace(/^Quản lý hồ sơ:\s*/i, '')
+      .replace(/^Thông báo:\s*/i, '')
+      .trim() || 'Thông báo';
+  }
+
+  notificationBody(notif: NotificationItem): string {
+    let body = (notif.body ?? '').trim();
+    const entityId = notif.relatedEntityId?.trim();
+    const dossierTitle = entityId ? this.dossierTitles()[entityId.toLowerCase()] : undefined;
+
+    if (notif.relatedEntityType?.toUpperCase() === 'DOSSIER' && entityId) {
+      body = body.split(entityId).join(dossierTitle || 'hồ sơ');
+    }
+
+    body = body
+      .replace(/^Hồ sơ\s+/i, '')
+      .replace(/\s+Vui lòng kiểm tra và thực hiện công việc được giao\.?$/i, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    return body.length > 120 ? `${body.slice(0, 117).trimEnd()}...` : body;
   }
 
   onOpenNotification(notif: NotificationItem) {

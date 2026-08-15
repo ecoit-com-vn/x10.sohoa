@@ -22,44 +22,52 @@
     </p-tablist>
   </p-tabs>
 
-  @if (pageNumbers().length > 1) {
-    <div class="page-tabs page-tabs-global">
-      <span class="page-tabs-label">Phân tích cho trang:</span>
-      @for (p of pageNumbers(); track p) {
-        <button
-          type="button"
-          class="btn-chip"
-          [class.btn-accept]="p === selectedPage()"
-          (click)="onSelectPage(p)"
-        >
-          Trang {{ p }}
-        </button>
+  <div class="insights-layout">
+    <div class="insights-left">
+      @if (pageNumbers().length > 1) {
+        <div class="page-tabs page-tabs-global">
+          <span class="page-tabs-label">Trang:</span>
+          @for (p of pageNumbers(); track p) {
+            <button
+              type="button"
+              class="btn-chip"
+              [class.btn-accept]="p === selectedPage()"
+              (click)="onSelectPage(p)"
+            >
+              {{ p }}
+            </button>
+          }
+        </div>
+      }
+
+      @if (pageImageLoading()) {
+        <div class="insights-loading">
+          <i class="pi pi-spin pi-spinner"></i>
+          Đang tải ảnh trang...
+        </div>
+      } @else if (pageImageUrl()) {
+        <lib-bounding-box-overlay
+          [imageUrl]="pageImageUrl()!"
+          [regions]="leftPanelOverlayRegions()"
+        ></lib-bounding-box-overlay>
+      } @else {
+        <p class="empty-hint">Chưa có ảnh trang để hiển thị.</p>
       }
     </div>
-  }
 
-  <div class="tab-content">
+    <div class="insights-right">
+      <div class="tab-content">
     @switch (activeTab()) {
       @case ('0') {
         @if (regions().length === 0) {
           <p class="empty-hint">Tài liệu này chưa có dữ liệu OCR chi tiết theo từng vùng để hiển thị.</p>
         } @else {
-          @if (pageImageLoading()) {
-            <div class="insights-loading">
-              <i class="pi pi-spin pi-spinner"></i>
-              Đang tải ảnh trang...
-            </div>
-          } @else if (pageImageUrl()) {
-            <lib-bounding-box-overlay
-              [imageUrl]="pageImageUrl()!"
-              [regions]="overviewOverlayRegions()"
-            ></lib-bounding-box-overlay>
-          }
           <table class="region-table">
             <thead>
               <tr>
                 <th>Trang</th>
                 <th>Nội dung</th>
+                <th>Loại chữ viết</th>
                 <th>Độ tin cậy</th>
               </tr>
             </thead>
@@ -68,6 +76,7 @@
                 <tr>
                   <td>{{ region.pageNumber }}</td>
                   <td class="text-cell">{{ region.textRaw }}</td>
+                  <td>{{ scriptTypeLabel(region.textRaw) }}</td>
                   <td>{{ region.confidence != null ? (region.confidence * 100).toFixed(0) + '%' : '—' }}</td>
                 </tr>
               }
@@ -150,18 +159,6 @@
           AI gợi ý sửa. Vùng có badge "Thấp" là vùng OCR có độ tin cậy thấp (theo tab "Lỗi OCR"), nên
           kiểm tra và sửa tay ngay cả khi AI không đưa ra gợi ý nào.
         </p>
-
-        @if (pageImageLoading()) {
-          <div class="insights-loading">
-            <i class="pi pi-spin pi-spinner"></i>
-            Đang tải ảnh trang...
-          </div>
-        } @else if (pageImageUrl()) {
-          <lib-bounding-box-overlay
-            [imageUrl]="pageImageUrl()!"
-            [regions]="overviewOverlayRegions()"
-          ></lib-bounding-box-overlay>
-        }
 
         @if (spellcheckPageRegions().length === 0) {
           <p class="empty-hint">Trang {{ selectedPage() }} chưa có vùng văn bản nào.</p>
@@ -288,20 +285,8 @@
         @if (sealSignatureRegions().length === 0) {
           <p class="empty-hint">Chưa có vùng con dấu/chữ ký nào. Bấm "Tách vùng con dấu/chữ ký" để bắt đầu.</p>
         } @else {
-          @if (pageImageLoading()) {
-            <div class="insights-loading">
-              <i class="pi pi-spin pi-spinner"></i>
-              Đang tải ảnh trang...
-            </div>
-          } @else if (pageImageUrl()) {
-            @if (sealSignatureOverlayRegions().length > 0) {
-              <lib-bounding-box-overlay
-                [imageUrl]="pageImageUrl()!"
-                [regions]="sealSignatureOverlayRegions()"
-              ></lib-bounding-box-overlay>
-            } @else {
-              <p class="empty-hint">Trang {{ selectedPage() }} chưa có vùng con dấu/chữ ký nào — chọn trang khác ở trên để xem.</p>
-            }
+          @if (sealSignatureOverlayRegions().length === 0) {
+            <p class="empty-hint">Trang {{ selectedPage() }} chưa có vùng con dấu/chữ ký nào — chọn trang khác ở khung bên trái để xem.</p>
           }
           <table class="region-table">
             <thead>
@@ -330,5 +315,7 @@
         }
       }
     }
+      </div>
+    </div>
   </div>
 }

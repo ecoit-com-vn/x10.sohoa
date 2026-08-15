@@ -3,7 +3,11 @@
 <div class="wf-page dossier-report-page operation-year-report">
   <div class="list-toolbar standard-page-toolbar breadcrumb-container">
     <wf-breadcrumb
-      [suffix]="'Báo cáo thống kê hồ sơ theo năm vận hành'"
+      [customItems]="[
+        { label: 'Báo cáo & Thống kê' },
+        { label: 'Thống kê báo cáo', url: '/reports/statistics' } ,
+        { label: 'Báo cáo thống kê hồ sơ theo năm vận hành'} 
+      ]" 
     ></wf-breadcrumb>
   </div>
 
@@ -50,13 +54,16 @@
       </div>
 
       <div class="standard-search-actions filter-actions">
+        <button type="button" class="btn-outlined" (click)="onResetSearch()">
+          <i class="pi pi-refresh"></i> Làm mới
+        </button> 
         <button
           type="button"
-          class="btn-tim"
+          class="btn-save"
           (click)="onFilter()"
           [disabled]="loading()"
         >
-          <i class="pi pi-search"></i> Tìm kiếm
+          <i class="pi pi-check"></i> Áp dụng
         </button>
         <button
           *ngIf="activeTab() === 'list'"

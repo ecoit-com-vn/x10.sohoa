@@ -238,6 +238,14 @@ export class ReportDossierByLineComponent implements OnInit, AfterViewInit {
     this.loadStatsData();
   }
 
+    onResetSearch(): void {
+    this.selectedUnitId.set(null);
+    this.selectedLineIds.set([]);
+    this.selectedYear.set(new Date().getFullYear());
+    this.applyDefaultUnitFilter();
+    this.onFilter();
+  }
+
   switchTab(tab: MainTabMode): void {
     this.activeTab.set(tab);
     queueMicrotask(() => {
