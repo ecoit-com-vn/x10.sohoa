@@ -47,4 +47,15 @@ public interface IEquipmentRepository
         EquipmentLookupFilterDto filter,
         IEnumerable<long>? authorizedUnitIds);
     Task<int> CountByInfrastructureIdAsync(Guid infrastructureId);
+
+    /// <summary>
+    /// Đồng bộ PMIS: tìm theo PmisCode, có thì cập nhật, chưa có thì tạo mới — chỉ cập nhật các cột
+    /// định danh (Name/Code/SerialNumber/ManufactureYear/QrCode/InfrastructureId), KHÔNG đụng
+    /// FormValues (dữ liệu người dùng chỉnh sửa nội bộ). Trả lỗi rõ ràng nếu chưa cấu hình loại
+    /// thiết bị (EquipmentTypeCode) tương ứng trong hệ thống — cần Admin ánh xạ trước khi đồng bộ được.
+    /// </summary>
+    Task<EquipmentPmisUpsertResult> UpsertFromPmisAsync(
+        string pmisCode, string code, string name, string? serialNumber,
+        string equipmentTypeCode, string? parentPmisCode, string? unitCode,
+        int? manufactureYear, string? qrCodeBase64);
 }

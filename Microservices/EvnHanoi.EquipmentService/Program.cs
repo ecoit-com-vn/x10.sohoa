@@ -105,6 +105,7 @@ builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEavFormTem
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierTypeRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DossierTypeRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDocumentTypeRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DocumentTypeRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IInfrastructureRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.InfrastructureRepository>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentPmisSpecRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentPmisSpecRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEavFormTemplateService, EvnHanoi.EquipmentService.Core.Services.EavFormTemplateService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierTypeService, EvnHanoi.EquipmentService.Core.Services.DossierTypeService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IElasticsearchService, EvnHanoi.EquipmentService.Infrastructure.Services.ElasticsearchService>();

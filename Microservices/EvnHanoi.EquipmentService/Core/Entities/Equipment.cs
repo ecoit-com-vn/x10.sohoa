@@ -26,4 +26,9 @@ public class Equipment
     public string? FormValues { get; set; }
     public long? UnitId { get; set; }
     public bool IsConfirm { get; set; }
+
+    // Đồng bộ PMIS
+    public string? PmisCode { get; set; }
+    public string? QrCode { get; set; }
+    public DateTime? LastSyncedFromPmisAt { get; set; }
 }

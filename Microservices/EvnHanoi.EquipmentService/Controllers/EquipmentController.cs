@@ -28,16 +28,18 @@ public partial class EquipmentController : ControllerBase
     private readonly IDossierRepository _dossierRepository;
     private readonly IFileDownloadTokenService _downloadTokenService;
     private readonly IFileStorageService _fileStorageService;
+    private readonly IEquipmentPmisSpecRepository _equipmentPmisSpecRepository;
 
     public EquipmentController(
-        IEquipmentRepository equipmentRepository, 
+        IEquipmentRepository equipmentRepository,
         IEquipmentTypeRepository equipmentTypeRepository,
         IMessageProducer messageProducer,
         IDocumentDigitizationService documentDigitizationService,
         IDocumentRepository documentRepository,
         IDossierRepository dossierRepository,
         IFileDownloadTokenService downloadTokenService,
-        IFileStorageService fileStorageService)
+        IFileStorageService fileStorageService,
+        IEquipmentPmisSpecRepository equipmentPmisSpecRepository)
     {
         _equipmentRepository = equipmentRepository;
         _equipmentTypeRepository = equipmentTypeRepository;
@@ -47,6 +49,7 @@ public partial class EquipmentController : ControllerBase
         _dossierRepository = dossierRepository;
         _downloadTokenService = downloadTokenService;
         _fileStorageService = fileStorageService;
+        _equipmentPmisSpecRepository = equipmentPmisSpecRepository;
     }
 
     [HttpGet]
@@ -840,6 +843,118 @@ public partial class EquipmentController : ControllerBase
         });
     }
 
+    /// <summary>
+    /// Module 6 — so sánh thông số kỹ thuật đồng bộ từ PMIS (EQUIPMENT_PMIS_SPEC) với dữ liệu nội bộ
+    /// (EQUIPMENTS.FormValues) theo cùng FormSchema. Trả về nguyên 2 khối JSON để FE tự so màu khác
+    /// biệt (tái dùng logic kiểu dossier-form-schema.util.ts) — BE chỉ khớp field ↔ key PMIS theo
+    /// pmisFieldName (khai báo qua Form Builder) hoặc name/key/id (fallback), và liệt kê field chưa
+    /// khai báo mapping vào fieldMappingWarnings (khác với "có sai khác dữ liệu").
+    /// </summary>
+    [HttpGet("{id:guid}/pmis-spec-diff")]
+    public async Task<IActionResult> GetPmisSpecDiff(Guid id)
+    {
+        var dto = await _equipmentRepository.GetDtoByIdAsync(id);
+        if (dto == null)
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
+
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        if (allowedUnitIds != null && (!dto.UnitId.HasValue || !allowedUnitIds.Contains(dto.UnitId.Value)))
+            return Forbid();
+
+        var pmisSpec = await _equipmentPmisSpecRepository.GetByEquipmentIdAsync(id);
+        var pmisFormValues = pmisSpec?.FormValues;
+        var pmisSyncedAt = pmisSpec?.SyncedAt;
+
+        var fieldMappingWarnings = new List<object>();
+        if (!string.IsNullOrWhiteSpace(dto.FormSchema) && pmisFormValues != null)
+        {
+            try
+            {
+                using var pmisValuesDoc = JsonDocument.Parse(pmisFormValues);
+                foreach (var field in EnumerateSchemaFields(dto.FormSchema))
+                {
+                    var localKey = ResolveSchemaFieldName(field);
+                    var pmisKey = ReadSchemaString(field, "pmisFieldName", "PmisFieldName");
+                    var resolvedKey = !string.IsNullOrWhiteSpace(pmisKey) ? pmisKey : localKey;
+
+                    if (string.IsNullOrWhiteSpace(resolvedKey) || !TryGetPropertyIgnoreCase(pmisValuesDoc.RootElement, resolvedKey, out _))
+                    {
+                        fieldMappingWarnings.Add(new
+                        {
+                            fieldName = localKey,
+                            label = ReadSchemaString(field, "label", "Label") ?? localKey
+                        });
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // Dữ liệu FormValues PMIS không phải JSON hợp lệ — bỏ qua cảnh báo mapping, FE vẫn hiển thị raw.
+            }
+        }
+
+        return Ok(new
+        {
+            formSchema = dto.FormSchema,
+            localFormValues = dto.FormValues,
+            pmisFormValues,
+            pmisSyncedAt,
+            fieldMappingWarnings
+        });
+    }
+
+    private static IEnumerable<JsonElement> EnumerateSchemaFields(string formSchemaJson)
+    {
+        using var doc = JsonDocument.Parse(formSchemaJson);
+        var root = doc.RootElement;
+        var arrayElement = root.ValueKind == JsonValueKind.Array
+            ? root
+            : (root.TryGetProperty("fields", out var fieldsProp) ? fieldsProp : default);
+
+        if (arrayElement.ValueKind != JsonValueKind.Array) yield break;
+
+        foreach (var field in arrayElement.EnumerateArray())
+        {
+            // Clone vì JsonDocument gốc sẽ bị dispose khi ra khỏi using — cần giữ lại để dùng bên ngoài.
+            yield return field.Clone();
+        }
+    }
+
+    private static string? ResolveSchemaFieldName(JsonElement field) =>
+        ReadSchemaString(field, "name", "Name") ??
+        ReadSchemaString(field, "key", "Key") ??
+        ReadSchemaString(field, "id", "Id") ??
+        ReadSchemaString(field, "fieldName", "FieldName");
+
+    private static string? ReadSchemaString(JsonElement field, params string[] propertyNames)
+    {
+        foreach (var name in propertyNames)
+        {
+            if (TryGetPropertyIgnoreCase(field, name, out var value) && value.ValueKind == JsonValueKind.String)
+            {
+                var str = value.GetString();
+                if (!string.IsNullOrWhiteSpace(str)) return str;
+            }
+        }
+        return null;
+    }
+
+    private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement value)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var prop in element.EnumerateObject())
+            {
+                if (string.Equals(prop.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = prop.Value;
+                    return true;
+                }
+            }
+        }
+        value = default;
+        return false;
+    }
 }
 
 public class UpdateFormValuesRequest
