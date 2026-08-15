@@ -50,7 +50,7 @@ public sealed class SsoAccountService : ISsoAccountService
         if (string.IsNullOrWhiteSpace(userId))
         {
             var organizationUnitId = await ResolveOrganizationUnitIdAsync(identity.OrgId);
-            var positionId = ResolvePositionId(identity.PositionId);
+            var positionId = await ResolvePositionIdAsync(identity.PositionName);
             var officerRoleId = await _connection.QuerySingleOrDefaultAsync<long?>(@"
                 SELECT Id
                 FROM ROLE
@@ -95,6 +95,7 @@ public sealed class SsoAccountService : ISsoAccountService
             SET FullName = :FullName,
                 Email = :Email,
                 PHONE_NUMBER = :PhoneNumber,
+                OrganizationUnitId = :OrganizationUnitId,
                 PositionId = :PositionId,
                 PositionName = :PositionName,
                 AUTH_PROVIDER = 'SSO',
@@ -114,7 +115,8 @@ public sealed class SsoAccountService : ISsoAccountService
                 FullName = FirstNotEmpty(identity.FullName, username) ?? username,
                 Email = NullIfEmpty(identity.Email) ?? string.Empty,
                 PhoneNumber = NullIfEmpty(identity.Phone),
-                PositionId = ResolvePositionId(identity.PositionId),
+                OrganizationUnitId = await ResolveOrganizationUnitIdAsync(identity.OrgId),
+                PositionId = await ResolvePositionIdAsync(identity.PositionName),
                 PositionName = NullIfEmpty(identity.PositionName),
                 SsoUserId = identity.UserId,
                 SsoUsername = identity.Username,
@@ -140,43 +142,116 @@ public sealed class SsoAccountService : ISsoAccountService
         if (normalizedOrgId is null)
             return null;
 
-        if (!long.TryParse(normalizedOrgId, out var organizationUnitId))
+        var organizationUnitId = await _connection.QuerySingleOrDefaultAsync<long?>(@"
+            SELECT Id
+            FROM ORGANIZATION_UNIT
+            WHERE ORGIDSSO = :OrgIdSso
+              AND IsActive = 1
+              AND IsDeleted = 0
+            FETCH FIRST 1 ROWS ONLY",
+            new { OrgIdSso = normalizedOrgId });
+        if (!organizationUnitId.HasValue)
         {
             throw new SsoException(
                 "SSO-ORG-MAPPING",
-                $"orgId '{normalizedOrgId}' từ SSO không phải ID đơn vị hợp lệ.",
-                500);
-        }
-
-        var exists = await _connection.ExecuteScalarAsync<int>(
-            "SELECT COUNT(1) FROM ORGANIZATION_UNIT WHERE Id = :Id AND IsActive = 1 AND IsDeleted = 0",
-            new { Id = organizationUnitId });
-        if (exists == 0)
-        {
-            throw new SsoException(
-                "SSO-ORG-MAPPING",
-                $"Không tìm thấy đơn vị nội bộ đang hoạt động có ID = {organizationUnitId} từ orgId SSO.",
+                $"Không tìm thấy đơn vị nội bộ đang hoạt động có ORGIDSSO = '{normalizedOrgId}'.",
                 500);
         }
 
         return organizationUnitId;
     }
 
-    private static long? ResolvePositionId(string? ssoPositionId)
+    private async Task<long?> ResolvePositionIdAsync(string? ssoPositionName)
     {
-        var normalizedPositionId = NullIfEmpty(ssoPositionId);
-        if (normalizedPositionId is null)
+        var positionName = NullIfEmpty(ssoPositionName);
+        if (positionName is null)
             return null;
 
-        if (!long.TryParse(normalizedPositionId, out var positionId))
+        var positionId = await _connection.QueryFirstOrDefaultAsync<long?>(@"
+            SELECT c.Id
+            FROM CATALOG c
+            INNER JOIN CATALOG_TYPE ct ON ct.Id = c.CatalogTypeId
+            WHERE UPPER(ct.Code) = 'CHUC_VU'
+              AND ct.IsDeleted = 0
+              AND c.IsDeleted = 0
+              AND UPPER(TRIM(c.Name)) = UPPER(TRIM(:PositionName))
+            ORDER BY CASE WHEN c.Status = 1 THEN 0 ELSE 1 END, c.Id
+            FETCH FIRST 1 ROWS ONLY",
+            new { PositionName = positionName });
+        if (positionId.HasValue)
+            return positionId;
+
+        var catalogTypeId = await _connection.QueryFirstOrDefaultAsync<long?>(@"
+            SELECT Id
+            FROM CATALOG_TYPE
+            WHERE UPPER(Code) = 'CHUC_VU'
+              AND IsDeleted = 0
+            FETCH FIRST 1 ROWS ONLY");
+        if (!catalogTypeId.HasValue)
         {
             throw new SsoException(
-                "SSO-POSITION-MAPPING",
-                $"positionId '{normalizedPositionId}' từ SSO không phải ID chức vụ hợp lệ.",
+                "SSO-POSITION-CATALOG",
+                "Không tìm thấy loại danh mục chức vụ có mã 'CHUC_VU'.",
                 500);
         }
 
-        return positionId;
+        string? positionCode = null;
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            var candidateCode = $"SSO_POS_{Guid.NewGuid().ToString("N")[..3]}";
+            var exists = await _connection.ExecuteScalarAsync<int>(@"
+                SELECT COUNT(1)
+                FROM CATALOG
+                WHERE CatalogTypeId = :CatalogTypeId
+                  AND UPPER(Code) = UPPER(:Code)",
+                new { CatalogTypeId = catalogTypeId.Value, Code = candidateCode });
+            if (exists == 0)
+            {
+                positionCode = candidateCode;
+                break;
+            }
+        }
+
+        if (positionCode is null)
+        {
+            throw new SsoException(
+                "SSO-POSITION-CATALOG",
+                "Không thể tạo mã chức vụ SSO không trùng lặp.",
+                500);
+        }
+
+        var parameters = new DynamicParameters();
+        parameters.Add("Code", positionCode);
+        parameters.Add("Name", positionName);
+        parameters.Add("CatalogTypeId", catalogTypeId.Value);
+        parameters.Add("Description", "Tự động đồng bộ từ SSO.");
+        parameters.Add("CreatedBy", "sso");
+        parameters.Add("Id", dbType: DbType.Int64, direction: ParameterDirection.Output);
+
+        await _connection.ExecuteAsync(@"
+            INSERT INTO CATALOG (
+                Code,
+                Name,
+                CatalogTypeId,
+                ParentId,
+                Description,
+                UnitId,
+                CreatedBy,
+                Priority,
+                Status)
+            VALUES (
+                :Code,
+                :Name,
+                :CatalogTypeId,
+                NULL,
+                :Description,
+                NULL,
+                :CreatedBy,
+                1,
+                1)
+            RETURNING Id INTO :Id", parameters);
+
+        return parameters.Get<long>("Id");
     }
 
     private static User CreateSsoUser(

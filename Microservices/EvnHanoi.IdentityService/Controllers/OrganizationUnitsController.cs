@@ -53,7 +53,7 @@ public class OrganizationUnitsController : ControllerBase
         {
             var units = await _unitRepository.GetOrganizationUnitsHierarchicalAsync(startUnitId);
             units = status != null ? units.Where(x => x.IsActive == (status == 1 ? true : false)) : units; 
-            result = units.Select(u => new { u.Id, u.Code, u.Name, u.ParentId }).ToList();
+            result = units.Select(u => new { u.Id, u.Code, u.Name, u.OrgIdSso, u.ParentId }).ToList();
             var cacheOptions = new MemoryCacheEntryOptions()
                 .SetAbsoluteExpiration(TimeSpan.FromMinutes(5));
             _cache.Set(cacheKey, result, cacheOptions);
@@ -69,7 +69,7 @@ public class OrganizationUnitsController : ControllerBase
         var units = await _unitRepository.GetAllAsync();
         return Ok(units
             .Where(unit => unit.IsActive && !unit.IsDeleted)
-            .Select(unit => new { unit.Id, unit.Code, unit.Name, unit.ParentId })
+            .Select(unit => new { unit.Id, unit.Code, unit.Name, unit.OrgIdSso, unit.ParentId })
             .ToList());
     }
 
@@ -95,6 +95,7 @@ public class OrganizationUnitsController : ControllerBase
     {
         unit.Code = unit.Code?.Trim() ?? string.Empty;
         unit.Name = unit.Name?.Trim() ?? string.Empty;
+        unit.OrgIdSso = string.IsNullOrWhiteSpace(unit.OrgIdSso) ? null : unit.OrgIdSso.Trim();
         unit.Description = unit.Description?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(unit.Code) || string.IsNullOrWhiteSpace(unit.Name))
         {
@@ -118,6 +119,7 @@ public class OrganizationUnitsController : ControllerBase
         if (id != unit.Id) return BadRequest(new { message = "ID không trùng khớp." });
         unit.Code = unit.Code?.Trim() ?? string.Empty;
         unit.Name = unit.Name?.Trim() ?? string.Empty;
+        unit.OrgIdSso = string.IsNullOrWhiteSpace(unit.OrgIdSso) ? null : unit.OrgIdSso.Trim();
         unit.Description = unit.Description?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(unit.Code) || string.IsNullOrWhiteSpace(unit.Name))
         {
