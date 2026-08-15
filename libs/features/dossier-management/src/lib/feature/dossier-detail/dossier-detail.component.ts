@@ -64,6 +64,8 @@ function pickFirst<T>(...values: T[]): T | undefined {
 export class DossierDetailComponent implements OnInit, OnDestroy {
   @Input() dossierId!: string;
   @Input() menuScope: DossierMenuScope = 'creator';
+  /** Ngữ cảnh mở hồ sơ, VD: 'report' khi tới từ trang báo cáo (?from=report). */
+  @Input() fromContext?: string;
   @Output() cancel = new EventEmitter<void>();
   @Output() edit = new EventEmitter<void>();
 
@@ -115,7 +117,8 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     this.service.getRelatedDossiers(dossierId, {
       keyword: this.filterKeyword,
       equipmentId: this.filterEquipmentId,
-      dossierTypeId: this.filterDossierTypeId
+      dossierTypeId: this.filterDossierTypeId,
+      from: this.fromContext
     }, this.dossierKindId()).subscribe({
       next: (res) => {
         this.relatedDossiers.set(Array.isArray(res) ? res : []);

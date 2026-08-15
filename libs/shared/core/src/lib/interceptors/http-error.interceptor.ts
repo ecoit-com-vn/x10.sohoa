@@ -8,7 +8,9 @@ import { MessageService } from 'primeng/api';
 export const SUPPRESS_HTTP_ERROR_TOAST = new HttpContextToken<boolean>(() => false);
 
 function isAuthEndpoint(url: string): boolean {
-  return url.includes('/auth/login') || url.includes('/auth/refresh');
+  return url.includes('/auth/login')
+    || url.includes('/auth/sso-login')
+    || url.includes('/auth/refresh');
 }
 
 function readApiErrorMessage(error: HttpErrorResponse, fallback: string): string {

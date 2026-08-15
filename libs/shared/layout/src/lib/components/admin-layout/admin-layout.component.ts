@@ -164,6 +164,10 @@ export class AdminLayout implements OnInit, OnDestroy {
   goToChangePassword(event: Event) {
     event.stopPropagation();
     this.profileMenuOpen.set(false);
+    if (this.authService.isSsoUser()) {
+      this.authService.redirectToSsoChangePassword();
+      return;
+    }
     this.router.navigate(['/profile/change-password']);
   }
 
@@ -424,6 +428,10 @@ export class AdminLayout implements OnInit, OnDestroy {
   }
 
   logout() {
+    if (this.authService.isSsoUser()) {
+      this.authService.logout(true);
+      return;
+    }
     this.authService.logout();
     this.router.navigate(['/login']);
   }

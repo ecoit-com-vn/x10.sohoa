@@ -203,6 +203,14 @@ export class ReportDossierByOperationTimeComponent implements OnInit, AfterViewI
     this.loadStatsData();
   }
 
+  onResetSearch(): void {
+    this.selectedUnitId.set(null);
+    this.selectedObjectType.set(null);
+    this.selectedFromDate.set(null);
+    this.selectedToDate.set(null);
+    this.applyDefaultUnitFilter();
+    this.onFilter();
+  }
   switchTab(tab: MainTabMode): void {
     this.activeTab.set(tab);
     queueMicrotask(() => {

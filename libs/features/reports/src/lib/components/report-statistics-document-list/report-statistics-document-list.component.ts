@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
 import { TableModule } from 'primeng/table';
 import { ReportStatisticsDocumentListConfig } from '../../data-access/report-statistics.config';
 import {
@@ -18,7 +19,7 @@ import { finalize } from 'rxjs';
 @Component({
   selector: 'app-report-statistics-document-list',
   standalone: true,
-  imports: [CommonModule, TableModule],
+  imports: [CommonModule, TableModule, EcoPaginatorComponent],
   templateUrl: './report-statistics-document-list.component.html',
   styleUrl: './report-statistics-document-list.component.scss'
 })
@@ -51,8 +52,8 @@ export class ReportStatisticsDocumentListComponent {
     });
   }
 
-  onPageChange(event: { first: number; rows: number }): void {
-    this.page.set(Math.floor(event.first / event.rows) + 1);
+  onPaginatorPageChange(event: { first: number; rows: number; page: number; pageCount: number }): void {
+    this.page.set(event.page + 1);
     this.pageSize.set(event.rows);
   }
 

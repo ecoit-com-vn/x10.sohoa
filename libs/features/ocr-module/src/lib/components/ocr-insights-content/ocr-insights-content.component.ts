@@ -203,6 +203,16 @@ export class OcrInsightsContentComponent implements OnInit {
     });
   }
 
+  scriptTypeLabel(text: string): string {
+    const letters = (text ?? '').replace(/[^\p{L}]/gu, '');
+    if (!letters) return '—';
+    const isUpper = letters === letters.toUpperCase() && letters !== letters.toLowerCase();
+    const isLower = letters === letters.toLowerCase() && letters !== letters.toUpperCase();
+    if (isUpper) return 'Chữ in hoa';
+    if (isLower) return 'Chữ thường';
+    return 'Hỗn hợp';
+  }
+
   private toOverlayRegion(region: OcrModuleRegionDto): OcrOverlayRegion {
     const confidence = region.confidence;
     const colorClass =
