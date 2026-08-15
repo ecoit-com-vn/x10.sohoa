@@ -35,6 +35,15 @@ public class UserRepository : IUserRepository
                    u.{nameof(User.PositionId)},
                    u.{nameof(User.PositionName)},
                    u.{nameof(User.AvatarObjectKey)},
+                   u.AUTH_PROVIDER AS {nameof(User.AuthProvider)},
+                   u.SSO_USER_ID AS {nameof(User.SsoUserId)},
+                   u.SSO_USERNAME AS {nameof(User.SsoUsername)},
+                   u.SSO_NS_ID AS {nameof(User.SsoNsId)},
+                   u.SSO_DEPT_ID AS {nameof(User.SsoDeptId)},
+                   u.SSO_ORG_ID AS {nameof(User.SsoOrgId)},
+                   u.SSO_POSITION_ID AS {nameof(User.SsoPositionId)},
+                   u.STAFF_CODE AS {nameof(User.StaffCode)},
+                   u.IS_SSO_ENABLED AS {nameof(User.IsSsoEnabled)},
                    u.{nameof(User.AccessFailedCount)}, 
                    u.{nameof(User.LockoutEnd)}, 
                    u.{nameof(User.LockoutEnabled)},
@@ -73,6 +82,15 @@ public class UserRepository : IUserRepository
                    u.{nameof(User.PositionId)},
                    u.{nameof(User.PositionName)},
                    u.{nameof(User.AvatarObjectKey)},
+                   u.AUTH_PROVIDER AS {nameof(User.AuthProvider)},
+                   u.SSO_USER_ID AS {nameof(User.SsoUserId)},
+                   u.SSO_USERNAME AS {nameof(User.SsoUsername)},
+                   u.SSO_NS_ID AS {nameof(User.SsoNsId)},
+                   u.SSO_DEPT_ID AS {nameof(User.SsoDeptId)},
+                   u.SSO_ORG_ID AS {nameof(User.SsoOrgId)},
+                   u.SSO_POSITION_ID AS {nameof(User.SsoPositionId)},
+                   u.STAFF_CODE AS {nameof(User.StaffCode)},
+                   u.IS_SSO_ENABLED AS {nameof(User.IsSsoEnabled)},
                    u.{nameof(User.AccessFailedCount)}, 
                    u.{nameof(User.LockoutEnd)}, 
                    u.{nameof(User.LockoutEnabled)},
@@ -137,7 +155,7 @@ public class UserRepository : IUserRepository
         var offset = (page - 1) * pageSize;
         
         var sql = $@"
-            SELECT Id, Username, Email, FullName, PasswordHash, IsActive, OrganizationUnitId, PositionId, PositionName, AvatarObjectKey, AccessFailedCount, LockoutEnd, LockoutEnabled,
+            SELECT Id, Username, Email, FullName, PasswordHash, IsActive, IsSsoEnabled, OrganizationUnitId, PositionId, PositionName, AvatarObjectKey, AccessFailedCount, LockoutEnd, LockoutEnabled,
                    OrgId AS Id, Code, Name, ParentId, Description
             FROM (
                 SELECT u.Id AS Id, 
@@ -146,6 +164,7 @@ public class UserRepository : IUserRepository
                        u.FullName AS FullName, 
                        u.PasswordHash AS PasswordHash, 
                        u.IsActive AS IsActive, 
+                       u.IS_SSO_ENABLED AS IsSsoEnabled,
                        u.OrganizationUnitId AS OrganizationUnitId,
                        u.PositionId AS PositionId,
                        u.PositionName AS PositionName,
@@ -200,6 +219,15 @@ public class UserRepository : IUserRepository
                    u.{nameof(User.PositionId)},
                    u.{nameof(User.PositionName)},
                    u.{nameof(User.AvatarObjectKey)},
+                   u.AUTH_PROVIDER AS {nameof(User.AuthProvider)},
+                   u.SSO_USER_ID AS {nameof(User.SsoUserId)},
+                   u.SSO_USERNAME AS {nameof(User.SsoUsername)},
+                   u.SSO_NS_ID AS {nameof(User.SsoNsId)},
+                   u.SSO_DEPT_ID AS {nameof(User.SsoDeptId)},
+                   u.SSO_ORG_ID AS {nameof(User.SsoOrgId)},
+                   u.SSO_POSITION_ID AS {nameof(User.SsoPositionId)},
+                   u.STAFF_CODE AS {nameof(User.StaffCode)},
+                   u.IS_SSO_ENABLED AS {nameof(User.IsSsoEnabled)},
                    u.{nameof(User.AccessFailedCount)}, 
                    u.{nameof(User.LockoutEnd)}, 
                    u.{nameof(User.LockoutEnabled)},
@@ -257,6 +285,7 @@ public class UserRepository : IUserRepository
                 {nameof(User.PositionId)} = :PositionId,
                 {nameof(User.PositionName)} = :PositionName,
                 {nameof(User.AvatarObjectKey)} = :AvatarObjectKey,
+                IS_SSO_ENABLED = :IsSsoEnabled,
                 {nameof(User.LockoutEnabled)} = :LockoutEnabled
             WHERE {nameof(User.Id)} = :Id";
             
@@ -271,6 +300,7 @@ public class UserRepository : IUserRepository
             user.PositionId,
             user.PositionName,
             user.AvatarObjectKey,
+            IsSsoEnabled = user.IsSsoEnabled ? 1 : 0,
             LockoutEnabled = user.LockoutEnabled ? 1 : 0,
             user.Id
         });
@@ -373,10 +403,11 @@ public class UserRepository : IUserRepository
                 {nameof(User.OrganizationUnitId)},
                 {nameof(User.PositionId)},
                 {nameof(User.PositionName)},
+                IS_SSO_ENABLED,
                 {nameof(User.AccessFailedCount)},
                 {nameof(User.LockoutEnabled)}
             )
-            VALUES (:Id, :Username, :Email, :FullName, :PasswordHash, :IsActive, :OrganizationUnitId, :PositionId, :PositionName, :AccessFailedCount, :LockoutEnabled)";
+            VALUES (:Id, :Username, :Email, :FullName, :PasswordHash, :IsActive, :OrganizationUnitId, :PositionId, :PositionName, :IsSsoEnabled, :AccessFailedCount, :LockoutEnabled)";
             
         await _connection.ExecuteAsync(sql, new
         {
@@ -389,6 +420,7 @@ public class UserRepository : IUserRepository
             user.OrganizationUnitId,
             user.PositionId,
             user.PositionName,
+            IsSsoEnabled = user.IsSsoEnabled ? 1 : 0,
             user.AccessFailedCount,
             LockoutEnabled = user.LockoutEnabled ? 1 : 0
         });

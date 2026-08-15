@@ -21,6 +21,15 @@ public class User
     /// </summary>
     public string? PositionName { get; set; }
     public string? AvatarObjectKey { get; set; }
+    public string AuthProvider { get; set; } = "LOCAL";
+    public string? SsoUserId { get; set; }
+    public string? SsoUsername { get; set; }
+    public string? SsoNsId { get; set; }
+    public string? SsoDeptId { get; set; }
+    public string? SsoOrgId { get; set; }
+    public string? SsoPositionId { get; set; }
+    public string? StaffCode { get; set; }
+    public bool IsSsoEnabled { get; set; }
 
     public bool IsActive { get; set; } = true;
     public bool IsDeleted { get; set; }
