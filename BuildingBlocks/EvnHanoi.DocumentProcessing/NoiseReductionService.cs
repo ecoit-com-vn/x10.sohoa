@@ -8,10 +8,17 @@ using SixLabors.ImageSharp.Processing;
 namespace EvnHanoi.DocumentProcessing;
 
 /// <summary>
-/// Khử nhiễu PDF theo yêu cầu người dùng — render lại từng trang thành ảnh, cân bằng histogram
-/// (sáng/tương phản) toàn cục, rồi nhúng lại thành 1 PDF mới. Khác với <see cref="ScannedPdfRasterizer"/>
-/// (chạy có điều kiện, âm thầm, chỉ cho PDF scan thuần lúc upload), đây là tác vụ người dùng chủ động
-/// bấm nút để chạy trên PDF hiện tại, không phân loại scan/text trước.
+/// Khử nhiễu PDF theo yêu cầu người dùng — render lại từng trang thành ảnh, lọc khử nhiễu (Gaussian
+/// blur nhẹ để làm mịn hạt nhiễu/vân giấy, sau đó Gaussian sharpen nhẹ để phục hồi độ nét chữ), rồi
+/// nhúng lại thành 1 PDF mới. Khác với <see cref="ScannedPdfRasterizer"/> (chạy có điều kiện, âm thầm,
+/// chỉ cho PDF scan thuần lúc upload), đây là tác vụ người dùng chủ động bấm nút để chạy trên PDF hiện
+/// tại, không phân loại scan/text trước.
+///
+/// Đã thử "Histogram Equalization" (cả Global lẫn CLAHE — Adaptive + ClipHistogram) trước đó nhưng loại
+/// bỏ hoàn toàn: đây là họ thuật toán TĂNG TƯƠNG PHẢN, không phải khử nhiễu — nó khuếch đại vân giấy/nhiễu
+/// hạt sẵn có thành hiệu ứng posterization rõ rệt, và làm bạc màu nghiêm trọng các trang có ảnh màu (đã
+/// kiểm chứng bằng ảnh mẫu thật). Blur+Sharpen là bộ lọc khử nhiễu thật (giảm nhiễu tần số cao, giữ màu
+/// nguyên vẹn), đã kiểm chứng không còn 2 vấn đề trên.
 /// </summary>
 public interface INoiseReductionService
 {
@@ -22,6 +29,10 @@ public class NoiseReductionService : INoiseReductionService
 {
     internal const int TargetDpi = 150;
     internal const int MaxPageCount = 30;
+
+    // Sigma nhỏ để chỉ làm mịn nhiễu hạt tần số cao, không làm mờ chữ/đường nét. Sharpen cùng sigma
+    // ngay sau đó để phục hồi độ sắc nét bị mất do blur — kỹ thuật "denoise rồi unsharp" tiêu chuẩn.
+    internal const float DenoiseSigma = 0.7f;
 
     public Task<byte[]> ApplyAsync(byte[] pdfBytes, CancellationToken cancellationToken = default)
     {
@@ -55,7 +66,7 @@ public class NoiseReductionService : INoiseReductionService
 
                 renderStream.Position = 0;
                 using var image = Image.Load<Rgba32>(renderStream);
-                image.Mutate(x => x.HistogramEqualization());
+                image.Mutate(x => x.GaussianBlur(DenoiseSigma).GaussianSharpen(DenoiseSigma));
 
                 var pageStream = new MemoryStream();
                 image.SaveAsJpeg(pageStream, new JpegEncoder { Quality = 85 });
