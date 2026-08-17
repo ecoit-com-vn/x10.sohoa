@@ -55,15 +55,21 @@ namespace EvnHanoi.NotificationService.Controllers
         [SkipAudit]
         public async Task<IActionResult> GetDashboardDownloadCount(
             [FromQuery] DateTime? fromDate = null,
-            [FromQuery] DateTime? toDate = null)
+            [FromQuery] DateTime? toDate = null,
+            [FromQuery] string? unitId = null)
         {
             var authHeader = Request.Headers["Authorization"].ToString();
             if (!await _auditLogService.CheckPermissionAsync(authHeader, User, "VIEW_DASHBOARD"))
                 return StatusCode(403, new { message = "Không có quyền truy cập Dashboard." });
 
+            var isSuperAdmin = User.IsInRole("ADMIN") || User.Claims.Any(c =>
+                c.Type == System.Security.Claims.ClaimTypes.Role && c.Value == "ADMIN");
+
+            var effectiveUnitId = isSuperAdmin ? unitId : (User.FindFirst("unit_id")?.Value ?? unitId);
+
             try
             {
-                var total = await _auditLogService.GetDashboardDownloadCountAsync(fromDate, toDate);
+                var total = await _auditLogService.GetDashboardDownloadCountAsync(fromDate, toDate, effectiveUnitId);
                 return Ok(new { totalCount = total });
             }
             catch (Exception ex)
