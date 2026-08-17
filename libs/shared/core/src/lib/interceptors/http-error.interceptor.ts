@@ -13,6 +13,13 @@ function isAuthEndpoint(url: string): boolean {
     || url.includes('/auth/refresh');
 }
 
+function isBackgroundSafeEndpoint(url: string): boolean {
+  return url.includes('/dashboard/')
+    || url.includes('/dashboard')
+    || url.includes('/notifications')
+    || url.includes('/lookup-tracking');
+}
+
 function readApiErrorMessage(error: HttpErrorResponse, fallback: string): string {
   const body = error.error;
   if (typeof body === 'string' && body.trim()) return body.trim();
@@ -32,7 +39,7 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(req).pipe(
     catchError((error: HttpErrorResponse) => {
-      if (req.context.get(SUPPRESS_HTTP_ERROR_TOAST)) {
+      if (req.context.get(SUPPRESS_HTTP_ERROR_TOAST) || isBackgroundSafeEndpoint(req.url) || isBackgroundSafeEndpoint(error.url || '')) {
         return throwError(() => error);
       }
 

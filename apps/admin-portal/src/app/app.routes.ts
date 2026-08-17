@@ -7,6 +7,10 @@ export const appRoutes: Route[] = [
     loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.Login)
   },
   {
+    path: 'sso-login',
+    loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.Login)
+  },
+  {
     path: '',
     loadComponent: () => import('@sohoa.frontend/shared/layout').then(m => m.AdminLayout),
     canActivate: [authGuard],
@@ -81,6 +85,14 @@ export const appRoutes: Route[] = [
         loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.ExternalApiKeyHistoryComponent)
       },
       {
+        path: 'administration/trainning-ai-ocr',
+        loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.AiOcrTrainingDocumentListComponent)
+      },
+      {
+        path: 'administration/trainning-ai-ocr/:jobId/ocr-analysis',
+        loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.AiOcrTrainingDocumentOcrInsightsPageComponent)
+      },
+      {
         path: 'administration/workflow-builder/new',
         loadComponent: () => import('@sohoa.frontend/features/workflow').then(m => m.WorkflowBuilderComponent)
       },
@@ -135,6 +147,10 @@ export const appRoutes: Route[] = [
       {
         path: 'documents',
         loadChildren: () => import('@sohoa.frontend/features/document-management').then(m => m.DOCUMENT_MANAGEMENT_ROUTES)
+      },
+      {
+        path: 'pmis-sync',
+        loadChildren: () => import('@sohoa.frontend/features/pmis-sync').then(m => m.PMIS_SYNC_ROUTES)
       },
       {
         path: 'error',

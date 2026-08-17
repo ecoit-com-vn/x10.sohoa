@@ -354,7 +354,7 @@ export class AuthService {
   }
 
   private buildSsoUrl(baseUrl: string, config: SsoPublicConfig): string {
-    const redirectUrl = `${window.location.origin}/#/login`;
+    const redirectUrl = `${window.location.origin}/#/sso-login`;
     const separator = baseUrl.includes('?') ? '&' : '?';
     return `${baseUrl}${separator}appCode=${encodeURIComponent(config.appCode)}&redirectUrl=${encodeURIComponent(redirectUrl)}`;
   }
