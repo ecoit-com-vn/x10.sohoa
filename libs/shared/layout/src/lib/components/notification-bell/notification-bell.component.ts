@@ -86,10 +86,13 @@ export class NotificationBellComponent implements OnInit {
   }
 
   private loadNotifications() {
-    this.notificationApi.getNotifications(1, 20).subscribe(res => {
-      this.notifications.set(res.items);
-      this.loadDossierTitles(res.items);
-    });
+    this.notificationApi
+      .getNotifications(1, 20)
+      .pipe(catchError(() => of({ items: [], totalCount: 0, unreadCount: 0, page: 1, pageSize: 20 })))
+      .subscribe((res) => {
+        this.notifications.set(res.items);
+        this.loadDossierTitles(res.items);
+      });
   }
 
   private loadDossierTitles(items: NotificationItem[]) {
