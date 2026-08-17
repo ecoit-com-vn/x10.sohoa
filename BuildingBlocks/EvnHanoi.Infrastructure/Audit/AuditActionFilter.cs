@@ -102,7 +102,9 @@ public sealed class AuditActionFilter : IAsyncActionFilter
         var actionName = context.RouteData.Values["action"]?.ToString() ?? "Unknown";
         var actionLower = actionName.ToLowerInvariant();
         var isExport = method.Equals("GET", StringComparison.OrdinalIgnoreCase) &&
-                       (actionLower.Contains("export") || actionLower.Contains("download"));
+                       (actionLower.Contains("export") || actionLower.Contains("download")) &&
+                       !actionLower.Contains("downloadcount") &&
+                       !actionLower.Contains("downloadurl");
 
         var isLogin = string.Equals(controllerName, "Auth", StringComparison.OrdinalIgnoreCase) &&
                       actionLower.Contains("login") &&
