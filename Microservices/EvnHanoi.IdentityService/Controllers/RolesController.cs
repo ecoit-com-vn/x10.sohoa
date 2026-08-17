@@ -55,7 +55,7 @@ public class RolesController : ControllerBase
             roles = await _roleRepository.GetAllAsync(RoleScopeTypes.UNIT.Id, unitId, includeDescendants: true);
         }
 
-        return Ok(roles.Select(r => new { r.Id, r.Code, r.Name, r.ScopeTypeId, r.OrganizationUnitId }));
+        return Ok(roles.Select(r => new { r.Id, r.Code, r.Name, r.ScopeTypeId, r.OrganizationUnitId, r.IsActive }));
     }
 
     [HttpGet]

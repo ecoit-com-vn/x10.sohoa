@@ -58,7 +58,7 @@ public abstract class ReportDossierControllerBase : ControllerBase
         if (!scope.IsAdmin && scope.UnitId is null)
             return Unauthorized(new { message = "Không thể xác định đơn vị của người dùng" });
 
-        var items = await _repository.GetOrganizationUnitsAsync(scope.IsAdmin, scope.UnitId);
+        var items = await _repository.GetOrganizationUnitsWithStatusAsync(scope.IsAdmin, scope.UnitId, 1);
         return Ok(items);
     }
 
