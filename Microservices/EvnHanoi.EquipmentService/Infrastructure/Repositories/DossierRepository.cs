@@ -21,9 +21,9 @@ public class DossierRepository : IDossierRepository
     {
         _connection.EnsureOpen();
 
-        var sql = @"SELECT ID, CODE, NAME, INFRA_TYPE_ID as InfraTypeId, UNIT_ID as UnitId, GRIDTYPEID as GridTypeId, IS_ACTIVE as IsActive 
-                    FROM INFRASTRUCTURE 
-                    WHERE IsDeleted = 0";
+        var sql = @"SELECT ID, CODE, NAME, INFRA_TYPE_ID as InfraTypeId, UNIT_ID as UnitId, GRIDTYPEID as GridTypeId, IS_ACTIVE as IsActive
+                    FROM INFRASTRUCTURE
+                    WHERE IsDeleted = 0 AND IS_ACTIVE = 1";
 
         var parameters = new DynamicParameters();
         if (authorizedUnitIds != null && authorizedUnitIds.Any())
