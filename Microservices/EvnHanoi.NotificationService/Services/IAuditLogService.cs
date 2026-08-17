@@ -22,7 +22,7 @@ namespace EvnHanoi.NotificationService.Services
             IReadOnlyList<string>? unitIds = null);
 
         Task<IReadOnlyList<AuditLogItemDto>> GetRecentAuditLogsAsync(int count);
-        Task<long> GetDashboardDownloadCountAsync(DateTime? fromDate = null, DateTime? toDate = null);
+        Task<long> GetDashboardDownloadCountAsync(DateTime? fromDate = null, DateTime? toDate = null, string? unitId = null);
         Task<(byte[] FileBytes, string FileName, int RowCount)> ExportAuditLogsAsync(
             DateTime fromDate,
             DateTime toDate,
