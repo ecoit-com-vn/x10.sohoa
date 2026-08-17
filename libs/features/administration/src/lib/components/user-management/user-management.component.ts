@@ -277,7 +277,9 @@ export class UserManagement implements OnInit {
     this.userService.getSystemRoles().subscribe({
       next: (res: any) => {
         const list = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
-        this.systemRoles.set(list);
+        // Sắp xếp theo tên vai trò (A-Z, đúng thứ tự dấu tiếng Việt) để combobox "Vai trò trực tiếp" dễ tìm.
+        const sorted = [...list].sort((a, b) => (a?.name ?? '').localeCompare(b?.name ?? '', 'vi'));
+        this.systemRoles.set(sorted);
       },
       error: () => {
         this.systemRoles.set([]);
@@ -439,7 +441,11 @@ export class UserManagement implements OnInit {
     this.userService.getUserRoles(user.id).subscribe({
       next: (ids: any) => {
         const list = Array.isArray(ids) ? ids : [];
-        this.selectedRoleIdsInForm.set(list.map((x: any) => Number(x)));
+        const roleIds = list.map((x: any) => Number(x));
+        // Sắp xếp theo tên vai trò (giống thứ tự combobox) để chip hiển thị trong popup chỉnh sửa cũng theo A-Z.
+        const roleById = new Map(this.systemRoles().map((r: any) => [r.id, r]));
+        roleIds.sort((a, b) => (roleById.get(a)?.name ?? '').localeCompare(roleById.get(b)?.name ?? '', 'vi'));
+        this.selectedRoleIdsInForm.set(roleIds);
       },
       error: () => this.selectedRoleIdsInForm.set([])
     });

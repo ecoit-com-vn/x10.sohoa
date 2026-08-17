@@ -44,7 +44,8 @@ export class TransmissionLineSearchComponent implements OnInit {
   orgUnits = signal<any[]>([]);
   gridTypes = signal<any[]>([]);
   searchKeyword = signal<string>('');
-  searchStatus = signal<string>(''); // '', '1', '0'
+  // Mặc định chỉ hiện đường dây đang hoạt động — người dùng có thể tự chọn "Ngừng hoạt động"/"Tất cả" nếu cần.
+  searchStatus = signal<string>('1'); // '', '1', '0'
   searchUnitId = signal<number | null>(null);
   searchGridTypeId = signal<number | null>(null);
   totalCount = signal<number>(0);
@@ -346,7 +347,7 @@ export class TransmissionLineSearchComponent implements OnInit {
 
   onResetSearch() {
     this.searchKeyword.set('');
-    this.searchStatus.set('');
+    this.searchStatus.set('1');
     this.searchUnitId.set(null);
     this.searchGridTypeId.set(null);
     this.currentPage.set(1);

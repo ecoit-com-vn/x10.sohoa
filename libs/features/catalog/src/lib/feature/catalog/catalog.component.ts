@@ -109,6 +109,10 @@ export class CatalogComponent implements OnInit {
   // Catalog Type Form Client Validation
   typeCodeError = computed(() => {
     if (this.typeFormSubmitted() && !this.currentTypeItem().code) return 'Mã loại danh mục là bắt buộc';
+    const code = this.currentTypeItem().code;
+    if (code && !/^[A-Za-z0-9_]+$/.test(code)) {
+      return 'Mã loại danh mục chỉ được nhập chữ không dấu, số và dấu gạch dưới, không chứa khoảng trắng';
+    }
     return this.typeServerErrors().code || this.typeServerErrors().Code || '';
   });
   typeNameError = computed(() => {
@@ -119,6 +123,10 @@ export class CatalogComponent implements OnInit {
   // Catalog Form Client Validation
   catalogCodeError = computed(() => {
     if (this.catalogFormSubmitted() && !this.currentCatalogItem().code) return 'Mã danh mục là bắt buộc';
+    const code = this.currentCatalogItem().code;
+    if (code && !/^[A-Za-z0-9_]+$/.test(code)) {
+      return 'Mã danh mục chỉ được nhập chữ không dấu, số và dấu gạch dưới, không chứa khoảng trắng';
+    }
     return this.catalogServerErrors().code || this.catalogServerErrors().Code || '';
   });
   catalogNameError = computed(() => {
@@ -326,6 +334,34 @@ export class CatalogComponent implements OnInit {
       delete copy[capitalized];
       return copy;
     });
+  }
+
+  /** Mã loại danh mục: chỉ cho phép chữ không dấu, số và gạch dưới — tự loại bỏ dấu tiếng Việt và khoảng trắng ngay khi gõ. */
+  onTypeCodeChange(value: string): void {
+    const sanitized = this.sanitizeCatalogCode(value);
+    if (sanitized !== value) {
+      this.currentTypeItem.update(item => ({ ...item, code: sanitized }));
+    }
+    this.onTypeFieldChange('code');
+  }
+
+  /** Mã danh mục: chỉ cho phép chữ không dấu, số và gạch dưới — tự loại bỏ dấu tiếng Việt và khoảng trắng ngay khi gõ. */
+  onCatalogCodeChange(value: string): void {
+    const sanitized = this.sanitizeCatalogCode(value);
+    if (sanitized !== value) {
+      this.currentCatalogItem.update(item => ({ ...item, code: sanitized }));
+    }
+    this.onCatalogFieldChange('code');
+  }
+
+  private sanitizeCatalogCode(value: string): string {
+    if (!value) return value;
+    const noDiacritics = value
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'D')
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '');
+    return noDiacritics.replace(/[^A-Za-z0-9_]/g, '');
   }
 
   onSaveType() {

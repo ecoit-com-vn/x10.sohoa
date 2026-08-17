@@ -194,7 +194,7 @@
                 <div class="form-group">
                     <label class="form-label">Mã nhóm quyền <span class="required">*</span></label>
                     <input type="text" class="wf-input w-full" [(ngModel)]="currentRole().code"
-                        (ngModelChange)="onFieldChange('code')" placeholder="Ví dụ: QUAN_TRI, CAN_BO..."
+                        (ngModelChange)="onCodeChange($event)" placeholder="Ví dụ: QUAN_TRI, CAN_BO..."
                         [disabled]="isEdit() || saving()" />
                     <span class="field-error" *ngIf="codeError()">{{ codeError() }}</span>
                 </div>
