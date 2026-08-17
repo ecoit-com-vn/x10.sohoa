@@ -1,3 +1,4 @@
+using EvnHanoi.Infrastructure.Audit;
 using EvnHanoi.Infrastructure.Security;
 using EvnHanoi.NotificationService.Models;
 using EvnHanoi.NotificationService.Services;
@@ -29,6 +30,7 @@ namespace EvnHanoi.NotificationService.Controllers
 
         [HttpGet("recent")]
         [Authorize]
+        [SkipAudit]
         public async Task<IActionResult> GetRecentAuditLogs()
         {
             var authHeader = Request.Headers["Authorization"].ToString();
@@ -50,6 +52,7 @@ namespace EvnHanoi.NotificationService.Controllers
 
         [HttpGet("dashboard/download-count")]
         [Authorize]
+        [SkipAudit]
         public async Task<IActionResult> GetDashboardDownloadCount(
             [FromQuery] DateTime? fromDate = null,
             [FromQuery] DateTime? toDate = null)
