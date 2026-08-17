@@ -6,6 +6,7 @@ import { forkJoin, Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { environment } from '@env/environment';
 import { AuditLogService } from '@sohoa.frontend/shared/core';
+import { EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
 
 interface ActivityLog {
   id: string;
@@ -34,6 +35,8 @@ interface DossierListItemDto {
   creator?: { name?: string; username?: string };
   currentHandlerName?: string;
   statusName?: string;
+  publishStatusId?: number;
+  PublishStatusId?: number;
   catalogData?: Record<string, string>;
 }
 
@@ -62,7 +65,7 @@ const NEUTRAL_TREND: TrendInfo = { displayPercent: 0, isUp: true };
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, EcoPaginatorComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
@@ -97,6 +100,8 @@ export class DashboardComponent implements OnInit {
 
   recentActivities: ActivityLog[] = [];
   recentDossiers: RecentDossier[] = [];
+  recentDossiersPage = 1;
+  recentDossiersPageSize = 10;
   username = 'Người dùng';
 
   ngOnInit() {
@@ -129,6 +134,17 @@ export class DashboardComponent implements OnInit {
     this.loadMonthlyTrends();
   }
 
+  onRecentDossiersPageChange(page: number): void {
+    this.recentDossiersPage = page;
+    this.loadRecentDossiers();
+  }
+
+  onRecentDossiersPageSizeChange(pageSize: number): void {
+    this.recentDossiersPageSize = pageSize;
+    this.recentDossiersPage = 1;
+    this.loadRecentDossiers();
+  }
+
   /** So sánh giá trị hiện tại với kỳ trước, trả về % chênh lệch (trị tuyệt đối) + chiều tăng/giảm. */
   private computeTrend(current: number, previous: number): TrendInfo {
     if (previous <= 0) {
@@ -141,8 +157,12 @@ export class DashboardComponent implements OnInit {
   /** Tổng hồ sơ + danh sách hồ sơ mới nhất (đã sắp xếp theo ngày tạo giảm dần ở backend, không lọc theo trạng thái/tab) */
   private loadRecentDossiers() {
     this.http
-      .get<any>(`${environment.apiGatewayUrl}/api/v1/search/dashboard/dossiers`, {
-        params: { page: '1', pageSize: '5' }
+      .get<any>(`${environment.apiGatewayUrl}/api/v1/search-publish`, {
+        params: {
+          tab: 'published',
+          page: String(this.recentDossiersPage),
+          pageSize: String(this.recentDossiersPageSize)
+        }
       })
       .subscribe({
         next: (res) => {
