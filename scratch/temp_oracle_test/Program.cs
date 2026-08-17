@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Oracle.ManagedDataAccess.Client;
 using Dapper;
@@ -18,18 +16,11 @@ class Program
         string connStr = $"Data Source={host}:{port}/{service};User Id={user};Password={password};Pooling=false;";
         try
         {
-            Console.WriteLine("Connecting to Oracle database...");
             using (var conn = new OracleConnection(connStr))
             {
                 conn.Open();
-                Console.WriteLine("Connected!");
-
-                Console.WriteLine("\n--- Listing Database Tables ---");
-                var tables = await conn.QueryAsync<string>("SELECT table_name FROM user_tables ORDER BY table_name");
-                foreach (var table in tables)
-                {
-                    Console.WriteLine(table);
-                }
+                await conn.ExecuteAsync("UPDATE ORGANIZATION_UNIT SET ORGIDSSO = 1 WHERE Id = 1");
+                Console.WriteLine("Updated ORGIDSSO = 1 for unit Id = 1 successfully!");
             }
         }
         catch (Exception ex)
@@ -38,4 +29,3 @@ class Program
         }
     }
 }
-

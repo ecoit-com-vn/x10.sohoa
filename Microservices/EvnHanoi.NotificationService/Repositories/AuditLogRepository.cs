@@ -69,7 +69,7 @@ namespace EvnHanoi.NotificationService.Repositories
             return response.Hits.Select(MapHit).ToList();
         }
 
-        public async Task<long> GetDashboardDownloadCountAsync(DateTime? fromDate = null, DateTime? toDate = null)
+        public async Task<long> GetDashboardDownloadCountAsync(DateTime? fromDate = null, DateTime? toDate = null, string? unitId = null)
         {
             var mustQueries = new List<Query>
             {
@@ -91,6 +91,13 @@ namespace EvnHanoi.NotificationService.Repositories
                     .Field("actorUserId")
                     .Value(actorId)
                     .CaseInsensitive(true)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(unitId))
+            {
+                mustQueries.Add(new QueryDescriptor<AuditLogDocument>().Term(t => t
+                    .Field("actorUnitId")
+                    .Value(unitId.Trim())));
             }
 
             if (fromDate.HasValue || toDate.HasValue)
