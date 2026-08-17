@@ -1,11 +1,17 @@
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { forkJoin, Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { environment } from '@env/environment';
-import { AuditLogService } from '@sohoa.frontend/shared/core';
+import {
+  APP_CONFIG,
+  AuditLogRecentResponse,
+  AuditLogService,
+  AuthService,
+  SUPPRESS_HTTP_ERROR_TOAST,
+} from '@sohoa.frontend/shared/core';
 import { EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
 
 interface ActivityLog {
