@@ -170,6 +170,7 @@
       <table class="wf-table latest-dossier-table">
         <thead>
           <tr>
+            <th class="col-stt">STT</th>
             <th>MÃ HỒ SƠ</th>
             <th>TIÊU ĐỀ HỒ SƠ</th>
             <th>TRẠM/ĐƯỜNG DÂY</th>
@@ -179,7 +180,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let dossier of recentDossiers">
+          <tr *ngFor="let dossier of recentDossiers; let i = index">
+            <td class="col-stt">{{ (recentDossiersPage - 1) * recentDossiersPageSize + i + 1 }}</td>
             <td><a class="dossier-code" [routerLink]="['/dossier-management', 'my-dossiers', dossier.id]">{{ dossier.code }}</a></td>
             <td><a [routerLink]="['/dossier-management', 'my-dossiers', dossier.id]">{{ dossier.title }}</a></td>
             <td>{{ dossier.station }}</td>
@@ -191,16 +193,15 @@
       </table>
     </div>
 
-    <div class="latest-dossier-footer">
-      <span>Hiển thị {{ recentDossiers.length }} trong số {{ totalDossiers | number }} bản ghi</span>
-      <div class="latest-dossier-pagination">
-        <button type="button" aria-label="Trang trước" disabled>
-          <i class="pi pi-chevron-left"></i>
-        </button>
-        <button type="button" aria-label="Trang sau">
-          <i class="pi pi-chevron-right"></i>
-        </button>
-      </div>
+    <div class="table-footer-paginator" *ngIf="totalDossiers > 0">
+      <app-eco-paginator
+        [currentPage]="recentDossiersPage"
+        [pageSize]="recentDossiersPageSize"
+        [totalRecords]="totalDossiers"
+        [rowsPerPageOptions]="[10, 20, 50]"
+        recordLabel="hồ sơ"
+        (pageChange)="onRecentDossiersPageChange($event)"
+        (pageSizeChange)="onRecentDossiersPageSizeChange($event)" />
     </div>
   </div>
 </div>

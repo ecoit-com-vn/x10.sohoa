@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpResponse } from '@angular/common/http';
+import { HttpContext, HttpResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
 
@@ -111,8 +111,8 @@ export class AuditLogService {
     });
   }
 
-  getRecent(count = 5): Observable<AuditLogRecentResponse> {
-    return this.api.get<AuditLogRecentResponse>(`${this.base}/recent`);
+  getRecent(count = 5, context?: HttpContext): Observable<AuditLogRecentResponse> {
+    return this.api.get<AuditLogRecentResponse>(`${this.base}/recent`, { context });
   }
 
   getRetentionStatus(pageNumber: number, pageSize: number): Observable<AuditLogRetentionStatusResponse> {
