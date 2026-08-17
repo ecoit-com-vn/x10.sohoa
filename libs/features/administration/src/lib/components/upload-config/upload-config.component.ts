@@ -187,7 +187,8 @@ export class UploadConfigComponent implements OnInit {
 
   loadOrgUnits() {
     const orgUnitsUrl = `${environment.apiGatewayUrl}/api/v1/organization-units/lookup`;
-    this.http.get<any[]>(orgUnitsUrl).subscribe({
+    // status=1 → chỉ lấy đơn vị đang hoạt động (IsActive=1), tránh hiện đơn vị đã ngừng hoạt động trong combobox.
+    this.http.get<any[]>(orgUnitsUrl, { params: { status: 1 } }).subscribe({
       next: (data) => {
         this.orgUnits.set(data || []);
       },

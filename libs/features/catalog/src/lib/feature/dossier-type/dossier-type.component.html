@@ -6,9 +6,19 @@
                 [suffix]="currentView() === 'configure' ? 'Cấu hình biểu mẫu' : null"
                 (listClick)="currentView.set('list')" />
         </div>
-        <div class="toolbar-right" *ngIf="canCreate()">
+        <div class="toolbar-right" *ngIf="currentView() !== 'configure' && canCreate()">
             <button class="btn-green" (click)="onAddNew()">
                 <i class="pi pi-plus"></i> Thêm mới
+            </button>
+        </div>
+        <div class="toolbar-right" *ngIf="currentView() === 'configure'">
+            <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="isSavingEav()">
+                <i class="pi pi-arrow-left" style="margin-right: 4px;"></i> Quay lại
+            </button>
+            <button class="btn-save btn-small" (click)="onSaveEavConfiguration()" [disabled]="isSavingEav()">
+                <i class="pi pi-spin pi-spinner" *ngIf="isSavingEav()" style="margin-right: 4px;"></i>
+                <i class="pi pi-save" *ngIf="!isSavingEav()" style="margin-right: 4px;"></i>
+                Lưu cấu hình
             </button>
         </div>
     </div>
@@ -228,33 +238,11 @@
         (confirmed)="onConfirmDelete()" />
 
     <!-- MÀN HÌNH CẤU HÌNH BIỂU MẪU ĐỘNG (EAV) -->
-    <div *ngIf="currentView() === 'configure'" class="animate-fade-in" style="padding-top: 10px;">
+    <div *ngIf="currentView() === 'configure'" class="animate-fade-in">
         <div class="form-builder-wrapper">
-            <!-- Top Header Bar -->
-            <div class="builder-header shadow-1"
-                style="display: flex; justify-content: space-between; align-items: center; background-color: white; padding: 1.25rem 1.75rem; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.05);">
-                <div class="header-left" style="display: flex; flex-direction: column; gap: 4px;">
-                    <h2 class="m-0 text-lg font-bold" style="color: #002D72; margin: 0; font-size: 1.2rem;">Cấu hình
-                        biểu mẫu thuộc tính EAV</h2>
-                    <p class="m-0 text-xs text-muted" style="margin: 0; font-size: 0.8rem; color: #64748b;">Liên kết
-                        biểu mẫu và tùy biến cấu trúc các trường thông tin kỹ thuật của loại hồ sơ <b>{{
-                            currentItem().name }}</b></p>
-                </div>
-                <div class="header-right" style="display: flex; gap: 8px;">
-                    <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="isSavingEav()">
-                        <i class="pi pi-arrow-left" style="margin-right: 4px;"></i> Quay lại
-                    </button>
-                    <button class="btn-save btn-small" (click)="onSaveEavConfiguration()" [disabled]="isSavingEav()">
-                        <i class="pi pi-spin pi-spinner" *ngIf="isSavingEav()" style="margin-right: 4px;"></i>
-                        <i class="pi pi-save" *ngIf="!isSavingEav()" style="margin-right: 4px;"></i>
-                        Lưu cấu hình
-                    </button>
-                </div>
-            </div>
-
             <!-- Form Selector bar -->
             <div class="general-info-card"
-                style="background-color: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.5rem; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.05); margin-top: 1.25rem;">
+                style="background-color: white; border-radius: 5px; border: 1px solid #e2e8f0; padding: 1.5rem; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.05)">
                 <div class="form-group" style="max-width: 500px; display: flex; flex-direction: column; gap: 8px;">
                     <label style="font-weight: 600; color: #475569; font-size: 0.85rem;">Chọn biểu mẫu thông
                         tin:</label>
@@ -275,7 +263,7 @@
                 <!-- Left Column: Toolbox -->
                 <div class="toolbox-column">
                     <div class="card p-4"
-                        style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.25rem; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.05);">
+                        style="background: white; border-radius: 5px; border: 1px solid #e2e8f0; padding: 1.25rem; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.05);">
                         <h3
                             style="margin-top: 0; margin-bottom: 10px; font-size: 1rem; font-weight: 700; color: #002D72;">
                             Thành phần biểu mẫu</h3>
@@ -305,7 +293,7 @@
 
                     <!-- Template Header Info Card -->
                     <div class="general-info-card"
-                        style="background-color: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.05);">
+                        style="background-color: white; border-radius: 5px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.05);">
                         <div style="display: flex; gap: 16px; margin-bottom: 12px;">
                             <div class="form-group" style="flex: 1;">
                                 <label class="block text-xs font-bold text-muted uppercase tracking-wider"
@@ -345,7 +333,7 @@
 
                     <!-- Main Fields Design Workspace -->
                     <div class="canvas-workspace"
-                        style="background-color: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.05); flex: 1; min-height: 350px;">
+                        style="background-color: white; border-radius: 5px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.05); flex: 1; min-height: 350px;">
                         <div class="workspace-header mb-3"
                             style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px;">
                             <span class="font-bold text-sm text-muted uppercase tracking-wider"
@@ -491,7 +479,7 @@
                 <!-- Right Column: Properties Configuration -->
                 <div class="properties-column">
                     <div class="card p-4"
-                        style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.25rem; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.05);">
+                        style="background: white; border-radius: 5px; border: 1px solid #e2e8f0; padding: 1.25rem; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.05);">
                         <h3
                             style="margin-top: 0; margin-bottom: 10px; font-size: 1rem; font-weight: 700; color: #002D72;">
                             Thuộc tính cấu hình</h3>

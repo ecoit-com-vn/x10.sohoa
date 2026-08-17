@@ -405,15 +405,17 @@
     }
 
     .latest-dossier-card {
-      padding: 0;
-      overflow: hidden;
+      min-height: 620px;
+      display: flex;
+      flex-direction: column;
     }
 
     .latest-dossier-card .section-header-flex {
-      padding: 14px 18px 0;
+      padding: 0 0 14px;
     }
 
     .latest-dossier-card .wf-table-wrap {
+      flex: 1 1 auto;
       margin-bottom: 0;
     }
 
@@ -421,12 +423,31 @@
       table-layout: fixed;
     }
 
-    .latest-dossier-table th:nth-child(1) { width: 13%; }
-    .latest-dossier-table th:nth-child(2) { width: 26%; }
-    .latest-dossier-table th:nth-child(3) { width: 18%; }
+    .latest-dossier-card .table-footer {
+      width: 100%;
+      box-sizing: border-box;
+      flex: 0 0 auto;
+      margin-top: 0;
+      padding: 12px 0 0;
+    }
+
+    .latest-dossier-card .table-footer > app-eco-paginator {
+      display: block;
+      width: 100%;
+    }
+
+    .latest-dossier-table .col-stt {
+      width: 6%;
+      text-align: center;
+    }
+
+    .latest-dossier-table th:nth-child(1) { width: 6%; }
+    .latest-dossier-table th:nth-child(2) { width: 12%; }
+    .latest-dossier-table th:nth-child(3) { width: 23%; }
     .latest-dossier-table th:nth-child(4) { width: 17%; }
-    .latest-dossier-table th:nth-child(5) { width: 15%; }
-    .latest-dossier-table th:nth-child(6) { width: 11%; }
+    .latest-dossier-table th:nth-child(5) { width: 14%; }
+    .latest-dossier-table th:nth-child(6) { width: 17%; }
+    .latest-dossier-table th:nth-child(7) { width: 11%; }
 
     .latest-dossier-table th {
       height: 46px;
@@ -465,46 +486,3 @@
       white-space: nowrap;
     }
 
-    .latest-dossier-footer {
-      min-height: 42px;
-      padding: 8px 18px 12px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      color: #9ca3af;
-      font-size: 0.66rem;
-      font-style: italic;
-    }
-
-    .latest-dossier-pagination {
-      display: flex;
-      gap: 7px;
-    }
-
-    .latest-dossier-pagination button {
-      width: 28px;
-      height: 28px;
-      padding: 0;
-      border: 1px solid #dfe4ea;
-      border-radius: 4px;
-      background: #fff;
-      color: #667085;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-    }
-
-    .latest-dossier-pagination button:disabled {
-      background: #f8fafc;
-      color: #cbd5e1;
-      cursor: default;
-    }
-
-    .latest-dossier-pagination button:not(:disabled):hover {
-      background: #f8fafc;
-    }
-
-    .latest-dossier-pagination i {
-      font-size: 0.68rem;
-    }

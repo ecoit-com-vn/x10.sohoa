@@ -11,7 +11,7 @@ import { DossierPublishService } from '../../data-access/dossier-publish.service
 import { DossierListTab } from '../../utils/dossier-status.util';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
-import { finalize, Observable } from 'rxjs';
+import { finalize, forkJoin, map, Observable, of, switchMap } from 'rxjs';
 
 type PublishTab = 'pending-publish' | 'published' | 'unpublished';
 
@@ -602,6 +602,96 @@ export class DossierPublishComponent implements OnInit {
         this.loading.set(false);
       }
     });
+  }
+
+  exporting = signal<boolean>(false);
+
+  /**
+   * Xuất Excel toàn bộ hồ sơ khớp bộ lọc/tab hiện tại (không chỉ trang đang xem) — tải tuần tự nhiều
+   * trang (giống dossier-list.component.ts) rồi dựng file .xlsx phía trình duyệt bằng đúng các cột
+   * đang hiển thị trên bảng (kể cả cột BHS động), tái dùng các hàm định dạng đã có của bảng.
+   */
+  onExportExcel(): void {
+    if (this.exporting()) return;
+
+    const dossierTypeId = this.filterDossierTypeId();
+    const exportPageSize = 500;
+    const baseFilter = {
+      tab: this.activeTab() as DossierListTab,
+      keyword: this.searchKeyword(),
+      infrastructureId: this.filterInfrastructureId() || undefined,
+      equipmentId: this.filterEquipmentId() || undefined,
+    };
+
+    this.exporting.set(true);
+    this.publishService.getPaged({ ...baseFilter, page: 1, pageSize: exportPageSize })
+      .pipe(
+        switchMap((firstPage) => {
+          const pageCount = Math.ceil((firstPage.totalCount || 0) / exportPageSize);
+          if (pageCount <= 1) return of(firstPage.items || []);
+          const remainingPages = Array.from({ length: pageCount - 1 }, (_, index) =>
+            this.publishService.getPaged({ ...baseFilter, page: index + 2, pageSize: exportPageSize })
+          );
+          return forkJoin(remainingPages).pipe(
+            map((responses) => [
+              ...(firstPage.items || []),
+              ...responses.flatMap((response) => response.items || [])
+            ])
+          );
+        }),
+        finalize(() => this.exporting.set(false))
+      )
+      .subscribe({
+        next: async (allItems: any[]) => {
+          const items = dossierTypeId
+            ? allItems.filter((item: any) =>
+                String(item.dossierTypeId ?? item.DossierTypeId ?? '').toLowerCase()
+                === String(dossierTypeId).toLowerCase()
+              )
+            : allItems;
+
+          if (!items.length) {
+            this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Không có dữ liệu để xuất.' });
+            return;
+          }
+
+          const cols = this.bhsColumns();
+          const headers = ['STT', ...cols.map((c) => c.label), 'Loại hồ sơ', 'Trạm / Đường dây', 'Số tài liệu'];
+
+          const worksheetRows = items.map((item: any, index: number) => {
+            const row: Record<string, any> = { STT: index + 1 };
+            cols.forEach((col) => {
+              row[col.label] = this.getCatalogValue(item, col);
+            });
+            row['Loại hồ sơ'] = this.getDossierTypeName(item);
+            row['Trạm / Đường dây'] = this.getInfrastructureLines(item).join(', ');
+            row['Số tài liệu'] = item.documentCount ?? 0;
+            return row;
+          });
+
+          const XLSX = await import('xlsx');
+          const worksheet = XLSX.utils.json_to_sheet(worksheetRows, { header: headers });
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, worksheet, 'Danh sách hồ sơ xuất bản');
+          const blob = new Blob([XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `DanhSachHoSoXuatBan_${new Date().toISOString().slice(0, 10)}.xlsx`;
+          link.click();
+          window.URL.revokeObjectURL(url);
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xuất danh sách hồ sơ.' });
+        },
+        error: (err: any) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi xuất file',
+            detail: err?.error?.message || 'Không thể xuất danh sách hồ sơ.'
+          });
+        }
+      });
   }
 
   getCatalogValue(item: any, col: BhsCatalogColumn): string {

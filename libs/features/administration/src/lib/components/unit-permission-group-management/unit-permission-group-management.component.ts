@@ -107,6 +107,10 @@ export class UnitPermissionGroupManagement implements OnInit {
   serverErrors = signal<any>({});
   codeError = computed(() => {
     if (this.formSubmitted() && !this.currentRole().code) return 'Mã vai trò là bắt buộc';
+    const code = this.currentRole().code;
+    if (code && !/^[A-Za-z0-9_]+$/.test(code)) {
+      return 'Mã nhóm quyền chỉ được nhập chữ không dấu, số và dấu gạch dưới, không chứa khoảng trắng';
+    }
     return this.serverErrors().code || this.serverErrors().Code || '';
   });
   nameError = computed(() => {
@@ -121,6 +125,25 @@ export class UnitPermissionGroupManagement implements OnInit {
       || this.serverErrors().OrganizationUnitId
       || '';
   });
+
+  /** Mã nhóm quyền: chỉ cho phép chữ không dấu, số và gạch dưới — tự loại bỏ dấu tiếng Việt và khoảng trắng ngay khi gõ. */
+  onCodeChange(value: string): void {
+    const sanitized = this.sanitizeCode(value);
+    if (sanitized !== value) {
+      this.currentRole.update(role => ({ ...role, code: sanitized }));
+    }
+    this.onFieldChange('code');
+  }
+
+  private sanitizeCode(value: string): string {
+    if (!value) return value;
+    const noDiacritics = value
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'D')
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '');
+    return noDiacritics.replace(/[^A-Za-z0-9_]/g, '');
+  }
 
   onFieldChange(field: string) {
     this.currentRole.update(role => ({ ...role }));
@@ -222,7 +245,10 @@ export class UnitPermissionGroupManagement implements OnInit {
   }
 
   loadOrganizationUnits() {
-    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/organization-units/lookup`).subscribe({
+    // status=1 → chỉ lấy đơn vị đang hoạt động (IsActive=1), tránh hiện đơn vị đã ngừng hoạt động trong combobox.
+    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/organization-units/lookup`, {
+      params: { status: 1 }
+    }).subscribe({
       next: (res) => this.organizationUnits.set(Array.isArray(res) ? res : []),
       error: () => this.organizationUnits.set([])
     });

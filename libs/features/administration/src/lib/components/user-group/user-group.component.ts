@@ -466,7 +466,9 @@ export class UserGroupComponent implements OnInit {
             const rolesList = Array.isArray(roles) ? roles : (roles && Array.isArray((roles as any).items) ? (roles as any).items : (roles && Array.isArray((roles as any).value) ? (roles as any).value : []));
             const roleIds = new Set(rolesList.map((r: any) => r.id));
             this.targetRoles.set((allRolesList || []).filter((r: any) => roleIds.has(r.id)));
-            this.sourceRoles.set((allRolesList || []).filter((r: any) => !roleIds.has(r.id)));
+            // Chỉ đề xuất vai trò đang hoạt động ở danh sách "Vai trò sẵn có" — vai trò đã ngừng hoạt động
+            // không hiện ra để gán mới (vai trò đã gán từ trước vẫn hiện ở "Vai trò đã gán" dù có bị khóa sau đó).
+            this.sourceRoles.set((allRolesList || []).filter((r: any) => !roleIds.has(r.id) && r.isActive !== false));
             this.currentView.set('role');
           },
           error: () => {

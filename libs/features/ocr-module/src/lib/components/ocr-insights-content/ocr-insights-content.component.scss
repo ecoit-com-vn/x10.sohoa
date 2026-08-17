@@ -74,7 +74,7 @@
 // cột phải, cột trái giữ nguyên vị trí xem.
 .insights-layout {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 16px;
 }
 
@@ -83,6 +83,7 @@
   max-width: 60%;
   position: sticky;
   top: 12px;
+  align-self: flex-start;
   background-color: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
@@ -93,6 +94,19 @@
   flex: 1 1 40%;
   max-width: 40%;
   min-width: 0;
+}
+
+// Cuộn riêng phần dữ liệu bảng — toolbar/ghi chú phía trên (.script-type-toolbar, .hint-note) đứng
+// yên, không bị cuộn theo. Đầu bảng (th) đứng yên bên trong khung này nhờ position: sticky.
+.region-table-wrap {
+  max-height: 128vh;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+
+  .region-table {
+    border: none;
+  }
 }
 
 @media (max-width: 900px) {
@@ -343,7 +357,10 @@ lib-bounding-box-overlay {
 
 .region-table {
   width: 100%;
-  border-collapse: collapse;
+  // border-collapse: separate (thay vì collapse) để position: sticky trên th hoạt động đúng —
+  // sticky không ăn với collapse ở 1 số trình duyệt (viền th bị mất khi cuộn).
+  border-collapse: separate;
+  border-spacing: 0;
 
   th,
   td {
@@ -353,7 +370,11 @@ lib-bounding-box-overlay {
     font-size: 0.875rem;
   }
 
+  // Đầu bảng đứng yên, chỉ phần dữ liệu (tbody) cuộn bên trong .insights-right.
   th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
     color: #374151;
     background-color: #f9fafb;
   }
