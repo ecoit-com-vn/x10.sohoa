@@ -40,7 +40,7 @@ import {
   hasDossierCreatePermission,
 } from '../../utils/dossier-permission.util';
 import { isUserAuthorizedForWorkflowAction, buildListItemPatchFromSources, shouldKeepItemOnTab, DossierListItemPatch } from '../../utils/dossier-workflow-auth.util';
-import { catchError, finalize, forkJoin, of } from 'rxjs';
+import { catchError, finalize, forkJoin, map, of, switchMap } from 'rxjs';
 
 function tabLabel(tab: DossierListTab, kindId?: number): string {
   const labels: Partial<Record<DossierListTab, string>> = {
@@ -655,6 +655,96 @@ export class DossierListComponent implements OnInit {
   }
 
 
+
+  exporting = signal<boolean>(false);
+
+  /**
+   * Xuất Excel toàn bộ hồ sơ khớp bộ lọc/tab hiện tại (không chỉ trang đang xem) — tải tuần tự nhiều
+   * trang (giống audit-log.component.ts) rồi dựng file .xlsx phía trình duyệt bằng đúng các cột đang
+   * hiển thị trên bảng (kể cả cột BHS động), tái dùng các hàm định dạng đã có của bảng.
+   */
+  onExportExcel(): void {
+    if (this.exporting()) return;
+
+    const appliedFilters = this.appliedFilters();
+    const exportPageSize = 500;
+    const baseFilter = {
+      menuScope: this.menuScopeSignal(),
+      kindId: this.kindIdSignal(),
+      tab: this.activeTab(),
+      keyword: appliedFilters.keyword,
+      infrastructureId: appliedFilters.infrastructureId || undefined,
+      dossierTypeId: appliedFilters.dossierTypeId || undefined,
+      equipmentId: appliedFilters.equipmentId || undefined,
+    };
+
+    this.exporting.set(true);
+    this.service.getDossiers({ ...baseFilter, page: 1, pageSize: exportPageSize })
+      .pipe(
+        switchMap((firstPage) => {
+          const pageCount = Math.ceil((firstPage.totalCount || 0) / exportPageSize);
+          if (pageCount <= 1) return of(firstPage.items || []);
+          const remainingPages = Array.from({ length: pageCount - 1 }, (_, index) =>
+            this.service.getDossiers({ ...baseFilter, page: index + 2, pageSize: exportPageSize })
+          );
+          return forkJoin(remainingPages).pipe(
+            map((responses) => [
+              ...(firstPage.items || []),
+              ...responses.flatMap((response) => response.items || [])
+            ])
+          );
+        }),
+        finalize(() => this.exporting.set(false))
+      )
+      .subscribe({
+        next: async (items) => {
+          if (!items.length) {
+            this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Không có dữ liệu để xuất.' });
+            return;
+          }
+
+          const cols = this.bhsColumns();
+          const handlerColumnLabel = this.activeTab() === 'draft' ? 'Ngày tạo' : 'Người xử lý hiện tại';
+          const headers = ['STT', ...cols.map((c) => c.label), 'Trạm / Đường dây', 'Số lượng tài liệu', handlerColumnLabel, 'Trạng thái duyệt'];
+
+          const worksheetRows = items.map((item: any, index: number) => {
+            const row: Record<string, any> = { STT: index + 1 };
+            cols.forEach((col) => {
+              row[col.label] = this.getCatalogValue(item, col);
+            });
+            row['Trạm / Đường dây'] = this.getInfrastructureNames(item).join(', ');
+            row['Số lượng tài liệu'] = item.documentCount ?? 0;
+            row[handlerColumnLabel] = this.activeTab() === 'draft'
+              ? this.formatCreatedDate(item?.createdDate ?? item?.CreatedDate)
+              : this.getCurrentHandlerName(item);
+            row['Trạng thái duyệt'] = this.getDossierStatusLabel(item.statusId, item.statusName);
+            return row;
+          });
+
+          const XLSX = await import('xlsx');
+          const worksheet = XLSX.utils.json_to_sheet(worksheetRows, { header: headers });
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, worksheet, 'Danh sách hồ sơ');
+          const blob = new Blob([XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `DanhSachHoSo_${new Date().toISOString().slice(0, 10)}.xlsx`;
+          link.click();
+          window.URL.revokeObjectURL(url);
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xuất danh sách hồ sơ.' });
+        },
+        error: (err: any) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi xuất file',
+            detail: err?.error?.message || 'Không thể xuất danh sách hồ sơ.'
+          });
+        }
+      });
+  }
 
   getCatalogValue(item: any, col: BhsCatalogColumn): string {
 

@@ -3,16 +3,78 @@
 
   <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
-      <wf-breadcrumb />
+      <wf-breadcrumb
+        [suffix]="
+          currentView() === 'member'
+            ? 'Cấu hình thành viên'
+            : currentView() === 'role'
+            ? 'Cấu hình vai trò'
+            : null
+        "
+      />
     </div>
     <div class="toolbar-right">
       <button
-        *ngIf="authService.hasPermission('USER_GROUP_CREATE')"
+        *ngIf="currentView() === 'list' && authService.hasPermission('USER_GROUP_CREATE')"
         class="btn-green"
         (click)="onAddNew()"
       >
         <i class="pi pi-plus"></i> Thêm mới
       </button>
+
+      <ng-container *ngIf="currentView() === 'member'">
+        <button
+          class="btn-cancel btn-small"
+          (click)="currentView.set('list')"
+          [disabled]="savingMembers()"
+        >
+          Hủy
+        </button>
+        <button
+          class="btn-save btn-small"
+          (click)="onSaveMembers()"
+          [disabled]="savingMembers()"
+        >
+          <i
+            class="pi pi-spin pi-spinner"
+            *ngIf="savingMembers()"
+            style="margin-right: 4px"
+          ></i>
+          <i
+            class="pi pi-save"
+            *ngIf="!savingMembers()"
+            style="margin-right: 4px"
+          ></i>
+          Lưu thay đổi
+        </button>
+      </ng-container>
+
+      <ng-container *ngIf="currentView() === 'role'">
+        <button
+          class="btn-cancel btn-small"
+          (click)="currentView.set('list')"
+          [disabled]="savingRoles()"
+        >
+          Hủy
+        </button>
+        <button
+          class="btn-save btn-small"
+          (click)="onSaveRoles()"
+          [disabled]="savingRoles()"
+        >
+          <i
+            class="pi pi-spin pi-spinner"
+            *ngIf="savingRoles()"
+            style="margin-right: 4px"
+          ></i>
+          <i
+            class="pi pi-save"
+            *ngIf="!savingRoles()"
+            style="margin-right: 4px"
+          ></i>
+          Lưu thay đổi
+        </button>
+      </ng-container>
     </div>
   </div>
 
@@ -459,42 +521,6 @@
             </div>
           </ng-template>
         </p-pickList>
-
-        <div
-          style="
-            display: flex;
-            justify-content: flex-start;
-            gap: 8px;
-            border-top: 1px solid #f1f5f9;
-            padding-top: 18px;
-            margin-top: 20px;
-          "
-        >
-          <button
-            class="btn-cancel btn-small"
-            (click)="currentView.set('list')"
-            [disabled]="savingMembers()"
-          >
-            Hủy
-          </button>
-          <button
-            class="btn-save btn-small"
-            (click)="onSaveMembers()"
-            [disabled]="savingMembers()"
-          >
-            <i
-              class="pi pi-spin pi-spinner"
-              *ngIf="savingMembers()"
-              style="margin-right: 4px"
-            ></i>
-            <i
-              class="pi pi-save"
-              *ngIf="!savingMembers()"
-              style="margin-right: 4px"
-            ></i>
-            Lưu thay đổi
-          </button>
-        </div>
       </div>
     </div>
 
@@ -537,42 +563,6 @@
             </div>
           </ng-template>
         </p-pickList>
-
-        <div
-          style="
-            display: flex;
-            justify-content: flex-start;
-            gap: 8px;
-            border-top: 1px solid #f1f5f9;
-            padding-top: 18px;
-            margin-top: 20px;
-          "
-        >
-          <button
-            class="btn-cancel btn-small"
-            (click)="currentView.set('list')"
-            [disabled]="savingRoles()"
-          >
-            Hủy
-          </button>
-          <button
-            class="btn-save btn-small"
-            (click)="onSaveRoles()"
-            [disabled]="savingRoles()"
-          >
-            <i
-              class="pi pi-spin pi-spinner"
-              *ngIf="savingRoles()"
-              style="margin-right: 4px"
-            ></i>
-            <i
-              class="pi pi-save"
-              *ngIf="!savingRoles()"
-              style="margin-right: 4px"
-            ></i>
-            Lưu thay đổi
-          </button>
-        </div>
       </div>
     </div>
 

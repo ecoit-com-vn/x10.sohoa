@@ -569,6 +569,38 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
       </ng-template>
     </p-dialog>
 
+    <!-- Dialog Xác nhận Hoàn thành nhập liệu (đồng bộ nội dung với popup ở màn Chi tiết hồ sơ) -->
+    <p-dialog
+      [visible]="showCompleteInputConfirm()"
+      (visibleChange)="$event ? null : onCancelCompleteInput()"
+      header="Xác nhận hoàn thành"
+      [modal]="true"
+      [style]="{ width: '420px' }"
+      styleClass="evn-dialog-custom"
+      [closable]="!completingInput()">
+      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+        <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #3b82f6;"></i>
+        <div>
+          <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn hoàn thành nhập liệu?</p>
+          <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+            Hồ sơ này sẽ được chuyển sang trạng thái "Hoàn thành".
+          </p>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="onCancelCompleteInput()" [disabled]="completingInput()">
+            <i class="pi pi-times"></i> Hủy
+          </button>
+          <button class="btn-save btn-small" (click)="onConfirmCompleteInput()" [disabled]="completingInput()">
+            <i class="pi pi-spin pi-spinner" *ngIf="completingInput()"></i>
+            <i class="pi pi-check" *ngIf="!completingInput()"></i>
+            Xác nhận
+          </button>
+        </div>
+      </ng-template>
+    </p-dialog>
+
     <!-- Dialog thực hiện hành động workflow cho Form -->
     <p-dialog [visible]="showFormActionDialog()" 
               (visibleChange)="$event ? null : showFormActionDialog.set(false)"
@@ -739,6 +771,7 @@ export class DossierFormComponent implements OnInit {
   loading = signal<boolean>(false);
   isSaving = signal<boolean>(false);
   completingInput = signal<boolean>(false);
+  showCompleteInputConfirm = signal<boolean>(false);
   loadingForm = signal<boolean>(false);
   dossierStatus = signal<string>('');
   dossierStatusId = signal<number>(0);
@@ -1624,7 +1657,17 @@ export class DossierFormComponent implements OnInit {
     });
   }
 
-  onCompleteInput(): void {
+  requestCompleteInput(): void {
+    if (!this.dossier.id || this.completingInput()) return;
+    this.showCompleteInputConfirm.set(true);
+  }
+
+  onCancelCompleteInput(): void {
+    if (this.completingInput()) return;
+    this.showCompleteInputConfirm.set(false);
+  }
+
+  onConfirmCompleteInput(): void {
     if (!this.dossier.id || this.completingInput()) return;
 
     this.completingInput.set(true);
@@ -1639,6 +1682,7 @@ export class DossierFormComponent implements OnInit {
           detail: 'Đã chuyển trạng thái sang Hoàn thành nhập liệu',
         });
         this.completingInput.set(false);
+        this.showCompleteInputConfirm.set(false);
       },
       error: (err: any) => {
         this.messageService.add({
@@ -1647,6 +1691,7 @@ export class DossierFormComponent implements OnInit {
           detail: err.error?.message || 'Không thể hoàn thành nhập liệu',
         });
         this.completingInput.set(false);
+        this.showCompleteInputConfirm.set(false);
       },
     });
   }

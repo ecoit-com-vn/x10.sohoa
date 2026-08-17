@@ -11,12 +11,12 @@
     ></wf-breadcrumb>
   </div>
 
-  <div class="standard-search-card filter-card">
-    <div class="standard-search-grid filter-row">
-      <div class="standard-search-field filter-col">
-        <label class="filter-label">Đơn vị</label>
+  <div class="standard-search-card template-search-card">
+    <div class="standard-search-grid">
+      <div class="standard-search-field">
         <eco-input-tree-select
-          [showLabel]="false"
+          [label]="'Đơn vị'"
+          [showLabel]="true"
           placeholder="-- Chọn đơn vị --"
           [nodes]="primengOrgUnitTree()"
           [ngModel]="selectedUnitId()"
@@ -27,8 +27,8 @@
         ></eco-input-tree-select>
       </div>
 
-      <div class="standard-search-field filter-col">
-        <label class="filter-label">Loại đối tượng</label>
+      <div class="standard-search-field">
+        <label>Loại đối tượng</label>
         <p-select
           [options]="objectTypes()"
           [ngModel]="selectedObjectType()"
@@ -40,8 +40,8 @@
         ></p-select>
       </div>
 
-      <div class="standard-search-field filter-col">
-        <label class="filter-label">Tháng báo cáo</label>
+      <div class="standard-search-field">
+        <label>Tháng báo cáo</label>
         <eco-input-date
           [showLabel]="false"
           label="Tháng báo cáo"
@@ -58,7 +58,7 @@
         ></eco-input-date>
       </div>
 
-      <div class="standard-search-actions filter-actions">
+      <div class="standard-search-actions">
         <button type="button" class="btn-outlined" (click)="onResetFilters()" [disabled]="loading()">
           <i class="pi pi-refresh"></i> Làm mới
         </button>
