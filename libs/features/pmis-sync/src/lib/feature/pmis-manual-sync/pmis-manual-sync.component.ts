@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
@@ -37,7 +37,7 @@ function emptyCriteria(): PmisManualSearchCriteria {
   templateUrl: './pmis-manual-sync.component.html',
   styleUrl: './pmis-manual-sync.component.scss',
 })
-export class PmisManualSyncComponent {
+export class PmisManualSyncComponent implements OnInit {
   private readonly manualSyncService = inject(PmisManualSyncService);
   private readonly historyService = inject(PmisHistoryService);
   private readonly messageService = inject(MessageService);
@@ -55,7 +55,6 @@ export class PmisManualSyncComponent {
   resultsLoaded = signal(false);
   selectedCodes = signal<Set<string>>(new Set());
 
-  historyDialogVisible = signal(false);
   historyLoading = signal(false);
   historyItems = signal<SyncHistory[]>([]);
   historyDetailDialogVisible = signal(false);
@@ -66,11 +65,16 @@ export class PmisManualSyncComponent {
   selectedCount = computed(() => this.selectedCodes().size);
   allSelected = computed(() => this.results().length > 0 && this.selectedCodes().size === this.results().length);
 
+  ngOnInit(): void {
+    this.loadHistory();
+  }
+
   selectTab(type: PmisSyncObjectType): void {
     this.activeTab.set(type);
     this.results.set([]);
     this.resultsLoaded.set(false);
     this.selectedCodes.set(new Set());
+    this.loadHistory();
   }
 
   openSearchDialog(): void {
@@ -153,13 +157,13 @@ export class PmisManualSyncComponent {
           this.results.set([]);
           this.resultsLoaded.set(false);
           this.selectedCodes.set(new Set());
+          this.loadHistory();
         },
         error: (error) => this.showError(error, 'Không thể lưu dữ liệu đồng bộ.'),
       });
   }
 
-  openHistory(): void {
-    this.historyDialogVisible.set(true);
+  loadHistory(): void {
     this.historyLoading.set(true);
     this.historyService
       .getHistory(this.activeTab(), 1, 20)
@@ -181,6 +185,21 @@ export class PmisManualSyncComponent {
         next: (response) => this.historyDetails.set(response.items),
         error: (error) => this.showError(error, 'Không thể tải chi tiết lịch sử.'),
       });
+  }
+
+  /**
+   * Tên trạm biến áp/đường dây mà thiết bị trực thuộc — đọc từ dataContent (JSON gốc PMIS trả về).
+   * Backend serialize RawData bằng PascalCase (TenTBA/TenDuongDay) nên tra cứu phải không phân biệt hoa/thường.
+   */
+  getParentName(dataContent: string | null | undefined): string {
+    if (!dataContent) return '---';
+    try {
+      const obj = JSON.parse(dataContent);
+      const key = Object.keys(obj).find((k) => k.toLowerCase() === 'tentba' || k.toLowerCase() === 'tenduongday');
+      return (key && obj[key]) || '---';
+    } catch {
+      return '---';
+    }
   }
 
   formatDate(value: string | null | undefined): string {

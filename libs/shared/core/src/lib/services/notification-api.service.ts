@@ -1,7 +1,8 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { APP_CONFIG } from '../config/app-config.token';
+import { SUPPRESS_HTTP_ERROR_TOAST } from '../interceptors/http-error.interceptor';
 
 export interface NotificationItem {
   id: string;
@@ -42,9 +43,11 @@ export class NotificationApiService {
     return `${this.config.apiGatewayUrl}/api/v1/notifications`;
   }
 
-  getNotifications(page = 1, pageSize = 20, onlyUnread = false): Observable<NotificationListResponse> {
+  getNotifications(page = 1, pageSize = 20, onlyUnread = false, context?: HttpContext): Observable<NotificationListResponse> {
+    const defaultContext = context ?? new HttpContext().set(SUPPRESS_HTTP_ERROR_TOAST, true);
     return this.http.get<NotificationListResponse>(
-      `${this.base}?page=${page}&pageSize=${pageSize}&onlyUnread=${onlyUnread}`
+      `${this.base}?page=${page}&pageSize=${pageSize}&onlyUnread=${onlyUnread}`,
+      { context: defaultContext }
     );
   }
 
@@ -54,9 +57,11 @@ export class NotificationApiService {
     );
   }
 
-  getDossierById(id: string): Observable<DossierLookupItem> {
+  getDossierById(id: string, context?: HttpContext): Observable<DossierLookupItem> {
+    const defaultContext = context ?? new HttpContext().set(SUPPRESS_HTTP_ERROR_TOAST, true);
     return this.http.get<DossierLookupItem>(
-      `${this.config.apiGatewayUrl}/api/v1/dossiers/${encodeURIComponent(id)}`
+      `${this.config.apiGatewayUrl}/api/v1/dossiers/${encodeURIComponent(id)}`,
+      { context: defaultContext }
     );
   }
 

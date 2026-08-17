@@ -157,6 +157,7 @@
           <th class="col-stt">STT</th>
           <th>Mã PMIS</th>
           <th>Tên</th>
+          <th>Trạm/Đường dây trực thuộc</th>
           <th>Hành động</th>
           <th>Trạng thái</th>
           <th>Lỗi</th>
@@ -164,13 +165,14 @@
       </thead>
       <tbody>
         <tr *ngIf="historyDetailLoading()">
-          <td colspan="6" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
+          <td colspan="7" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
         </tr>
         <ng-container *ngIf="!historyDetailLoading()">
           <tr *ngFor="let d of historyDetails(); let index = index">
             <td class="col-stt text-muted">{{ index + 1 }}</td>
             <td>{{ d.sourceCode }}</td>
             <td>{{ d.sourceName }}</td>
+            <td>{{ getParentName(d.dataContent) }}</td>
             <td>{{ d.actionType === 'CREATE' ? 'Tạo mới' : d.actionType === 'UPDATE' ? 'Cập nhật' : 'Bỏ qua' }}</td>
             <td>
               <span [class]="d.status === 'SUCCESS' ? 'status-pill status-active' : 'status-pill status-inactive'">
@@ -180,7 +182,7 @@
             <td class="note-cell">{{ d.errorMessage || '---' }}</td>
           </tr>
           <tr *ngIf="historyDetails().length === 0">
-            <td colspan="6" class="empty-row"><i class="pi pi-inbox"></i><div>Không có dữ liệu.</div></td>
+            <td colspan="7" class="empty-row"><i class="pi pi-inbox"></i><div>Không có dữ liệu.</div></td>
           </tr>
         </ng-container>
       </tbody>

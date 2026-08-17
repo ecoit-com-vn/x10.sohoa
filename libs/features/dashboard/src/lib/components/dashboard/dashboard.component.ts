@@ -1,11 +1,9 @@
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
-import { forkJoin, Observable, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
-import { environment } from '@env/environment';
-import { AuditLogService } from '@sohoa.frontend/shared/core';
+import { HttpClient, HttpContext } from '@angular/common/http';
+import { catchError, forkJoin, map, Observable, of } from 'rxjs';
+import { APP_CONFIG, AuditLogRecentResponse, AuditLogService, AuthService, SUPPRESS_HTTP_ERROR_TOAST } from '@sohoa.frontend/shared/core';
 
 interface ActivityLog {
   id: string;
@@ -69,6 +67,8 @@ const NEUTRAL_TREND: TrendInfo = { displayPercent: 0, isUp: true };
 export class DashboardComponent implements OnInit {
   private http = inject(HttpClient);
   private auditLogService = inject(AuditLogService);
+  private authService = inject(AuthService);
+  private config = inject(APP_CONFIG);
   private cdr = inject(ChangeDetectorRef);
 
   loading = false;
@@ -99,6 +99,10 @@ export class DashboardComponent implements OnInit {
   recentDossiers: RecentDossier[] = [];
   username = 'Người dùng';
 
+  private createSuppressToastContext(): HttpContext {
+    return new HttpContext().set(SUPPRESS_HTTP_ERROR_TOAST, true);
+  }
+
   ngOnInit() {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('token');
@@ -108,7 +112,7 @@ export class DashboardComponent implements OnInit {
           const payloadJson = atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/'));
           const payload = JSON.parse(payloadJson);
           this.username = payload.name || payload.unique_name || payload.username || payload.sub || 'Người dùng';
-        } catch (e) {
+        } catch {
           this.username = 'Người dùng';
         }
       }
@@ -141,9 +145,11 @@ export class DashboardComponent implements OnInit {
   /** Tổng hồ sơ + danh sách hồ sơ mới nhất (đã sắp xếp theo ngày tạo giảm dần ở backend, không lọc theo trạng thái/tab) */
   private loadRecentDossiers() {
     this.http
-      .get<any>(`${environment.apiGatewayUrl}/api/v1/search/dashboard/dossiers`, {
-        params: { page: '1', pageSize: '5' }
+      .get<any>(`${this.config.apiGatewayUrl}/api/v1/search/dashboard/dossiers`, {
+        params: { page: '1', pageSize: '5' },
+        context: this.createSuppressToastContext()
       })
+      .pipe(catchError(() => of(null)))
       .subscribe({
         next: (res) => {
           const rawItems: DossierListItemDto[] = res?.items ?? res?.Items ?? [];
@@ -193,8 +199,10 @@ export class DashboardComponent implements OnInit {
   private loadDossierTypeStatistics() {
     this.http
       .get<DossierTypeChartStatDto[]>(
-        `${environment.apiGatewayUrl}/api/v1/reports/statistics/dashboard/dossier-by-dossier-type/chart-stats`
+        `${this.config.apiGatewayUrl}/api/v1/reports/statistics/dashboard/dossier-by-dossier-type/chart-stats`,
+        { context: this.createSuppressToastContext() }
       )
+      .pipe(catchError(() => of([] as DossierTypeChartStatDto[])))
       .subscribe({
         next: (stats) => {
           const list = Array.isArray(stats) ? stats : [];
@@ -244,8 +252,11 @@ export class DashboardComponent implements OnInit {
       to.setHours(23, 59, 59, 999);
       return this.http
         .get<DossierGeneralInputChartStatDto[]>(
-          `${environment.apiGatewayUrl}/api/v1/reports/statistics/dashboard/dossier-general-input/chart-stats`,
-          { params: { fromDate: from.toISOString(), toDate: to.toISOString() } }
+          `${this.config.apiGatewayUrl}/api/v1/reports/statistics/dashboard/dossier-general-input/chart-stats`,
+          {
+            params: { fromDate: from.toISOString(), toDate: to.toISOString() },
+            context: this.createSuppressToastContext()
+          }
         )
         .pipe(catchError(() => of([] as DossierGeneralInputChartStatDto[])));
     });
@@ -271,7 +282,10 @@ export class DashboardComponent implements OnInit {
   /** Lượt tra cứu — cộng dồn từ LOOKUP_VIEW_DAILY_COUNTS (ghi nhận mỗi khi mở hồ sơ/tài liệu qua tra cứu/tìm kiếm) */
   private loadUsageCounters() {
     this.http
-      .get<any>(`${environment.apiGatewayUrl}/api/v1/reports/statistics/dashboard/dossier-most-viewed/summary-stats`)
+      .get<any>(`${this.config.apiGatewayUrl}/api/v1/reports/statistics/dashboard/dossier-most-viewed/summary-stats`, {
+        context: this.createSuppressToastContext()
+      })
+      .pipe(catchError(() => of(null)))
       .subscribe({
         next: (res) => {
           const station = res?.stationViewCount ?? res?.StationViewCount ?? 0;
@@ -325,8 +339,11 @@ export class DashboardComponent implements OnInit {
     const fetchDossierDocTotals = (from: Date, to: Date) =>
       this.http
         .get<DossierGeneralInputChartStatDto[]>(
-          `${environment.apiGatewayUrl}/api/v1/reports/statistics/dashboard/dossier-general-input/chart-stats`,
-          { params: { fromDate: from.toISOString(), toDate: to.toISOString() } }
+          `${this.config.apiGatewayUrl}/api/v1/reports/statistics/dashboard/dossier-general-input/chart-stats`,
+          {
+            params: { fromDate: from.toISOString(), toDate: to.toISOString() },
+            context: this.createSuppressToastContext()
+          }
         )
         .pipe(
           map((groups) => ({
@@ -363,31 +380,40 @@ export class DashboardComponent implements OnInit {
     if (toDate) params['toDate'] = toDate.toISOString();
 
     return this.http
-      .get<any>(`${environment.apiGatewayUrl}/api/v1/audit-logs/dashboard/download-count`, { params })
-      .pipe(map((res) => res?.totalCount ?? res?.TotalCount ?? 0));
+      .get<any>(`${this.config.apiGatewayUrl}/api/v1/audit-logs/dashboard/download-count`, {
+        params,
+        context: this.createSuppressToastContext()
+      })
+      .pipe(
+        map((res) => res?.totalCount ?? res?.TotalCount ?? 0),
+        catchError(() => of(0))
+      );
   }
 
   private loadRecentActivities() {
-    this.auditLogService.getRecent().subscribe({
-      next: (res) => {
-        const logs = res.logs || res.Logs || [];
-        this.recentActivities = logs.slice(0, 5).map((item: any, idx: number) => ({
-          id: item.id ? item.id.substring(0, 8) : `AL-${100 + idx}`,
-          action: item.action || 'USER_ACTION',
-          user: item.userName || item.user || 'system',
-          time: new Date(item.timestamp || item.occurredAt || item['@timestamp'] || Date.now()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-          status: item.statusCode && item.statusCode >= 400 ? 'warning' : 'success',
-          detail: [item.serviceName, item.resourceName, item.details].filter(Boolean).join(' — ') || 'Thao tác hệ thống'
-        }));
-        this.loading = false;
-        this.cdr.markForCheck();
-      },
-      error: (err) => {
-        console.warn('Không thể tải audit logs:', err);
-        this.recentActivities = [];
-        this.loading = false;
-        this.cdr.markForCheck();
-      }
-    });
+    this.auditLogService
+      .getRecent(5, this.createSuppressToastContext())
+      .pipe(catchError(() => of<AuditLogRecentResponse>({ logs: [] })))
+      .subscribe({
+        next: (res: AuditLogRecentResponse) => {
+          const logs = res?.logs || res?.Logs || [];
+          this.recentActivities = logs.slice(0, 5).map((item: any, idx: number) => ({
+            id: item.id ? item.id.substring(0, 8) : `AL-${100 + idx}`,
+            action: item.action || 'USER_ACTION',
+            user: item.userName || item.user || 'system',
+            time: new Date(item.timestamp || item.occurredAt || item['@timestamp'] || Date.now()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+            status: item.statusCode && item.statusCode >= 400 ? 'warning' : 'success',
+            detail: [item.serviceName, item.resourceName, item.details].filter(Boolean).join(' — ') || 'Thao tác hệ thống'
+          }));
+          this.loading = false;
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          console.warn('Không thể tải audit logs:', err);
+          this.recentActivities = [];
+          this.loading = false;
+          this.cdr.markForCheck();
+        }
+      });
   }
 }
