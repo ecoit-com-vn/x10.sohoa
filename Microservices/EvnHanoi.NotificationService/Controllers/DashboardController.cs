@@ -43,6 +43,7 @@ public class DashboardController : ControllerBase
             UserRoles = roles,
             IsAdmin = isAdmin,
             UnitId = isAdmin ? null : JwtUserClaimResolver.ResolveUnitId(User),
+            Tab = DossierListTabs.Published,
             Page = page,
             PageSize = pageSize
         };

@@ -134,6 +134,13 @@ public class DossierSearchRepository : IDossierSearchRepository
                 .ToList();
         }
 
+        if (tabSlug == DossierListTabs.Published)
+        {
+            return items
+                .Where(item => item.PublishStatusId == 2)
+                .ToList();
+        }
+
         var expectedStatus = ResolveExpectedBusinessStatus(filter);
         if (expectedStatus is null)
             return items;
@@ -703,6 +710,8 @@ public class DossierSearchRepository : IDossierSearchRepository
             StatusId = doc.StatusId,
             StatusCode = doc.StatusCode,
             StatusName = doc.StatusName,
+            PublishStatusId = doc.PublishStatusId,
+            PublishStatusName = doc.PublishStatusName,
             WorkflowStepName = doc.WorkflowStatusName,
             WorkflowInstanceId = Guid.TryParse(doc.WorkflowInstanceId, out var wfId) ? wfId : null,
             WorkflowInstanceStatus = doc.WorkflowInstanceStatus,

@@ -53,6 +53,8 @@ public class DossierListItemDto
     public int StatusId { get; set; }
     public string? StatusCode { get; set; }
     public string? StatusName { get; set; }
+    public int? PublishStatusId { get; set; }
+    public string? PublishStatusName { get; set; }
     public string? WorkflowStepName { get; set; }
     public Guid? WorkflowInstanceId { get; set; }
     /// <summary>Trạng thái instance WF (Running/Completed…) — đọc từ ES, hỗ trợ debug tab.</summary>
