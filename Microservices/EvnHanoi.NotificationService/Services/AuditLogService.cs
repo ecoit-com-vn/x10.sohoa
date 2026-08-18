@@ -82,7 +82,10 @@ namespace EvnHanoi.NotificationService.Services
             var resourceTypeQuery = AuditVietnameseLabels.ResourceTypeLabels.AsEnumerable();
             if (string.Equals(logGroup, AuditLogGroups.Business, StringComparison.OrdinalIgnoreCase))
             {
-                resourceTypeQuery = resourceTypeQuery.Where(kv => kv.Key.StartsWith("DOSSIER", StringComparison.OrdinalIgnoreCase));
+                // DOCUMENT cũng thuộc nghiệp vụ khi upload tài liệu vào hồ sơ (xem DossierController.Documents.cs).
+                resourceTypeQuery = resourceTypeQuery.Where(kv =>
+                    kv.Key.StartsWith("DOSSIER", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(kv.Key, "DOCUMENT", StringComparison.OrdinalIgnoreCase));
             }
             else if (string.Equals(logGroup, AuditLogGroups.Operation, StringComparison.OrdinalIgnoreCase))
             {
