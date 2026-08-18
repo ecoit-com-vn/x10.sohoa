@@ -60,6 +60,7 @@ import {
   canReExtract,
   canSubmitOcrAndExtract,
   hasExtractionEverRun,
+  hasDigitizationEverRun,
   isReExtracting,
   isRetryingDigitization,
 } from '../../utils/dossier-digitization.util';
@@ -166,10 +167,19 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
   // đọc lại text đã có. Trước đây 2 thao tác này chạy ngay khi bấm, không hỏi gì.
   showOcrConfirm = signal(false);
   ocrConfirmTarget = signal<DossierDocumentItem | null>(null);
-  ocrConfirmKind = signal<'ocr-extract' | 'retry'>('ocr-extract');
-  readonly ocrConfirmHeader = computed(() =>
-    this.ocrConfirmKind() === 'retry' ? 'Xác nhận xử lý lại OCR/bóc tách' : 'Xác nhận chạy lại OCR + bóc tách'
-  );
+  ocrConfirmKind = signal<'ocr-extract' | 'ocr-only' | 'retry'>('ocr-extract');
+  /** 'ocr-extract'/'ocr-only' áp dụng cho cả lần chạy đầu tiên lẫn chạy lại — tài liệu chưa từng OCR thì bỏ chữ "lại". */
+  readonly ocrConfirmIsFirstRun = computed(() => {
+    const doc = this.ocrConfirmTarget();
+    const kind = this.ocrConfirmKind();
+    return (kind === 'ocr-extract' || kind === 'ocr-only') && !!doc && !hasDigitizationEverRun(doc);
+  });
+  readonly ocrConfirmHeader = computed(() => {
+    const kind = this.ocrConfirmKind();
+    if (kind === 'retry') return 'Xác nhận xử lý lại OCR/bóc tách';
+    if (kind === 'ocr-only') return this.ocrConfirmIsFirstRun() ? 'Xác nhận chạy OCR' : 'Xác nhận chạy lại OCR';
+    return this.ocrConfirmIsFirstRun() ? 'Xác nhận chạy OCR + bóc tách' : 'Xác nhận chạy lại OCR + bóc tách';
+  });
   readonly ocrConfirmTargetLabel = computed(() => this.ocrConfirmTarget()?.name ?? '');
   readonly ocrConfirmSubmitting = computed(() => {
     const doc = this.ocrConfirmTarget();
@@ -476,7 +486,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
     if (showDigitization && this.canSubmitOcrAndExtract(doc)) {
       actions.push({
         key: 'ocr-extract',
-        title: 'OCR + bóc tách lại',
+        title: hasDigitizationEverRun(doc) ? 'OCR + bóc tách lại' : 'OCR + bóc tách',
         btnClass: 'act-retry',
         iconClasses: this.isRetryingDigitization(doc.id, this.retryingIds())
           ? 'pi pi-spin pi-spinner'
@@ -484,6 +494,17 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
         disabled: this.isRetryingDigitization(doc.id, this.retryingIds()),
         overflowOnly: true,
         run: (d) => this.onOcrAndExtract(d),
+      });
+      actions.push({
+        key: 'ocr-only',
+        title: hasDigitizationEverRun(doc) ? 'OCR lại' : 'OCR',
+        btnClass: 'act-retry',
+        iconClasses: this.isRetryingDigitization(doc.id, this.retryingIds())
+          ? 'pi pi-spin pi-spinner'
+          : 'pi pi-file-import',
+        disabled: this.isRetryingDigitization(doc.id, this.retryingIds()),
+        overflowOnly: true,
+        run: (d) => this.onOcrOnly(d),
       });
     } else if (this.canRetryDigitization(doc) && this.canEdit) {
       actions.push({
@@ -797,6 +818,14 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
     this.showOcrConfirm.set(true);
   }
 
+  /** Mở popup xác nhận — chỉ chạy OCR, không tự động bóc tách tiếp theo. */
+  onOcrOnly(doc: DossierDocumentItem): void {
+    if (!doc.latestVersionId || !this.canEdit) return;
+    this.ocrConfirmTarget.set(doc);
+    this.ocrConfirmKind.set('ocr-only');
+    this.showOcrConfirm.set(true);
+  }
+
   cancelOcrConfirm(): void {
     if (this.ocrConfirmSubmitting()) return;
     this.showOcrConfirm.set(false);
@@ -810,6 +839,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
     this.showOcrConfirm.set(false);
     this.ocrConfirmTarget.set(null);
     if (kind === 'retry') this.runRetryDigitization(doc);
+    else if (kind === 'ocr-only') this.runOcrOnly(doc);
     else this.runOcrAndExtract(doc);
   }
 
@@ -875,6 +905,40 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
             severity: 'error',
             summary: 'Lỗi',
             detail: err?.error?.message || 'Không thể gửi OCR + bóc tách',
+          });
+        },
+      });
+  }
+
+  /** Chỉ chạy OCR — không tự động chuyển sang bóc tách (worker dừng lại sau khi OCR xong). */
+  private runOcrOnly(doc: DossierDocumentItem): void {
+    if (!doc.latestVersionId || !this.canEdit) return;
+
+    const ids = new Set(this.retryingIds());
+    ids.add(doc.id);
+    this.retryingIds.set(ids);
+
+    this.documentService
+      .retryDigitization(this.dossierId, doc.latestVersionId, 'OcrOnly')
+      .pipe(finalize(() => {
+        const next = new Set(this.retryingIds());
+        next.delete(doc.id);
+        this.retryingIds.set(next);
+      }))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Đã gửi OCR',
+            detail: `"${doc.name}" đang được xử lý OCR`,
+          });
+          this.loadDocuments(true);
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.message || 'Không thể gửi OCR',
           });
         },
       });

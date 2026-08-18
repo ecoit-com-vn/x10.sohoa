@@ -106,7 +106,7 @@ interface UploadChunkResponse {
   eTag: string;
 }
 
-export type DigitizationProcessOption = 'OcrAndExtract' | 'ExtractOnly';
+export type DigitizationProcessOption = 'OcrAndExtract' | 'ExtractOnly' | 'OcrOnly';
 
 /**
  * Phạm vi trang cần bóc tách. CHỈ ảnh hưởng bước bóc tách (gửi text lên LLM) — bước OCR luôn chạy

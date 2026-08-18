@@ -285,16 +285,24 @@
         {{
           ocrConfirmKind() === 'retry'
             ? 'Bạn có chắc chắn muốn xử lý lại OCR/bóc tách?'
-            : 'Bạn có chắc chắn muốn chạy lại OCR + bóc tách?'
+            : ocrConfirmKind() === 'ocr-only'
+              ? (ocrConfirmIsFirstRun() ? 'Bạn có chắc chắn muốn chạy OCR?' : 'Bạn có chắc chắn muốn chạy lại OCR?')
+              : ocrConfirmIsFirstRun()
+                ? 'Bạn có chắc chắn muốn chạy OCR + bóc tách?'
+                : 'Bạn có chắc chắn muốn chạy lại OCR + bóc tách?'
         }}
       </p>
       <p style="margin: 0 0 6px 0; color: #64748b; font-size: 0.875rem;">
-        Tài liệu <b style="color: #1e293b;">{{ ocrConfirmTargetLabel() }}</b> sẽ được nhận dạng lại
-        từ đầu, sau đó bóc tách theo biểu mẫu EAV mới nhất.
+        Tài liệu <b style="color: #1e293b;">{{ ocrConfirmTargetLabel() }}</b> sẽ được nhận dạng{{ ocrConfirmIsFirstRun() ? '' : ' lại từ đầu' }}{{
+          ocrConfirmKind() === 'ocr-only' ? '.' : ', sau đó bóc tách theo biểu mẫu EAV mới nhất.'
+        }}
       </p>
       <p style="margin: 0; color: #b45309; font-size: 0.8125rem;">
-        Lưu ý: bước OCR tạo lại file PDF 2 lớp và ghi đè lên file hiện tại. Dữ liệu bóc tách hiện
-        có sẽ bị thay thế khi xử lý xong.
+        Lưu ý: bước OCR tạo lại file PDF 2 lớp và ghi đè lên file hiện tại.{{
+          ocrConfirmKind() === 'ocr-only'
+            ? ''
+            : ' Dữ liệu bóc tách hiện có sẽ bị thay thế khi xử lý xong.'
+        }}
       </p>
     </div>
   </div>
@@ -322,7 +330,15 @@
       >
         <i class="pi pi-spin pi-spinner" *ngIf="ocrConfirmSubmitting()"></i>
         <i class="pi pi-refresh" *ngIf="!ocrConfirmSubmitting()"></i>
-        {{ ocrConfirmKind() === 'retry' ? 'Xử lý lại' : 'Chạy lại OCR + bóc tách' }}
+        {{
+          ocrConfirmKind() === 'retry'
+            ? 'Xử lý lại'
+            : ocrConfirmKind() === 'ocr-only'
+              ? (ocrConfirmIsFirstRun() ? 'Chạy OCR' : 'Chạy lại OCR')
+              : ocrConfirmIsFirstRun()
+                ? 'Chạy OCR + bóc tách'
+                : 'Chạy lại OCR + bóc tách'
+        }}
       </button>
     </div>
   </ng-template>
