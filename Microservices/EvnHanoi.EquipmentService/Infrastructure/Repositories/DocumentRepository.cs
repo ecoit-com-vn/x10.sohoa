@@ -790,6 +790,60 @@ public class DocumentRepository : IDocumentRepository
         return id;
     }
 
+    public async Task<Guid> CreateDocumentSignHistoryAsync(DocumentSignHistory history)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var id = Guid.NewGuid();
+        history.Id = id;
+
+        var sql = @"
+            INSERT INTO DOCUMENT_SIGN_HISTORY (
+                Id,
+                DocumentId,
+                DocumentVersionId,
+                SignerUserId,
+                SignerName,
+                SerialNumber,
+                SignedAt,
+                Status,
+                ErrorMessage,
+                CreatedBy,
+                CreatedDate,
+                IsDeleted
+            ) VALUES (
+                :Id,
+                :DocumentId,
+                :DocumentVersionId,
+                :SignerUserId,
+                :SignerName,
+                :SerialNumber,
+                :SignedAt,
+                :Status,
+                :ErrorMessage,
+                :CreatedBy,
+                SYSTIMESTAMP,
+                0
+            )";
+
+        await _connection.ExecuteAsync(sql, new
+        {
+            Id = id.ToString(),
+            DocumentId = history.DocumentId.ToString(),
+            DocumentVersionId = history.DocumentVersionId?.ToString(),
+            history.SignerUserId,
+            history.SignerName,
+            history.SerialNumber,
+            history.SignedAt,
+            history.Status,
+            history.ErrorMessage,
+            history.CreatedBy
+        });
+
+        return id;
+    }
+
     public async Task<IEnumerable<DocumentVersionDto>> GetDocumentVersionsAsync(Guid documentId)
     {
         if (_connection.State != ConnectionState.Open)
@@ -1327,7 +1381,6 @@ public class DocumentRepository : IDocumentRepository
             FROM DOCUMENT_VERSIONS dv
             INNER JOIN DOCUMENTS d ON d.ID = dv.DOCUMENT_ID AND d.IS_DELETED = 0
             INNER JOIN DOSSIER_EQUIPMENTS de ON d.DOSSIER_ID = de.DossierId AND de.EquipmentId = :EquipmentId
-            INNER JOIN DOCUMENT_TYPES dt ON {DocumentTypeActiveJoin} AND dt.IS_EQUIPMENT_PROFILE = 1
             WHERE dv.ID = :VersionId AND dv.IS_DELETED = 0";
 
         var count = await _connection.ExecuteScalarAsync<int>(sql, new
@@ -1349,7 +1402,6 @@ public class DocumentRepository : IDocumentRepository
             INNER JOIN DOCUMENTS d ON d.ID = dv.DOCUMENT_ID AND d.IS_DELETED = 0
             INNER JOIN DOSSIERS dossier ON d.DOSSIER_ID = dossier.ID
             INNER JOIN DOSSIER_EQUIPMENTS de ON d.DOSSIER_ID = de.DossierId AND de.EquipmentId = :EquipmentId
-            INNER JOIN DOCUMENT_TYPES dt ON {DocumentTypeActiveJoin} AND dt.IS_EQUIPMENT_PROFILE = 1
             WHERE dv.ID = :VersionId
               AND dv.IS_DELETED = 0
               AND dossier.IsDeleted = 0
@@ -1835,7 +1887,7 @@ public class DocumentRepository : IDocumentRepository
         Guid equipmentId,
         DossierDocumentFilterDto filter,
         bool publishedOnly,
-        string documentTypeFlagColumn = "IS_EQUIPMENT_PROFILE")
+        string? documentTypeFlagColumn = null)
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
@@ -1846,8 +1898,9 @@ public class DocumentRepository : IDocumentRepository
         var publishedDossierFilter = publishedOnly
             ? " AND dossier.IsDeleted = 0 AND dossier.STATUS_ID = 6 AND dossier.PUBLISHSTATUSID = 2"
             : string.Empty;
-        var documentTypeFilter = $"dt.{documentTypeFlagColumn} = 1";
-        var aliasedWhere = "d.IS_DELETED = 0" + publishedDossierFilter + $" AND {documentTypeFilter} AND de.EquipmentId = :EquipmentId";
+        // documentTypeFlagColumn = null: tab "Tài liệu đính kèm" hiển thị mọi loại tài liệu, không lọc theo cờ loại tài liệu.
+        var documentTypeFilter = documentTypeFlagColumn != null ? $" AND dt.{documentTypeFlagColumn} = 1" : string.Empty;
+        var aliasedWhere = "d.IS_DELETED = 0" + publishedDossierFilter + documentTypeFilter + " AND de.EquipmentId = :EquipmentId";
         if (!string.IsNullOrWhiteSpace(filter.Keyword))
             aliasedWhere += " AND d.NAME LIKE :Keyword";
 

@@ -497,6 +497,9 @@ public class AuthController : ControllerBase
             OrganizationUnit = user.OrganizationUnit,
             IsActive = user.IsActive,
             AuthProvider = user.AuthProvider,
+            // SsoNsId (EVN HRMS ns_ID) — dùng bởi EquipmentService để gọi API ký số ngoài
+            // (POST .../lay-thong-tin-serial-number, .../lay-anh-chu-ky) thay mặt người dùng hiện tại.
+            SsoNsId = user.SsoNsId,
             Roles = userRoles,
             Permissions = userPermissions
         });

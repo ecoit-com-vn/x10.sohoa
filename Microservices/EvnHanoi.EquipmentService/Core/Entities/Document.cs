@@ -8,7 +8,7 @@ public class DocumentVersion
     public Guid Id { get; set; }
     public Guid DocumentId { get; set; }
     public int VersionNumber { get; set; }
-    public int UploadSource { get; set; }  // 1: Thư mục, 2: Scan, 3: Web, 4: Xử lý tự động (khử nhiễu...)
+    public int UploadSource { get; set; }  // 1: Thư mục, 2: Scan, 3: Web, 4: Xử lý tự động (khử nhiễu...), 5: Ký số
     public string? FilePath { get; set; }  // Đường dẫn MinIO
     public string? MinioVersionId { get; set; }  // ID phiên bản lưu trên MinIO
     public long FileSize { get; set; }
@@ -28,7 +28,10 @@ public class DocumentVersion
 }
 
 /// <summary>
-/// Chữ ký số của tài liệu
+/// Chữ ký số của tài liệu (bảng cũ DOCUMENT_SIGNATURES — CHƯA có code nào dùng entity này, giữ
+/// nguyên không đổi). Lịch sử ký số tích hợp API ký số ngoài dùng <see cref="DocumentSignHistory"/>
+/// (bảng DOCUMENT_SIGN_HISTORY, Migration0050) — xem comment trong migration đó để biết lý do tách
+/// bảng thay vì tái sử dụng bảng này.
 /// </summary>
 public class DocumentSignature
 {
@@ -38,6 +41,28 @@ public class DocumentSignature
     public DateTime SignDate { get; set; }
     public string? Issuer { get; set; }
     public bool IsValid { get; set; } = true;
+}
+
+/// <summary>
+/// Lịch sử 1 lần ký số tài liệu qua tích hợp API ký số ngoài (bảng DOCUMENT_SIGN_HISTORY).
+/// Ghi cả trường hợp thất bại (DocumentVersionId null, ErrorMessage có giá trị) để tra soát.
+/// </summary>
+public class DocumentSignHistory
+{
+    public Guid Id { get; set; }
+    public Guid DocumentId { get; set; }
+    /// <summary>Phiên bản MỚI (file đã ký) — null khi ký thất bại.</summary>
+    public Guid? DocumentVersionId { get; set; }
+    public string? SignerUserId { get; set; }
+    public string? SignerName { get; set; }
+    public string? SerialNumber { get; set; }
+    public DateTime? SignedAt { get; set; }
+    /// <summary>"Success" | "Failed".</summary>
+    public string Status { get; set; } = "Failed";
+    public string? ErrorMessage { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+    public bool IsDeleted { get; set; } = false;
 }
 
 /// <summary>
