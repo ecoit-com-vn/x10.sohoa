@@ -4,16 +4,33 @@
   <div class="list-toolbar standard-page-toolbar">
     <div class="toolbar-left">
       <wf-breadcrumb
-        [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Người dùng', url: '/administration/user-management' }]" />
+        [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Người dùng', url: '/administration/user-management' }]"
+        [suffix]="currentView() === 'role' ? roleDialogHeader() : null" />
     </div>
     <div class="toolbar-right">
-      <button *ngIf="authService.hasPermission('USER_EXPORT')" class="btn-outlined" (click)="onExportExcel()"
-        title="Xuất Excel" [disabled]="loading()">
-        <i class="pi pi-file-excel"></i> Xuất Excel
-      </button>
-      <button *ngIf="authService.hasPermission('USER_CREATE')" class="btn-green" (click)="onAddNew()">
-        <i class="pi pi-plus"></i> Thêm mới
-      </button>
+      <ng-container *ngIf="currentView() === 'list'">
+        <button *ngIf="authService.hasPermission('USER_EXPORT')" class="btn-outlined" (click)="onExportExcel()"
+          title="Xuất Excel" [disabled]="loading()">
+          <i class="pi pi-file-excel"></i> Xuất Excel
+        </button>
+        <button *ngIf="authService.hasPermission('USER_CREATE')" class="btn-green" (click)="onAddNew()">
+          <i class="pi pi-plus"></i> Thêm mới
+        </button>
+      </ng-container>
+
+      <ng-container *ngIf="currentView() === 'role'">
+        <button class="btn-outlined btn-small" (click)="currentView.set('list')" [disabled]="savingRoles()">
+          <i class="pi pi-arrow-left"></i> Quay lại
+        </button>
+        <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="savingRoles()">
+          <i class="pi pi-times"></i> Đóng
+        </button>
+        <button class="btn-save btn-small" (click)="onSaveRoles()" [disabled]="savingRoles()">
+          <i class="pi pi-spin pi-spinner" *ngIf="savingRoles()" style="margin-right: 4px;"></i>
+          <i class="pi pi-save" *ngIf="!savingRoles()" style="margin-right: 4px;"></i>
+          Lưu vai trò
+        </button>
+      </ng-container>
     </div>
   </div>
   <div>
@@ -420,17 +437,7 @@
     </div>
 
     <!-- MÀN HÌNH GÁN VAI TRÒ TRỰC TIẾP -->
-    <div *ngIf="currentView() === 'role'" class="animate-fade-in">
-      <div class="edit-header">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <button class="btn-outlined btn-small" (click)="currentView.set('list')" title="Quay lại danh sách"
-            [disabled]="savingRoles()">
-            <i class="pi pi-arrow-left"></i>
-          </button>
-          <h3 class="edit-title">{{ roleDialogHeader() }}</h3>
-        </div>
-      </div>
-
+    <div *ngIf="currentView() === 'role'" class="animate-fade-in wf-card">
       <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
         <p class="text-muted" style="font-size: 0.85rem; margin: 0 0 10px 0;">Chọn các vai trò gán trực tiếp cho người
           dùng này:</p>
@@ -448,17 +455,6 @@
               </div>
             </div>
           </div>
-        </div>
-
-        <div
-          style="display: flex; justify-content: flex-start; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 18px; margin-top: 10px;">
-          <button class="btn-cancel btn-small" (click)="currentView.set('list')" [disabled]="savingRoles()"><i
-              class="pi pi-times"></i> Đóng</button>
-          <button class="btn-save btn-small" (click)="onSaveRoles()" [disabled]="savingRoles()">
-            <i class="pi pi-spin pi-spinner" *ngIf="savingRoles()" style="margin-right: 4px;"></i>
-            <i class="pi pi-save" *ngIf="!savingRoles()" style="margin-right: 4px;"></i>
-            Lưu vai trò
-          </button>
         </div>
       </div>
     </div>

@@ -34,7 +34,8 @@ export class ReportDossierMostViewedService {
   }
 
   getUnitsLookup(): Observable<UnitLookupItem[]> {
-    return this.http.get<UnitLookupItem[]>(`${this.baseUrl}/lookups/units`);
+    const params = new HttpParams().set('isactive', 1);
+    return this.http.get<UnitLookupItem[]>(`${this.baseUrl}/lookups/units`, { params });
   }
 
   getObjectTypesLookup(): Observable<ObjectTypeLookupItem[]> {
