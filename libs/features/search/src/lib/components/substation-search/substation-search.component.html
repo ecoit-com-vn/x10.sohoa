@@ -28,10 +28,37 @@
 
           <div class="standard-search-field">
             <label class="search-field-label">Đơn vị quản lý</label>
-            <select class="wf-input" [ngModel]="searchUnitId()" (ngModelChange)="searchUnitId.set($event)">
-              <option [value]="null">-- Tất cả đơn vị --</option>
-              <option *ngFor="let unit of orgUnits()" [value]="unit.id">{{ unit.name }}</option>
-            </select>
+            <div class="org-tree-picker">
+              <div class="org-tree-trigger" (click)="toggleSearchOrgTree($event)"
+                [class.has-value]="searchUnitId() !== null" [class.open]="searchOrgTreeOpen()">
+                <span class="org-tree-selected-label">
+                  <i class="pi pi-building"></i>
+                  {{ getUnitLabel(searchUnitId()) || '-- Tất cả đơn vị --' }}
+                </span>
+                <span class="org-tree-trigger-actions">
+                  <i class="pi pi-times-circle org-tree-clear" *ngIf="searchUnitId() !== null"
+                    title="Xóa đơn vị đã chọn" (click)="clearSearchOrgUnit($event)"></i>
+                  <i class="pi" [class.pi-chevron-down]="!searchOrgTreeOpen()"
+                    [class.pi-chevron-up]="searchOrgTreeOpen()"></i>
+                </span>
+              </div>
+
+              <div class="org-tree-dropdown" *ngIf="searchOrgTreeOpen()" (click)="$event.stopPropagation()">
+                <div class="org-tree-search">
+                  <i class="pi pi-search"></i>
+                  <input type="text" placeholder="Tìm kiếm đơn vị..." [ngModel]="searchOrgSearchKeyword()"
+                    (ngModelChange)="searchOrgSearchKeyword.set($event)" />
+                </div>
+
+                <ng-container *ngFor="let node of searchOrgUnitTree()">
+                  <ng-container *ngTemplateOutlet="searchOrgTreeNode; context: { $implicit: node, depth: 0 }" />
+                </ng-container>
+
+                <div *ngIf="searchOrgUnitTree().length === 0" class="org-tree-empty">
+                  Không có đơn vị phù hợp.
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="standard-search-field">
@@ -64,6 +91,29 @@
           </div>
         </div>
       </div>
+
+      <ng-template #searchOrgTreeNode let-node let-depth="depth">
+        <div class="org-tree-node" [style.padding-left.px]="depth * 18 + 8"
+          [class.selected]="searchUnitId() === node.id">
+          <button type="button" class="org-tree-expand-btn" *ngIf="node.children?.length"
+            (click)="toggleSearchUnitNode(node.id, $event)" [attr.aria-label]="isSearchNodeExpanded(node.id) ? 'Thu gọn' : 'Mở rộng'">
+            <i class="pi" [class.pi-chevron-right]="!isSearchNodeExpanded(node.id)"
+              [class.pi-chevron-down]="isSearchNodeExpanded(node.id)"></i>
+          </button>
+          <span class="org-tree-node-spacer" *ngIf="!node.children?.length"></span>
+          <button type="button" class="org-tree-node-label" (click)="selectSearchOrgUnit(node.id)">
+            <i class="pi pi-building"></i>
+            <span>{{ node.name }}</span>
+            <small *ngIf="node.code">{{ node.code }}</small>
+          </button>
+        </div>
+
+        <ng-container *ngIf="(searchOrgSearchKeyword() || isSearchNodeExpanded(node.id)) && node.children?.length">
+          <ng-container *ngFor="let child of node.children">
+            <ng-container *ngTemplateOutlet="searchOrgTreeNode; context: { $implicit: child, depth: depth + 1 }" />
+          </ng-container>
+        </ng-container>
+      </ng-template>
 
       <!-- Table Grid -->
       <div class="wf-card">
