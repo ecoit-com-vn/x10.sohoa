@@ -24,7 +24,8 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                             v.FormSchema as FormSchema, v.Version as Version,
                             gt.Name as {nameof(EavFormTemplate.GridTypeName)},
                             et.Name as {nameof(EavFormTemplate.EquipmentTypeName)},
-                            cat.Name as {nameof(EavFormTemplate.CategoryName)}
+                            cat.Name as {nameof(EavFormTemplate.CategoryName)},
+                            COALESCE(creatorById.FullName, creatorByUserName.FullName, t.CreatedBy) as CreatorFullName
                      FROM {nameof(EavFormTemplate)}s t
                      LEFT JOIN EavFormTemplateVersions v ON t.{nameof(EavFormTemplate.Id)} = v.FormTemplateId AND v.IsActive = 1 AND v.IsDeleted = 0 AND v.Version = (
                          SELECT MAX(Version) FROM EavFormTemplateVersions WHERE FormTemplateId = t.{nameof(EavFormTemplate.Id)} AND IsActive = 1 AND IsDeleted = 0
@@ -34,6 +35,10 @@ public class EavFormTemplateRepository : IEavFormTemplateRepository
                      LEFT JOIN CATALOG_TYPE hmad ON hmad.Code = 'HMAD' AND hmad.IsDeleted = 0
                      LEFT JOIN {nameof(Catalog)} cat ON cat.CatalogTypeId = hmad.Id AND cat.IsDeleted = 0
                           AND (cat.Code = v.Category OR TO_CHAR(cat.Id) = v.Category)
+                     LEFT JOIN APP_USER creatorById ON creatorById.Id = t.CreatedBy AND creatorById.IsDeleted = 0
+                     LEFT JOIN APP_USER creatorByUserName
+                          ON UPPER(TRIM(creatorByUserName.UserName)) = UPPER(TRIM(t.CreatedBy))
+                         AND creatorByUserName.IsDeleted = 0
                      WHERE t.{nameof(EavFormTemplate.Id)}= :Id";
         return await _connection.QuerySingleOrDefaultAsync<EavFormTemplate>(sql, new { Id = id.ToString() });
     }

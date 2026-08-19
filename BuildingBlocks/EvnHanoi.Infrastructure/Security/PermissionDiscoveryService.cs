@@ -170,6 +170,7 @@ public class PermissionDiscoveryService : BackgroundService
             { "EXPORT", "Xuất tệp (Export)" },
             { "MANAGE", "Quản lý chuyên sâu" },
             { "RELEASE", "Xuất bản" },
+            { "SIGN", "Ký số" },
         };
 
         // Group endpoints theo controller

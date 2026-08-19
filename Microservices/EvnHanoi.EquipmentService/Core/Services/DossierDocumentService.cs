@@ -1,7 +1,9 @@
 using System.Text.Json;
 using EvnHanoi.EquipmentService.Core.DTOs;
+using EvnHanoi.EquipmentService.Core.DTOs.DigitalSignature;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
+using Microsoft.Extensions.Configuration;
 
 namespace EvnHanoi.EquipmentService.Core.Services;
 
@@ -90,6 +92,22 @@ public interface IDossierDocumentService
         string userId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Ký số một tài liệu trong hồ sơ (tích hợp API ký số ngoài) — tạo phiên bản mới (file đã ký)
+    /// khi thành công. Lỗi nghiệp vụ (chưa cấu hình ns_ID, chứng thư hết hạn, ký thất bại, không
+    /// gọi được API ngoài...) trả về qua <see cref="SignDocumentResult.Success"/> = false, KHÔNG
+    /// ném exception — ngoại trừ lỗi "tài liệu/hồ sơ không tồn tại" (KeyNotFoundException) và lỗi
+    /// trạng thái không hợp lệ để chỉnh sửa (InvalidOperationException), theo đúng quy ước các
+    /// action khác trong service này.
+    /// </summary>
+    Task<SignDocumentResult> SignDocumentAsync(
+        Guid dossierId,
+        Guid documentId,
+        string userId,
+        string userName,
+        long userUnitId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Lấy biểu mẫu EAV theo loại văn bản gắn với phiên bản tài liệu.</summary>
     Task<EavFormTemplate?> GetFormTemplateForDocumentVersionAsync(
         Guid dossierId,
@@ -112,6 +130,9 @@ public class DossierDocumentService : IDossierDocumentService
     private readonly IFileDownloadTokenService _downloadTokenService;
     private readonly IFolderAllocationRepository _folderAllocationRepository;
     private readonly IDocumentTextIndexNotifier _documentTextIndexNotifier;
+    private readonly IKySoClient _kySoClient;
+    private readonly IIdentityServiceClient _identityServiceClient;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<DossierDocumentService> _logger;
 
     public DossierDocumentService(
@@ -123,6 +144,9 @@ public class DossierDocumentService : IDossierDocumentService
         IFileDownloadTokenService downloadTokenService,
         IFolderAllocationRepository folderAllocationRepository,
         IDocumentTextIndexNotifier documentTextIndexNotifier,
+        IKySoClient kySoClient,
+        IIdentityServiceClient identityServiceClient,
+        IConfiguration configuration,
         ILogger<DossierDocumentService> logger)
     {
         _dossierService = dossierService ?? throw new ArgumentNullException(nameof(dossierService));
@@ -133,6 +157,9 @@ public class DossierDocumentService : IDossierDocumentService
         _downloadTokenService = downloadTokenService ?? throw new ArgumentNullException(nameof(downloadTokenService));
         _folderAllocationRepository = folderAllocationRepository ?? throw new ArgumentNullException(nameof(folderAllocationRepository));
         _documentTextIndexNotifier = documentTextIndexNotifier ?? throw new ArgumentNullException(nameof(documentTextIndexNotifier));
+        _kySoClient = kySoClient ?? throw new ArgumentNullException(nameof(kySoClient));
+        _identityServiceClient = identityServiceClient ?? throw new ArgumentNullException(nameof(identityServiceClient));
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -598,6 +625,204 @@ public class DossierDocumentService : IDossierDocumentService
 
         return await _documentRepository.SoftDeleteDocumentVersionAsync(versionId, userId);
     }
+
+    public async Task<SignDocumentResult> SignDocumentAsync(
+        Guid dossierId,
+        Guid documentId,
+        string userId,
+        string userName,
+        long userUnitId,
+        CancellationToken cancellationToken = default)
+    {
+        await _dossierService.EnsureCanEditFormDataAsync(dossierId);
+
+        if (!await _documentRepository.DocumentBelongsToDossierAsync(documentId, dossierId))
+            throw new KeyNotFoundException("Tài liệu không thuộc hồ sơ này");
+
+        var document = await _documentRepository.GetDocumentByIdAsync(documentId);
+        if (document == null)
+            throw new KeyNotFoundException("Tài liệu không tồn tại");
+
+        if (!document.LatestVersionId.HasValue)
+            throw new InvalidOperationException("Tài liệu chưa có phiên bản để ký số.");
+
+        var latestVersion = await _documentRepository.GetDocumentVersionByIdAsync(document.LatestVersionId.Value);
+        if (latestVersion == null || string.IsNullOrEmpty(latestVersion.FilePath))
+            throw new InvalidOperationException("Tài liệu chưa có file để ký số.");
+
+        // Resolve ns_ID người dùng hiện tại (EVN HRMS) — không có thì báo lỗi nghiệp vụ, không throw.
+        var nsIdRaw = await _identityServiceClient.GetCurrentUserSsoNsIdAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(nsIdRaw) || !long.TryParse(nsIdRaw, out var nsId))
+        {
+            return SignDocumentResult.Fail(
+                "Người dùng chưa được cấu hình ns_ID để ký số, vui lòng liên hệ quản trị hệ thống.");
+        }
+
+        try
+        {
+            var serialInfo = await _kySoClient.GetSerialNumberAsync(nsId, cancellationToken);
+            if (serialInfo == null || string.IsNullOrWhiteSpace(serialInfo.Serial))
+            {
+                return SignDocumentResult.Fail("Không lấy được thông tin chứng thư số (serial number) từ hệ thống ký số.");
+            }
+
+            if (serialInfo.ValidTo.HasValue && serialInfo.ValidTo.Value < DateTime.Now)
+            {
+                return SignDocumentResult.Fail("Chứng thư số đã hết hạn.");
+            }
+
+            var signatureImageBase64 = await _kySoClient.GetSignatureImageAsync(nsId, cancellationToken);
+            if (string.IsNullOrWhiteSpace(signatureImageBase64))
+            {
+                return SignDocumentResult.Fail("Không lấy được ảnh chữ ký từ hệ thống ký số.");
+            }
+
+            byte[] sourceBytes;
+            using (var sourceStream = await _fileStorageService.DownloadFileAsync(
+                latestVersion.FilePath!,
+                _fileStorageService.DossierBucketName,
+                latestVersion.MinioVersionId,
+                cancellationToken))
+            using (var memoryStream = new MemoryStream())
+            {
+                await sourceStream.CopyToAsync(memoryStream, cancellationToken);
+                sourceBytes = memoryStream.ToArray();
+            }
+
+            var signRequest = new KySoSignPdfRequest
+            {
+                AppCode = _configuration["DigitalSignature:AppCode"] ?? "app4",
+                // TODO: mật khẩu chứng thư số KHÔNG được commit dạng plaintext thật — cấu hình hiện
+                // tại chỉ là placeholder giả, phải chuyển sang secret store an toàn trước production.
+                Password = _configuration["DigitalSignature:Password"] ?? string.Empty,
+                SerialNumber = serialInfo.Serial!,
+                CaType = _configuration.GetValue<int?>("DigitalSignature:CaType") ?? 1,
+                Alias = serialInfo.Alias ?? string.Empty,
+                DigestAlgorithm = _configuration["DigitalSignature:DigestAlgorithm"] ?? "SHA-1",
+                TimestampConfig = new KySoTimestampConfig { UseTimestamp = false },
+                DisplayImageConfigBO = BuildDisplayImageConfig(),
+                FileImageBase64 = signatureImageBase64,
+                FileBase64 = Convert.ToBase64String(sourceBytes)
+            };
+
+            var signResult = await _kySoClient.SignPdfAsync(signRequest, cancellationToken);
+
+            if (!signResult.Status || string.IsNullOrEmpty(signResult.SignedFileBase64))
+            {
+                var errorMessage = signResult.ObjectError?.ToString();
+                if (string.IsNullOrWhiteSpace(errorMessage))
+                    errorMessage = "Ký số thất bại không rõ nguyên nhân.";
+
+                await _documentRepository.CreateDocumentSignHistoryAsync(new DocumentSignHistory
+                {
+                    DocumentId = document.Id,
+                    DocumentVersionId = null,
+                    SignerUserId = userId,
+                    SignerName = userName,
+                    SerialNumber = serialInfo.Serial,
+                    SignedAt = null,
+                    Status = "Failed",
+                    ErrorMessage = Truncate(errorMessage, 2000),
+                    CreatedBy = userId
+                });
+
+                _logger.LogWarning(
+                    "Ký số thất bại tài liệu {DocumentId} — signStatus=false", document.Id);
+
+                return SignDocumentResult.Fail($"Ký số thất bại: {errorMessage}");
+            }
+
+            var signedBytes = Convert.FromBase64String(signResult.SignedFileBase64);
+            var unitCode = await ResolveUnitCodeAsync(userUnitId);
+
+            (string NewPath, string NewMinioVersionId) uploadResult;
+            using (var signedStream = new MemoryStream(signedBytes))
+            {
+                uploadResult = await _fileStorageService.UploadFileToDossierAsync(
+                    signedStream,
+                    document.Name ?? "signed_file.pdf",
+                    latestVersion.MimeType ?? "application/pdf",
+                    signedBytes.LongLength,
+                    unitCode,
+                    dossierId,
+                    cancellationToken);
+            }
+
+            var versions = await _documentRepository.GetDocumentVersionsAsync(document.Id);
+            var maxVersion = versions.Any() ? versions.Max(v => v.VersionNumber) : 0;
+
+            var newVersion = new DocumentVersion
+            {
+                DocumentId = document.Id,
+                VersionNumber = maxVersion + 1,
+                UploadSource = 5, // Ký số
+                FilePath = uploadResult.NewPath,
+                MinioVersionId = uploadResult.NewMinioVersionId,
+                FileSize = signedBytes.LongLength,
+                MimeType = latestVersion.MimeType ?? "application/pdf",
+                CreatedBy = userId
+            };
+
+            var newVersionId = await _documentRepository.CreateDocumentVersionAsync(newVersion);
+            var signedAt = DateTime.UtcNow;
+
+            await _documentRepository.CreateDocumentSignHistoryAsync(new DocumentSignHistory
+            {
+                DocumentId = document.Id,
+                DocumentVersionId = newVersionId,
+                SignerUserId = userId,
+                SignerName = userName,
+                SerialNumber = serialInfo.Serial,
+                SignedAt = signedAt,
+                Status = "Success",
+                ErrorMessage = null,
+                CreatedBy = userId
+            });
+
+            await _dossierService.RecordDocumentListChangeAsync(
+                dossierId, $"Ký số tài liệu: {document.Name}", userId);
+
+            _logger.LogInformation(
+                "Ký số thành công tài liệu {DocumentId} — phiên bản mới {NewVersionId} (v{VersionNumber})",
+                document.Id, newVersionId, newVersion.VersionNumber);
+
+            return SignDocumentResult.Ok(newVersionId, newVersion.VersionNumber, signedAt);
+        }
+        catch (Exception ex) when (
+            ex is not KeyNotFoundException &&
+            ex is not InvalidOperationException &&
+            ex is not UnauthorizedAccessException)
+        {
+            _logger.LogError(ex, "Lỗi khi gọi hệ thống ký số ngoài cho tài liệu {DocumentId}", documentId);
+            return SignDocumentResult.Fail("Không thể kết nối tới hệ thống ký số, vui lòng thử lại sau.");
+        }
+    }
+
+    private KySoDisplayImageConfig BuildDisplayImageConfig()
+    {
+        var section = _configuration.GetSection("DigitalSignature:DisplayImageConfig");
+        var config = new KySoDisplayImageConfig();
+
+        if (!section.Exists())
+            return config;
+
+        config.LocateSign = section.GetValue<int?>("LocateSign") ?? config.LocateSign;
+        config.NumberPageSign = section.GetValue<int?>("NumberPageSign") ?? config.NumberPageSign;
+        config.WidthRectangle = section.GetValue<int?>("WidthRectangle") ?? config.WidthRectangle;
+        config.HeightRectangle = section.GetValue<int?>("HeightRectangle") ?? config.HeightRectangle;
+        config.MarginLeftOfRectangle = section.GetValue<int?>("MarginLeftOfRectangle") ?? config.MarginLeftOfRectangle;
+        config.MarginRightOfRectangle = section.GetValue<int?>("MarginRightOfRectangle") ?? config.MarginRightOfRectangle;
+        config.MarginTopOfRectangle = section.GetValue<int?>("MarginTopOfRectangle") ?? config.MarginTopOfRectangle;
+        config.MarginBottomOfRectangle = section.GetValue<int?>("MarginBottomOfRectangle") ?? config.MarginBottomOfRectangle;
+        config.Contact = section["Contact"] ?? config.Contact;
+        config.Reason = section["Reason"] ?? config.Reason;
+        config.Location = section["Location"] ?? config.Location;
+
+        return config;
+    }
+
+    private static string? Truncate(string? value, int maxLength) =>
+        string.IsNullOrEmpty(value) || value.Length <= maxLength ? value : value[..maxLength];
 
     public async Task<IReadOnlyList<DocumentType>> GetDocumentTypesForDossierAsync(Guid dossierId)
     {

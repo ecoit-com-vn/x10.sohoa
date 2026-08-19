@@ -33,6 +33,9 @@ public interface IDocumentRepository
     Task<IEnumerable<DocumentVersionDto>> GetDocumentVersionsAsync(Guid documentId);
     Task<DocumentVersionDto?> GetDocumentVersionByIdAsync(Guid versionId);
 
+    // Digital signature (ký số) history — bảng DOCUMENT_SIGN_HISTORY (Migration0050)
+    Task<Guid> CreateDocumentSignHistoryAsync(DocumentSignHistory history);
+
     // Upload Session operations (new for file upload system)
     Task<Guid> CreateUploadSessionAsync(UploadSession session);
     Task<UploadSession?> GetUploadSessionAsync(string uploadId);
