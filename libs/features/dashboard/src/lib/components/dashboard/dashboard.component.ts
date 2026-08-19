@@ -4,7 +4,6 @@ import { RouterModule } from '@angular/router';
 import { HttpClient, HttpContext } from '@angular/common/http';
 import { forkJoin, Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
-import { environment } from '@env/environment';
 import {
   APP_CONFIG,
   AuditLogRecentResponse,
@@ -169,12 +168,12 @@ export class DashboardComponent implements OnInit {
   /** Tổng hồ sơ + danh sách hồ sơ mới nhất (đã sắp xếp theo ngày tạo giảm dần ở backend, không lọc theo trạng thái/tab) */
   private loadRecentDossiers() {
     this.http
-      .get<any>(`${environment.apiGatewayUrl}/api/v1/search-publish`, {
+      .get<any>(`${this.config.apiGatewayUrl}/api/v1/search/dashboard/dossiers`, {
         params: {
-          tab: 'published',
           page: String(this.recentDossiersPage),
           pageSize: String(this.recentDossiersPageSize)
-        }
+        },
+        context: this.createSuppressToastContext()
       })
       .pipe(catchError(() => of(null)))
       .subscribe({
