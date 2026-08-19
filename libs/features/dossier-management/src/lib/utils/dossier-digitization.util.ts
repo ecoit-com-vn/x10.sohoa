@@ -237,6 +237,11 @@ export function canReExtract(doc: DossierDocumentItem): boolean {
   );
 }
 
+/** true nếu tài liệu đã từng chạy OCR (bất kể đang chạy/xong/lỗi) — dùng đổi nhãn nút "OCR + bóc tách" ↔ "OCR + bóc tách lại", tránh hiện chữ "lại" cho tài liệu chưa từng OCR lần nào. */
+export function hasDigitizationEverRun(doc: DossierDocumentItem): boolean {
+  return !!doc.ocrProgress || !!doc.extractionResult;
+}
+
 /** true nếu tài liệu đã từng bóc tách xong/lỗi ở lần chạy trước — dùng đổi nhãn nút "Bóc tách" ↔ "Bóc tách lại" theo trạng thái, tránh hiện 2 nút cùng chức năng. */
 export function hasExtractionEverRun(doc: DossierDocumentItem): boolean {
   const ocr = doc.ocrProgress;
