@@ -139,6 +139,19 @@ namespace EvnHanoi.DigitizationService.Workers
                             // luồng bỏ qua khi phát hiện file đã là PDF 2 lớp (idempotency, xem dưới).
                             async Task PublishExtractionAndAckAsync(string extractionFilePath)
                             {
+                                // Thao tác "OCR" độc lập (ProcessOption = OcrOnly): dừng lại ngay sau khi
+                                // OCR xong, không tự động chuyển sang bóc tách. Message tiến trình
+                                // "ocr.process.progress" ở trang cuối (Progress=100) đã cập nhật Status =
+                                // "OcrCompleted" cho FE — người dùng tự bấm "Bóc tách" riêng khi cần.
+                                if (taskMsg.ProcessOption == "OcrOnly")
+                                {
+                                    _logger.LogInformation(
+                                        "Task yêu cầu OcrOnly, dừng lại sau OCR cho file {FilePath}, không chuyển sang Extraction.",
+                                        taskMsg.FilePath);
+                                    await _channel!.BasicAckAsync(ea.DeliveryTag, false);
+                                    return;
+                                }
+
                                 // Luồng "Quản lý dữ liệu huấn luyện AI-OCR" (upload PDF độc lập từ màn hình
                                 // quản trị, không gắn Dossier/Equipment): không cần bóc tách LLM, chỉ nạp
                                 // thẳng kết quả OCR vừa ghi ra MinIO vào OCR_MODULE_REGION rồi đóng Job.

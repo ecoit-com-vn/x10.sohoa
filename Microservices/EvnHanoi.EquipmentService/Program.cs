@@ -12,6 +12,9 @@ using RabbitMQ.Client;
 using Nest;
 using Minio;
 using EvnHanoi.EquipmentService.Core.Services;
+using Polly;
+using Polly.Extensions.Http;
+using Polly.Timeout;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -118,7 +121,34 @@ builder.Services.AddTransient<EvnHanoi.Infrastructure.Security.TokenRelayHandler
 builder.Services.AddHttpClient("IdentityService", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Services:IdentityService"] ?? "http://identityservice");
-});
+}).AddHttpMessageHandler<EvnHanoi.Infrastructure.Security.TokenRelayHandler>();
+
+// Ký số (chữ ký số) — tích hợp API ngoài. ĐẶT client mới ở EquipmentService (không dùng/mở rộng
+// client "CA" đã scaffold sẵn trong EvnHanoi.SyncService — client đó hiện KHÔNG được gọi ở đâu cả)
+// vì logic ký số gắn chặt với document/version + MinIO vốn đã sống trong EquipmentService.
+// Polly retry/circuit-breaker/timeout mirror đúng shape SyncService dùng cho client "PMIS"/"CA".
+var kySoRetryPolicy = HttpPolicyExtensions
+    .HandleTransientHttpError()
+    .Or<TimeoutRejectedException>()
+    .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+
+var kySoCircuitBreakerPolicy = HttpPolicyExtensions
+    .HandleTransientHttpError()
+    .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30));
+
+var kySoTimeoutPolicy = Polly.Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromSeconds(30));
+
+builder.Services.AddHttpClient("KySo", client =>
+{
+    var baseUrl = builder.Configuration["Endpoints:KySo"] ?? "https://gwlocal.evnhanoi.vn";
+    client.BaseAddress = new Uri(baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/");
+})
+.AddPolicyHandler(kySoRetryPolicy)
+.AddPolicyHandler(kySoCircuitBreakerPolicy)
+.AddPolicyHandler(kySoTimeoutPolicy);
+
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IKySoClient, EvnHanoi.EquipmentService.Infrastructure.Services.KySoClient>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IIdentityServiceClient, EvnHanoi.EquipmentService.Infrastructure.Services.IdentityServiceClient>();
 
 builder.Services.AddHttpClient("WorkflowService", client =>
 {

@@ -200,6 +200,13 @@ public static class PermissionCodeResolver
             return "MANAGE";
         }
 
+        // Ký số tài liệu (tích hợp API ký số ngoài) — phải đứng sau "assign" (chứa substring "sign")
+        // ở trên để "AssignX" không bị nhận nhầm thành SIGN.
+        if (actLower.Contains("sign"))
+        {
+            return "SIGN";
+        }
+
         if (actLower.Contains("import") || actLower.Contains("upload") || actLower.Contains("extract") || actLower.Contains("ocr"))
         {
             return "IMPORT";
@@ -289,6 +296,7 @@ public static class PermissionCodeResolver
             "AUDIT_LOG_VIEW" => "Xem nhật ký hệ thống",
             "AUDIT_LOG_DELETE" => "Xóa nhật ký hệ thống",
             "AUDIT_LOG_EXPORT" => "Xuất nhật ký hệ thống",
+            "DOSSIER_SIGN" => "Ký số tài liệu hồ sơ",
             _ => null
         };
     }
