@@ -277,8 +277,10 @@ export class UserManagement implements OnInit {
     this.userService.getSystemRoles().subscribe({
       next: (res: any) => {
         const list = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : (res && Array.isArray(res.value) ? res.value : []));
+        // Chỉ hiển thị vai trò đang hoạt động ở combobox "Vai trò trực tiếp".
+        const activeOnly = list.filter((r: any) => r?.isActive !== false);
         // Sắp xếp theo tên vai trò (A-Z, đúng thứ tự dấu tiếng Việt) để combobox "Vai trò trực tiếp" dễ tìm.
-        const sorted = [...list].sort((a, b) => (a?.name ?? '').localeCompare(b?.name ?? '', 'vi'));
+        const sorted = [...activeOnly].sort((a, b) => (a?.name ?? '').localeCompare(b?.name ?? '', 'vi'));
         this.systemRoles.set(sorted);
       },
       error: () => {
