@@ -494,19 +494,11 @@
                         (click)="viewDossierDetail(item)"
                         [title]="'Xem chi tiết hồ sơ trong tab mới'"
                       >
-                        {{
-                          item.catalogData
-                            ? item.catalogData[col.key] || '---'
-                            : '---'
-                        }}
+                        {{ getDossierCatalogValue(item, col) }}
                       </b>
                     </span>
                     <ng-template #normalVal>
-                      {{
-                        item.catalogData
-                          ? item.catalogData[col.key] || '---'
-                          : '---'
-                      }}
+                      {{ getDossierCatalogValue(item, col) }}
                     </ng-template>
                   </td>
 
