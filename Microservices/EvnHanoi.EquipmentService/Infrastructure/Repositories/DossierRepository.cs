@@ -151,6 +151,56 @@ public class DossierRepository : IDossierRepository
         return result;
     }
 
+    private static string? ParseFormDataTextValue(string? formDataJson, string fieldName)
+    {
+        if (string.IsNullOrWhiteSpace(formDataJson))
+            return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(formDataJson);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+                return null;
+
+            foreach (var property in doc.RootElement.EnumerateObject())
+            {
+                if (!string.Equals(property.Name, fieldName, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var value = property.Value.ValueKind switch
+                {
+                    JsonValueKind.String => property.Value.GetString(),
+                    JsonValueKind.Number => property.Value.GetRawText(),
+                    _ => null
+                };
+
+                return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+            }
+        }
+        catch (JsonException)
+        {
+            // Dữ liệu JSON không hợp lệ: giữ null để client dùng giá trị catalog dự phòng.
+        }
+
+        return null;
+    }
+
+    private static string? ParseDossierCode(string? formDataJson) =>
+        ParseFormDataTextValue(formDataJson, "CODE");
+
+    private static string? ParseDossierTitle(string? formDataJson)
+    {
+        string[] titleFields = ["NAME", "TIEUDE_HOSO", "TIEU_DE_HO_SO", "TIEUDE"];
+        foreach (var field in titleFields)
+        {
+            var title = ParseFormDataTextValue(formDataJson, field);
+            if (!string.IsNullOrWhiteSpace(title))
+                return title;
+        }
+
+        return null;
+    }
+
     public async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetCatalogDossiersAsync(
         string? keyword,
         Guid? infrastructureId,
@@ -279,6 +329,14 @@ public class DossierRepository : IDossierRepository
         foreach (var tuple in mappedItems)
         {
             tuple.dto.CatalogData = ParseCatalogData(tuple.Item2, bhsCatalogs);
+            tuple.dto.DossierCode = ParseDossierCode(tuple.Item2);
+            tuple.dto.DossierTitle = ParseDossierTitle(tuple.Item2);
+            if (string.IsNullOrWhiteSpace(tuple.dto.DossierTitle)
+                && tuple.dto.CatalogData.TryGetValue("Tiêu đề hồ sơ", out var catalogTitle)
+                && !string.IsNullOrWhiteSpace(catalogTitle))
+            {
+                tuple.dto.DossierTitle = catalogTitle.Trim();
+            }
             resultList.Add(tuple.dto);
         }
 
@@ -698,6 +756,7 @@ public class DossierRepository : IDossierRepository
         foreach (var tuple in mappedItems)
         {
             tuple.dto.CatalogData = ParseCatalogData(tuple.Item2, bhsCatalogs);
+            tuple.dto.DossierCode = ParseDossierCode(tuple.Item2);
             resultList.Add(tuple.dto);
         }
 
@@ -1546,6 +1605,7 @@ public class DossierRepository : IDossierRepository
 
             string? formDataJson = d.FORMDATAJSON as string;
             dto.CatalogData = ParseCatalogData(formDataJson, bhsCatalogs);
+            dto.DossierCode = ParseDossierCode(formDataJson);
             return dto;
         }).ToList();
 

@@ -150,12 +150,17 @@ public class DocumentRepository : IDocumentRepository
                 f.UNIT_ID AS UnitId,
                 ou.CODE AS UnitCode,
                 f.CREATED_BY AS CreatedBy,
+                NVL(NULLIF(TRIM(fcu.FullName), ''), NULLIF(TRIM(f.CREATED_BY), '')) AS CreatedByName,
                 f.CREATED_DATE AS CreatedDate,
                 f.MODIFIED_BY AS ModifiedBy,
                 f.MODIFIED_DATE AS ModifiedDate,
                 f.ROW_VERSION AS RowVersion
             FROM FOLDERS f
             INNER JOIN ORGANIZATION_UNIT ou ON ou.ID = f.UNIT_ID
+            LEFT JOIN APP_USER fcu ON (
+                LOWER(TRIM(fcu.Id)) = LOWER(TRIM(f.CREATED_BY))
+                OR LOWER(TRIM(fcu.UserName)) = LOWER(TRIM(f.CREATED_BY))
+            )
             WHERE f.UNIT_ID = :UnitId 
               AND f.IS_DELETED = 0
             ORDER BY f.NAME ASC";
@@ -176,12 +181,17 @@ public class DocumentRepository : IDocumentRepository
                 f.UNIT_ID AS UnitId,
                 ou.CODE AS UnitCode,
                 f.CREATED_BY AS CreatedBy,
+                NVL(NULLIF(TRIM(fcu.FullName), ''), NULLIF(TRIM(f.CREATED_BY), '')) AS CreatedByName,
                 f.CREATED_DATE AS CreatedDate,
                 f.MODIFIED_BY AS ModifiedBy,
                 f.MODIFIED_DATE AS ModifiedDate,
                 f.ROW_VERSION AS RowVersion
             FROM FOLDERS f
             INNER JOIN ORGANIZATION_UNIT ou ON ou.ID = f.UNIT_ID
+            LEFT JOIN APP_USER fcu ON (
+                LOWER(TRIM(fcu.Id)) = LOWER(TRIM(f.CREATED_BY))
+                OR LOWER(TRIM(fcu.UserName)) = LOWER(TRIM(f.CREATED_BY))
+            )
             WHERE f.ID = :Id 
               AND f.IS_DELETED = 0";
 
@@ -303,12 +313,17 @@ public class DocumentRepository : IDocumentRepository
                 f.UNIT_ID AS UnitId,
                 ou.CODE AS UnitCode,
                 f.CREATED_BY AS CreatedBy,
+                NVL(NULLIF(TRIM(fcu.FullName), ''), NULLIF(TRIM(f.CREATED_BY), '')) AS CreatedByName,
                 f.CREATED_DATE AS CreatedDate,
                 f.MODIFIED_BY AS ModifiedBy,
                 f.MODIFIED_DATE AS ModifiedDate,
                 f.ROW_VERSION AS RowVersion
             FROM FOLDERS f
             INNER JOIN ORGANIZATION_UNIT ou ON ou.ID = f.UNIT_ID
+            LEFT JOIN APP_USER fcu ON (
+                LOWER(TRIM(fcu.Id)) = LOWER(TRIM(f.CREATED_BY))
+                OR LOWER(TRIM(fcu.UserName)) = LOWER(TRIM(f.CREATED_BY))
+            )
             WHERE f.PARENT_ID = :ParentId
               AND f.IS_DELETED = 0
             ORDER BY f.NAME ASC";
