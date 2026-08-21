@@ -59,6 +59,10 @@ public class DossierInfrastructureAssignmentDto : DossierInfrastructureDto
 public class DossierListItemDto
 {
     public Guid Id { get; set; }
+    /// <summary>Mã hồ sơ chuẩn lấy từ trường CODE trong FormDataJson.</summary>
+    public string? DossierCode { get; set; }
+    /// <summary>Tiêu đề hồ sơ chuẩn lấy từ trường NAME trong FormDataJson.</summary>
+    public string? DossierTitle { get; set; }
     public int? GridTypeId { get; set; }
     public string? GridTypeName { get; set; }
     public Guid? InfrastructureId { get; set; }
