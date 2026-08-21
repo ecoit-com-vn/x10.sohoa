@@ -14,7 +14,7 @@
                 </div>
                 <div class="standard-search-field lookup-filters__field">
                     <label class="form-label">Loại hồ sơ</label>
-                    <p-select [options]="dossierTypes()" [ngModel]="filterDossierTypeId()" (ngModelChange)="filterDossierTypeId.set($event); onSearch()" optionLabel="name" optionValue="id" placeholder="-- Tất cả loại hồ sơ --" [filter]="true" filterBy="name,code"
+                    <p-select [options]="dossierTypes()" [ngModel]="filterDossierTypeId()" (ngModelChange)="filterDossierTypeId.set($event); onSearch()" optionLabel="name" optionValue="id" placeholder="-- Tất cả loại hồ sơ --" [filter]="true" filterBy="name,code,searchText"
                         filterPlaceholder="Tìm loại hồ sơ..." [showClear]="true" appendTo="body" styleClass="lookup-search-select">
                         <ng-template #item let-item>
                             <span>{{ item.name }}</span>
@@ -24,7 +24,7 @@
                 </div>
                 <div class="standard-search-field lookup-filters__field">
                     <label class="form-label">Trạm / Đường dây</label>
-                    <p-select [options]="infrastructures()" [ngModel]="filterInfrastructureId()" (ngModelChange)="filterInfrastructureId.set($event); onInfrastructureChange()" optionLabel="name" optionValue="id" placeholder="-- Tất cả trạm/đường dây --" [filter]="true" filterBy="name,code"
+                    <p-select [options]="infrastructures()" [ngModel]="filterInfrastructureId()" (ngModelChange)="filterInfrastructureId.set($event); onInfrastructureChange()" optionLabel="name" optionValue="id" placeholder="-- Tất cả trạm/đường dây --" [filter]="true" filterBy="name,code,searchText"
                         filterPlaceholder="Tìm theo mã hoặc tên..." [showClear]="true" appendTo="body" styleClass="lookup-search-select">
                         <ng-template #item let-item>
                             <span>{{ item.name }}</span>
@@ -34,7 +34,7 @@
                 </div>
                 <div class="standard-search-field lookup-filters__field">
                     <label class="form-label">Loại thiết bị</label>
-                    <p-select [options]="equipmentTypes()" [ngModel]="filterEquipmentTypeId()" (ngModelChange)="filterEquipmentTypeId.set($event); onEquipmentTypeChange()" optionLabel="name" optionValue="id" placeholder="-- Tất cả loại thiết bị --" [filter]="true" filterBy="name,code" filterPlaceholder="Tìm loại thiết bị..."
+                    <p-select [options]="equipmentTypes()" [ngModel]="filterEquipmentTypeId()" (ngModelChange)="filterEquipmentTypeId.set($event); onEquipmentTypeChange()" optionLabel="name" optionValue="id" placeholder="-- Tất cả loại thiết bị --" [filter]="true" filterBy="name,code,searchText" filterPlaceholder="Tìm loại thiết bị..."
                         [showClear]="true" appendTo="body" styleClass="lookup-search-select">
                         <ng-template #item let-item>
                             <span>{{ item.name }}</span>
@@ -47,7 +47,7 @@
             <div class="standard-search-grid lookup-filters__row lookup-filters__row--secondary">
                 <div class="standard-search-field lookup-filters__field">
                     <label class="form-label">Thiết bị</label>
-                    <p-select [options]="equipments()" [ngModel]="filterEquipmentId()" (ngModelChange)="filterEquipmentId.set($event); onSearch()" optionLabel="name" optionValue="id" placeholder="-- Tất cả thiết bị --" [filter]="true" filterBy="name,code" filterPlaceholder="Tìm theo mã hoặc tên..."
+                    <p-select [options]="equipments()" [ngModel]="filterEquipmentId()" (ngModelChange)="filterEquipmentId.set($event); onSearch()" optionLabel="name" optionValue="id" placeholder="-- Tất cả thiết bị --" [filter]="true" filterBy="name,code,searchText" filterPlaceholder="Tìm theo mã hoặc tên..."
                         [showClear]="true" appendTo="body" styleClass="lookup-search-select">
                         <ng-template #item let-item>
                             <span>{{ item.name }}</span>
