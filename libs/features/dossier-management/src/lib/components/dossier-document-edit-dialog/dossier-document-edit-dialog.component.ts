@@ -20,6 +20,8 @@ import { DossierDocumentService } from '../../data-access/dossier-document.servi
 
 import { DossierManagementService } from '../../data-access/dossier-management.service';
 
+import { DossierPublishService } from '../../data-access/dossier-publish.service';
+
 import {
 
   EavField,
@@ -59,6 +61,8 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
   private documentService = inject(DossierDocumentService);
 
   private dossierService = inject(DossierManagementService);
+
+  private publishService = inject(DossierPublishService);
 
   private messageService = inject(MessageService);
 
@@ -275,14 +279,16 @@ export class DossierDocumentEditDialogComponent implements OnDestroy {
 
 
     const requests: {
-      dossier: ReturnType<DossierManagementService['getDossierById']>;
+      dossier: ReturnType<DossierManagementService['getDossierById']> | ReturnType<DossierPublishService['getDetail']>;
       result: ReturnType<DossierDocumentService['getDigitizationResultOrNull']>;
     } = {
-      dossier: this.lookupMode
-        ? this.dossierService.getDossierByEquipmentLookup(this.dossierId)
-        : this.warehouseSearchMode
-          ? this.dossierService.getWarehouseSearchDossierById(this.dossierId)
-          : this.dossierService.getDossierById(this.dossierId),
+      dossier: this.publishMode
+        ? this.publishService.getDetail(this.dossierId)
+        : this.lookupMode
+          ? this.dossierService.getDossierByEquipmentLookup(this.dossierId)
+          : this.warehouseSearchMode
+            ? this.dossierService.getWarehouseSearchDossierById(this.dossierId)
+            : this.dossierService.getDossierById(this.dossierId),
       result: this.documentService.getDigitizationResultOrNull(
         this.dossierId,
         this.versionId,
