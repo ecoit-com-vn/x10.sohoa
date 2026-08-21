@@ -315,10 +315,14 @@ export class DocumentFulltextDetailComponent implements OnDestroy {
 
   relatedDossierCode(rel: Record<string, unknown>): string {
     const catalogData = (rel['catalogData'] ?? rel['CatalogData']) as Record<string, unknown> | undefined;
-    const code = catalogData?.['ma_ho_so'] ?? rel['code'] ?? rel['Code'];
-    if (code) return String(code);
-    const id = String(rel['id'] ?? rel['Id'] ?? '');
-    return id ? `HS-${id.substring(0, 8)}` : '—';
+    const code = rel['dossierCode'] ?? rel['DossierCode'] ?? catalogData?.['CODE'];
+    return code != null && String(code).trim() ? String(code).trim() : '—';
+  }
+
+  relatedDossierTitle(rel: Record<string, unknown>): string {
+    const catalogData = (rel['catalogData'] ?? rel['CatalogData']) as Record<string, unknown> | undefined;
+    const title = rel['dossierTitle'] ?? rel['DossierTitle'] ?? catalogData?.['NAME'];
+    return title != null && String(title).trim() ? String(title).trim() : '—';
   }
 
   onBack() {

@@ -255,7 +255,9 @@ export class DocumentManagementComponent implements OnInit {
       list = list.filter(f => f.name.toLowerCase().includes(keyword));
     }
     if (creator) {
-      list = list.filter(f => f.createdBy && f.createdBy.toLowerCase().includes(creator));
+      list = list.filter(f =>
+        (f.createdByName || f.createdBy || '').toLowerCase().includes(creator)
+      );
     }
     if (startDate) {
       const start = new Date(startDate);
@@ -280,8 +282,8 @@ export class DocumentManagementComponent implements OnInit {
         const dateB = b.createdDate ? new Date(b.createdDate).getTime() : 0;
         compare = dateA - dateB;
       } else if (field === 'createdBy') {
-        const creatorA = a.createdBy || '';
-        const creatorB = b.createdBy || '';
+        const creatorA = a.createdByName || a.createdBy || '';
+        const creatorB = b.createdByName || b.createdBy || '';
         compare = creatorA.localeCompare(creatorB, 'vi');
       }
       return order === 'asc' ? compare : -compare;
