@@ -13,6 +13,7 @@ public class FolderNodeDto
     public long UnitId { get; set; }  // ORGANIZATION_UNIT.ID is NUMBER (long)
     public string UnitCode { get; set; } = string.Empty;  // ORGANIZATION_UNIT.CODE — dùng cho MinIO path
     public string? CreatedBy { get; set; }
+    public string? CreatedByName { get; set; }
     public DateTime CreatedDate { get; set; }
     public string? ModifiedBy { get; set; }
     public DateTime? ModifiedDate { get; set; }
