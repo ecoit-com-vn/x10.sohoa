@@ -85,6 +85,21 @@ public partial class DossierByEquipmentController : ControllerBase
         return Ok(columns);
     }
 
+    /// <summary>
+    /// Cây kho lưu trữ (kệ → tầng → hộp) dùng cho bộ lọc vị trí lưu trữ ở màn tra cứu hồ sơ theo thiết bị.
+    /// </summary>
+    [HttpGet("physical-storage/tree")]
+    public async Task<IActionResult> GetPhysicalStorageTree([FromQuery] long? unitId = null)
+    {
+        var (isAdmin, scopedUnitId) = ResolveUserScope();
+        var targetUnitId = unitId is > 0 ? unitId : scopedUnitId;
+        if (!isAdmin && targetUnitId is null)
+            return Unauthorized(new { message = "Không thể xác định đơn vị của người dùng" });
+
+        var items = await _dossierService.GetPhysicalStorageTreeAsync(targetUnitId);
+        return Ok(items);
+    }
+
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetDetail(Guid id)
     {
