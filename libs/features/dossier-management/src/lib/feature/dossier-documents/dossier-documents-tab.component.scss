@@ -150,6 +150,10 @@
     color: #2563eb;
   }
 
+  &.act-sign:hover:not(:disabled) i {
+    color: #2563eb;
+  }
+
   &.act-view:hover:not(:disabled) i {
     color: #0891b2;
   }

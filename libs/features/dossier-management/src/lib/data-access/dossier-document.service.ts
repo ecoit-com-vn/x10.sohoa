@@ -136,6 +136,14 @@ export interface DocumentExtractionResult {
   modifiedDate?: string;
 }
 
+/** Kết quả ký số tài liệu — trả về khi POST .../documents/{documentId}/sign thành công (HTTP 200). */
+export interface SignDocumentResult {
+  message: string;
+  newVersionId: string;
+  newVersionNumber: number;
+  signedAt: string;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -537,6 +545,15 @@ export class DossierDocumentService {
     const segment = this.kindId === 1 ? 'dossier-digitization/dossiers' : 'dossiers';
     return this.http.post<void>(
       `${this.config.apiGatewayUrl}/api/v1/${segment}/${dossierId}/documents/versions/${versionId}/rollback`,
+      {}
+    );
+  }
+
+  /** Ký số tài liệu — backend tạo phiên bản mới đã ký (POST /dossiers/{id}/documents/{documentId}/sign). */
+  signDocument(dossierId: string, documentId: string): Observable<SignDocumentResult> {
+    const segment = this.kindId === 1 ? 'dossier-digitization/dossiers' : 'dossiers';
+    return this.http.post<SignDocumentResult>(
+      `${this.config.apiGatewayUrl}/api/v1/${segment}/${dossierId}/documents/${documentId}/sign`,
       {}
     );
   }

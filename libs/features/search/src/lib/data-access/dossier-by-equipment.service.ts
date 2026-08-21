@@ -71,7 +71,7 @@ export class DossierByEquipmentService {
   }
 
   getPhysicalStorageTree(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/dossiers/physical-storage/tree`);
+    return this.http.get<any[]>(`${this.lookupBase}/physical-storage/tree`);
   }
 
   getDossierTypes(filter: DossierByEquipmentFilter): Observable<DossierByEquipmentLookupItem[]> {

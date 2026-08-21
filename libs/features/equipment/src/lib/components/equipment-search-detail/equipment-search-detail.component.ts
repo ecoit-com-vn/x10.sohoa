@@ -208,6 +208,20 @@ export class EquipmentSearchDetailComponent implements OnInit {
     this.dossierPageSize.set(event.rows);
   }
 
+  getDossierCatalogValue(item: any, column: any): string {
+    const columnCode = String(column?.code ?? '').trim().toUpperCase();
+    if (columnCode === 'CODE') {
+      const dossierCode = item?.dossierCode ?? item?.DossierCode;
+      if (dossierCode != null && String(dossierCode).trim() !== '') {
+        return String(dossierCode);
+      }
+    }
+
+    const catalogData = item?.catalogData ?? item?.CatalogData ?? {};
+    const value = catalogData[column?.key] ?? catalogData[column?.code];
+    return value != null && String(value).trim() !== '' ? String(value) : '---';
+  }
+
   viewDossierDetail(dossier: any): void {
     const id = dossier?.id ?? dossier?.Id;
     if (!id) return;

@@ -42,6 +42,9 @@ export class SubstationSearchComponent implements OnInit {
   pageTitle = signal<string>('Tra cứu tìm kiếm Trạm biến áp');
   items = signal<any[]>([]);
   orgUnits = signal<any[]>([]);
+  searchOrgTreeOpen = signal<boolean>(false);
+  searchOrgSearchKeyword = signal<string>('');
+  expandedSearchUnitNodes = signal<Set<number>>(new Set<number>());
   gridTypes = signal<any[]>([]);
   searchKeyword = signal<string>('');
   searchUnitId = signal<number | null>(null);
@@ -209,6 +212,13 @@ export class SubstationSearchComponent implements OnInit {
     return this.items();
   });
 
+  searchOrgUnitTree = computed(() =>
+    this.filterUnitTree(
+      this.buildUnitTree(this.orgUnits()),
+      this.searchOrgSearchKeyword()
+    )
+  );
+
   constructor() {
     effect(() => {
       // Re-trigger load when page, pageSize, or search state changes
@@ -267,6 +277,107 @@ export class SubstationSearchComponent implements OnInit {
         console.error('Không thể tải danh sách đơn vị');
       }
     });
+  }
+
+  private buildUnitTree(units: any[]): any[] {
+    const nodeMap = new Map<number, any>();
+    const roots: any[] = [];
+
+    units.forEach(unit => {
+      const id = Number(unit.id);
+      if (!Number.isFinite(id)) return;
+
+      nodeMap.set(id, {
+        ...unit,
+        id,
+        parentId: unit.parentId == null ? null : Number(unit.parentId),
+        children: []
+      });
+    });
+
+    nodeMap.forEach(node => {
+      if (node.parentId != null && nodeMap.has(node.parentId)) {
+        nodeMap.get(node.parentId).children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+
+    return roots;
+  }
+
+  private filterUnitTree(nodes: any[], keyword: string): any[] {
+    const search = keyword.trim().toLocaleLowerCase('vi');
+    if (!search) return nodes;
+
+    return nodes.reduce<any[]>((result, node) => {
+      const children = this.filterUnitTree(node.children || [], keyword);
+      const label = `${node.name || ''} ${node.code || ''}`.toLocaleLowerCase('vi');
+
+      if (label.includes(search) || children.length > 0) {
+        result.push({ ...node, children });
+      }
+
+      return result;
+    }, []);
+  }
+
+  toggleSearchOrgTree(event: Event): void {
+    event.stopPropagation();
+    this.searchOrgTreeOpen.update(open => !open);
+  }
+
+  toggleSearchUnitNode(unitId: number, event: Event): void {
+    event.stopPropagation();
+    const expanded = new Set(this.expandedSearchUnitNodes());
+    if (expanded.has(unitId)) {
+      expanded.delete(unitId);
+    } else {
+      expanded.add(unitId);
+    }
+    this.expandedSearchUnitNodes.set(expanded);
+  }
+
+  isSearchNodeExpanded(unitId: number): boolean {
+    return this.expandedSearchUnitNodes().has(unitId);
+  }
+
+  selectSearchOrgUnit(unitId: number): void {
+    this.searchUnitId.set(Number(unitId));
+    this.closeSearchOrgTree();
+    this.applyUnitFilter();
+  }
+
+  clearSearchOrgUnit(event: Event): void {
+    event.stopPropagation();
+    this.searchUnitId.set(null);
+    this.closeSearchOrgTree();
+    this.applyUnitFilter();
+  }
+
+  getUnitLabel(unitId: number | null): string {
+    if (unitId == null) return '';
+    return this.orgUnits().find(unit => Number(unit.id) === Number(unitId))?.name || '';
+  }
+
+  private closeSearchOrgTree(): void {
+    this.searchOrgTreeOpen.set(false);
+    this.searchOrgSearchKeyword.set('');
+  }
+
+  private applyUnitFilter(): void {
+    if (this.currentPage() === 1) {
+      this.loadItems();
+      return;
+    }
+
+    // The pagination effect reloads the list when the page changes.
+    this.currentPage.set(1);
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.searchOrgTreeOpen.set(false);
   }
 
   loadGridTypes() {
@@ -361,6 +472,8 @@ export class SubstationSearchComponent implements OnInit {
     this.searchFromDate.set(null);
     this.searchToDate.set(null);
     this.searchDateError.set('');
+    this.closeSearchOrgTree();
+    this.expandedSearchUnitNodes.set(new Set<number>());
     this.currentPage.set(1);
     this.loadItems();
   }
@@ -640,7 +753,11 @@ export class SubstationSearchComponent implements OnInit {
   }
 
   private loadAttachmentEquipmentOptions(stationId: string, loadSequence: number) {
-    this.equipmentService.getEquipments(1, 1000, undefined, undefined, undefined, stationId).pipe(
+    // Dùng đúng endpoint của SubstationSearchController (quyền SEARCH_SUBSTATION_VIEW) thay vì
+    // EquipmentController (quyền EQUIPMENT_VIEW) — tránh màn hình tra cứu trạm bị 403 khi user
+    // chỉ được cấp quyền tra cứu trạm, không có quyền quản lý thiết bị nói chung.
+    const params = new HttpParams().set('page', '1').set('pageSize', '1000');
+    this.http.get<any>(`${this.config.apiGatewayUrl}/api/catalog/substation-search/${stationId}/equipments`, { params }).pipe(
       catchError(() => of({ items: [] }))
     ).subscribe(res => {
       if (loadSequence !== this.attachmentLoadSequence || String(this.currentItem()?.id || '') !== stationId) return;

@@ -672,21 +672,24 @@ export class DossierSearchComponent implements OnInit, OnDestroy {
 
   onViewDocumentDetail(doc: any) {
     const versionId = (doc.latestVersionId || '').trim();
-      if (!versionId) {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: 'Không xác định được phiên bản tài liệu.'
-        });
-        return;
-      }
-      if (doc.latestVersionId) {
-        this.lookupTrackingService.recordView('DOCUMENT', doc.latestVersionId);
-      }
-  
-      this.router.navigate(['/search/documents', versionId], {
-        queryParams: { keyword: null, source: 'dossier' }
+    if (!versionId) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Lỗi',
+        detail: 'Không xác định được phiên bản tài liệu.'
       });
+      return;
+    }
+    if (doc.latestVersionId) {
+      this.lookupTrackingService.recordView('DOCUMENT', doc.latestVersionId);
+    }
+
+    const serialized = this.router.serializeUrl(
+      this.router.createUrlTree(['/search/documents', versionId], {
+        queryParams: { keyword: null, source: 'dossier' }
+      })
+    );
+    window.open(`/#${serialized}`, '_blank', 'noopener');
   }
 
   onCloseDocumentDetail() {

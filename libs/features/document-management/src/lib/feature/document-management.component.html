@@ -344,7 +344,8 @@
               [showIcon]="true"
               placeholder="dd/mm/yyyy"
               inputId="startDate"
-              styleClass="wf-input full-width-datepicker"
+              styleClass="full-width-datepicker"
+              inputStyleClass="wf-input"
               [ngModel]="filterStartDate()"
               (ngModelChange)="filterStartDate.set($event)"
             >
@@ -360,7 +361,8 @@
               placeholder="dd/mm/yyyy"
               [showIcon]="true"
               inputId="endDate"
-              styleClass="wf-input full-width-datepicker"
+              styleClass="full-width-datepicker"
+              inputStyleClass="wf-input"
               [ngModel]="filterEndDate()"
               (ngModelChange)="filterEndDate.set($event)"
             >
@@ -507,9 +509,9 @@
                       display: inline-block;
                       max-width: 110px;
                     "
-                    [title]="folder.createdBy || '-'"
+                    [title]="folder.createdByName || folder.createdBy || '-'"
                   >
-                    {{ folder.createdBy || '-' }}
+                    {{ folder.createdByName || folder.createdBy || '-' }}
                   </span>
                 </td>
                 <td class="col-hd">

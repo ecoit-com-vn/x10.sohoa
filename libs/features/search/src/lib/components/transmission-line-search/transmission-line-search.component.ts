@@ -42,6 +42,9 @@ export class TransmissionLineSearchComponent implements OnInit {
   pageTitle = signal<string>('Tra cứu tìm kiếm Đường dây');
   items = signal<any[]>([]);
   orgUnits = signal<any[]>([]);
+  searchOrgTreeOpen = signal<boolean>(false);
+  searchOrgSearchKeyword = signal<string>('');
+  expandedSearchUnitNodes = signal<Set<number>>(new Set<number>());
   gridTypes = signal<any[]>([]);
   searchKeyword = signal<string>('');
   // Mặc định chỉ hiện đường dây đang hoạt động — người dùng có thể tự chọn "Ngừng hoạt động"/"Tất cả" nếu cần.
@@ -207,6 +210,13 @@ export class TransmissionLineSearchComponent implements OnInit {
     return this.items();
   });
 
+  searchOrgUnitTree = computed(() =>
+    this.filterUnitTree(
+      this.buildUnitTree(this.orgUnits()),
+      this.searchOrgSearchKeyword()
+    )
+  );
+
   constructor() {
     effect(() => {
       // Re-trigger load when page, pageSize, or search state changes
@@ -265,6 +275,107 @@ export class TransmissionLineSearchComponent implements OnInit {
         console.error('Không thể tải danh sách đơn vị');
       }
     });
+  }
+
+  private buildUnitTree(units: any[]): any[] {
+    const nodeMap = new Map<number, any>();
+    const roots: any[] = [];
+
+    units.forEach(unit => {
+      const id = Number(unit.id);
+      if (!Number.isFinite(id)) return;
+
+      nodeMap.set(id, {
+        ...unit,
+        id,
+        parentId: unit.parentId == null ? null : Number(unit.parentId),
+        children: []
+      });
+    });
+
+    nodeMap.forEach(node => {
+      if (node.parentId != null && nodeMap.has(node.parentId)) {
+        nodeMap.get(node.parentId).children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+
+    return roots;
+  }
+
+  private filterUnitTree(nodes: any[], keyword: string): any[] {
+    const search = keyword.trim().toLocaleLowerCase('vi');
+    if (!search) return nodes;
+
+    return nodes.reduce<any[]>((result, node) => {
+      const children = this.filterUnitTree(node.children || [], keyword);
+      const label = `${node.name || ''} ${node.code || ''}`.toLocaleLowerCase('vi');
+
+      if (label.includes(search) || children.length > 0) {
+        result.push({ ...node, children });
+      }
+
+      return result;
+    }, []);
+  }
+
+  toggleSearchOrgTree(event: Event): void {
+    event.stopPropagation();
+    this.searchOrgTreeOpen.update(open => !open);
+  }
+
+  toggleSearchUnitNode(unitId: number, event: Event): void {
+    event.stopPropagation();
+    const expanded = new Set(this.expandedSearchUnitNodes());
+    if (expanded.has(unitId)) {
+      expanded.delete(unitId);
+    } else {
+      expanded.add(unitId);
+    }
+    this.expandedSearchUnitNodes.set(expanded);
+  }
+
+  isSearchNodeExpanded(unitId: number): boolean {
+    return this.expandedSearchUnitNodes().has(unitId);
+  }
+
+  selectSearchOrgUnit(unitId: number): void {
+    this.searchUnitId.set(Number(unitId));
+    this.closeSearchOrgTree();
+    this.applyUnitFilter();
+  }
+
+  clearSearchOrgUnit(event: Event): void {
+    event.stopPropagation();
+    this.searchUnitId.set(null);
+    this.closeSearchOrgTree();
+    this.applyUnitFilter();
+  }
+
+  getUnitLabel(unitId: number | null): string {
+    if (unitId == null) return '';
+    return this.orgUnits().find(unit => Number(unit.id) === Number(unitId))?.name || '';
+  }
+
+  private closeSearchOrgTree(): void {
+    this.searchOrgTreeOpen.set(false);
+    this.searchOrgSearchKeyword.set('');
+  }
+
+  private applyUnitFilter(): void {
+    if (this.currentPage() === 1) {
+      this.loadItems();
+      return;
+    }
+
+    // The pagination effect reloads the list when the page changes.
+    this.currentPage.set(1);
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.searchOrgTreeOpen.set(false);
   }
 
   loadGridTypes() {
@@ -350,6 +461,8 @@ export class TransmissionLineSearchComponent implements OnInit {
     this.searchStatus.set('1');
     this.searchUnitId.set(null);
     this.searchGridTypeId.set(null);
+    this.closeSearchOrgTree();
+    this.expandedSearchUnitNodes.set(new Set<number>());
     this.currentPage.set(1);
     this.loadItems();
   }
