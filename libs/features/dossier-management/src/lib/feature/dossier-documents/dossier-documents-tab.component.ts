@@ -38,6 +38,7 @@ import {
   DossierDocumentService,
   DocumentOcrProgress,
   DocumentVersion,
+  SignDocumentResult,
 } from '../../data-access/dossier-document.service';
 import {
   formatDocumentDate,
@@ -185,6 +186,19 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
     const doc = this.ocrConfirmTarget();
     return doc ? this.isRetryingDigitization(doc.id, this.retryingIds()) : false;
   });
+
+  // Ký số tài liệu — không có API riêng để đọc trạng thái đã ký, nên chỉ hiển thị badge tạm thời
+  // (justSigned) dựa trên response của lần ký vừa gọi, cho tới khi danh sách được refresh lại.
+  showSignConfirm = signal(false);
+  signTarget = signal<DossierDocumentItem | null>(null);
+  signingIds = signal<Set<string>>(new Set());
+  readonly signSubmitting = computed(() => {
+    const doc = this.signTarget();
+    return doc ? this.signingIds().has(doc.id) : false;
+  });
+  readonly signTargetLabel = computed(() => this.signTarget()?.name ?? '');
+  /** documentId -> thông tin ký số vừa thành công, hiển thị badge tạm thời tới khi loadDocuments() kế tiếp ghi đè danh sách. */
+  justSignedInfo = signal<Map<string, SignDocumentResult>>(new Map());
 
   showFolderPicker = signal(false);
   showDirectUpload = signal(false);
@@ -572,6 +586,20 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
       });
     }
 
+    // Ký số là hành động độc lập với quyền sửa nội dung hồ sơ (canEdit) — cố tình KHÔNG gate theo
+    // canEdit vì màn hình publisher (menuScope === 'publisher') luôn có canEditDossier() = false
+    // (xem dossier-detail.component.ts canEditDossier), nhưng đây chính là nơi cần ký số khi phát hành.
+    if (this.hasSignPermission()) {
+      actions.push({
+        key: 'sign',
+        title: 'Ký số',
+        btnClass: 'act-sign',
+        iconClasses: this.isSigning(doc.id) ? 'pi pi-spin pi-spinner' : 'pi pi-verified',
+        disabled: !doc.latestVersionId || this.isSigning(doc.id),
+        run: (d) => this.onSignDocument(d),
+      });
+    }
+
     if (this.canEdit) {
       actions.push({
         key: 'delete',
@@ -671,6 +699,20 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
 
   isDownloading(docId: string): boolean {
     return this.downloadingIds().has(docId);
+  }
+
+  isSigning(docId: string): boolean {
+    return this.signingIds().has(docId);
+  }
+
+  /** Quyền ký số — DOSSIER_SIGN do backend tự suy ra từ tên action chứa "sign". */
+  hasSignPermission(): boolean {
+    return this.authService.hasPermission('SUPER_ADMIN') || this.authService.hasPermission('DOSSIER_SIGN');
+  }
+
+  /** Badge tạm thời "Đã ký số" ngay sau khi ký thành công — mất đi khi danh sách được tải lại. */
+  getJustSigned(doc: DossierDocumentItem): SignDocumentResult | undefined {
+    return this.justSignedInfo().get(doc.id);
   }
 
   onDownload(doc: DossierDocumentItem): void {
@@ -778,6 +820,69 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
 
   refresh(): void {
     this.loadDocuments();
+  }
+
+  /** Mở popup xác nhận — KHÔNG gọi API ngay (xem showSignConfirm). */
+  onSignDocument(doc: DossierDocumentItem): void {
+    if (!doc.latestVersionId || !this.hasSignPermission()) return;
+    this.signTarget.set(doc);
+    this.showSignConfirm.set(true);
+  }
+
+  cancelSignConfirm(): void {
+    if (this.signSubmitting()) return;
+    this.showSignConfirm.set(false);
+    this.signTarget.set(null);
+  }
+
+  confirmSign(): void {
+    const doc = this.signTarget();
+    if (!doc || this.signSubmitting()) return;
+
+    const ids = new Set(this.signingIds());
+    ids.add(doc.id);
+    this.signingIds.set(ids);
+
+    this.documentService
+      .signDocument(this.dossierId, doc.id)
+      .pipe(
+        finalize(() => {
+          const next = new Set(this.signingIds());
+          next.delete(doc.id);
+          this.signingIds.set(next);
+        })
+      )
+      .subscribe({
+        next: (result) => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Thành công',
+            detail: result?.message || `Đã ký số "${doc.name}"`,
+          });
+          const info = new Map(this.justSignedInfo());
+          info.set(doc.id, result);
+          this.justSignedInfo.set(info);
+          this.showSignConfirm.set(false);
+          this.signTarget.set(null);
+          // Danh sách tài liệu/phiên bản cần refresh để phản ánh phiên bản mới vừa ký.
+          this.loadDocuments(true);
+          // Badge "Đã ký số" chỉ mang tính tạm thời (backend chưa có API đọc trạng thái đã ký
+          // theo tài liệu) — tự xóa sau một khoảng ngắn để không hiển thị sai lệch mãi mãi.
+          setTimeout(() => {
+            const next = new Map(this.justSignedInfo());
+            next.delete(doc.id);
+            this.justSignedInfo.set(next);
+          }, 10000);
+        },
+        error: (err) => {
+          // Giữ nguyên popup xác nhận để người dùng có thể thử lại — không refresh danh sách.
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.message || err?.message || 'Ký số thất bại.',
+          });
+        },
+      });
   }
 
   onUploadAction(action: DossierUploadAction): void {

@@ -71,6 +71,14 @@
               >
                 {{ doc.name }}
               </span>
+              <span
+                *ngIf="getJustSigned(doc) as signedInfo"
+                class="just-signed-badge"
+                style="flex-shrink: 0; padding: 2px 8px; font-size: 0.75rem; background-color: #dcfce7; color: #15803d; border-radius: 9999px; font-weight: 500; white-space: nowrap;"
+                [title]="'Ký số lúc ' + (signedInfo.signedAt | date:'dd/MM/yyyy HH:mm:ss') + ' — phiên bản v' + signedInfo.newVersionNumber"
+              >
+                <i class="pi pi-verified"></i> Đã ký số
+              </span>
             </div>
           </td>
           <td>{{ formatSize(doc.fileSize) }}</td>
@@ -339,6 +347,59 @@
                 ? 'Chạy OCR + bóc tách'
                 : 'Chạy lại OCR + bóc tách'
         }}
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Xác nhận ký số tài liệu — theo đúng khuôn mẫu p-dialog dùng cho OCR/bóc tách lại ở trên. -->
+<p-dialog
+  [visible]="showSignConfirm()"
+  (visibleChange)="$event ? null : cancelSignConfirm()"
+  header="Xác nhận ký số"
+  [modal]="true"
+  appendTo="body"
+  [style]="{ width: '420px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!signSubmitting()"
+>
+  <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+    <i class="pi pi-verified" style="font-size: 1.8rem; color: #2563eb;"></i>
+    <div>
+      <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">
+        Tài liệu sẽ được ký số. Bạn có muốn tiếp tục?
+      </p>
+      <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+        Tài liệu <b style="color: #1e293b;">{{ signTargetLabel() }}</b> sẽ được ký số bằng chứng thư số
+        của bạn và tạo ra một phiên bản mới.
+      </p>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div
+      style="
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 12px;
+      "
+    >
+      <button
+        class="btn-cancel btn-small"
+        (click)="cancelSignConfirm()"
+        [disabled]="signSubmitting()"
+      >
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button
+        class="btn-green btn-small"
+        (click)="confirmSign()"
+        [disabled]="signSubmitting()"
+      >
+        <i class="pi pi-spin pi-spinner" *ngIf="signSubmitting()"></i>
+        <i class="pi pi-verified" *ngIf="!signSubmitting()"></i>
+        Ký số
       </button>
     </div>
   </ng-template>
