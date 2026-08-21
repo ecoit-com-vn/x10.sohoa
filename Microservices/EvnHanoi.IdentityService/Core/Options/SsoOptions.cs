@@ -7,9 +7,9 @@ public sealed class SsoOptions
     public bool Enabled { get; set; } = true;
     public bool AllowMockTicket { get; set; }
     public string AppCode { get; set; } = string.Empty;
-    public string LoginUrl { get; set; } = "https://sso.evnhanoi.vn/sso/login";
-    public string LogoutUrl { get; set; } = "https://sso.evnhanoi.vn/sso/logout";
-    public string ChangePasswordUrl { get; set; } = "https://sso.evnhanoi.vn/changePassword";
-    public string ServiceValidateUrl { get; set; } = "http://10.9.165.18:3020/sso/serviceValidate";
+    public string LoginUrl { get; set; } = "http://10.9.169.44:8081/sso/login";
+    public string LogoutUrl { get; set; } = "http://10.9.169.44:8081/sso/logout";
+    public string ChangePasswordUrl { get; set; } = "http://10.9.169.44:8081/changePassword";
+    public string ServiceValidateUrl { get; set; } = "http://10.9.169.44:8081/serviceValidate";
     public int TimeoutSeconds { get; set; } = 15;
 }
