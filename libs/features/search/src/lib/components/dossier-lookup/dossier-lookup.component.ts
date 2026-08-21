@@ -19,7 +19,7 @@ import { TreeSelectModule } from 'primeng/treeselect';
 import { DatePickerModule } from 'primeng/datepicker';
 import { Subscription } from 'rxjs';
 
-import { AuthService } from '@sohoa.frontend/shared/core';
+import { AuthService, removeAscent } from '@sohoa.frontend/shared/core';
 
 import { BhsCatalogColumn } from '@sohoa.frontend/features/dossier-management';
 
@@ -116,6 +116,13 @@ export class DossierLookupComponent implements OnInit {
   bhsColumns = signal<BhsCatalogColumn[]>([]);
   actionMenuItems: MenuItem[] = [];
   private equipmentLookupSubscription?: Subscription;
+
+  private withSearchText(items: DossierByEquipmentLookupItem[]): DossierByEquipmentLookupItem[] {
+    return (items || []).map((item: any) => ({
+      ...item,
+      searchText: removeAscent(`${item?.name ?? ''} ${item?.code ?? ''}`.toLowerCase())
+    }));
+  }
 
 
 
@@ -215,7 +222,7 @@ export class DossierLookupComponent implements OnInit {
 
     this.dossierByEquipmentService.getInfrastructures(filter).subscribe({
 
-      next: (res) => this.infrastructures.set(res || []),
+      next: (res) => this.infrastructures.set(this.withSearchText(res || [])),
 
       error: () => this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không tải được danh sách trạm/đường dây' })
 
@@ -227,7 +234,7 @@ export class DossierLookupComponent implements OnInit {
 
     this.dossierByEquipmentService.getEquipmentTypes(filter).subscribe({
 
-      next: (res) => this.equipmentTypes.set(res || []),
+      next: (res) => this.equipmentTypes.set(this.withSearchText(res || [])),
 
       error: () => this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không tải được danh sách loại thiết bị' })
 
@@ -235,7 +242,7 @@ export class DossierLookupComponent implements OnInit {
 
     this.equipmentLookupSubscription = this.dossierByEquipmentService.getEquipments(filter).subscribe({
 
-      next: (res) => this.equipments.set(res || []),
+      next: (res) => this.equipments.set(this.withSearchText(res || [])),
 
       error: () => this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không tải được danh sách thiết bị' })
 
@@ -245,7 +252,7 @@ export class DossierLookupComponent implements OnInit {
 
     this.dossierByEquipmentService.getDossierTypes(filter).subscribe({
 
-      next: (res) => this.dossierTypes.set(res || []),
+      next: (res) => this.dossierTypes.set(this.withSearchText(res || [])),
 
       error: () => this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không tải được loại hồ sơ' })
 

@@ -231,16 +231,17 @@
 
         <!-- MÀN HÌNH PHÂN QUYỀN -->
         <div *ngIf="currentView() === 'permission'" class="animate-fade-in">
-            <div class="tab-bar">
-                <button type="button" class="tab-item" [class.tab-active]="permissionTab() === 'permissions'"
-                    (click)="switchPermissionTab('permissions')">
-                    Phân bổ nhóm quyền
-                </button>
-                <button type="button" class="tab-item" [class.tab-active]="permissionTab() === 'accounts'"
-                    (click)="switchPermissionTab('accounts')">
-                    Danh sách tài khoản
-                </button>
-            </div>
+            <div class="wf-card pt-0">
+                <div class="tab-bar" style="margin-top: 0;">
+                    <button type="button" class="tab-item" [class.tab-active]="permissionTab() === 'permissions'"
+                        (click)="switchPermissionTab('permissions')">
+                        Phân bổ nhóm quyền
+                    </button>
+                    <button type="button" class="tab-item" [class.tab-active]="permissionTab() === 'accounts'"
+                        (click)="switchPermissionTab('accounts')">
+                        Danh sách tài khoản
+                    </button>
+                </div>
 
             <div *ngIf="permissionTab() === 'permissions'" class="permission-tab-content">
                 <div class="permissions-scroll-container" style="padding: 20px;">
@@ -313,90 +314,97 @@
             </div>
 
             <div *ngIf="permissionTab() === 'accounts'" class="accounts-tab-content">
-                <div class="list-toolbar">
-                    <div class="toolbar-left">
+                <div class="standard-search-card">
+                    <div class="standard-search-grid">
                         <div class="standard-search-field">
-                            <label class="search-field-label"> Từ khóa</label>
+                            <label class="search-field-label">Từ khóa</label>
                             <input type="text" class="wf-search-input" placeholder="Tìm kiếm tài khoản..."
-                                [ngModel]="roleUsersKeyword()" (ngModelChange)="roleUsersKeyword.set($event)" />
+                                [ngModel]="roleUsersKeyword()" (ngModelChange)="roleUsersKeyword.set($event)"
+                                (keyup.enter)="onRoleUsersSearch()" />
                         </div>
-                        <button class="btn-tim" (click)="onRoleUsersSearch()">
-                            <i class="pi pi-search"></i> Tìm
-                        </button>
+
+                        <div class="standard-search-actions">
+                            <button class="btn-save" (click)="onRoleUsersSearch()">
+                                <i class="pi pi-search"></i> Tìm
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <div class="wf-table-wrap">
-                    <table class="wf-table">
-                        <thead>
-                            <tr>
-                                <th class="col-stt">STT</th>
-                                <th>Tên đăng nhập</th>
-                                <th>Họ và tên</th>
-                                <th>Đơn vị thành viên</th>
-                                <th>Email</th>
-                                <th class="col-tt">Trạng thái</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <ng-container *ngIf="roleUsersLoading()">
-                                <tr *ngFor="let item of [1, 2, 3, 4]">
-                                    <td class="col-stt">
-                                        <div class="skeleton-shimmer"
-                                            style="height: 16px; width: 24px; border-radius: 4px;"></div>
-                                    </td>
-                                    <td>
-                                        <div class="skeleton-shimmer"
-                                            style="height: 16px; width: 100px; border-radius: 4px;"></div>
-                                    </td>
-                                    <td>
-                                        <div class="skeleton-shimmer"
-                                            style="height: 16px; width: 150px; border-radius: 4px;"></div>
-                                    </td>
-                                    <td>
-                                        <div class="skeleton-shimmer"
-                                            style="height: 16px; width: 120px; border-radius: 4px;"></div>
-                                    </td>
-                                    <td>
-                                        <div class="skeleton-shimmer"
-                                            style="height: 16px; width: 160px; border-radius: 4px;"></div>
-                                    </td>
-                                    <td class="col-tt">
-                                        <div class="skeleton-shimmer"
-                                            style="height: 24px; width: 80px; border-radius: 4px;"></div>
-                                    </td>
+                <div>
+                    <div class="wf-table-wrap">
+                        <table class="wf-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-stt">STT</th>
+                                    <th>Tên đăng nhập</th>
+                                    <th>Họ và tên</th>
+                                    <th>Đơn vị thành viên</th>
+                                    <th>Email</th>
+                                    <th class="col-tt">Trạng thái</th>
                                 </tr>
-                            </ng-container>
+                            </thead>
+                            <tbody>
+                                <ng-container *ngIf="roleUsersLoading()">
+                                    <tr *ngFor="let item of [1, 2, 3, 4]">
+                                        <td class="col-stt">
+                                            <div class="skeleton-shimmer"
+                                                style="height: 16px; width: 24px; border-radius: 4px;"></div>
+                                        </td>
+                                        <td>
+                                            <div class="skeleton-shimmer"
+                                                style="height: 16px; width: 100px; border-radius: 4px;"></div>
+                                        </td>
+                                        <td>
+                                            <div class="skeleton-shimmer"
+                                                style="height: 16px; width: 150px; border-radius: 4px;"></div>
+                                        </td>
+                                        <td>
+                                            <div class="skeleton-shimmer"
+                                                style="height: 16px; width: 120px; border-radius: 4px;"></div>
+                                        </td>
+                                        <td>
+                                            <div class="skeleton-shimmer"
+                                                style="height: 16px; width: 160px; border-radius: 4px;"></div>
+                                        </td>
+                                        <td class="col-tt">
+                                            <div class="skeleton-shimmer"
+                                                style="height: 24px; width: 80px; border-radius: 4px;"></div>
+                                        </td>
+                                    </tr>
+                                </ng-container>
 
-                            <ng-container *ngIf="!roleUsersLoading()">
-                                <tr *ngFor="let user of roleUsers(); let i = index">
-                                    <td class="col-stt text-muted">{{ (roleUsersPage() - 1) * roleUsersPageSize() + i +
-                                        1 }}</td>
-                                    <td>{{ user.username }}</td>
-                                    <td>{{ user.fullName }}</td>
-                                    <td>{{ user.organizationUnitName || '—' }}</td>
-                                    <td>{{ user.email || '—' }}</td>
-                                    <td class="col-tt">
-                                        <span class="status-pill" [class.status-active]="user.isActive"
-                                            [class.status-inactive]="!user.isActive">
-                                            {{ user.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
-                                        </span>
-                                    </td>
-                                </tr>
-                                <tr *ngIf="roleUsers().length === 0">
-                                    <td colspan="6" class="empty-row">
-                                        <i class="pi pi-inbox"></i>
-                                        <div>Chưa có tài khoản nào được gán vai trò này.</div>
-                                    </td>
-                                </tr>
-                            </ng-container>
-                        </tbody>
-                    </table>
+                                <ng-container *ngIf="!roleUsersLoading()">
+                                    <tr *ngFor="let user of roleUsers(); let i = index">
+                                        <td class="col-stt text-muted">{{ (roleUsersPage() - 1) * roleUsersPageSize() + i +
+                                            1 }}</td>
+                                        <td>{{ user.username }}</td>
+                                        <td>{{ user.fullName }}</td>
+                                        <td>{{ user.organizationUnitName || '—' }}</td>
+                                        <td>{{ user.email || '—' }}</td>
+                                        <td class="col-tt">
+                                            <span class="status-pill" [class.status-active]="user.isActive"
+                                                [class.status-inactive]="!user.isActive">
+                                                {{ user.isActive ? 'Hoạt động' : 'Ngừng hoạt động' }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr *ngIf="roleUsers().length === 0">
+                                        <td colspan="6" class="empty-row">
+                                            <i class="pi pi-inbox"></i>
+                                            <div>Chưa có tài khoản nào được gán vai trò này.</div>
+                                        </td>
+                                    </tr>
+                                </ng-container>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <app-eco-paginator *ngIf="roleUsersTotal() > 0 && !roleUsersLoading()" [currentPage]="roleUsersPage()"
+                        [pageSize]="roleUsersPageSize()" [totalRecords]="roleUsersTotal()"
+                        (pageChange)="onRoleUsersPageChange($event)" (pageSizeChange)="onRoleUsersPageSizeChange($event)" />
                 </div>
-
-                <app-eco-paginator *ngIf="roleUsersTotal() > 0 && !roleUsersLoading()" [currentPage]="roleUsersPage()"
-                    [pageSize]="roleUsersPageSize()" [totalRecords]="roleUsersTotal()"
-                    (pageChange)="onRoleUsersPageChange($event)" (pageSizeChange)="onRoleUsersPageSizeChange($event)" />
+            </div>
             </div>
         </div>
 

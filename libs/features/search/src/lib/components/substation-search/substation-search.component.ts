@@ -753,7 +753,11 @@ export class SubstationSearchComponent implements OnInit {
   }
 
   private loadAttachmentEquipmentOptions(stationId: string, loadSequence: number) {
-    this.equipmentService.getEquipments(1, 1000, undefined, undefined, undefined, stationId).pipe(
+    // Dùng đúng endpoint của SubstationSearchController (quyền SEARCH_SUBSTATION_VIEW) thay vì
+    // EquipmentController (quyền EQUIPMENT_VIEW) — tránh màn hình tra cứu trạm bị 403 khi user
+    // chỉ được cấp quyền tra cứu trạm, không có quyền quản lý thiết bị nói chung.
+    const params = new HttpParams().set('page', '1').set('pageSize', '1000');
+    this.http.get<any>(`${this.config.apiGatewayUrl}/api/catalog/substation-search/${stationId}/equipments`, { params }).pipe(
       catchError(() => of({ items: [] }))
     ).subscribe(res => {
       if (loadSequence !== this.attachmentLoadSequence || String(this.currentItem()?.id || '') !== stationId) return;
