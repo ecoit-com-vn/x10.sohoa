@@ -166,12 +166,6 @@
               <div class="doc-ft-dossier-grid">
                 <div class="doc-ft-dossier-col">
                   <div class="doc-ft-field-row">
-                    <span class="doc-ft-field-label">Loại lưới điện:</span>
-                    <span class="doc-ft-field-value">{{
-                      dossierValue('gridTypeName')
-                    }}</span>
-                  </div>
-                  <div class="doc-ft-field-row">
                     <span class="doc-ft-field-label">Trạm / Đường dây:</span>
                     <span class="doc-ft-field-value">
                       {{ dossierValue('infrastructureName') }}
@@ -367,6 +361,7 @@
                     <tr>
                       <th class="col-stt">STT</th>
                       <th>Mã hồ sơ</th>
+                      <th>Tiêu đề hồ sơ</th>
                       <th>Loại hồ sơ</th>
                       <th>Trạm / Đường dây</th>
                       <th>Số lượng tài liệu</th>
@@ -388,6 +383,7 @@
                           {{ relatedDossierCode(rel) }}
                         </a>
                       </td>
+                      <td>{{ relatedDossierTitle(rel) }}</td>
                       <td>
                         {{
                           rel['dossierTypeName'] ||

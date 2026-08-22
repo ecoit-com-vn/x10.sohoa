@@ -10,6 +10,7 @@ export interface FolderNode {
   parentId: string | null;
   unitId: number;
   createdBy?: string;
+  createdByName?: string;
   createdDate?: Date;
   modifiedBy?: string;
   modifiedDate?: Date | null;
