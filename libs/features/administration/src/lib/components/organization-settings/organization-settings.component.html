@@ -209,9 +209,9 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Mã định danh</label>
-                    <input type="text" class="wf-input w-full" [ngModel]="currentUnit().identifier"
-                        (ngModelChange)="onUnitFieldChange('identifier', $event)"
+                    <label class="form-label">Mã đơn vị SSO (orgId)</label>
+                    <input type="text" class="wf-input w-full" [ngModel]="currentUnit().orgIdSso"
+                        (ngModelChange)="onUnitFieldChange('orgIdSso', $event)"
                         placeholder="Ví dụ: MDD01, ORG_ID_02..." [disabled]="saving()" />
                 </div>
 

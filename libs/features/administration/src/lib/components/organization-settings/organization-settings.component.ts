@@ -264,7 +264,7 @@ export class OrganizationSettings implements OnInit {
       return;
     }
     this.isEdit.set(false);
-    this.currentUnit.set({ code: '', name: '', parentId: null, description: '', identifier: '', sortOrder: 1, isActive: true });
+    this.currentUnit.set({ code: '', name: '', parentId: null, description: '', orgIdSso: '', sortOrder: 1, isActive: true });
     this.formSubmitted.set(false);
     this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới đơn vị phòng ban');
@@ -339,6 +339,7 @@ export class OrganizationSettings implements OnInit {
       code: String(unitDraft.code ?? '').trim(),
       name: String(unitDraft.name ?? '').trim(),
       description: String(unitDraft.description ?? '').trim(),
+      orgIdSso: String(unitDraft.orgIdSso ?? '').trim() || null,
       parentId: normalizedParentId,
       sortOrder: Number(unitDraft.sortOrder)
     };
