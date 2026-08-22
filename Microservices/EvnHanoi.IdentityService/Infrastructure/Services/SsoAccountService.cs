@@ -22,7 +22,7 @@ public sealed class SsoAccountService : ISsoAccountService
     {
         var identity = data.Identity
             ?? throw new SsoException("AUT-002", "SSO không trả về thông tin tài khoản.");
-        var username = FirstNotEmpty(identity.Username, identity.UsernameLocal)
+        var username = FirstNotEmpty(identity.UsernameLocal, identity.Username)
             ?? throw new SsoException("AUT-002", "SSO không trả về tên đăng nhập.");
 
         if (_connection.State != ConnectionState.Open) _connection.Open();
@@ -65,7 +65,7 @@ public sealed class SsoAccountService : ISsoAccountService
                     500);
             }
 
-            user = CreateSsoUser(username, identity, organizationUnitId, positionId);
+            user = CreateSsoUser(username, identity, organizationUnitId == null ? 1 : organizationUnitId, positionId);
             await _userRepository.CreateAsync(user);
             await _connection.ExecuteAsync(@"
                 INSERT INTO USER_ROLE (UserId, RoleId)

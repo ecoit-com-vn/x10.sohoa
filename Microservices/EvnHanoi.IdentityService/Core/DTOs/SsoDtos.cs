@@ -15,7 +15,7 @@ public sealed class SsoValidationResponse
 public sealed class SsoValidationData
 {
     public string? ServiceTicket { get; set; }
-    public int? ExpiresIn { get; set; }
+    public DateTimeOffset? ExpiresIn { get; set; }
     public SsoIdentity? Identity { get; set; }
 }
 
@@ -26,6 +26,9 @@ public sealed class SsoIdentity
     public string? FullName { get; set; }
     [JsonConverter(typeof(FlexibleStringJsonConverter))]
     public string? UserId { get; set; }
+    public string? AppCode { get; set; }
+    [JsonConverter(typeof(FlexibleStringJsonConverter))]
+    public string? AppId { get; set; }
     public string? Email { get; set; }
     [JsonPropertyName("ns_id")]
     [JsonConverter(typeof(FlexibleStringJsonConverter))]
@@ -37,6 +40,7 @@ public sealed class SsoIdentity
     public string? PositionId { get; set; }
     public string? PositionName { get; set; }
     public string? Phone { get; set; }
+    public bool? Authentication2Factor { get; set; }
     [JsonConverter(typeof(FlexibleStringJsonConverter))]
     public string? OrgId { get; set; }
 }
