@@ -51,7 +51,7 @@ public sealed class SsoClient : ISsoClient
                 "Không thể kết nối đến máy chủ SSO EVNHANOI để xác thực ticket.",
                 502);
         }
-
+        
         SsoValidationResponse? result;
         try
         {
