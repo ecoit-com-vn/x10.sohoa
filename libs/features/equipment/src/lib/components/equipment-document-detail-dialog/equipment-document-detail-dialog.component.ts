@@ -5,16 +5,20 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
 import { MessageService } from 'primeng/api';
-import { finalize, forkJoin } from 'rxjs';
-import { EquipmentService } from '../../data-access/equipment.service';
+import { finalize, forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+import { EquipmentService, PmisSpecDiffResponse } from '../../data-access/equipment.service';
 import { FileDownloadService } from '../../data-access/file-download.service';
 
 import {
   EavField,
+  PmisFieldDiffRow,
   buildDocumentDraftFromSources,
+  buildPmisDiffRows,
   mergeExtractionPageResults,
   parseFormSchemaFields,
   parseMergedDataJson,
+  parsePmisFormValues,
   readFormSchemaJson,
   serializeFormDataForSchema,
 } from '@sohoa.frontend/features/dossier-management';
@@ -50,6 +54,34 @@ export class EquipmentDocumentDetailDialogComponent implements OnDestroy {
   fields = signal<EavField[]>([]);
   draftData = signal<Record<string, unknown>>({});
   currentEquipmentData = signal<Record<string, unknown>>({});
+
+  /** Dữ liệu PMIS đã đồng bộ cho thiết bị (nếu có) — dùng để đối chiếu trực tiếp với draftData đang hiệu chỉnh. */
+  pmisSpecDiff = signal<PmisSpecDiffResponse | null>(null);
+
+  /**
+   * So sánh giá trị đang hiệu chỉnh (draftData) với PMIS theo pmisFieldName — recompute ngay khi reviewer sửa field,
+   * nên viền đỏ/gợi ý PMIS tự biến mất khi giá trị đã khớp PMIS.
+   */
+  pmisDiffRows = computed(() => {
+    const diff = this.pmisSpecDiff();
+    const fields = this.fields();
+    if (!diff?.pmisFormValues || !fields.length) return [] as PmisFieldDiffRow[];
+    const pmisValues = parsePmisFormValues(diff.pmisFormValues);
+    return buildPmisDiffRows(fields, this.draftData(), pmisValues, diff.fieldMappingWarnings);
+  });
+
+  private pmisRowByKey = computed(() => {
+    const map = new Map<string, PmisFieldDiffRow>();
+    for (const row of this.pmisDiffRows()) map.set(row.field.key, row);
+    return map;
+  });
+
+  /** Thiết bị đã có dữ liệu PMIS để đối chiếu hay chưa — dùng để hiện ghi chú trạng thái dù có sai khác hay không. */
+  hasPmisData = computed(() => !!this.pmisSpecDiff()?.pmisFormValues);
+
+  pmisRow(field: EavField): PmisFieldDiffRow | undefined {
+    return this.pmisRowByKey().get(field.key);
+  }
 
   previewUrl = signal<string | null>(null);
   currentPage = signal(1);
@@ -162,10 +194,14 @@ export class EquipmentDocumentDetailDialogComponent implements OnDestroy {
         this.equipmentId,
         this.versionId
       ),
+      pmisDiff: this.equipmentService
+        .getPmisSpecDiff(this.equipmentId)
+        .pipe(catchError(() => of(null))),
     })
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
-        next: ({ equipment, result }) => {
+        next: ({ equipment, result, pmisDiff }) => {
+          this.pmisSpecDiff.set(pmisDiff);
           if (!equipment) {
             this.messageService.add({
               severity: 'error',
