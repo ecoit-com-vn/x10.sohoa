@@ -41,6 +41,19 @@
         </ng-template>
       </p>
 
+      <!-- Ghi chú đối chiếu PMIS — luôn hiện để người dùng biết trường có được so sánh với PMIS hay không,
+           kể cả khi thiết bị chưa có dữ liệu PMIS. -->
+      <p class="confirm-intro pmis-note" *ngIf="!loading()">
+        <ng-container *ngIf="hasPmisData(); else pmisNoDataNote">
+          <i class="pi pi-sync" style="color: #2563eb; margin-right: 4px"></i>
+          Các trường viền đỏ là sai khác so với dữ liệu đã đồng bộ từ PMIS cho thiết bị này.
+        </ng-container>
+        <ng-template #pmisNoDataNote>
+          <i class="pi pi-info-circle" style="color: #94a3b8; margin-right: 4px"></i>
+          Thiết bị chưa có dữ liệu PMIS để đối chiếu — chưa thể so sánh thông số ở đây.
+        </ng-template>
+      </p>
+
       <div *ngIf="fields().length === 0" class="empty-fields"
         style="padding: 40px; text-align: center; color: #94a3b8; border: 1px dashed #cbd5e1; border-radius: 8px;">
         Loại thiết bị này chưa được định nghĩa form thông số kỹ thuật.
@@ -49,7 +62,8 @@
       <div class="confirm-form-grid" *ngIf="fields().length > 0"
         style="flex: 1; overflow-y: auto; max-height: 480px; padding-right: 6px; display: flex; flex-direction: column; gap: 14px;">
         <div class="confirm-field" *ngFor="let field of fields()"
-          [class.no-value]="!draftData()[field.key] && draftData()[field.key] !== false">
+          [class.no-value]="!draftData()[field.key] && draftData()[field.key] !== false"
+          [class.pmis-mismatch]="pmisRow(field)?.hasDifference">
           <label class="form-label"
             style="display: block; font-weight: 500; font-size: 0.85rem; margin-bottom: 4px; color: #374151;">{{
             field.label }}</label>
@@ -77,6 +91,10 @@
               (ngModelChange)="setDraftFieldValue(field.key, $event)" [disabled]="!formEditable()"
               style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; font-size: 0.875rem; height: 36px;" />
           </ng-container>
+
+          <div class="field-error" *ngIf="pmisRow(field)?.hasDifference">
+            PMIS: {{ pmisRow(field)?.pmisDisplay }}
+          </div>
         </div>
       </div>
     </section>
