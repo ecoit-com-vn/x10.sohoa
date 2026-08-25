@@ -120,6 +120,16 @@
   padding: 10px;
 }
 
+/** Field sai khác so với dữ liệu PMIS đã đồng bộ — viền đỏ + hộp sáng đỏ nhạt (xem .field-error cho dòng hint bên dưới). */
+.confirm-field.pmis-mismatch {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+.pmis-note {
+  margin-top: -4px;
+}
+
 .field-head {
   display: flex;
   align-items: center;

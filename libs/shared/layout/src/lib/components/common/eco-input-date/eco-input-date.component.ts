@@ -70,8 +70,8 @@ import { InputMaskModule } from 'primeng/inputmask';
 export class EcoInputDateComponent
   implements Validator, ControlValueAccessor, AfterViewInit
 {
-  @Input() label: string = 'EMPTY';
-  @Input() placeholder: string = 'EMPTY';
+  @Input() label: string = '';
+  @Input() placeholder: string = '';
   @Input() showLabel: boolean = true;
   @Input() selectionMode: 'single' | 'multiple' | 'range' = 'single'; // single, multiple, range
   @Input() required?: boolean | string;

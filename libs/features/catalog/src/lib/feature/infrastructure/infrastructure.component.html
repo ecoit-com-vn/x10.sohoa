@@ -1407,56 +1407,99 @@
             Chọn một thư mục để xem danh sách tài liệu.
           </div>
         </div>
+
+        <div
+          class="table-footer-paginator"
+          *ngIf="selectedAttachmentDocuments().length > 0"
+        >
+          <span class="record-count"
+            >Tổng số: <b>{{ selectedAttachmentDocuments().length }}</b> tài
+            liệu.</span
+          >
+          <app-eco-paginator
+            [first]="(attachmentDocumentPage() - 1) * attachmentDocumentPageSize()"
+            [rows]="attachmentDocumentPageSize()"
+            [totalRecords]="selectedAttachmentDocuments().length"
+            [rowsPerPageOptions]="[10, 20, 50]"
+            dropdownAppendTo="body"
+            (onPageChange)="onAttachmentDocumentPageChange($event)"
+          >
+          </app-eco-paginator>
+        </div>
       </section>
 
       <aside class="attachment-tree-pane">
-        <div class="attachment-tree-title">
-          <i class="pi pi-folder"></i> TÀI LIỆU ĐÍNH KÈM
+        <div class="folder-tree-header">
+          <div class="folder-tree-header-title">
+            <i class="pi pi-fw pi-folder header-icon"></i>
+            <strong class="header-text">TÀI LIỆU ĐÍNH KÈM</strong>
+          </div>
         </div>
+
         <div
           *ngIf="
             attachmentDocumentFolders().length === 0 &&
             !loadingAttachmentDocuments()
           "
-          class="attachment-tree-empty"
+          class="empty-tree-message"
         >
           Chưa có thư mục tài liệu.
         </div>
 
-        <div class="attachment-tree-nodes">
-          <button
-            type="button"
-            class="attachment-tree-station"
-            (click)="toggleAttachmentStationFolder()"
-          >
-            <i
-              class="pi"
-              [class.pi-folder]="!attachmentStationFolderExpanded()"
-              [class.pi-folder-open]="attachmentStationFolderExpanded()"
-            ></i>
-            <span>{{ currentItem().name || 'Trạm biến áp' }}</span>
-          </button>
-
-          <div
-            *ngIf="attachmentStationFolderExpanded()"
-            class="attachment-tree-children"
-          >
+        <div>
+          <div class="folder-row">
             <button
               type="button"
-              *ngFor="let folder of attachmentDocumentFolders()"
-              class="attachment-tree-node"
-              [class.selected]="selectedAttachmentFolderId() === folder.id"
-              (click)="selectAttachmentFolder(folder.id)"
+              class="folder-tree-btn root-node"
+              (click)="toggleAttachmentStationFolder()"
+              [title]="currentItem().name || 'Trạm biến áp'"
             >
               <i
                 class="pi"
-                [class.pi-folder-open]="
-                  selectedAttachmentFolderId() === folder.id
-                "
-                [class.pi-folder]="selectedAttachmentFolderId() !== folder.id"
+                [class.pi-folder]="!attachmentStationFolderExpanded()"
+                [class.pi-folder-open]="attachmentStationFolderExpanded()"
               ></i>
-              <span>{{ folder.name }}</span>
+              <span class="folder-name-text">{{
+                currentItem().name || 'Trạm biến áp'
+              }}</span>
             </button>
+          </div>
+
+          <div
+            *ngIf="attachmentStationFolderExpanded()"
+            class="folder-children-wrapper root-children"
+          >
+            <div
+              *ngFor="
+                let folder of attachmentDocumentFolders();
+                last as isLast
+              "
+              [class.last-node]="isLast"
+            >
+              <div class="folder-row">
+                <div class="connector-space">
+                  <div class="connector-line"></div>
+                </div>
+                <button
+                  type="button"
+                  class="folder-tree-btn"
+                  [class.active]="selectedAttachmentFolderId() === folder.id"
+                  (click)="selectAttachmentFolder(folder.id)"
+                  [title]="folder.name"
+                >
+                  <i
+                    class="pi"
+                    [class.pi-folder-open]="
+                      selectedAttachmentFolderId() === folder.id
+                    "
+                    [class.pi-folder]="
+                      selectedAttachmentFolderId() !== folder.id
+                    "
+                  ></i>
+                  <span class="folder-name-text">{{ folder.name }}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </aside>

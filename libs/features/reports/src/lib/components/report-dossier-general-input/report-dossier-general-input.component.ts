@@ -201,6 +201,15 @@ export class ReportDossierGeneralInputComponent implements OnInit, AfterViewInit
     this.selectedToDate.set(date);
   }
 
+  onResetFilters(): void {
+    this.selectedUnitId.set(null);
+    this.applyDefaultUnitFilter();
+    this.selectedObjectType.set(0);
+    this.selectedFromDate.set(null);
+    this.selectedToDate.set(null);
+    this.onFilter();
+  }
+
   onFilter(): void {
     this.filterVersion.update((v) => v + 1);
     this.dossierList?.resetPagination();

@@ -66,19 +66,19 @@
                 display: block;
                 color: #374151;
               ">Trạm / đường dây</label>
-            <select class="wf-input w-full" style="
-                height: 38px;
-                padding: 0 10px;
-                border-radius: 6px;
-                background-color: #ffffff !important;
-                color: #374151 !important;
-              " [ngModel]="searchInfrastructureId()" (ngModelChange)="searchInfrastructureId.set($event); onSearch()"
-              (focus)="loadSearchInfrastructuresOnDemand()">
-              <option value="">-- Chọn trạm/đường dây --</option>
-              <option *ngFor="let inf of infrastructures()" [value]="inf.id">
-                {{ inf.name }}
-              </option>
-            </select>
+            <p-select [options]="infrastructures()" [ngModel]="searchInfrastructureId()"
+              (ngModelChange)="searchInfrastructureId.set($event || ''); onSearch()" optionLabel="name" optionValue="id"
+              placeholder="-- Chọn trạm/đường dây --" [filter]="true"
+              (onShow)="loadSearchInfrastructuresOnDemand()" [style]="{
+                width: '100%',
+                height: '38px',
+                'line-height': '24px',
+                border: '1px solid #cbd5e1',
+                'border-radius': '6px',
+                'background-color': '#ffffff',
+                color: '#374151',
+              }">
+            </p-select>
           </div>
 
           <!-- Cột 3: Loại thiết bị -->
@@ -89,19 +89,19 @@
                 display: block;
                 color: #374151;
               ">Loại thiết bị</label>
-            <select class="wf-input w-full" style="
-                height: 38px;
-                padding: 0 10px;
-                border-radius: 6px;
-                background-color: #ffffff !important;
-                color: #374151 !important;
-              " [ngModel]="searchEquipmentTypeId()" (ngModelChange)="searchEquipmentTypeId.set($event); onSearch()"
-              (focus)="loadEquipmentTypesOnDemand()">
-              <option value="">-- Chọn loại thiết bị --</option>
-              <option *ngFor="let et of equipmentTypes()" [value]="et.id">
-                {{ et.name }}
-              </option>
-            </select>
+            <p-select [options]="equipmentTypes()" [ngModel]="searchEquipmentTypeId()"
+              (ngModelChange)="searchEquipmentTypeId.set($event || ''); onSearch()" optionLabel="name" optionValue="id"
+              placeholder="-- Chọn loại thiết bị --" [filter]="true"
+              (onShow)="loadEquipmentTypesOnDemand()" [style]="{
+                width: '100%',
+                height: '38px',
+                'line-height': '24px',
+                border: '1px solid #cbd5e1',
+                'border-radius': '6px',
+                'background-color': '#ffffff',
+                color: '#374151',
+              }">
+            </p-select>
           </div>
 
           <!-- Cột 4: Trạng thái -->
@@ -112,17 +112,20 @@
                 display: block;
                 color: #374151;
               ">Trạng thái</label>
-            <select class="wf-input w-full" style="
-                height: 38px;
-                padding: 0 10px;
-                border-radius: 6px;
-                background-color: #ffffff !important;
-                color: #374151 !important;
-              " [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event); onSearch()">
-              <option value="">-- Chọn trạng thái --</option>
-              <option value="1">Hoạt động</option>
-              <option value="0">Ngừng hoạt động</option>
-            </select>
+            <p-select [options]="[
+                { label: 'Hoạt động', value: '1' },
+                { label: 'Ngừng hoạt động', value: '0' }
+              ]" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event || ''); onSearch()"
+              optionLabel="label" optionValue="value" placeholder="-- Chọn trạng thái --" [style]="{
+                width: '100%',
+                height: '38px',
+                'line-height': '24px',
+                border: '1px solid #cbd5e1',
+                'border-radius': '6px',
+                'background-color': '#ffffff',
+                color: '#374151',
+              }">
+            </p-select>
           </div>
 
 
@@ -152,7 +155,7 @@
                 <th>Đơn vị quản lý</th>
                 <th>Ngày tạo</th>
                 <th>Người tạo</th>
-                <th style="width: 130px; text-align: center">Trạng thái</th>
+                <th style="width: 150px; text-align: center">Trạng thái</th>
                 <th class="col-hd">Thao tác</th>
               </tr>
             </thead>
@@ -1093,8 +1096,9 @@
               </div>
             </div>
 
-            <!-- So sánh với PMIS (module 6) -->
-            <div *ngIf="pmisSpecDiff() as diff" style="
+            <!-- So sánh với PMIS (module 6) — luôn hiển thị khu vực này để người dùng biết thiết bị có được
+                 đối chiếu với PMIS hay không, kể cả khi chưa có/không tải được dữ liệu PMIS. -->
+            <div style="
                 background: #ffffff;
                 border: 1px solid #e2e8f0;
                 border-radius: 8px;
@@ -1108,7 +1112,7 @@
                   align-items: center;
                   border-bottom: 1px dashed #cbd5e1;
                   padding-bottom: 12px;
-                  margin-bottom: 16px;
+                  margin-bottom: 8px;
                 ">
                 <span style="
                     font-size: 0.95rem;
@@ -1119,80 +1123,97 @@
                   <i class="pi pi-sync" style="color: #2563eb; margin-right: 6px"></i>
                   So sánh với PMIS
                 </span>
-                <span *ngIf="diff.pmisSyncedAt" style="font-size: 0.8rem; color: #64748b">
-                  Đồng bộ lần cuối: {{ diff.pmisSyncedAt | date: 'dd/MM/yyyy HH:mm' }}
+                <span *ngIf="pmisSpecDiff()?.pmisSyncedAt" style="font-size: 0.8rem; color: #64748b">
+                  Đồng bộ lần cuối: {{ pmisSpecDiff()?.pmisSyncedAt | date: 'dd/MM/yyyy HH:mm' }}
                 </span>
               </div>
 
-              <div *ngIf="!diff.pmisFormValues" class="org-tree-empty" style="text-align: center; padding: 20px 0">
-                <i class="pi pi-info-circle" style="font-size: 1.8rem; color: #94a3b8; margin-bottom: 8px"></i>
-                <div style="color: #64748b; font-weight: 600">
-                  Thiết bị chưa có dữ liệu thông số kỹ thuật đồng bộ từ PMIS.
-                </div>
+              <p style="font-size: 0.8rem; color: #64748b; margin: 0 0 16px 0;">
+                Khu vực này đối chiếu thông số kỹ thuật của thiết bị với dữ liệu đồng bộ từ PMIS — hiển thị dù
+                thiết bị đã có hay chưa có dữ liệu PMIS.
+              </p>
+
+              <div *ngIf="pmisDiffLoading()" style="text-align: center; padding: 24px 0; color: #64748b">
+                <i class="pi pi-spin pi-spinner" style="font-size: 1.6rem; margin-bottom: 8px; display: block"></i>
+                Đang tải dữ liệu so sánh PMIS...
               </div>
 
-              <ng-container *ngIf="diff.pmisFormValues">
-                <div [style.background]="pmisDiffCount() > 0 ? '#fef2f2' : '#f0fdf4'"
-                  [style.border]="pmisDiffCount() > 0 ? '1px solid #fecaca' : '1px solid #bbf7d0'" style="
-                    border-radius: 6px;
-                    padding: 10px 14px;
-                    margin-bottom: 16px;
-                    font-size: 0.85rem;
-                  " [style.color]="pmisDiffCount() > 0 ? '#b91c1c' : '#15803d'">
-                  <i class="pi" [ngClass]="pmisDiffCount() > 0 ? 'pi-exclamation-triangle' : 'pi-check-circle'"></i>
-                  <span *ngIf="pmisDiffCount() > 0">
-                    Phát hiện {{ pmisDiffCount() }} trường có sai khác giữa dữ liệu hệ thống và PMIS.
-                  </span>
-                  <span *ngIf="pmisDiffCount() === 0">
-                    Không phát hiện sai khác giữa dữ liệu hệ thống và PMIS.
-                  </span>
+              <ng-container *ngIf="!pmisDiffLoading()">
+                <div *ngIf="!pmisSpecDiff()" class="org-tree-empty" style="text-align: center; padding: 20px 0">
+                  <i class="pi pi-exclamation-circle" style="font-size: 1.8rem; color: #94a3b8; margin-bottom: 8px"></i>
+                  <div style="color: #64748b; font-weight: 600">
+                    Không thể tải dữ liệu so sánh PMIS. Vui lòng tải lại trang.
+                  </div>
                 </div>
 
-                <div style="display: flex; flex-direction: column; gap: 10px">
-                  <ng-container *ngFor="let row of pmisDiffRows()">
-                    <div *ngIf="!row.hasMappingWarning" [style.background]="row.hasDifference ? '#fff7ed' : 'transparent'"
-                      style="
-                        display: flex;
-                        align-items: center;
-                        border-bottom: 1px solid #f1f5f9;
-                        padding: 8px;
-                        border-radius: 4px;
-                      ">
-                      <span style="width: 260px; font-weight: 600">{{ row.field.label }}:</span>
-                      <span style="flex: 1; display: flex; gap: 24px">
-                        <span style="flex: 1">
-                          <span style="font-size: 0.7rem; color: #94a3b8; display: block">Hệ thống</span>
-                          {{ row.localDisplay || '—' }}
-                        </span>
-                        <span style="flex: 1" [style.color]="row.hasDifference ? '#c2410c' : 'inherit'"
-                          [style.font-weight]="row.hasDifference ? '700' : 'normal'">
-                          <span style="font-size: 0.7rem; color: #94a3b8; display: block">PMIS</span>
-                          {{ row.pmisDisplay || '—' }}
-                        </span>
+                <ng-container *ngIf="pmisSpecDiff() as diff">
+                  <div *ngIf="!diff.pmisFormValues" class="org-tree-empty" style="text-align: center; padding: 20px 0">
+                    <i class="pi pi-info-circle" style="font-size: 1.8rem; color: #94a3b8; margin-bottom: 8px"></i>
+                    <div style="color: #64748b; font-weight: 600">
+                      Thiết bị chưa có dữ liệu thông số kỹ thuật đồng bộ từ PMIS.
+                    </div>
+                  </div>
+
+                  <ng-container *ngIf="diff.pmisFormValues">
+                    <div [style.background]="pmisDiffCount() > 0 ? '#fef2f2' : '#f0fdf4'"
+                      [style.border]="pmisDiffCount() > 0 ? '1px solid #fecaca' : '1px solid #bbf7d0'" style="
+                        border-radius: 6px;
+                        padding: 10px 14px;
+                        margin-bottom: 16px;
+                        font-size: 0.85rem;
+                      " [style.color]="pmisDiffCount() > 0 ? '#b91c1c' : '#15803d'">
+                      <i class="pi" [ngClass]="pmisDiffCount() > 0 ? 'pi-exclamation-triangle' : 'pi-check-circle'"></i>
+                      <span *ngIf="pmisDiffCount() > 0">
+                        Phát hiện {{ pmisDiffCount() }} trường có sai khác giữa dữ liệu hệ thống và PMIS.
+                      </span>
+                      <span *ngIf="pmisDiffCount() === 0">
+                        Không phát hiện sai khác giữa dữ liệu hệ thống và PMIS.
                       </span>
                     </div>
-                  </ng-container>
-                </div>
 
-                <div *ngIf="pmisDiffWarningCount() > 0" style="margin-top: 16px">
-                  <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 6px">
-                    Các trường chưa cấu hình ánh xạ PMIS (vào Form Builder để bổ sung "Tên trường PMIS"):
-                  </div>
-                  <div style="display: flex; flex-direction: column; gap: 4px">
-                    <ng-container *ngFor="let row of pmisDiffRows()">
-                      <div *ngIf="row.hasMappingWarning" style="
-                          background: #f8fafc;
-                          color: #94a3b8;
-                          font-size: 0.85rem;
-                          padding: 6px 10px;
-                          border-radius: 4px;
-                        ">
-                        <i class="pi pi-question-circle" style="margin-right: 6px"></i>
-                        {{ row.field.label }}
+                    <div class="wf-table-wrap">
+                      <table class="wf-table">
+                        <thead>
+                          <tr>
+                            <th>Tên thông số</th>
+                            <th>Hệ thống số hóa</th>
+                            <th>PMIS</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr *ngFor="let row of pmisDiffRows()" [hidden]="row.hasMappingWarning">
+                            <td [style.color]="row.hasDifference ? '#dc2626' : 'inherit'"
+                              [style.font-weight]="row.hasDifference ? '700' : '600'">
+                              {{ row.field.label }}
+                            </td>
+                            <td>{{ row.localDisplay || '—' }}</td>
+                            <td>{{ row.pmisDisplay || '—' }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div *ngIf="pmisDiffWarningCount() > 0" style="margin-top: 16px">
+                      <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 6px">
+                        Các trường chưa cấu hình ánh xạ PMIS (vào Form Builder để bổ sung "Tên trường PMIS"):
                       </div>
-                    </ng-container>
-                  </div>
-                </div>
+                      <div style="display: flex; flex-direction: column; gap: 4px">
+                        <ng-container *ngFor="let row of pmisDiffRows()">
+                          <div *ngIf="row.hasMappingWarning" style="
+                              background: #f8fafc;
+                              color: #94a3b8;
+                              font-size: 0.85rem;
+                              padding: 6px 10px;
+                              border-radius: 4px;
+                            ">
+                            <i class="pi pi-question-circle" style="margin-right: 6px"></i>
+                            {{ row.field.label }}
+                          </div>
+                        </ng-container>
+                      </div>
+                    </div>
+                  </ng-container>
+                </ng-container>
               </ng-container>
             </div>
 

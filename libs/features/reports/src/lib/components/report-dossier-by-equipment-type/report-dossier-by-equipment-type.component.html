@@ -11,7 +11,7 @@
     ></wf-breadcrumb>
   </div>
 
-  <div class="standard-search-card filter-card">
+  <div class="filter-card">
     <div class="standard-search-grid filter-row">
       <div class="standard-search-field filter-col">
         <label class="filter-label">Đơn vị</label>
@@ -73,29 +73,29 @@
           styleClass="w-full wf-select-custom"
         ></p-select>
       </div>
+    </div>
 
-      <div class="standard-search-actions filter-actions">
-        <button type="button" class="btn-outlined" (click)="onResetSearch()">
-          <i class="pi pi-refresh"></i> Làm mới
-        </button>
-        <button
-          type="button"
-          class="btn-save"
-          (click)="onFilter()"
-          [disabled]="loading()"
-        >
-          <i class="pi pi-check"></i> Áp dụng
-        </button>
-        <button
-          *ngIf="activeTab() === 'list'"
-          type="button"
-          class="btn-green"
-          (click)="exportExcel()"
-          [disabled]="exporting() || loading()"
-        >
-          <i class="pi pi-file-excel"></i> Xuất Excel
-        </button>
-      </div>
+    <div class="standard-search-actions filter-actions">
+      <button type="button" class="btn-outlined" (click)="onResetSearch()">
+        <i class="pi pi-refresh"></i> Làm mới
+      </button>
+      <button
+        type="button"
+        class="btn-save"
+        (click)="onFilter()"
+        [disabled]="loading()"
+      >
+        <i class="pi pi-check"></i> Áp dụng
+      </button>
+      <button
+        *ngIf="activeTab() === 'list'"
+        type="button"
+        class="btn-green"
+        (click)="exportExcel()"
+        [disabled]="exporting() || loading()"
+      >
+        <i class="pi pi-file-excel"></i> Xuất Excel
+      </button>
     </div>
   </div>
 
