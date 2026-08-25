@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using EvnHanoi.SyncService.Models;
 using EvnHanoi.SyncService.Repositories;
 using Microsoft.AspNetCore.Authorization;
@@ -41,7 +42,7 @@ public class SyncScheduleController : ControllerBase
         var existing = await _syncConfigRepository.GetByObjectTypeAsync(normalizedType);
         if (existing == null) return NotFound(new { message = "Không tìm thấy cấu hình lịch đồng bộ." });
 
-        var updated = await _syncConfigRepository.UpdateAsync(normalizedType, request, null);
+        var updated = await _syncConfigRepository.UpdateAsync(normalizedType, request, CurrentUserName());
         if (!updated)
         {
             return Conflict(new
@@ -52,4 +53,7 @@ public class SyncScheduleController : ControllerBase
 
         return NoContent();
     }
+
+    private string? CurrentUserName() =>
+        User.FindFirstValue("full_name") ?? User.FindFirstValue(ClaimTypes.Name) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
 }

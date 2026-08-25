@@ -17,6 +17,7 @@ public class PmisManualSearchRequest
     public string? MaLoaiTB { get; set; }
     public int? NamSanXuat { get; set; }
     public int? TinhTrang { get; set; }
+    public bool? KemQRCode { get; set; }
     public DateTime? TuNgay { get; set; }
     public DateTime? DenNgay { get; set; }
     public int Skip { get; set; }
