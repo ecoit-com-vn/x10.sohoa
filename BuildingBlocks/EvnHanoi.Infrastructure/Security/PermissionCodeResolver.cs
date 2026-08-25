@@ -42,6 +42,7 @@ public static class PermissionCodeResolver
             "ReportUnitPublish" => "REPORT_UNIT_PUBLISH",
             "ReportStatistics" => "REPORT_STATISTICS",
             "DocumentFullTextSearch" => "DOCUMENT_FULLTEXT_SEARCH",
+            "UserGuides" => "USER_GUIDE",
             _ => ToSnakeCase(controllerKey)
         };
     }
@@ -125,6 +126,13 @@ public static class PermissionCodeResolver
 
         // Tra cứu toàn văn tài liệu: mọi GET → VIEW (kể cả download-url)
         if (string.Equals(controllerKey, "DocumentFullTextSearch", StringComparison.OrdinalIgnoreCase) &&
+            httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
+        {
+            return "VIEW";
+        }
+
+        // Quản lý hướng dẫn sử dụng: mọi GET (kể cả tải file hướng dẫn) → VIEW
+        if (string.Equals(controllerKey, "UserGuides", StringComparison.OrdinalIgnoreCase) &&
             httpMethod.Equals("GET", StringComparison.OrdinalIgnoreCase))
         {
             return "VIEW";
@@ -297,6 +305,10 @@ public static class PermissionCodeResolver
             "AUDIT_LOG_DELETE" => "Xóa nhật ký hệ thống",
             "AUDIT_LOG_EXPORT" => "Xuất nhật ký hệ thống",
             "DOSSIER_SIGN" => "Ký số tài liệu hồ sơ",
+            "USER_GUIDE_VIEW" => "Xem hướng dẫn sử dụng",
+            "USER_GUIDE_CREATE" => "Thêm hướng dẫn sử dụng",
+            "USER_GUIDE_EDIT" => "Sửa hướng dẫn sử dụng",
+            "USER_GUIDE_DELETE" => "Xóa hướng dẫn sử dụng",
             _ => null
         };
     }

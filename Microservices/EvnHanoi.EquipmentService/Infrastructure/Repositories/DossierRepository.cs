@@ -1231,11 +1231,14 @@ public class DossierRepository : IDossierRepository
                         e.NAME as EquipmentName,
                         e.SerialNumber,
                         et.NAME as EquipmentTypeName,
-                        i.NAME as InfrastructureName
+                        i.NAME as InfrastructureName,
+                        e.MANUFACTURE_YEAR as ManufactureYear,
+                        es.NAME as EquipmentStatusName
                      FROM DOSSIER_EQUIPMENTS de
                      INNER JOIN Equipments e ON de.EquipmentId = e.Id
                      LEFT JOIN EquipmentTypes et ON e.EquipmentTypeId = et.Id
                      LEFT JOIN INFRASTRUCTURE i ON e.Infrastructure_Id = i.ID
+                     LEFT JOIN CATALOG es ON e.EQUIPMENT_STATUS_ID = es.Id
                      WHERE de.DossierId = :DossierId";
         return await _connection.QueryAsync<DossierEquipmentDto>(sql, new { DossierId = dossierId.ToString() });
     }

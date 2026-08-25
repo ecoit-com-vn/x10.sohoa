@@ -54,6 +54,8 @@ builder.Services.AddScoped<IExternalApiCallLogRepository, ExternalApiCallLogRepo
 builder.Services.AddSingleton<IExternalApiKeyProtector, ExternalApiKeyProtector>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 builder.Services.AddScoped<IAvatarStorageService, AvatarStorageService>();
+builder.Services.AddScoped<IUserGuideRepository, UserGuideRepository>();
+builder.Services.AddScoped<IUserGuideStorageService, UserGuideStorageService>();
 builder.Services.Configure<SsoOptions>(builder.Configuration.GetSection(SsoOptions.SectionName));
 builder.Services.AddHttpClient<ISsoClient, SsoClient>((services, client) =>
 {
