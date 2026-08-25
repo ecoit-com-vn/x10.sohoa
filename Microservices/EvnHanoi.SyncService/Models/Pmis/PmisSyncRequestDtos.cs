@@ -56,6 +56,9 @@ public class PmisLineDeviceSearchRequest
     public string? MaDonVi { get; set; }
     public DateTime? TuNgay { get; set; }
     public DateTime? DenNgay { get; set; }
+    // Có kèm ảnh QR code (base64) trong response hay không — xác nhận có thật qua Kong route export
+    // và Postman collection thực tế (?kemQRCode=false), dù bảng "Đầu vào" trong docx PMIS bỏ sót field này.
+    public bool? KemQRCode { get; set; }
     public int Skip { get; set; }
     public int Take { get; set; } = 100;
 }

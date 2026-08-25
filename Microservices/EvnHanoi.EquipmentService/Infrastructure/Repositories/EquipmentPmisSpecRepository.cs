@@ -18,31 +18,29 @@ public class EquipmentPmisSpecRepository : IEquipmentPmisSpecRepository
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
-        var existingId = await _connection.QuerySingleOrDefaultAsync<string?>(
-            "SELECT Id FROM EQUIPMENT_PMIS_SPEC WHERE EquipmentId = :EquipmentId",
-            new { EquipmentId = equipmentId.ToString() });
-
-        if (existingId != null)
-        {
-            await _connection.ExecuteAsync(@"
-                UPDATE EQUIPMENT_PMIS_SPEC
-                SET FormValues = :FormValues, SyncedAt = SYSTIMESTAMP, SyncHistoryId = :SyncHistoryId,
-                    RowVersion = RowVersion + 1, ModifiedDate = SYSTIMESTAMP
-                WHERE Id = :Id",
-                new { Id = existingId, FormValues = OracleClob.Param(formValuesJson), SyncHistoryId = syncHistoryId });
-            return;
-        }
-
+        // MERGE atomic ở tầng DB — tránh race condition check-then-act (2 tiến trình đồng bộ cùng
+        // 1 thiết bị đồng thời, ví dụ đồng bộ thủ công trùng lúc job tự động chạy, đều thấy "chưa có
+        // dòng nào" rồi cùng INSERT, vi phạm UQ_EQUIPMENT_PMIS_SPEC_EQUIP).
         await _connection.ExecuteAsync(@"
-            INSERT INTO EQUIPMENT_PMIS_SPEC (Id, EquipmentId, FormValues, SyncedAt, SyncHistoryId, CreatedBy)
-            VALUES (:Id, :EquipmentId, :FormValues, SYSTIMESTAMP, :SyncHistoryId, :CreatedBy)",
+            MERGE INTO EQUIPMENT_PMIS_SPEC target
+            USING (SELECT :EquipmentId AS EquipmentId FROM DUAL) src
+            ON (target.EquipmentId = src.EquipmentId)
+            WHEN MATCHED THEN UPDATE SET
+                target.FormValues = :FormValues,
+                target.SyncedAt = SYSTIMESTAMP,
+                target.SyncHistoryId = :SyncHistoryId,
+                target.RowVersion = target.RowVersion + 1,
+                target.ModifiedBy = :ModifiedBy,
+                target.ModifiedDate = SYSTIMESTAMP
+            WHEN NOT MATCHED THEN INSERT (Id, EquipmentId, FormValues, SyncedAt, SyncHistoryId, CreatedBy)
+            VALUES (:Id, :EquipmentId, :FormValues, SYSTIMESTAMP, :SyncHistoryId, :ModifiedBy)",
             new
             {
                 Id = Guid.CreateVersion7().ToString(),
                 EquipmentId = equipmentId.ToString(),
                 FormValues = OracleClob.Param(formValuesJson),
                 SyncHistoryId = syncHistoryId,
-                CreatedBy = "PMIS_SYNC"
+                ModifiedBy = "PMIS_SYNC"
             });
     }
 

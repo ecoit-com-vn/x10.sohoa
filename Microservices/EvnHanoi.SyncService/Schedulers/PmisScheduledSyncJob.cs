@@ -88,6 +88,11 @@ public class PmisScheduledSyncJob : IJob
 
         int total = 0, success = 0, failed = 0;
         List<string> errors = [];
+        // Chỉ đẩy NextSyncAt lên (theo tần suất cấu hình) khi lượt chạy hoàn tất bình thường — kể cả
+        // khi status cuối là Failed do 0/n item thành công, đó vẫn là 1 lượt đã thử xong. Khi rơi vào
+        // catch (lỗi hệ thống ngoài dự kiến, ví dụ mất kết nối PMIS ngay từ bước fetch) thì KHÔNG đẩy,
+        // để tick 1 phút kế tiếp thử lại ngay thay vì phải chờ hết nguyên 1 chu kỳ tần suất.
+        var completedNormally = false;
         try
         {
             (total, success, failed, errors) = objectType switch
@@ -101,6 +106,7 @@ public class PmisScheduledSyncJob : IJob
             var status = total > 0 && success == 0 ? SyncHistoryStatus.Failed : SyncHistoryStatus.Success;
             await _syncHistoryRepository.CompleteAsync(historyId, status, total, success, failed,
                 errors.Count > 0 ? string.Join("; ", errors.Take(5)) : null);
+            completedNormally = true;
         }
         catch (Exception ex)
         {
@@ -108,40 +114,81 @@ public class PmisScheduledSyncJob : IJob
             await _syncHistoryRepository.CompleteAsync(historyId, SyncHistoryStatus.Failed, total, success, failed, ex.Message);
         }
 
-        var nextSyncAt = now.Add(ToTimeSpan(config.FrequencyValue, config.FrequencyUnit));
-        await _syncConfigRepository.UpdateRunResultAsync(objectType, now, nextSyncAt);
+        if (completedNormally)
+        {
+            var nextSyncAt = now.Add(ToTimeSpan(config.FrequencyValue, config.FrequencyUnit));
+            await _syncConfigRepository.UpdateRunResultAsync(objectType, now, nextSyncAt);
+        }
+    }
+
+    /// <summary>
+    /// Đẩy 1 trang dữ liệu sang EquipmentService ngay khi vừa fetch xong, thay vì dồn hết các trang
+    /// vào 1 danh sách khổng lồ rồi mới gửi 1 request duy nhất ở cuối — tránh request quá lớn dễ vượt
+    /// timeout, và cách ly lỗi theo trang: 1 trang lỗi (PMIS/EquipmentService tạm gián đoạn) chỉ làm
+    /// trang đó tính failed, các trang trước đã ghi SyncHistoryDetail xong vẫn giữ nguyên, các trang
+    /// sau vẫn tiếp tục thử.
+    /// </summary>
+    private async Task<(int Success, int Failed, List<string> Errors)> PushPageAsync(
+        Func<string, IReadOnlyList<JsonElement>, Task<(int Success, int Failed, List<string> Errors)>> pushPage,
+        string historyId, List<JsonElement> pageItems, string pageLabel)
+    {
+        try
+        {
+            return await pushPage(historyId, pageItems);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "PmisScheduledSyncJob: lỗi khi đồng bộ 1 trang ({PageLabel}).", pageLabel);
+            return (0, pageItems.Count, [$"{pageLabel}: {ex.Message}"]);
+        }
     }
 
     private async Task<(int Total, int Success, int Failed, List<string> Errors)> RunSubstationAsync(string historyId)
     {
-        var allItems = new List<JsonElement>();
+        int total = 0, success = 0, failed = 0;
+        var errors = new List<string>();
         var skip = 0;
         for (var page = 0; page < MaxPages; page++)
         {
             var result = await _pmisClient.GetSubstationsAsync(new PmisSubstationSearchRequest { Skip = skip, Take = PageSize });
-            allItems.AddRange(result.Items.Select(i => JsonSerializer.SerializeToElement(i)));
-            if (result.Items.Count < PageSize || allItems.Count >= result.Total) break;
+            var pageItems = result.Items.Select(i => JsonSerializer.SerializeToElement(i)).ToList();
+            total += pageItems.Count;
+
+            var (pageSuccess, pageFailed, pageErrors) = await PushPageAsync(
+                (id, items) => _executionService.SyncInfrastructureAsync(1, id, items), historyId, pageItems, $"Trạm biến áp skip={skip}");
+            success += pageSuccess;
+            failed += pageFailed;
+            errors.AddRange(pageErrors);
+
+            if (result.Items.Count < PageSize || total >= result.Total) break;
             skip += PageSize;
         }
 
-        var (success, failed, errors) = await _executionService.SyncInfrastructureAsync(1, historyId, allItems);
-        return (allItems.Count, success, failed, errors);
+        return (total, success, failed, errors);
     }
 
     private async Task<(int Total, int Success, int Failed, List<string> Errors)> RunLineAsync(string historyId)
     {
-        var allItems = new List<JsonElement>();
+        int total = 0, success = 0, failed = 0;
+        var errors = new List<string>();
         var skip = 0;
         for (var page = 0; page < MaxPages; page++)
         {
             var result = await _pmisClient.GetLinesAsync(new PmisLineSearchRequest { Skip = skip, Take = PageSize });
-            allItems.AddRange(result.Items.Select(i => JsonSerializer.SerializeToElement(i)));
-            if (result.Items.Count < PageSize || allItems.Count >= result.Total) break;
+            var pageItems = result.Items.Select(i => JsonSerializer.SerializeToElement(i)).ToList();
+            total += pageItems.Count;
+
+            var (pageSuccess, pageFailed, pageErrors) = await PushPageAsync(
+                (id, items) => _executionService.SyncInfrastructureAsync(2, id, items), historyId, pageItems, $"Đường dây skip={skip}");
+            success += pageSuccess;
+            failed += pageFailed;
+            errors.AddRange(pageErrors);
+
+            if (result.Items.Count < PageSize || total >= result.Total) break;
             skip += PageSize;
         }
 
-        var (success, failed, errors) = await _executionService.SyncInfrastructureAsync(2, historyId, allItems);
-        return (allItems.Count, success, failed, errors);
+        return (total, success, failed, errors);
     }
 
     private async Task<(int Total, int Success, int Failed, List<string> Errors)> RunEquipmentAsync(string historyId)
@@ -149,13 +196,16 @@ public class PmisScheduledSyncJob : IJob
         // Thiết bị không có API "lấy tất cả" — phải lặp theo từng Trạm/Đường dây đã đồng bộ trước đó
         // (module 3) để lấy thiết bị con, đúng theo 2 API riêng biệt của tài liệu PMIS.
         var parents = await _equipmentServiceClient.GetSyncedInfrastructurePmisCodesAsync();
-        var allItems = new List<JsonElement>();
+        int total = 0, success = 0, failed = 0;
+        var errors = new List<string>();
 
         foreach (var parent in parents)
         {
             var skip = 0;
             for (var page = 0; page < MaxPages; page++)
             {
+                List<JsonElement> pageItems;
+                int pageCount;
                 if (parent.InfraTypeId == 1)
                 {
                     var result = await _pmisClient.GetSubstationDevicesAsync(new PmisSubstationDeviceSearchRequest
@@ -164,27 +214,35 @@ public class PmisScheduledSyncJob : IJob
                         Skip = skip,
                         Take = PageSize
                     });
-                    allItems.AddRange(result.Items.Select(i => JsonSerializer.SerializeToElement(i)));
-                    if (result.Items.Count < PageSize || result.Items.Count == 0) break;
+                    pageItems = result.Items.Select(i => JsonSerializer.SerializeToElement(i)).ToList();
+                    pageCount = result.Items.Count;
                 }
                 else
                 {
                     var result = await _pmisClient.GetLineDevicesAsync(new PmisLineDeviceSearchRequest
                     {
                         MaDuongDay = parent.PmisCode,
+                        KemQRCode = true, // chạy nền không có người quyết định — luôn lấy đầy đủ dữ liệu kể cả QR
                         Skip = skip,
                         Take = PageSize
                     });
-                    allItems.AddRange(result.Items.Select(i => JsonSerializer.SerializeToElement(i)));
-                    if (result.Items.Count < PageSize || result.Items.Count == 0) break;
+                    pageItems = result.Items.Select(i => JsonSerializer.SerializeToElement(i)).ToList();
+                    pageCount = result.Items.Count;
                 }
 
+                total += pageItems.Count;
+                var (pageSuccess, pageFailed, pageErrors) = await PushPageAsync(
+                    _executionService.SyncEquipmentAsync, historyId, pageItems, $"Thiết bị cha={parent.PmisCode} skip={skip}");
+                success += pageSuccess;
+                failed += pageFailed;
+                errors.AddRange(pageErrors);
+
+                if (pageCount < PageSize || pageCount == 0) break;
                 skip += PageSize;
             }
         }
 
-        var (success, failed, errors) = await _executionService.SyncEquipmentAsync(historyId, allItems);
-        return (allItems.Count, success, failed, errors);
+        return (total, success, failed, errors);
     }
 
     private static TimeSpan ToTimeSpan(int value, string unit) => unit switch

@@ -92,35 +92,50 @@ public class InternalPmisSyncController : ControllerBase
         var results = new List<UpsertEquipmentFromPmisResult>();
         foreach (var item in items)
         {
-            var upsertResult = await _equipmentRepository.UpsertFromPmisAsync(
-                item.PmisCode, item.Code, item.Name, item.SerialNumber,
-                item.EquipmentTypeCode, item.ParentPmisCode, item.UnitCode,
-                item.ManufactureYear, item.QrCodeBase64);
-
-            if (!upsertResult.Success)
+            try
             {
+                var upsertResult = await _equipmentRepository.UpsertFromPmisAsync(
+                    item.PmisCode, item.Code, item.Name, item.SerialNumber,
+                    item.EquipmentTypeCode, item.ParentPmisCode, item.UnitCode,
+                    item.ManufactureYear, item.QrCodeBase64);
+
+                if (!upsertResult.Success)
+                {
+                    results.Add(new UpsertEquipmentFromPmisResult
+                    {
+                        PmisCode = item.PmisCode,
+                        Success = false,
+                        ErrorMessage = upsertResult.ErrorMessage
+                    });
+                    continue;
+                }
+
+                // Thông số kỹ thuật lưu riêng — KHÔNG ghi đè EQUIPMENTS.FormValues (dữ liệu người dùng chỉnh sửa nội bộ).
+                if (!string.IsNullOrWhiteSpace(item.ThongSoKyThuat))
+                {
+                    await _equipmentPmisSpecRepository.UpsertAsync(upsertResult.EquipmentId!.Value, item.ThongSoKyThuat, null);
+                }
+
+                results.Add(new UpsertEquipmentFromPmisResult
+                {
+                    PmisCode = item.PmisCode,
+                    Success = true,
+                    EquipmentId = upsertResult.EquipmentId,
+                    WasCreated = upsertResult.WasCreated
+                });
+            }
+            catch (Exception ex)
+            {
+                // Cách ly lỗi theo từng item — 1 thiết bị lỗi (deadlock, race condition khi upsert
+                // EQUIPMENT_PMIS_SPEC...) không được làm mất kết quả của các item đã xử lý xong trước đó
+                // hay chặn các item còn lại, giống đúng khuôn của UpsertInfrastructureFromPmis ở trên.
                 results.Add(new UpsertEquipmentFromPmisResult
                 {
                     PmisCode = item.PmisCode,
                     Success = false,
-                    ErrorMessage = upsertResult.ErrorMessage
+                    ErrorMessage = ex.Message
                 });
-                continue;
             }
-
-            // Thông số kỹ thuật lưu riêng — KHÔNG ghi đè EQUIPMENTS.FormValues (dữ liệu người dùng chỉnh sửa nội bộ).
-            if (!string.IsNullOrWhiteSpace(item.ThongSoKyThuat))
-            {
-                await _equipmentPmisSpecRepository.UpsertAsync(upsertResult.EquipmentId!.Value, item.ThongSoKyThuat, null);
-            }
-
-            results.Add(new UpsertEquipmentFromPmisResult
-            {
-                PmisCode = item.PmisCode,
-                Success = true,
-                EquipmentId = upsertResult.EquipmentId,
-                WasCreated = upsertResult.WasCreated
-            });
         }
 
         return Ok(results);
