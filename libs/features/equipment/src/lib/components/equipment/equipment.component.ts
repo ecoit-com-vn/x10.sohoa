@@ -19,9 +19,9 @@ import { EquipmentService, PmisSpecDiffResponse } from '../../data-access/equipm
 import { FormTemplateService } from '../../data-access/form-template.service';
 import {
   DossierManagementService,
-  EavField,
-  formatFieldDisplayValue,
+  buildPmisDiffRows,
   parseFormSchemaFields,
+  parsePmisFormValues,
 } from '@sohoa.frontend/features/dossier-management';
 import { EMPTY, forkJoin, of } from 'rxjs';
 import { catchError, finalize, switchMap, map } from 'rxjs/operators';
@@ -119,33 +119,9 @@ export class EquipmentComponent implements OnInit {
     const diff = this.pmisSpecDiff();
     if (!diff?.formSchema || !diff.pmisFormValues) return [];
 
-    const fields: EavField[] = parseFormSchemaFields(diff.formSchema);
-    const localValues = this.formValuesObj() || {};
-    let pmisValues: Record<string, unknown> = {};
-    try {
-      pmisValues = JSON.parse(diff.pmisFormValues) || {};
-    } catch {
-      pmisValues = {};
-    }
-
-    const warningKeys = new Set((diff.fieldMappingWarnings || []).map((w) => w.fieldName));
-
-    return fields.map((field) => {
-      const hasMappingWarning = warningKeys.has(field.key) || warningKeys.has(field.name || '');
-      const pmisKey = field.pmisFieldName?.trim() || field.key;
-      const pmisRawValue = hasMappingWarning ? undefined : this.lookupIgnoreCase(pmisValues, pmisKey);
-      const localValue = localValues[field.key];
-      const hasDifference =
-        !hasMappingWarning && formatFieldDisplayValue(field, localValue) !== formatFieldDisplayValue(field, pmisRawValue);
-
-      return {
-        field,
-        localDisplay: formatFieldDisplayValue(field, localValue),
-        pmisDisplay: hasMappingWarning ? null : formatFieldDisplayValue(field, pmisRawValue),
-        hasMappingWarning,
-        hasDifference,
-      };
-    });
+    const fields = parseFormSchemaFields(diff.formSchema);
+    const pmisValues = parsePmisFormValues(diff.pmisFormValues);
+    return buildPmisDiffRows(fields, this.formValuesObj() || {}, pmisValues, diff.fieldMappingWarnings);
   });
 
   pmisDiffCount = computed(() => this.pmisDiffRows().filter((r) => r.hasDifference).length);
@@ -1240,14 +1216,6 @@ export class EquipmentComponent implements OnInit {
         this.pmisDiffLoading.set(false);
       }
     });
-  }
-
-  private lookupIgnoreCase(obj: Record<string, unknown>, key: string): unknown {
-    if (!obj || !key) return undefined;
-    if (Object.prototype.hasOwnProperty.call(obj, key)) return obj[key];
-    const lowerKey = key.toLowerCase();
-    const foundKey = Object.keys(obj).find((k) => k.toLowerCase() === lowerKey);
-    return foundKey !== undefined ? obj[foundKey] : undefined;
   }
 
   loadDossiers() {
