@@ -287,7 +287,7 @@
                 <td class="col-stt text-muted">{{ relatedFirst() + i + 1 }}</td>
                 <td>
                   <span class="wf-name-link" (click)="openRelatedDetail(rel)">
-                    {{ rel.catalogData?.['ma_ho_so'] || rel.code || 'HS-' + rel.id.substring(0, 8) }}
+                    {{ rel.dossierCode || '-' }}
                   </span>
                 </td>
                 <td>{{ getDossierTitle(rel) }}</td>
