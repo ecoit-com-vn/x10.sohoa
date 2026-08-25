@@ -85,7 +85,8 @@ interface DocumentTableAction {
   run: (doc: DossierDocumentItem) => void;
 }
 
-const MAX_INLINE_DOCUMENT_ACTIONS = 3;
+// Tất cả thao tác tài liệu được gom vào menu "..." (không hiển thị nút thao tác rời trên hàng).
+const MAX_INLINE_DOCUMENT_ACTIONS = 0;
 
 @Component({
   selector: 'app-dossier-documents-tab',
@@ -456,9 +457,17 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
     this.documentService.setKindContext(normalizeDossierKindId(this.kindId, 2));
   }
 
-  /** Menu Quản lý hồ sơ (kỹ thuật) & Nhập liệu số hóa — hiển thị OCR/bóc tách mặc định khi có quyền IMPORT. */
+  /**
+   * Menu Quản lý hồ sơ (kỹ thuật) & Nhập liệu số hóa — hiển thị OCR/bóc tách mặc định khi có quyền IMPORT.
+   * Scope 'creator' yêu cầu canEdit; scope 'publisher' được phép chạy OCR/bóc tách khi phát hành hồ sơ
+   * dù canEditDossier() luôn false ở màn này (tương tự lý do "Ký số" không gate theo canEdit ở trên).
+   */
   showCreatorDigitizationActions(): boolean {
-    if (!this.canEdit || this.menuScope !== 'creator') return false;
+    if (this.menuScope === 'creator') {
+      if (!this.canEdit) return false;
+    } else if (this.menuScope !== 'publisher') {
+      return false;
+    }
     const kind = normalizeDossierKindId(this.kindId, 2);
     if (kind !== 1 && kind !== 2) return false;
     return hasDossierDigitizationImportPermission(this.authService, kind === 1);
@@ -915,9 +924,13 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
     this.showOcrConfirm.set(true);
   }
 
-  /** Mở popup xác nhận — KHÔNG gọi API ngay (xem showOcrConfirm). */
+  /**
+   * Mở popup xác nhận — KHÔNG gọi API ngay (xem showOcrConfirm).
+   * Cố tình KHÔNG gate theo canEdit: màn publisher (menuScope === 'publisher') luôn có canEdit = false,
+   * nhưng vẫn cần chạy OCR/bóc tách khi phát hành (xem showCreatorDigitizationActions).
+   */
   onOcrAndExtract(doc: DossierDocumentItem): void {
-    if (!doc.latestVersionId || !this.canEdit) return;
+    if (!doc.latestVersionId) return;
     this.ocrConfirmTarget.set(doc);
     this.ocrConfirmKind.set('ocr-extract');
     this.showOcrConfirm.set(true);
@@ -925,7 +938,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
 
   /** Mở popup xác nhận — chỉ chạy OCR, không tự động bóc tách tiếp theo. */
   onOcrOnly(doc: DossierDocumentItem): void {
-    if (!doc.latestVersionId || !this.canEdit) return;
+    if (!doc.latestVersionId) return;
     this.ocrConfirmTarget.set(doc);
     this.ocrConfirmKind.set('ocr-only');
     this.showOcrConfirm.set(true);
@@ -983,7 +996,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
   }
 
   private runOcrAndExtract(doc: DossierDocumentItem): void {
-    if (!doc.latestVersionId || !this.canEdit) return;
+    if (!doc.latestVersionId) return;
 
     const ids = new Set(this.retryingIds());
     ids.add(doc.id);
@@ -1017,7 +1030,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
 
   /** Chỉ chạy OCR — không tự động chuyển sang bóc tách (worker dừng lại sau khi OCR xong). */
   private runOcrOnly(doc: DossierDocumentItem): void {
-    if (!doc.latestVersionId || !this.canEdit) return;
+    if (!doc.latestVersionId) return;
 
     const ids = new Set(this.retryingIds());
     ids.add(doc.id);

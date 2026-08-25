@@ -1475,7 +1475,7 @@ td:has(.act-btn) {
     }
     .p-dialog-content {
         padding: 16px 24px !important;
-        overflow-y: clip;
+        overflow-y: auto;
     }
     .p-dialog-footer {
         border-top: 1px solid var(--p-content-border-color, #e2e8f0) !important;

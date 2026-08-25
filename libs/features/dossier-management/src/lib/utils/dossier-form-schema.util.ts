@@ -388,3 +388,70 @@ export function hasExtractedValue(value: unknown): boolean {
   if (typeof value === 'string') return !!value.trim();
   return true;
 }
+
+/** Kết quả so sánh 1 field giữa dữ liệu hệ thống và dữ liệu PMIS. */
+export interface PmisFieldDiffRow {
+  field: EavField;
+  localValue: unknown;
+  pmisValue: unknown;
+  localDisplay: string;
+  pmisDisplay: string | null;
+  /** true nếu field chưa khai báo pmisFieldName khớp được key nào trong dữ liệu PMIS. */
+  hasMappingWarning: boolean;
+  /** true nếu có mapping nhưng giá trị hiển thị khác nhau giữa hệ thống và PMIS. */
+  hasDifference: boolean;
+}
+
+/** Tra cứu key không phân biệt hoa/thường (PMIS JSON không đảm bảo casing khớp field key hệ thống). */
+export function lookupIgnoreCase(obj: Record<string, unknown> | null | undefined, key: string): unknown {
+  if (!obj || !key) return undefined;
+  if (Object.prototype.hasOwnProperty.call(obj, key)) return obj[key];
+  const lowerKey = key.toLowerCase();
+  const foundKey = Object.keys(obj).find((k) => k.toLowerCase() === lowerKey);
+  return foundKey !== undefined ? obj[foundKey] : undefined;
+}
+
+/** Parse chuỗi JSON pmisFormValues (từ EQUIPMENT_PMIS_SPEC) thành object phẳng, an toàn với JSON hỏng. */
+export function parsePmisFormValues(pmisFormValuesJson: string | null | undefined): Record<string, unknown> {
+  if (!pmisFormValuesJson?.trim()) return {};
+  try {
+    const parsed = JSON.parse(pmisFormValuesJson) as unknown;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * So sánh từng field trong schema với dữ liệu PMIS theo `pmisFieldName` (fallback `key`).
+ * Field chưa khớp được key nào trong PMIS → `hasMappingWarning=true`, không tính là sai khác dữ liệu.
+ */
+export function buildPmisDiffRows(
+  fields: ReadonlyArray<EavField>,
+  localValues: Record<string, unknown> | null | undefined,
+  pmisValues: Record<string, unknown> | null | undefined,
+  fieldMappingWarnings?: ReadonlyArray<{ fieldName: string }> | null
+): PmisFieldDiffRow[] {
+  const local = localValues ?? {};
+  const pmis = pmisValues ?? {};
+  const warningKeys = new Set((fieldMappingWarnings || []).map((w) => w.fieldName));
+
+  return fields.map((field) => {
+    const hasMappingWarning = warningKeys.has(field.key) || warningKeys.has(field.name || '');
+    const pmisKey = field.pmisFieldName?.trim() || field.key;
+    const pmisRawValue = hasMappingWarning ? undefined : lookupIgnoreCase(pmis, pmisKey);
+    const localValue = local[field.key];
+    const localDisplay = formatFieldDisplayValue(field, localValue);
+    const pmisDisplay = hasMappingWarning ? null : formatFieldDisplayValue(field, pmisRawValue);
+
+    return {
+      field,
+      localValue,
+      pmisValue: pmisRawValue,
+      localDisplay,
+      pmisDisplay,
+      hasMappingWarning,
+      hasDifference: !hasMappingWarning && localDisplay !== pmisDisplay,
+    };
+  });
+}

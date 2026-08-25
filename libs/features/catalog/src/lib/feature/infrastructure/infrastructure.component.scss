@@ -557,13 +557,136 @@
 .attachment-tree-pane {
   order: 1;
   min-width: 0;
-  // padding: 20px;
+  padding: 1rem;
   border: 1px solid #dbe3ee;
   border-radius: 8px;
   background: #fff;
   box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
 }
 
+/* Folder tree — same visual language as the dossier warehouse search screen (/search/dossier) */
+.folder-tree-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background-color: #3b82f6;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 5px;
+}
+
+.folder-tree-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+
+  .header-icon { font-size: 1.1rem; }
+  .header-text { font-size: 15px; font-weight: 500; }
+}
+
+.empty-tree-message { color: #999; font-size: 0.85rem; }
+
+.folder-row {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.folder-tree-btn {
+  flex: 1;
+  text-align: left;
+  padding: 10px 8px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  margin-left: 3px;
+  font-size: 14px;
+  background-color: transparent;
+  color: #374151;
+  min-width: 0;
+  font-weight: normal;
+  transition: all 0.15s ease;
+
+  &.root-node { font-weight: bold !important; font-size: 0.95rem; }
+
+  &.active {
+    font-weight: bold;
+    color: #2563eb !important;
+
+    .folder-name-text { color: #2563eb !important; }
+  }
+
+  .folder-name-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: inherit;
+    transition: color 0.15s ease;
+  }
+
+  i {
+    color: #eab308 !important;
+    transition: color 0.15s ease;
+    font-size: 20px;
+  }
+
+  &:hover {
+    color: #2563eb !important;
+    background-color: #eff6ff;
+
+    .folder-name-text { color: #2563eb !important; }
+  }
+}
+
+.connector-space {
+  width: 10px;
+  align-self: stretch;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+
+  .connector-line {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: calc(100% + 8px);
+    height: 1px;
+    border-top: 1.5px dashed #3b82f6;
+    transform: translateY(-50%);
+  }
+}
+
+.last-node {
+  & > .folder-row > .connector-space::before {
+    content: '';
+    position: absolute;
+    left: -2px;
+    top: 50%;
+    width: 4px;
+    bottom: -2px;
+    background-color: #ffffff;
+    z-index: 3;
+  }
+}
+
+.folder-children-wrapper {
+  margin-left: 30px;
+  border-left: 1.5px dashed #3b82f6;
+  padding-left: 0;
+  position: relative;
+  margin-top: -7px;
+
+  &.root-children { margin-left: 20px; margin-top: -7px; }
+}
+
+/* Legacy tree styling — still used by the "Hồ sơ kỹ thuật" tab */
 .attachment-tree-title {
   display: flex;
   align-items: center;
