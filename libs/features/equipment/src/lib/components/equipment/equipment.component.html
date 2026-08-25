@@ -1109,7 +1109,7 @@
                   align-items: center;
                   border-bottom: 1px dashed #cbd5e1;
                   padding-bottom: 12px;
-                  margin-bottom: 8px;
+                  margin-bottom: 16px;
                 ">
                 <span style="
                     font-size: 0.95rem;
@@ -1124,11 +1124,6 @@
                   Đồng bộ lần cuối: {{ pmisSpecDiff()?.pmisSyncedAt | date: 'dd/MM/yyyy HH:mm' }}
                 </span>
               </div>
-
-              <p style="font-size: 0.8rem; color: #64748b; margin: 0 0 16px 0;">
-                Khu vực này đối chiếu thông số kỹ thuật của thiết bị với dữ liệu đồng bộ từ PMIS — hiển thị dù
-                thiết bị đã có hay chưa có dữ liệu PMIS.
-              </p>
 
               <div *ngIf="pmisDiffLoading()" style="text-align: center; padding: 24px 0; color: #64748b">
                 <i class="pi pi-spin pi-spinner" style="font-size: 1.6rem; margin-bottom: 8px; display: block"></i>
