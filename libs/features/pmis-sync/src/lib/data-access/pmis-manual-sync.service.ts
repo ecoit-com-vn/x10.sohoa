@@ -14,6 +14,7 @@ export interface PmisManualSearchCriteria {
   maLoaiTB?: string | null;
   namSanXuat?: number | null;
   tinhTrang?: number | null;
+  kemQRCode?: boolean | null;
   tuNgay?: string | null;
   denNgay?: string | null;
   skip: number;

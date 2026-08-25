@@ -26,7 +26,7 @@ const TABS: TabDef[] = [
 ];
 
 function emptyCriteria(): PmisManualSearchCriteria {
-  return { skip: 0, take: 100 };
+  return { skip: 0, take: 100, kemQRCode: true };
 }
 
 @Component({
