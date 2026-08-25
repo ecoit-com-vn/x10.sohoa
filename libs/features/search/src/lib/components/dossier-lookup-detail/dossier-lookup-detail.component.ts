@@ -421,33 +421,6 @@ export class DossierLookupDetailComponent implements OnInit {
     window.open(`/#/search/dossier-by-equipment/${rel.id}`, '_blank');
   }
 
-  getRelatedDossierCode(dossier: unknown): string {
-    if (!dossier || typeof dossier !== 'object') return '-';
-
-    const dossierRecord = dossier as Record<string, unknown>;
-    const catalogDataValue = dossierRecord['catalogData'] ?? dossierRecord['CatalogData'];
-    const catalogData = catalogDataValue && typeof catalogDataValue === 'object'
-      ? catalogDataValue as Record<string, unknown>
-      : {};
-    const candidates = [
-      dossierRecord['dossierCode'],
-      dossierRecord['DossierCode'],
-      catalogData['Mã hồ sơ'],
-      catalogData['ma_ho_so'],
-      catalogData['MA_HO_SO'],
-      catalogData['MAHOSO'],
-      catalogData['CODE'],
-      dossierRecord['code'],
-      dossierRecord['Code'],
-    ];
-    const code = candidates.find(value =>
-      (typeof value === 'string' || typeof value === 'number')
-      && String(value).trim().length > 0
-    );
-
-    return code == null ? '-' : String(code).trim();
-  }
-
   getDossierTitle(dossier: unknown): string {
     if (!dossier || typeof dossier !== 'object') return '-';
 
