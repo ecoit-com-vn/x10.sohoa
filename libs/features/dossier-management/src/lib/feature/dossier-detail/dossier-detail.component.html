@@ -194,12 +194,13 @@
                     <th class="col-stt">STT</th>
                     <th>Mã thiết bị</th>
                     <th>Tên thiết bị</th>
-                    <th>Số serial</th>
+                    <th>Năm sản xuất</th>
+                    <th>Tình trạng vận hành</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr *ngIf="equipments().length === 0">
-                    <td colspan="4" class="empty-row" style="padding: 32px 0">
+                    <td colspan="5" class="empty-row" style="padding: 32px 0">
                       <i
                         class="pi pi-info-circle"
                         style="margin-right: 6px"
@@ -219,7 +220,18 @@
                         eq.equipmentName || eq.EquipmentName || eq.name || '—'
                       }}
                     </td>
-                    <td>{{ eq.serialNumber || eq.SerialNumber || '—' }}</td>
+                    <td>
+                      {{
+                        eq.manufactureYear || eq.ManufactureYear || '—'
+                      }}
+                    </td>
+                    <td>
+                      {{
+                        eq.equipmentStatusName ||
+                          eq.EquipmentStatusName ||
+                          '—'
+                      }}
+                    </td>
                   </tr>
                 </tbody>
               </table>

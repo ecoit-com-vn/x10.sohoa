@@ -25,7 +25,7 @@
   </div>
 
   <!-- Filter Bar Card -->
-  <div class="standard-search-card filter-card">
+  <div class="filter-card">
     <div class="standard-search-grid filter-row">
       <!-- Đơn vị -->
       <div class="standard-search-field filter-col">
@@ -69,26 +69,26 @@
           styleClass="w-full wf-select-custom"
         ></p-datepicker>
       </div>
+    </div>
 
-      <!-- Actions -->
-      <div class="standard-search-actions filter-actions">
-        <button
-          type="button"
-          class="btn-outlined"
-          (click)="onResetFilters()"
-          [disabled]="loading()"
-        >
-          <i class="pi pi-refresh"></i> Làm mới
-        </button>
-        <button
-          type="button"
-          class="btn-save"
-          (click)="onFilter()"
-          [disabled]="loading()"
-        >
-          <i class="pi pi-check"></i> Áp dụng
-        </button>
-      </div>
+    <!-- Actions -->
+    <div class="standard-search-actions filter-actions">
+      <button
+        type="button"
+        class="btn-outlined"
+        (click)="onResetFilters()"
+        [disabled]="loading()"
+      >
+        <i class="pi pi-refresh"></i> Làm mới
+      </button>
+      <button
+        type="button"
+        class="btn-save"
+        (click)="onFilter()"
+        [disabled]="loading()"
+      >
+        <i class="pi pi-check"></i> Áp dụng
+      </button>
     </div>
   </div>
 

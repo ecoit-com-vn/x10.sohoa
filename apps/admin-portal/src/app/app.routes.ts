@@ -97,6 +97,10 @@ export const appRoutes: Route[] = [
         loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.AiOcrTrainingDocumentOcrInsightsPageComponent)
       },
       {
+        path: 'administration/user-guide',
+        loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.UserGuideManagementComponent)
+      },
+      {
         path: 'administration/workflow-builder/new',
         loadComponent: () => import('@sohoa.frontend/features/workflow').then(m => m.WorkflowBuilderComponent)
       },

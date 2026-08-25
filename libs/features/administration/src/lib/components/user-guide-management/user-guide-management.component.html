@@ -1,0 +1,166 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Quản lý hướng dẫn sử dụng', url: '/administration/user-guide' }]" />
+    </div>
+    <div class="toolbar-right">
+      <button type="button" class="btn-green" (click)="onAddNew()">
+        <i class="pi pi-plus"></i> Thêm mới
+      </button>
+    </div>
+  </div>
+
+  <div class="wf-card">
+    <div class="wf-table-wrap">
+      <table class="wf-table">
+        <thead>
+          <tr>
+            <th style="width: 70px; text-align: center;">STT</th>
+            <th>Tên vai trò</th>
+            <th>File hướng dẫn</th>
+            <th class="col-hd" style="width: 160px; text-align: center;">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <ng-container *ngIf="loading()">
+            <tr *ngFor="let item of [1, 2, 3, 4]">
+              <td style="text-align: center;">
+                <div class="skeleton-shimmer" style="height: 16px; width: 24px; margin: 0 auto; border-radius: 4px;"></div>
+              </td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 150px; border-radius: 4px;"></div></td>
+              <td><div class="skeleton-shimmer" style="height: 16px; width: 180px; border-radius: 4px;"></div></td>
+              <td class="col-hd"><div class="skeleton-shimmer" style="height: 24px; width: 90px; margin: 0 auto; border-radius: 4px;"></div></td>
+            </tr>
+          </ng-container>
+
+          <ng-container *ngIf="!loading()">
+            <tr *ngFor="let guide of displayGuides(); let i = index">
+              <td style="text-align: center;" class="text-muted">{{ i + 1 }}</td>
+              <td>{{ guide.roleName }}</td>
+              <td>
+                <span class="guide-file-cell">
+                  <i class="pi pi-file"></i>
+                  {{ guide.fileName }}
+                </span>
+              </td>
+              <td class="col-hd" style="text-align: center;">
+                <button type="button" class="act-btn" title="Tải xuống" [disabled]="downloadingId() === guide.id" (click)="onDownload(guide)">
+                  <i class="pi" [ngClass]="downloadingId() === guide.id ? 'pi-spin pi-spinner' : 'pi-download'"></i>
+                </button>
+                <ng-container *ngIf="!guide.isStatic">
+                  <button type="button" class="act-btn act-edit" title="Chỉnh sửa" (click)="onEdit(guide)">
+                    <i class="pi pi-pencil"></i>
+                  </button>
+                  <button type="button" class="act-btn act-delete" title="Xóa" (click)="onDelete(guide)">
+                    <i class="pi pi-trash"></i>
+                  </button>
+                </ng-container>
+              </td>
+            </tr>
+
+            <tr *ngIf="displayGuides().length === 0">
+              <td colspan="4" class="empty-row">
+                <i class="pi pi-inbox"></i>
+                <div>Chưa có hướng dẫn sử dụng nào.</div>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="table-footer">
+      <span class="record-count">Tổng số: <b>{{ displayGuides().length }}</b> hướng dẫn.</span>
+    </div>
+  </div>
+
+  <!-- Popup Thêm / Sửa hướng dẫn sử dụng -->
+  <p-dialog
+    [visible]="currentView() === 'add' || currentView() === 'edit'"
+    (visibleChange)="$event ? null : onCloseDialog()"
+    [header]="dialogHeader()"
+    [modal]="true"
+    [style]="{ width: '520px' }"
+    styleClass="evn-dialog-custom"
+  >
+    <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
+      <div class="form-group">
+        <label class="form-label">Tên vai trò <span class="required">*</span></label>
+        <span class="field-error" *ngIf="roleNameError()">{{ roleNameError() }}</span>
+        <input
+          type="text"
+          class="wf-input w-full"
+          [ngModel]="currentGuide().roleName"
+          (ngModelChange)="onRoleNameChange($event)"
+          placeholder="Ví dụ: Quản trị viên..."
+          [disabled]="saving()"
+        />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">File hướng dẫn <span class="required" *ngIf="!isEdit()">*</span></label>
+        <span class="field-error" *ngIf="fileError()">{{ fileError() }}</span>
+
+        <div
+          class="guide-upload-zone"
+          [class.drag-over]="isDragOver()"
+          (dragover)="onDragOver($event)"
+          (dragleave)="onDragLeave($event)"
+          (drop)="onDrop($event)"
+          (click)="fileInput.click()"
+        >
+          <ng-container *ngIf="!selectedFile()">
+            <i class="pi pi-cloud-upload"></i>
+            <div class="guide-upload-text">Kéo thả file vào đây hoặc <b>chọn file</b></div>
+            <div class="guide-upload-hint">PDF, Word, Excel, PowerPoint — tối đa 50MB</div>
+          </ng-container>
+
+          <div class="guide-selected-file" *ngIf="selectedFile()" (click)="$event.stopPropagation()">
+            <i class="pi pi-file"></i>
+            <span class="guide-selected-name">{{ selectedFile()?.name }}</span>
+            <span class="guide-selected-size">({{ formatFileSize(selectedFile()?.size) }})</span>
+            <button type="button" class="guide-remove-file" title="Bỏ chọn" (click)="removeSelectedFile()">
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+        </div>
+
+        <input
+          #fileInput
+          type="file"
+          hidden
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+          (change)="onFileSelected($event)"
+        />
+
+        <small class="field-hint" *ngIf="isEdit()">Để trống nếu không muốn thay đổi file hiện tại.</small>
+      </div>
+    </div>
+
+    <ng-template #footer>
+      <div class="dialog-footer-actions">
+        <button class="btn-cancel btn-small" (click)="onCloseDialog()" [disabled]="saving()">
+          <i class="pi pi-times"></i> Đóng
+        </button>
+        <button class="btn-save btn-small" (click)="onSaveGuide()" [disabled]="saving()">
+          <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
+          <i class="pi pi-save" *ngIf="!saving()" style="margin-right: 4px;"></i>
+          Lưu
+        </button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Popup xác nhận xóa dùng chung. -->
+  <app-delete-confirm-dialog
+    [visible]="showDeleteConfirm()"
+    header="Xác nhận xóa hướng dẫn sử dụng"
+    entityLabel="Hướng dẫn sử dụng"
+    [targetName]="deleteTargetLabel()"
+    [loading]="deleteLoading()"
+    (cancelled)="onCancelDelete()"
+    (confirmed)="onConfirmDelete()"
+  />
+</div>

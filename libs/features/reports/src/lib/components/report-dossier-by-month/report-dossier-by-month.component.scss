@@ -1,3 +1,23 @@
+.template-search-card {
+  .standard-search-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .standard-search-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .template-search-card .standard-search-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 :host ::ng-deep {
   .filter-card {
     eco-input-date {
