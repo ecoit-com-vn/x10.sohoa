@@ -1,0 +1,83 @@
+.guide-file-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #334155;
+
+  i {
+    color: #64748b;
+  }
+}
+
+.guide-upload-zone {
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 1.25rem;
+  text-align: center;
+  cursor: pointer;
+  background: #f8fafc;
+  transition: border-color 0.15s, background-color 0.15s;
+
+  &:hover,
+  &.drag-over {
+    border-color: #1d6bf3;
+    background: #eff6ff;
+  }
+
+  i.pi-cloud-upload {
+    font-size: 1.75rem;
+    color: #94a3b8;
+  }
+}
+
+.guide-upload-text {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #334155;
+
+  b {
+    color: #1d6bf3;
+  }
+}
+
+.guide-upload-hint {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.guide-selected-file {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: center;
+  font-size: 0.875rem;
+  color: #1e293b;
+  cursor: default;
+
+  i.pi-file {
+    color: #1d6bf3;
+  }
+
+  .guide-selected-size {
+    color: #94a3b8;
+    font-size: 0.75rem;
+  }
+}
+
+.guide-remove-file {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: #dc2626;
+  cursor: pointer;
+  border-radius: 4px;
+
+  &:hover {
+    background: #fef2f2;
+  }
+}

@@ -770,6 +770,13 @@ export class InfrastructureComponent implements OnInit {
     this.currentPage.set(Math.floor(first / rows) + 1);
   }
 
+  onAttachmentDocumentPageChange(event: { first?: number; rows?: number }) {
+    const rows = Number(event.rows) || this.attachmentDocumentPageSize();
+    const first = Number(event.first) || 0;
+    this.attachmentDocumentPageSize.set(rows);
+    this.attachmentDocumentPage.set(Math.floor(first / rows) + 1);
+  }
+
   onAddNew() {
     this.currentItem.set({
       isActive: true,
@@ -1401,7 +1408,8 @@ export class InfrastructureComponent implements OnInit {
         (results[index]?.items || []).map(document => ({ dossier, document }))
       );
       this.attachmentDossierDocuments.set(documents);
-      this.selectedAttachmentFolderId.set(null);
+      const folders = this.attachmentDocumentFolders();
+      this.selectedAttachmentFolderId.set(folders[0]?.id ?? null);
     });
   }
 
@@ -1515,21 +1523,10 @@ export class InfrastructureComponent implements OnInit {
     this.technicalDocumentPage.set(1);
   }
 
-  changeAttachmentDocumentPage(page: number) {
-    if (page >= 1 && page <= this.attachmentDocumentTotalPages()) {
-      this.attachmentDocumentPage.set(page);
-    }
-  }
-
   changeTechnicalDocumentPage(page: number) {
     if (page >= 1 && page <= this.technicalDocumentTotalPages()) {
       this.technicalDocumentPage.set(page);
     }
-  }
-
-  onAttachmentDocumentPageSizeChange(event: Event) {
-    this.attachmentDocumentPageSize.set(Number((event.target as HTMLSelectElement).value) || 10);
-    this.attachmentDocumentPage.set(1);
   }
 
   onTechnicalDocumentPageSizeChange(event: Event) {
