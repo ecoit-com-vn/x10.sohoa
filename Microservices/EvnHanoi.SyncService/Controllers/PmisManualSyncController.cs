@@ -188,6 +188,7 @@ public class PmisManualSyncController : ControllerBase
             MaDuongDay = r.MaDuongDay,
             MaLoaiTB = r.MaLoaiTB,
             MaDonVi = r.MaDonVi,
+            KemQRCode = r.KemQRCode,
             TuNgay = r.TuNgay,
             DenNgay = r.DenNgay,
             Skip = r.Skip,

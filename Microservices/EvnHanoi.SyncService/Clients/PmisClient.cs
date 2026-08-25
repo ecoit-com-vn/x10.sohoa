@@ -92,6 +92,9 @@ public class PmisClient : IPmisClient
             var stringValue = value switch
             {
                 DateTime dt => dt.ToString("o"),
+                // PMIS dùng querystring kiểu JS/JSON (vd. ?kemQRCode=false) — bool mặc định C# ToString()
+                // ra "True"/"False" viết hoa, phải hạ thường để khớp đúng ví dụ thật của PMIS.
+                bool b => b ? "true" : "false",
                 _ => value.ToString() ?? string.Empty
             };
             parts.Add($"{key}={Uri.EscapeDataString(stringValue)}");
