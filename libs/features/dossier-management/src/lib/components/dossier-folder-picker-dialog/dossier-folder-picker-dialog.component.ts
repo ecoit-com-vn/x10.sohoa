@@ -155,7 +155,7 @@ export class DossierFolderPickerDialogComponent {
         this.messageService.add({
           severity: 'error',
           summary: 'Lỗi',
-          detail: 'Không thể tải cây thư mục được phân bổ',
+          detail: 'Không thể tải cây thư mục',
         });
         this.loadingTree.set(false);
       },

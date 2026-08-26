@@ -21,7 +21,7 @@
 
       <div class="folder-tree-panel" *ngIf="!loadingTree(); else treeLoading">
         <div *ngIf="filteredFolderTree().length === 0" class="empty-hint">
-          {{ flatFolderList().length === 0 ? 'Bạn chưa được phân bổ thư mục nhập liệu' : 'Không tìm thấy thư mục' }}
+          {{ flatFolderList().length === 0 ? 'Chưa có thư mục nào được phân bổ hoặc do bạn tạo' : 'Không tìm thấy thư mục' }}
         </div>
         <ng-container *ngTemplateOutlet="folderTreeTpl; context: { $implicit: filteredFolderTree() }"></ng-container>
       </div>
