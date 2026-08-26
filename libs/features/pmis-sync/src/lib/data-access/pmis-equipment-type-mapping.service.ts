@@ -1,7 +1,8 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '@env/environment';
+import { SUPPRESS_HTTP_ERROR_TOAST } from '@sohoa.frontend/shared/core';
 
 export interface PmisEquipmentTypeMapping {
   id: string;
@@ -61,10 +62,15 @@ export class PmisEquipmentTypeMappingService {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
 
-  /** Danh mục loại thiết bị đọc trực tiếp từ PMIS (gộp TBA + đường dây). */
+  /**
+   * Danh mục loại thiết bị đọc trực tiếp từ PMIS (gộp TBA + đường dây). Gọi ngay khi mở màn (không chờ
+   * người dùng bấm gì) nên PMIS lỗi/chậm là chuyện thường — tự xử lý toast riêng ở component (dropdown
+   * chuyển sang ô tự nhập), không dùng toast lỗi chung của interceptor.
+   */
   getPmisDeviceTypes(): Observable<PmisDeviceTypeOption[]> {
     return this.http.get<PmisDeviceTypeOption[]>(
-      `${environment.apiGatewayUrl}/api/v1/sync/lookup/device-types`
+      `${environment.apiGatewayUrl}/api/v1/sync/lookup/device-types`,
+      { context: new HttpContext().set(SUPPRESS_HTTP_ERROR_TOAST, true) }
     );
   }
 

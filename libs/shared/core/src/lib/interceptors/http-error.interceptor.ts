@@ -107,6 +107,16 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
               detail: readApiErrorMessage(error, 'Lỗi máy chủ nội bộ. Vui lòng thử lại sau.')
             });
             break;
+          case 503:
+            // Dùng cho các trường hợp phụ thuộc hệ thống ngoài tạm không sẵn sàng (vd. PMIS chưa cấu
+            // hình endpoint, hoặc PMIS đang lỗi liên tục — PmisUpstreamFailure ở SyncService) — backend
+            // luôn trả kèm message tiếng Việt cụ thể, không dùng thông báo chung như default.
+            messageService.add({
+              severity: 'warn',
+              summary: 'Dịch vụ tạm không khả dụng',
+              detail: readApiErrorMessage(error, 'Dịch vụ tạm không khả dụng. Vui lòng thử lại sau.')
+            });
+            break;
           default:
             messageService.add({
               severity: 'error',
