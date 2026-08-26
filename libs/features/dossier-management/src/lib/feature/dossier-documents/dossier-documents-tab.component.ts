@@ -714,8 +714,11 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
     return this.signingIds().has(docId);
   }
 
-  /** Quyền ký số — DOSSIER_SIGN do backend tự suy ra từ tên action chứa "sign". */
+  /** Quyền ký số — chỉ hiển thị ở màn hình chi tiết hồ sơ trong phân hệ Xuất bản hồ sơ (menuScope === 'publisher'). */
   hasSignPermission(): boolean {
+    if (this.menuScope !== 'publisher') {
+      return false;
+    }
     return this.authService.hasPermission('SUPER_ADMIN') || this.authService.hasPermission('DOSSIER_SIGN');
   }
 
