@@ -134,7 +134,7 @@ public class EquipmentRepository : IEquipmentRepository
                            ) WHERE rn = 1
                        ) eft ON e.EquipmentTypeId = eft.EquipmentTypeId
                      LEFT JOIN APP_USER usr ON e.CreatorId = usr.Id
-                     WHERE e.Id = :Id AND e.IsDeleted = 0";
+                     WHERE e.Id = :Id AND e.IsDeleted = 0 AND e.StatusTransition != 1";
 
         var result = await _connection.QueryAsync<EquipmentDto, CreatorInfoRow, EquipmentDto>(
             sql,
@@ -199,7 +199,7 @@ public class EquipmentRepository : IEquipmentRepository
                            ) WHERE rn = 1
                        ) eft ON e.EquipmentTypeId = eft.EquipmentTypeId";
 
-        var (sqlBase, parameters, totalCount) = await BuildExternalListFilterAsync(filter, eavFormJoin);
+        var (sqlBase, parameters, totalCount) = await BuildExternalListFilterAsync(filter, eavFormJoin, requireStatusTransitionNull: true);
 
         var selectSql = $@"SELECT e.Id AS Id,
                                   e.Code AS MaTB,
@@ -225,7 +225,8 @@ public class EquipmentRepository : IEquipmentRepository
 
     private async Task<(string SqlBase, DynamicParameters Parameters, int TotalCount)> BuildExternalListFilterAsync(
         PmisEquipmentListRequestDto filter,
-        string? extraJoin = null)
+        string? extraJoin = null,
+        bool requireStatusTransitionNull = false)
     {
         var sqlBase = $@"FROM EQUIPMENTS e
                         LEFT JOIN EquipmentTypes et ON e.EquipmentTypeId = et.Id
@@ -233,7 +234,7 @@ public class EquipmentRepository : IEquipmentRepository
                         LEFT JOIN ORGANIZATION_UNIT u ON e.UnitId = u.Id
                         LEFT JOIN CATALOG equipmentStatus ON e.EQUIPMENT_STATUS_ID = equipmentStatus.Id
                         {extraJoin}
-                        WHERE e.IsDeleted = 0";
+                        WHERE e.IsDeleted = 0 AND e.StatusTransition IS NULL";
 
         var parameters = new DynamicParameters();
         if (!string.IsNullOrWhiteSpace(filter.MaTB))
@@ -365,6 +366,7 @@ public class EquipmentRepository : IEquipmentRepository
                         LEFT JOIN APP_USER usr ON e.CreatorId = usr.Id
                         WHERE e.IsDeleted = 0";
 
+
         var parameters = new DynamicParameters();
 
         if (!string.IsNullOrEmpty(keyword))
@@ -483,6 +485,7 @@ public class EquipmentRepository : IEquipmentRepository
                         LEFT JOIN EquipmentTypes et ON e.EquipmentTypeId = et.Id
                         LEFT JOIN INFRASTRUCTURE inf ON e.INFRASTRUCTURE_ID = inf.Id
                         WHERE e.IsDeleted = 0";
+
 
         var parameters = new DynamicParameters();
 
