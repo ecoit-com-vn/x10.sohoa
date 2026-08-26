@@ -167,6 +167,12 @@
         <label class="form-label">Mã đường dây (tìm thiết bị đường dây)</label>
         <input class="wf-input w-full" type="text" [ngModel]="criteria().maDuongDay" (ngModelChange)="updateCriteriaField('maDuongDay', $event)" placeholder="Bỏ trống nếu tìm theo trạm" />
       </div>
+      <div class="form-group" *ngIf="criteria().maDuongDay">
+        <label class="form-label flex items-center gap-2">
+          <input type="checkbox" [ngModel]="criteria().kemQRCode ?? true" (ngModelChange)="updateCriteriaField('kemQRCode', $event)" />
+          Kèm mã QR code (chỉ áp dụng khi tìm theo đường dây)
+        </label>
+      </div>
       <div class="form-group">
         <label class="form-label">Mã loại thiết bị</label>
         <input class="wf-input w-full" type="text" [ngModel]="criteria().maLoaiTB" (ngModelChange)="updateCriteriaField('maLoaiTB', $event)" />
