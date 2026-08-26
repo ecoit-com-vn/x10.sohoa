@@ -1020,10 +1020,19 @@
                   <i class="pi pi-sliders-h" style="color: #2563eb; margin-right: 6px"></i>
                   Thông số kỹ thuật chi tiết
                 </span>
-                <button class="btn-save btn-small" (click)="onEditSpecs(currentItem())"
-                  *ngIf="canEdit() && eavTemplate()">
-                  <i class="pi pi-cog"></i> Cấu hình / Thay đổi thông số
-                </button>
+                <div *ngIf="eavTemplate()" style="display: flex; align-items: center; gap: 8px">
+                  <button class="btn-outlined btn-small" type="button" title="Xuất Excel"
+                    (click)="exportTechnicalSpecs()"
+                    [disabled]="isLoadingTemplate() || isExportingTechnicalSpecs() || eavFields().length === 0">
+                    <i class="pi"
+                      [ngClass]="isExportingTechnicalSpecs() ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i>
+                    {{ isExportingTechnicalSpecs() ? 'Đang xuất...' : 'Xuất Excel' }}
+                  </button>
+                  <button class="btn-save btn-small" type="button" (click)="onEditSpecs(currentItem())"
+                    *ngIf="canEdit()">
+                    <i class="pi pi-cog"></i> Cấu hình / Thay đổi thông số
+                  </button>
+                </div>
               </div>
 
               <!-- Loader -->

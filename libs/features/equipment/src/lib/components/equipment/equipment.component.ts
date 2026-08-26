@@ -130,6 +130,7 @@ export class EquipmentComponent implements OnInit {
   isEditingFormValues = signal<boolean>(false);
   isLoadingTemplate = signal<boolean>(false);
   isSavingFormValues = signal<boolean>(false);
+  isExportingTechnicalSpecs = signal<boolean>(false);
 
   // Dossiers Tab States
   public dossierItems = signal<any[]>([]);
@@ -1382,6 +1383,98 @@ export class EquipmentComponent implements OnInit {
       return isNaN(d.getTime()) ? String(val) : d.toLocaleDateString('vi-VN');
     }
     return String(val);
+  }
+
+  async exportTechnicalSpecs(): Promise<void> {
+    const item = this.currentItem();
+    const fields = this.eavFields();
+
+    if (!item?.id || !this.eavTemplate() || fields.length === 0) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Không thể xuất Excel',
+        detail: 'Thiết bị chưa có biểu mẫu thông số kỹ thuật.'
+      });
+      return;
+    }
+
+    if (this.isExportingTechnicalSpecs()) return;
+    this.isExportingTechnicalSpecs.set(true);
+
+    try {
+      const XLSX = await import('xlsx');
+      const safeText = (value: unknown): string => {
+        const text = value == null || String(value).trim() === '' ? '-' : String(value).trim();
+        return /^[=+\-@]/.test(text) ? `'${text}` : text;
+      };
+      const fieldValue = (field: any): string => {
+        const raw = this.getEavFieldValue(field);
+        if (raw === null || raw === undefined || raw === '') return '-';
+        if (Array.isArray(raw)) return safeText(raw.join(', '));
+        if (typeof raw === 'object' && !(raw instanceof Date)) {
+          try {
+            return safeText(JSON.stringify(raw));
+          } catch {
+            return '-';
+          }
+        }
+        return safeText(this.getFormattedValue(field));
+      };
+
+      const rows: unknown[][] = [
+        ['THÔNG TIN THIẾT BỊ', ''],
+        ['Mã thiết bị', safeText(item.code)],
+        ['Tên thiết bị', safeText(item.name)],
+        ['Loại thiết bị', safeText(item.equipmentTypeName)],
+        ['Trạm/đường dây', safeText(item.infrastructureName)],
+        ['Đơn vị quản lý', safeText(item.unitName)],
+        ['Lưới điện', safeText(item.gridTypeName)],
+        ['Năm sản xuất', safeText(item.manufactureYear)],
+        ['Trạng thái', safeText(item.equipmentStatusName || (item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'))],
+        [],
+        ['STT', 'Tên thông số', 'Giá trị'],
+        ...fields.map((field, index) => [
+          index + 1,
+          safeText(field?.label || this.getEavFieldKey(field) || `Thông số ${index + 1}`),
+          fieldValue(field)
+        ])
+      ];
+
+      const worksheet = XLSX.utils.aoa_to_sheet(rows);
+      worksheet['!cols'] = [{ wch: 8 }, { wch: 42 }, { wch: 45 }];
+      worksheet['!merges'] = [XLSX.utils.decode_range('A1:C1')];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Thông số kỹ thuật');
+
+      const safeCode = String(item.code || 'ThietBi')
+        .trim()
+        .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_');
+      const now = new Date();
+      const timestamp = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, '0'),
+        String(now.getDate()).padStart(2, '0'),
+        String(now.getHours()).padStart(2, '0'),
+        String(now.getMinutes()).padStart(2, '0'),
+        String(now.getSeconds()).padStart(2, '0')
+      ].join('');
+
+      XLSX.writeFile(workbook, `ThongSoKyThuat_${safeCode}_${timestamp}.xlsx`);
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Thành công',
+        detail: 'Đã xuất thông số kỹ thuật ra file Excel.'
+      });
+    } catch {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Lỗi',
+        detail: 'Không thể xuất thông số kỹ thuật ra file Excel.'
+      });
+    } finally {
+      this.isExportingTechnicalSpecs.set(false);
+    }
   }
 
   onViewSpecs(item: any) {
