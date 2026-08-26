@@ -89,12 +89,19 @@
         </div>
       </div>
 
-      <div class="search-actions">
+      <div class="search-actions" style="display: flex; align-items: center; gap: 8px;">
         <button type="button" class="btn-outlined" (click)="onResetFilters()">
           <i class="pi pi-refresh"></i> Làm mới
         </button>
         <button type="button" class="btn-tim" (click)="onApplyFilters()">
           <i class="pi pi-check"></i> Áp dụng
+        </button>
+        <button
+          *ngIf="isApproverMenu() && activeTab() === 'pending-action' && selectedDossierIds().size > 0"
+          type="button"
+          class="btn-green"
+          (click)="openBulkApproveDialog()">
+          <i class="pi pi-check-square"></i> Phê duyệt hàng loạt ({{ selectedDossierIds().size }})
         </button>
       </div>
     </div>
@@ -107,6 +114,15 @@
       <thead>
 
         <tr>
+
+          <th *ngIf="isApproverMenu() && activeTab() === 'pending-action'" class="col-chk" style="width: 40px; text-align: center;">
+            <input
+              type="checkbox"
+              [checked]="allPageSelected()"
+              (change)="toggleSelectAllPage($event)"
+              [disabled]="loading() || items().length === 0"
+            />
+          </th>
 
           <th class="col-stt">STT</th>
 
@@ -131,6 +147,8 @@
         <ng-container *ngIf="loading()">
 
           <tr *ngFor="let r of [1,2,3,4,5]" class="skeleton-row">
+
+            <td *ngIf="isApproverMenu() && activeTab() === 'pending-action'" class="col-chk"><div class="skeleton-bar short" style="margin: 0 auto; width: 16px;"></div></td>
 
             <td class="col-stt"><div class="skeleton-bar short" style="margin: 0 auto; width: 24px;"></div></td>
 
@@ -169,6 +187,10 @@
 
 
           <tr *ngFor="let item of items(); let i = index">
+
+            <td *ngIf="isApproverMenu() && activeTab() === 'pending-action'" class="col-chk text-center" (click)="$event.stopPropagation()">
+              <input type="checkbox" [checked]="isSelected(item.id)" (change)="toggleSelectDossier(item.id)" />
+            </td>
 
             <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
 
@@ -514,5 +536,61 @@
   </div>
   <ng-template #footer>
     <button class="btn-cancel btn-small" (click)="closeImportResultDialog()">Đóng</button>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog Phê duyệt Hàng loạt -->
+<p-dialog
+  [visible]="showBulkApproveConfirm()"
+  (visibleChange)="$event ? null : onCancelBulkApprove()"
+  header="Phê duyệt hàng loạt hồ sơ"
+  [modal]="true"
+  [style]="{ width: '580px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!bulkApproveSubmitting()">
+  <div style="padding: 8px 0 16px 0; display: flex; flex-direction: column; gap: 14px;">
+    <div style="display: flex; align-items: flex-start; gap: 12px;">
+      <i class="pi pi-check-circle" style="font-size: 1.8rem; color: #16a34a; margin-top: 2px; flex-shrink: 0;"></i>
+      <div>
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b; font-size: 0.95rem;">
+          Bạn có chắc chắn muốn phê duyệt {{ selectedDossierIds().size }} hồ sơ đã chọn?
+        </p>
+        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+          Các hồ sơ sẽ được phê duyệt và chuyển sang bước tiếp theo trong quy trình.
+        </p>
+      </div>
+    </div>
+
+    <!-- Danh sách mã hồ sơ chọn -->
+    <div style="max-height: 140px; overflow-y: auto; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px;">
+      <div *ngFor="let item of selectedDossiersList(); let idx = index" style="font-size: 0.85rem; color: #334155; padding: 3px 0; border-bottom: 1px dashed #e2e8f0;">
+        <b>{{ idx + 1 }}.</b> {{ item.dossierCode || item.code || 'Hồ sơ' }} — {{ item.dossierTitle || item.title || item.name || 'Không có tiêu đề' }}
+      </div>
+    </div>
+
+    <!-- Ý kiến phê duyệt -->
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <label style="font-weight: 600; font-size: 0.875rem; color: #334155;">Ý kiến phê duyệt</label>
+      <textarea
+        class="wf-search-input"
+        style="width: 100%; height: 70px; resize: vertical; padding: 8px;"
+        placeholder="Nhập ý kiến phê duyệt..."
+        [ngModel]="bulkApproveComment()"
+        (ngModelChange)="bulkApproveComment.set($event)"
+        [disabled]="bulkApproveSubmitting()"></textarea>
+    </div>
+  </div>
+
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <button class="btn-cancel btn-small" (click)="onCancelBulkApprove()" [disabled]="bulkApproveSubmitting()">
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button class="btn-green btn-small" (click)="confirmBulkApprove()" [disabled]="bulkApproveSubmitting()">
+        <i class="pi pi-spin pi-spinner" *ngIf="bulkApproveSubmitting()" style="margin-right: 4px;"></i>
+        <i class="pi pi-check" *ngIf="!bulkApproveSubmitting()" style="margin-right: 4px;"></i>
+        Phê duyệt ({{ selectedDossierIds().size }})
+      </button>
+    </div>
   </ng-template>
 </p-dialog>

@@ -57,4 +57,18 @@
     [rowsPerPageOptions]="[10, 20, 50]"
     (onPageChange)="onPaginatorPageChange($event)"
   ></app-eco-paginator>
+
+  <!-- Popup xem chi tiết tài liệu — dùng chung component với /dossier-management/publish/:id -->
+  <app-dossier-document-edit-dialog
+    *ngIf="selectedDocument() as doc"
+    [dossierId]="doc.dossierId"
+    [versionId]="doc.versionId!"
+    [documentName]="doc.documentName ?? ''"
+    [mimeType]="doc.mimeType ?? null"
+    [documentTypeId]="doc.documentTypeId ?? null"
+    [canEdit]="false"
+    [publishMode]="true"
+    [visible]="showDocumentDetail()"
+    (visibleChange)="onDocumentDetailVisibleChange($event)"
+  ></app-dossier-document-edit-dialog>
 </div>

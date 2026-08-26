@@ -777,6 +777,13 @@ export class InfrastructureComponent implements OnInit {
     this.attachmentDocumentPage.set(Math.floor(first / rows) + 1);
   }
 
+  onTechnicalDocumentPageChange(event: { first?: number; rows?: number }) {
+    const rows = Number(event.rows) || this.technicalDocumentPageSize();
+    const first = Number(event.first) || 0;
+    this.technicalDocumentPageSize.set(rows);
+    this.technicalDocumentPage.set(Math.floor(first / rows) + 1);
+  }
+
   onAddNew() {
     this.currentItem.set({
       isActive: true,
@@ -1370,10 +1377,16 @@ export class InfrastructureComponent implements OnInit {
           this.relatedDossiersTotalCount.set(res?.totalCount || 0);
           this.technicalDocumentsByDossier.set({});
           this.expandedTechnicalFolders.set(new Set<string>());
-          this.selectedTechnicalFolderId.set(null);
           this.technicalStationFolderExpanded.set(true);
           this.technicalDocumentKeyword.set('');
           this.technicalSelectedDocumentTypeId.set('');
+          // Tự động chọn thư mục hồ sơ đầu tiên (và tải tài liệu của nó), giống hành vi của tab "Tài liệu đính kèm".
+          const firstTechnicalFolder = this.technicalDossierFolders()[0];
+          if (firstTechnicalFolder) {
+            this.selectTechnicalFolder(firstTechnicalFolder);
+          } else {
+            this.selectedTechnicalFolderId.set(null);
+          }
           if (this.activeTab() === 1 || this.activeTab() === 2) {
             this.loadInfrastructureAttachmentDocuments(res?.items || []);
           }

@@ -22,7 +22,7 @@
         class="btn-outlined btn-small"
         (click)="goBack()"
         style="
-          height: 36px;
+          height: 30px;
           padding: 0 12px;
           border-radius: 6px;
           display: inline-flex;
@@ -769,16 +769,17 @@
   <!-- ==================== VIEW CHI TIẾT ==================== -->
   <div
     *ngIf="currentView() === 'detail'"
-    class="wf-card infrastructure-detail-card animate-fade-in sub-view-container"
+    class="infrastructure-detail-card animate-fade-in sub-view-container"
   >
     <!-- Tab Bar (đặt trực tiếp ở đầu card) -->
     <div
-      class="tab-bar"
+      class="tab-bar wf-card "
       style="
         margin-bottom: 10px;
         border-bottom: 1px solid #e2e8f0;
         display: flex;
         justify-content: space-between;
+        padding: 10px !important;
         align-items: center;
       "
     >
@@ -1638,61 +1639,31 @@
         </div>
 
         <div
-          *ngIf="
-            !isTechnicalFolderLoading(selectedTechnicalFolder()?.id || '') &&
-            selectedTechnicalDocuments().length > 0
-          "
-          class="attachment-pagination"
+          class="table-footer-paginator"
+          *ngIf="selectedTechnicalDocuments().length > 0"
         >
-          <span
-            >Hiển thị {{ pagedTechnicalDocuments().length }} trên tổng số
-            {{ selectedTechnicalDocuments().length }} bản ghi</span
+          <span class="record-count"
+            >Tổng số: <b>{{ selectedTechnicalDocuments().length }}</b> hồ
+            sơ.</span
           >
-          <div class="attachment-pagination-controls">
-            <button
-              type="button"
-              (click)="changeTechnicalDocumentPage(technicalDocumentPage() - 1)"
-              [disabled]="technicalDocumentPage() === 1"
-            >
-              <i class="pi pi-angle-left"></i>
-            </button>
-            <button
-              type="button"
-              *ngFor="
-                let page of getVisibleDocumentPages(
-                  technicalDocumentPage(),
-                  technicalDocumentTotalPages()
-                )
-              "
-              [class.active]="page === technicalDocumentPage()"
-              (click)="changeTechnicalDocumentPage(page)"
-            >
-              {{ page }}
-            </button>
-            <button
-              type="button"
-              (click)="changeTechnicalDocumentPage(technicalDocumentPage() + 1)"
-              [disabled]="
-                technicalDocumentPage() === technicalDocumentTotalPages()
-              "
-            >
-              <i class="pi pi-angle-right"></i>
-            </button>
-            <select
-              [ngModel]="technicalDocumentPageSize()"
-              (change)="onTechnicalDocumentPageSizeChange($event)"
-            >
-              <option [value]="10">10</option>
-              <option [value]="20">20</option>
-              <option [value]="50">50</option>
-            </select>
-          </div>
+          <app-eco-paginator
+            [first]="(technicalDocumentPage() - 1) * technicalDocumentPageSize()"
+            [rows]="technicalDocumentPageSize()"
+            [totalRecords]="selectedTechnicalDocuments().length"
+            [rowsPerPageOptions]="[10, 20, 50]"
+            dropdownAppendTo="body"
+            (onPageChange)="onTechnicalDocumentPageChange($event)"
+          >
+          </app-eco-paginator>
         </div>
       </section>
 
       <aside class="attachment-tree-pane">
-        <div class="attachment-tree-title">
-          <i class="pi pi-folder-open"></i> HỒ SƠ KỸ THUẬT
+        <div class="folder-tree-header">
+          <div class="folder-tree-header-title">
+            <i class="pi pi-fw pi-folder header-icon"></i>
+            <strong class="header-text">HỒ SƠ KỸ THUẬT</strong>
+          </div>
         </div>
 
         <div
@@ -1700,45 +1671,65 @@
             technicalDossierFolders().length === 0 &&
             !isLoadingRelatedDossiers()
           "
-          class="attachment-tree-empty"
+          class="empty-tree-message"
         >
           Chưa có thư mục hồ sơ.
         </div>
 
-        <div class="attachment-tree-nodes">
-          <button
-            type="button"
-            class="attachment-tree-station"
-            (click)="toggleTechnicalStationFolder()"
-          >
-            <i
-              class="pi"
-              [class.pi-folder]="!technicalStationFolderExpanded()"
-              [class.pi-folder-open]="technicalStationFolderExpanded()"
-            ></i>
-            <span>{{ currentItem().name || 'Trạm biến áp' }}</span>
-          </button>
-
-          <div
-            *ngIf="technicalStationFolderExpanded()"
-            class="attachment-tree-children"
-          >
+        <div>
+          <div class="folder-row">
             <button
               type="button"
-              *ngFor="let folder of technicalDossierFolders()"
-              class="attachment-tree-node"
-              [class.selected]="selectedTechnicalFolderId() === folder.id"
-              (click)="selectTechnicalFolder(folder)"
+              class="folder-tree-btn root-node"
+              (click)="toggleTechnicalStationFolder()"
+              [title]="currentItem().name || 'Trạm biến áp'"
             >
               <i
                 class="pi"
-                [class.pi-folder-open]="
-                  selectedTechnicalFolderId() === folder.id
-                "
-                [class.pi-folder]="selectedTechnicalFolderId() !== folder.id"
+                [class.pi-folder]="!technicalStationFolderExpanded()"
+                [class.pi-folder-open]="technicalStationFolderExpanded()"
               ></i>
-              <span>{{ folder.name }}</span>
+              <span class="folder-name-text">{{
+                currentItem().name || 'Trạm biến áp'
+              }}</span>
             </button>
+          </div>
+
+          <div
+            *ngIf="technicalStationFolderExpanded()"
+            class="folder-children-wrapper root-children"
+          >
+            <div
+              *ngFor="
+                let folder of technicalDossierFolders();
+                last as isLast
+              "
+              [class.last-node]="isLast"
+            >
+              <div class="folder-row">
+                <div class="connector-space">
+                  <div class="connector-line"></div>
+                </div>
+                <button
+                  type="button"
+                  class="folder-tree-btn"
+                  [class.active]="selectedTechnicalFolderId() === folder.id"
+                  (click)="selectTechnicalFolder(folder)"
+                  [title]="folder.name"
+                >
+                  <i
+                    class="pi"
+                    [class.pi-folder-open]="
+                      selectedTechnicalFolderId() === folder.id
+                    "
+                    [class.pi-folder]="
+                      selectedTechnicalFolderId() !== folder.id
+                    "
+                  ></i>
+                  <span class="folder-name-text">{{ folder.name }}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </aside>
