@@ -294,10 +294,16 @@ public class FolderAllocationRepository : IFolderAllocationRepository
                 f.PARENT_ID AS ParentId,
                 f.UNIT_ID AS UnitId,
                 ou.CODE AS UnitCode
-            FROM FOLDER_USER_ALLOCATIONS fua
-            INNER JOIN FOLDERS f ON f.ID = fua.FOLDER_ID
+            FROM FOLDERS f
             INNER JOIN ORGANIZATION_UNIT ou ON ou.ID = f.UNIT_ID
-            WHERE fua.USER_ID = :UserId AND fua.STATUS = 'Active' AND fua.IS_DELETED = 0 AND f.IS_DELETED = 0
+            LEFT JOIN FOLDER_USER_ALLOCATIONS fua ON fua.FOLDER_ID = f.ID AND fua.IS_DELETED = 0 AND fua.STATUS = 'Active'
+            LEFT JOIN APP_USER u ON u.Id = :UserId
+            WHERE f.IS_DELETED = 0
+              AND (
+                  fua.USER_ID = :UserId
+                  OR LOWER(TRIM(f.CREATED_BY)) = LOWER(TRIM(:UserId))
+                  OR (u.UserName IS NOT NULL AND LOWER(TRIM(f.CREATED_BY)) = LOWER(TRIM(u.UserName)))
+              )
             ORDER BY f.NAME ASC";
 
         return await _connection.QueryAsync<FolderLookupItemDto>(sql, new { UserId = userId });

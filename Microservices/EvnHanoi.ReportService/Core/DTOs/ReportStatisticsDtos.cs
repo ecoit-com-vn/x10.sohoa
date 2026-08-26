@@ -29,11 +29,15 @@ namespace EvnHanoi.ReportService.Core.DTOs
         public int Stt { get; set; }
         public string DocumentId { get; set; } = string.Empty;
         public string DossierId { get; set; } = string.Empty;
+        public string? DocumentTypeId { get; set; }
         public string DocumentTypeName { get; set; } = string.Empty;
         public string DossierTypeName { get; set; } = string.Empty;
         public string InfrastructureName { get; set; } = string.Empty;
         public string EquipmentName { get; set; } = string.Empty;
         public string DocumentName { get; set; } = string.Empty;
+        /// <summary>Id phiên bản (version) mới nhất của tài liệu — dùng để mở popup xem chi tiết tài liệu.</summary>
+        public string? VersionId { get; set; }
+        public string? MimeType { get; set; }
     }
 
     public class ReportStatisticsDocumentListResponseDto
