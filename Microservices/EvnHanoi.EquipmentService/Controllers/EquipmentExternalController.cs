@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Mvc;
 using QRCoder;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Reflection;
+using System.Globalization;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -492,207 +494,133 @@ public class EquipmentExternalController : ControllerBase
     }
 
     /// <summary>
-    /// Bảng ánh xạ TĨNH label thông số kỹ thuật (theo yêu cầu quản lý thông tin thiết bị lưới điện cao áp)
-    /// → tên property cố định trên <see cref="TechnicalParametersDto"/>. Đây là danh sách khai báo tay,
-    /// KHÔNG suy ra bằng thuật toán, nên key trả về luôn cố định vĩnh viễn dù label bị chỉnh sửa trong Form
-    /// Builder sau này. Thêm label mới vào đây + thêm property tương ứng trên TechnicalParametersDto khi cần
-    /// trả thêm 1 thông số kỹ thuật cố định.
+    /// Dựng danh sách thông số kỹ thuật động từ FormSchema và FormValues. Key đầu ra được sinh từ
+    /// label theo camelCase không dấu; value giữ nguyên kiểu JSON đã lưu.
     /// </summary>
-    private static readonly Dictionary<string, string> TechnicalParameterLabelToPropertyName = new(StringComparer.OrdinalIgnoreCase)
+    private static Dictionary<string, JsonElement> BuildTechnicalParameters(
+        string? formSchemaJson,
+        string? formValuesJson)
     {
-        ["Hãng SX"] = nameof(TechnicalParametersDto.HangSx),
-        ["Nước SX"] = nameof(TechnicalParametersDto.NuocSx),
-        ["Kiểu"] = nameof(TechnicalParametersDto.Kieu),
-        ["Kiểu (Type)"] = nameof(TechnicalParametersDto.KieuType),
-        ["Kiểu cách điện"] = nameof(TechnicalParametersDto.KieuCachDien),
-        ["Loại máy"] = nameof(TechnicalParametersDto.LoaiMay),
-        ["Nấc phân áp"] = nameof(TechnicalParametersDto.NacPhanAp),
-        ["Tần số (Hz)"] = nameof(TechnicalParametersDto.TanSoHz),
-        ["Tần số"] = nameof(TechnicalParametersDto.TanSo),
-        ["Công suất (kVA)"] = nameof(TechnicalParametersDto.CongSuatKva),
-        ["Công suất"] = nameof(TechnicalParametersDto.CongSuat),
-        ["Công suất (W)"] = nameof(TechnicalParametersDto.CongSuatW),
-        ["Công suất cắt"] = nameof(TechnicalParametersDto.CongSuatCat),
-        ["Tổn hao không tải (KW)"] = nameof(TechnicalParametersDto.TonHaoKhongTaiKw),
-        ["Loại dầu"] = nameof(TechnicalParametersDto.LoaiDau),
-        ["Loại sứ cách điện"] = nameof(TechnicalParametersDto.LoaiSuCachDien),
-        ["Trọng lượng dầu (kg)"] = nameof(TechnicalParametersDto.TrongLuongDauKg),
-        ["Kiểu làm mát"] = nameof(TechnicalParametersDto.KieuLamMat),
-        ["Tiêu chuẩn áp dụng"] = nameof(TechnicalParametersDto.TieuChuanApDung),
-        ["Độ tăng nhiệt độ cực đại lớp dầu trên cùng"] = nameof(TechnicalParametersDto.DoTangNhietDoCucDaiLopDauTrenCung),
-        ["Độ tăng nhiệt độ cực đại cuộn dây"] = nameof(TechnicalParametersDto.DoTangNhietDoCucDaiCuonDay),
-        ["Khả năng quá tải"] = nameof(TechnicalParametersDto.KhaNangQuaTai),
-        ["Kích thước D, R, C (m)"] = nameof(TechnicalParametersDto.KichThuocDRCM),
-        ["Điện áp định mức"] = nameof(TechnicalParametersDto.DienApDinhMuc),
-        ["Điện áp định mức (kV)"] = nameof(TechnicalParametersDto.DienApDinhMucKv),
-        ["Điện áp danh định (KV)"] = nameof(TechnicalParametersDto.DienApDanhDinhKv),
-        ["Điện áp (V)"] = nameof(TechnicalParametersDto.DienApV),
-        ["Chủng loại"] = nameof(TechnicalParametersDto.ChungLoai),
-        ["Dòng điện xung (3s)"] = nameof(TechnicalParametersDto.DongDienXung3s),
-        ["Số pha"] = nameof(TechnicalParametersDto.SoPha),
-        ["Số lưỡi tiếp địa"] = nameof(TechnicalParametersDto.SoLuoiTiepDia),
-        ["Phân loại"] = nameof(TechnicalParametersDto.PhanLoai),
-        ["Loại dao"] = nameof(TechnicalParametersDto.LoaiDao),
-        ["Dòng điện định mức (A)"] = nameof(TechnicalParametersDto.DongDienDinhMucA),
-        ["Dòng điện cắt định mức (A)"] = nameof(TechnicalParametersDto.DongDienCatDinhMucA),
-        ["Dòng điện ngắn mạch định mức (A)"] = nameof(TechnicalParametersDto.DongDienNganMachDinhMucA),
-        ["Môi trường cách điện"] = nameof(TechnicalParametersDto.MoiTruongCachDien),
-        ["Điện áp chịu đựng ở tần số công nghiệp (kV)"] = nameof(TechnicalParametersDto.DienApChiuDungOTanSoCongNghiepKv),
-        ["Dòng định mức cuộn bảo vệ"] = nameof(TechnicalParametersDto.DongDinhMucCuonBaoVe),
-        ["Dòng định mức cuộn đo lường"] = nameof(TechnicalParametersDto.DongDinhMucCuonDoLuong),
-        ["Dòng điện phía sơ cấp"] = nameof(TechnicalParametersDto.DongDienPhiaSoCap),
-        ["Tổ đấu dây"] = nameof(TechnicalParametersDto.ToDauDay),
-        ["Loại chống sét"] = nameof(TechnicalParametersDto.LoaiChongSet),
-        ["Cấp chống sét"] = nameof(TechnicalParametersDto.CapChongSet),
-        ["Điện áp làm việc liên tục"] = nameof(TechnicalParametersDto.DienApLamViecLienTuc),
-        ["Hạt nổ chống sét"] = nameof(TechnicalParametersDto.HatNoChongSet),
-        ["Vật liệu vỏ ngoài"] = nameof(TechnicalParametersDto.VatLieuVoNgoai),
-        ["Kiểu Tụ"] = nameof(TechnicalParametersDto.KieuTu),
-        ["Dòng điện làm việc max"] = nameof(TechnicalParametersDto.DongDienLamViecMax),
-        ["Điện dung tụ"] = nameof(TechnicalParametersDto.DienDungTu),
-        ["Kiểu GIS (Type)"] = nameof(TechnicalParametersDto.KieuGisType),
-        ["Udm (kV) (Rate voltage)"] = nameof(TechnicalParametersDto.UdmKvRateVoltage),
-        ["Idm - Ngăn (A)"] = nameof(TechnicalParametersDto.IdmNganA),
-        ["Idm - Thanh cái (A)"] = nameof(TechnicalParametersDto.IdmThanhCaiA),
-        ["Idm - Thanh liên lạc (A)"] = nameof(TechnicalParametersDto.IdmThanhLienLacA),
-        ["Inm định mức (kA)"] = nameof(TechnicalParametersDto.InmDinhMucKa),
-        ["Thời gian ngắn mạch định mức (s)"] = nameof(TechnicalParametersDto.ThoiGianNganMachDinhMucS),
-        ["Dòng điện đỉnh định mức (kA)"] = nameof(TechnicalParametersDto.DongDienDinhDinhMucKa),
-        ["Áp suất khí cao (bar)"] = nameof(TechnicalParametersDto.ApSuatKhiCaoBar),
-        ["Serial"] = nameof(TechnicalParametersDto.Serial),
-        ["Năm sản xuất"] = nameof(TechnicalParametersDto.NamSanXuat),
-        ["Dòng tải cực đại (A)"] = nameof(TechnicalParametersDto.DongTaiCucDaiA),
-        ["Dòng khởi động (A)"] = nameof(TechnicalParametersDto.DongKhoiDongA),
-        ["Tụt khí SF6"] = nameof(TechnicalParametersDto.TutKhiSf6),
-        ["Tải định mức (VA)"] = nameof(TechnicalParametersDto.TaiDinhMucVa),
-        ["Tải định mức"] = nameof(TechnicalParametersDto.TaiDinhMuc),
-        ["Cấp cách điện"] = nameof(TechnicalParametersDto.CapCachDien),
-        ["Định mức/Chịu đựng NM tần số công nghiệp"] = nameof(TechnicalParametersDto.DinhMucChiuDungNmTanSoCongNghiep),
-        ["Định mức chịu đựng xung sét (kV)"] = nameof(TechnicalParametersDto.DinhMucChiuDungXungSetKv),
-        ["Cấp chính xác các cuộn dây"] = nameof(TechnicalParametersDto.CapChinhXacCacCuonDay),
-        ["Dải đo (%)"] = nameof(TechnicalParametersDto.DaiDo),
-        ["Dải đo (%) (Measuring range)"] = nameof(TechnicalParametersDto.DaiDoMeasuringRange),
-        ["Cấp chính xác (1)"] = nameof(TechnicalParametersDto.CapChinhXac1),
-        ["Cấp chính xác (2)"] = nameof(TechnicalParametersDto.CapChinhXac2),
-        ["Cấp chính xác (3)"] = nameof(TechnicalParametersDto.CapChinhXac3),
-        ["Cấp chính xác (4)"] = nameof(TechnicalParametersDto.CapChinhXac4),
-        ["Cấp chính xác (5)"] = nameof(TechnicalParametersDto.CapChinhXac5),
-        ["Tỉ số biến (1)"] = nameof(TechnicalParametersDto.TiSoBien1),
-        ["Tỉ số biến (2)"] = nameof(TechnicalParametersDto.TiSoBien2),
-        ["Tỉ số biến (3)"] = nameof(TechnicalParametersDto.TiSoBien3),
-        ["Tỉ số biến (4)"] = nameof(TechnicalParametersDto.TiSoBien4),
-        ["Tỉ số biến (5)"] = nameof(TechnicalParametersDto.TiSoBien5),
-        ["Công suất định mức (1) (VA)"] = nameof(TechnicalParametersDto.CongSuatDinhMuc1Va),
-        ["Công suất định mức (2) (VA)"] = nameof(TechnicalParametersDto.CongSuatDinhMuc2Va),
-        ["Công suất định mức (3) (VA)"] = nameof(TechnicalParametersDto.CongSuatDinhMuc3Va),
-        ["Công suất định mức (3)"] = nameof(TechnicalParametersDto.CongSuatDinhMuc3Va),
-        ["Công suất định mức (4) (VA)"] = nameof(TechnicalParametersDto.CongSuatDinhMuc4Va),
-        ["Công suất định mức (5) (VA)"] = nameof(TechnicalParametersDto.CongSuatDinhMuc5Va),
-        ["Cấp cách điện định mức"] = nameof(TechnicalParametersDto.CapCachDienDinhMuc),
-        ["Tỉ số biến"] = nameof(TechnicalParametersDto.TiSoBien),
-        ["Kiểu HGIS"] = nameof(TechnicalParametersDto.KieuHgis),
-        ["Kiểu truyền động"] = nameof(TechnicalParametersDto.KieuTruyenDong),
-        ["Kiểu truyền động lưỡi dao"] = nameof(TechnicalParametersDto.KieuTruyenDongLuoiDao),
-        ["Dòng điện ổn định nhiệt khi ngắn mạch (kA)"] = nameof(TechnicalParametersDto.DongDienOnDinhNhietKhiNganMachKa),
-        ["Dòng điện ổn định động khi ngắn mạch (kA)"] = nameof(TechnicalParametersDto.DongDienOnDinhDongKhiNganMachKa),
-    };
-
-    /// <summary>
-    /// Bảng ánh xạ Label (đã chuẩn hoá) → PropertyInfo tương ứng trên <see cref="TechnicalParametersDto"/>,
-    /// build 1 lần khi service khởi động từ <see cref="TechnicalParameterLabelToPropertyName"/>.
-    /// </summary>
-    private static readonly Dictionary<string, PropertyInfo> TechnicalParameterPropertiesByLabel = BuildTechnicalParameterPropertyMap();
-
-    private static Dictionary<string, PropertyInfo> BuildTechnicalParameterPropertyMap()
-    {
-        var type = typeof(TechnicalParametersDto);
-        var map = new Dictionary<string, PropertyInfo>();
-
-        foreach (var (label, propertyName) in TechnicalParameterLabelToPropertyName)
-        {
-            var property = type.GetProperty(propertyName)
-                ?? throw new InvalidOperationException($"TechnicalParametersDto không có property '{propertyName}'.");
-            map[NormalizeLabelForLookup(label)] = property;
-        }
-
-        return map;
-    }
-
-    /// <summary>Chuẩn hoá label để so khớp bảng tĩnh: chữ thường, gộp khoảng trắng thừa, bỏ khoảng trắng đầu/cuối.</summary>
-    private static string NormalizeLabelForLookup(string label) =>
-        System.Text.RegularExpressions.Regex.Replace(label.Trim().ToLowerInvariant(), @"\s+", " ");
-
-    /// <summary>
-    /// Gán thông số kỹ thuật EAV vào các trường cố định của <see cref="TechnicalParametersDto"/>: đọc danh sách
-    /// field từ FormSchema (biểu mẫu theo loại thiết bị), tra giá trị trong FormValues, rồi gán vào đúng property
-    /// theo label (qua <see cref="TechnicalParameterPropertiesByLabel"/>). Label chưa được khai báo trong
-    /// <see cref="KnownTechnicalParameterLabels"/> sẽ bị bỏ qua vì không có field cố định nào để gán.
-    /// </summary>
-    private static TechnicalParametersDto BuildTechnicalParameters(string? formSchemaJson, string? formValuesJson)
-    {
-        var result = new TechnicalParametersDto();
-        if (string.IsNullOrWhiteSpace(formSchemaJson))
+        var result = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(formSchemaJson) || string.IsNullOrWhiteSpace(formValuesJson))
             return result;
-
-        System.Text.Json.JsonElement? formValues = null;
-        if (!string.IsNullOrWhiteSpace(formValuesJson))
-        {
-            try
-            {
-                formValues = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(formValuesJson);
-            }
-            catch (System.Text.Json.JsonException)
-            {
-                formValues = null;
-            }
-        }
 
         try
         {
-            using var doc = System.Text.Json.JsonDocument.Parse(formSchemaJson);
-            var root = doc.RootElement;
+            using var schemaDocument = JsonDocument.Parse(formSchemaJson);
+            using var valuesDocument = JsonDocument.Parse(formValuesJson);
 
-            IEnumerable<System.Text.Json.JsonElement> fieldElements = root.ValueKind switch
+            if (valuesDocument.RootElement.ValueKind != JsonValueKind.Object)
+                return result;
+
+            var schemaRoot = schemaDocument.RootElement;
+            IEnumerable<JsonElement> fields = schemaRoot.ValueKind switch
             {
-                System.Text.Json.JsonValueKind.Array => root.EnumerateArray(),
-                System.Text.Json.JsonValueKind.Object when TryGetPropertyIgnoreCase(root, "fields", out var fieldsEl)
-                                         && fieldsEl.ValueKind == System.Text.Json.JsonValueKind.Array
-                    => fieldsEl.EnumerateArray(),
-                _ => Array.Empty<System.Text.Json.JsonElement>()
+                JsonValueKind.Array => schemaRoot.EnumerateArray(),
+                JsonValueKind.Object when TryGetPropertyIgnoreCase(schemaRoot, "fields", out var fieldsElement)
+                                          && fieldsElement.ValueKind == JsonValueKind.Array
+                    => fieldsElement.EnumerateArray(),
+                _ => Array.Empty<JsonElement>()
             };
 
-            foreach (var field in fieldElements)
+            foreach (var field in fields)
             {
-                // Khóa tra giá trị trong FormValues vẫn phải dùng đúng key gốc mà form đã lưu (name/key/id).
+                if (TryGetPropertyIgnoreCase(field, "active", out var activeElement)
+                    && activeElement.ValueKind == JsonValueKind.False)
+                {
+                    continue;
+                }
+
                 var lookupKey = ResolveSchemaFieldName(field);
-                if (string.IsNullOrWhiteSpace(lookupKey))
+                var label = ReadSchemaString(field, "label", "Label");
+                if (string.IsNullOrWhiteSpace(lookupKey) || string.IsNullOrWhiteSpace(label))
                     continue;
 
-                if (!TechnicalParameterPropertiesByLabel.TryGetValue(
-                        NormalizeLabelForLookup((ReadSchemaString(field, "label", "Label") ?? lookupKey).Trim()),
-                        out var property))
-                {
-                    continue; // label chưa khai báo trong bảng tĩnh — không có field cố định để gán
-                }
+                var hasValue = TryGetPropertyIgnoreCase(
+                    valuesDocument.RootElement,
+                    lookupKey,
+                    out var valueElement)
+                    && valueElement.ValueKind is not JsonValueKind.Null and not JsonValueKind.Undefined;
 
-                var value = formValues.HasValue && TryGetPropertyIgnoreCase(formValues.Value, lookupKey, out var valueEl)
-                    ? ReadJsonScalarAsString(valueEl)
-                    : null;
+                var outputKey = NormalizeLabelToJsonKey(label);
+                if (string.IsNullOrWhiteSpace(outputKey))
+                    continue;
 
-                if (value != null)
-                {
-                    property.SetValue(result, value);
-                }
+                outputKey = ResolveUniqueOutputKey(result, outputKey, field, lookupKey);
+                result[outputKey] = hasValue
+                    ? valueElement.Clone()
+                    : JsonSerializer.SerializeToElement(string.Empty);
             }
         }
-        catch (System.Text.Json.JsonException)
+        catch (JsonException)
         {
-            // Biểu mẫu không hợp lệ — trả về DTO rỗng (toàn bộ property null), không chặn response chung.
+            // Schema hoặc values không hợp lệ: giữ response chung và trả items rỗng cho bản ghi này.
         }
 
         return result;
     }
 
+    /// <summary>Chuyển label tiếng Việt thành JSON key camelCase, không dấu và không ký tự đặc biệt.</summary>
+    private static string NormalizeLabelToJsonKey(string label)
+    {
+        var decomposed = label
+            .Replace('Đ', 'D')
+            .Replace('đ', 'd')
+            .Normalize(NormalizationForm.FormD);
+        var withoutDiacritics = new StringBuilder(decomposed.Length);
+
+        foreach (var character in decomposed)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
+                withoutDiacritics.Append(character);
+        }
+
+        var tokens = Regex.Matches(withoutDiacritics.ToString(), @"[A-Za-z0-9]+")
+            .Select(match => match.Value)
+            .Where(token => token.Length > 0)
+            .ToArray();
+        if (tokens.Length == 0)
+            return string.Empty;
+
+        var key = tokens[0].ToLowerInvariant()
+            + string.Concat(tokens.Skip(1).Select(ToPascalCaseToken));
+
+        return char.IsDigit(key[0])
+            ? "field" + ToPascalCaseToken(key)
+            : key;
+    }
+
+    private static string ToPascalCaseToken(string token)
+    {
+        var lower = token.ToLowerInvariant();
+        return char.ToUpperInvariant(lower[0]) + lower[1..];
+    }
+
+    /// <summary>
+    /// Label trùng sau chuẩn hóa được nối với id trường, nhờ đó key không phụ thuộc vào vị trí field trong schema.
+    /// </summary>
+    private static string ResolveUniqueOutputKey(
+        IReadOnlyDictionary<string, JsonElement> result,
+        string outputKey,
+        JsonElement field,
+        string lookupKey)
+    {
+        if (!result.ContainsKey(outputKey))
+            return outputKey;
+
+        var fieldIdentity = ReadSchemaString(field, "id", "Id") ?? lookupKey;
+        var normalizedIdentity = NormalizeLabelToJsonKey(fieldIdentity);
+        var candidate = outputKey + (string.IsNullOrWhiteSpace(normalizedIdentity)
+            ? "Field"
+            : ToPascalCaseToken(normalizedIdentity));
+
+        var suffix = 2;
+        var uniqueKey = candidate;
+        while (result.ContainsKey(uniqueKey))
+            uniqueKey = candidate + suffix++;
+
+        return uniqueKey;
+    }
     /// <summary>Lấy mã trường EAV — ưu tiên name/key có giá trị, fallback id (form builder hay để name rỗng).</summary>
     private static string? ResolveSchemaFieldName(System.Text.Json.JsonElement item)
     {
