@@ -42,6 +42,20 @@ public class PmisClient : IPmisClient
         return await response.Content.ReadFromJsonAsync<PmisDeviceDetailDto>(JsonOptions);
     }
 
+    public async Task<byte[]?> GetDeviceQrImageBytesAsync(string idPmis)
+    {
+        try
+        {
+            var response = await SendAsync("DEVICE_QR_IMAGE", new PmisDeviceQrImageRequest { IdPmis = idPmis });
+            return await response.Content.ReadAsByteArrayAsync();
+        }
+        catch (PmisEndpointNotConfiguredException)
+        {
+            // API ảnh QR chưa được admin cấu hình URL — bỏ qua QR, không chặn phần còn lại của đồng bộ.
+            return null;
+        }
+    }
+
     public Task<PmisListResponse<PmisSubstationDocumentDto>> GetSubstationDocumentsAsync(PmisSubstationDocumentSearchRequest request) =>
         GetListAsync<PmisSubstationDocumentDto>("SUBSTATION_DOCUMENT_LIST", request);
 

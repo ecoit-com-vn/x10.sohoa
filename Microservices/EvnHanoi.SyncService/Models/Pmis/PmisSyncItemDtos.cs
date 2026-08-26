@@ -1,8 +1,8 @@
 namespace EvnHanoi.SyncService.Models.Pmis;
 
-// Field theo đúng ví dụ Response trong tài liệu PMIS — dùng ví dụ JSON làm chuẩn khi tài liệu
-// có chênh lệch nhẹ giữa bảng mô tả field và ví dụ (vd. API loại thiết bị: bảng ghi maLoaiTB/tenLoaiTB
-// nhưng ví dụ response lại là maLoai/tenLoai).
+// Field đã xác nhận lại theo response THẬT gọi trực tiếp vào gateway PMIS đang chạy
+// (https://dev-api-gateway.bzkiap.com, xem BAO_CAO_TEST_API_PMIS_GATEWAY_THAT.md + pmis-api-responses/*.json) —
+// không còn dựa vào tài liệu docx (từng có mâu thuẫn nội bộ giữa bảng mô tả field và ví dụ JSON).
 
 /// <summary>Item — API 1: Danh sách TBA.</summary>
 public class PmisSubstationDto
@@ -39,28 +39,34 @@ public class PmisLineDto
 /// <summary>Item — API 3 &amp; 5: Loại thiết bị (TBA hoặc đường dây).</summary>
 public class PmisDeviceTypeDto
 {
-    public string MaLoai { get; set; } = string.Empty;
-    public string TenLoai { get; set; } = string.Empty;
+    public string MaLoaiTB { get; set; } = string.Empty;
+    public string TenLoaiTB { get; set; } = string.Empty;
 }
 
-/// <summary>Item — API 4: Thiết bị TBA.</summary>
+/// <summary>
+/// Item — API 4: Thiết bị TBA. Schema THẬT khác hẳn thiết bị đường dây (không dùng chung field
+/// maTB/tenTB, không có maQRCode/thongSoKyThuat trong danh sách — phải gọi thêm ChiTietThietBi,
+/// xem PmisSyncExecutionService.SyncEquipmentAsync).
+/// </summary>
 public class PmisSubstationDeviceDto
 {
-    public string MaTB { get; set; } = string.Empty;
-    public string TenTB { get; set; } = string.Empty;
+    public string MaThietBi { get; set; } = string.Empty;
+    public string TenThietBi { get; set; } = string.Empty;
     public string? MaLoaiTB { get; set; }
     public string? TenLoaiTB { get; set; }
     public string? MaTBA { get; set; }
     public string? TenTBA { get; set; }
-    public string? MaDonVi { get; set; }
+    public string? CapDienAp { get; set; }
+    public string? Serial { get; set; }
+    public string? Model { get; set; }
+    public string? HangSanXuat { get; set; }
     public int? NamSanXuat { get; set; }
-
-    /// <summary>Base64 — lưu vào EQUIPMENTS.QR_CODE khi đồng bộ (module QRCode thiết bị).</summary>
-    public string? MaQRCode { get; set; }
-    public string? TrangThai { get; set; }
-
-    /// <summary>Chuỗi JSON thông số kỹ thuật — lưu riêng vào EQUIPMENT_PMIS_SPEC, KHÔNG ghi đè FormValues.</summary>
-    public string? ThongSoKyThuat { get; set; }
+    public string? MaDonVi { get; set; }
+    public string? TenDonVi { get; set; }
+    public DateTime? NgayVanHanh { get; set; }
+    public DateTime? NgayTao { get; set; }
+    public int? TinhTrang { get; set; }
+    public string? TenTinhTrang { get; set; }
 }
 
 /// <summary>Item — API 6: Thiết bị đường dây.</summary>
@@ -73,6 +79,9 @@ public class PmisLineDeviceDto
     public string? MaDuongDay { get; set; }
     public string? TenDuongDay { get; set; }
     public string? MaDonVi { get; set; }
+
+    /// <summary>URL ảnh QR (vd. ".../AnhQRCode?idPmis=..."), KHÔNG PHẢI base64 — phải tải ảnh thật rồi
+    /// tự encode base64 khi lưu (xem PmisSyncExecutionService.SyncEquipmentAsync).</summary>
     public string? MaQRCode { get; set; }
     public int? MaTrangThai { get; set; }
     public int? NamSanXuat { get; set; }
@@ -80,7 +89,7 @@ public class PmisLineDeviceDto
     public string? ThongSoKyThuat { get; set; }
 }
 
-/// <summary>Item — API 7: Chi tiết thiết bị.</summary>
+/// <summary>Item — API 7: Chi tiết thiết bị (dùng chung cho cả thiết bị TBA và đường dây).</summary>
 public class PmisDeviceDetailDto
 {
     public string MaTB { get; set; } = string.Empty;
@@ -91,6 +100,8 @@ public class PmisDeviceDetailDto
     public string? TenTBA { get; set; }
     public string? MaDonVi { get; set; }
     public int? NamSanXuat { get; set; }
+
+    /// <summary>URL ảnh QR — xem ghi chú tại <see cref="PmisLineDeviceDto.MaQRCode"/>.</summary>
     public string? MaQRCode { get; set; }
     public string? TrangThai { get; set; }
     public string? ThongSoKyThuat { get; set; }

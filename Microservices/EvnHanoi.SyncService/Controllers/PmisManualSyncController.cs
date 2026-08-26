@@ -59,6 +59,10 @@ public class PmisManualSyncController : ControllerBase
         {
             return StatusCode(503, new { message = ex.Message });
         }
+        catch (Exception ex) when (PmisUpstreamFailure.Matches(ex))
+        {
+            return StatusCode(503, new { message = PmisUpstreamFailure.UserMessage(ex) });
+        }
     }
 
     [HttpPost("{objectType}/save")]
@@ -176,8 +180,8 @@ public class PmisManualSyncController : ControllerBase
                 Total = result.Total,
                 Items = result.Items.Select(item => new PmisSyncPreviewItemDto
                 {
-                    PmisCode = item.MaTB,
-                    DisplayName = item.TenTB,
+                    PmisCode = item.MaThietBi,
+                    DisplayName = item.TenThietBi,
                     RawData = JsonSerializer.SerializeToElement(item)
                 }).ToList()
             };
