@@ -6,8 +6,8 @@ import {
   signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
 import { EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
+import { DossierDocumentEditDialogComponent } from '@sohoa.frontend/features/dossier-management';
 import { TableModule } from 'primeng/table';
 import { ReportStatisticsDocumentListConfig } from '../../data-access/report-statistics.config';
 import {
@@ -19,13 +19,12 @@ import { finalize } from 'rxjs';
 @Component({
   selector: 'app-report-statistics-document-list',
   standalone: true,
-  imports: [CommonModule, TableModule, EcoPaginatorComponent],
+  imports: [CommonModule, TableModule, EcoPaginatorComponent, DossierDocumentEditDialogComponent],
   templateUrl: './report-statistics-document-list.component.html',
   styleUrl: './report-statistics-document-list.component.scss'
 })
 export class ReportStatisticsDocumentListComponent {
   private statisticsService = inject(ReportStatisticsService);
-  private router = inject(Router);
 
   listConfig = input.required<ReportStatisticsDocumentListConfig>();
   filter = input<Record<string, string | number | string[] | null | undefined>>({});
@@ -37,6 +36,10 @@ export class ReportStatisticsDocumentListComponent {
   totalCount = signal(0);
   page = signal(1);
   pageSize = signal(10);
+
+  // Popup xem chi tiết tài liệu — dùng chung component với màn /dossier-management/publish/:id.
+  selectedDocument = signal<ReportStatisticsDocumentListItem | null>(null);
+  showDocumentDetail = signal(false);
 
   constructor() {
     effect(() => {
@@ -66,19 +69,16 @@ export class ReportStatisticsDocumentListComponent {
   }
 
   openDossierDetail(item: ReportStatisticsDocumentListItem): void {
-    if (!item.dossierId) return;
+    if (!item.dossierId || !item.versionId) return;
+    this.selectedDocument.set(item);
+    this.showDocumentDetail.set(true);
+  }
 
-    const url = this.router.serializeUrl(
-      this.router.createUrlTree(
-        ['/dossier-management/publish', item.dossierId],
-        {
-          queryParams: { from: 'report' }
-        }
-      )
-    );
-
-    const fullUrl = `${window.location.origin}/#${url}`;
-    window.open(fullUrl, '_blank');
+  onDocumentDetailVisibleChange(visible: boolean): void {
+    this.showDocumentDetail.set(visible);
+    if (!visible) {
+      this.selectedDocument.set(null);
+    }
   }
 
   private loadData(): void {
