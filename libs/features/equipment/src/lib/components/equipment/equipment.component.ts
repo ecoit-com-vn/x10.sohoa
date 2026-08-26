@@ -126,10 +126,34 @@ export class EquipmentComponent implements OnInit {
 
   pmisDiffCount = computed(() => this.pmisDiffRows().filter((r) => r.hasDifference).length);
   pmisDiffWarningCount = computed(() => this.pmisDiffRows().filter((r) => r.hasMappingWarning).length);
+
+  /** Số trường thật sự so sánh được — 0 nghĩa là chưa khai ánh xạ nào, banner phải cảnh báo chứ không báo "không sai khác". */
+  pmisMappedCount = computed(() => this.pmisDiffRows().filter((r) => !r.hasMappingWarning).length);
+
+  /**
+   * Khoá PMIS có dữ liệu thật nhưng chưa trường nào dùng làm "Tên trường PMIS" — buildPmisDiffRows chỉ
+   * duyệt schema nên các khoá này bị bỏ qua hoàn toàn; liệt kê ra để admin biết chọn gì trong Form Builder.
+   */
+  unmappedPmisKeys = computed<{ key: string; value: string }[]>(() => {
+    const diff = this.pmisSpecDiff();
+    if (!diff?.pmisFormValues) return [];
+
+    const pmisValues = parsePmisFormValues(diff.pmisFormValues) || {};
+    const usedKeys = new Set(
+      this.pmisDiffRows()
+        .filter((r) => !r.hasMappingWarning)
+        .map((r) => (r.field.pmisFieldName?.trim() || r.field.key || '').toLowerCase())
+    );
+
+    return Object.keys(pmisValues)
+      .filter((key) => !usedKeys.has(key.toLowerCase()))
+      .map((key) => ({ key, value: String((pmisValues as Record<string, unknown>)[key] ?? '') }));
+  });
   isEditingGeneral = signal<boolean>(false);
   isEditingFormValues = signal<boolean>(false);
   isLoadingTemplate = signal<boolean>(false);
   isSavingFormValues = signal<boolean>(false);
+  isExportingTechnicalSpecs = signal<boolean>(false);
 
   // Dossiers Tab States
   public dossierItems = signal<any[]>([]);
@@ -252,6 +276,17 @@ export class EquipmentComponent implements OnInit {
 
   currentView = signal<'list' | 'add' | 'edit'>('list');
   currentItem = signal<any>({});
+
+  /**
+   * Ảnh QR do PMIS cấp, lưu base64 thuần trong EQUIPMENTS.QR_CODE (không kèm tiền tố "data:", cũng
+   * không lưu MIME thật vì PmisClient bỏ content-type) — gắn tiền tố image/jpeg ở đây; trình duyệt tự
+   * nhận dạng đúng kể cả khi PMIS trả PNG.
+   */
+  qrCodeDataUrl = computed<string | null>(() => {
+    const qr = this.currentItem()?.qrCode;
+    return qr ? `data:image/jpeg;base64,${qr}` : null;
+  });
+
   isSaving = signal<boolean>(false);
 
   // Pagination
@@ -429,7 +464,8 @@ export class EquipmentComponent implements OnInit {
                 unitName: res.unitName,
                 equipmentStatusName: res.equipmentStatusName,
                 creator: res.creator,
-                createdBy: res.createdBy
+                createdBy: res.createdBy,
+                qrCode: res.qrCode
               });
 
               // Load form template directly from response
@@ -1384,6 +1420,98 @@ export class EquipmentComponent implements OnInit {
     return String(val);
   }
 
+  async exportTechnicalSpecs(): Promise<void> {
+    const item = this.currentItem();
+    const fields = this.eavFields();
+
+    if (!item?.id || !this.eavTemplate() || fields.length === 0) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Không thể xuất Excel',
+        detail: 'Thiết bị chưa có biểu mẫu thông số kỹ thuật.'
+      });
+      return;
+    }
+
+    if (this.isExportingTechnicalSpecs()) return;
+    this.isExportingTechnicalSpecs.set(true);
+
+    try {
+      const XLSX = await import('xlsx');
+      const safeText = (value: unknown): string => {
+        const text = value == null || String(value).trim() === '' ? '-' : String(value).trim();
+        return /^[=+\-@]/.test(text) ? `'${text}` : text;
+      };
+      const fieldValue = (field: any): string => {
+        const raw = this.getEavFieldValue(field);
+        if (raw === null || raw === undefined || raw === '') return '-';
+        if (Array.isArray(raw)) return safeText(raw.join(', '));
+        if (typeof raw === 'object' && !(raw instanceof Date)) {
+          try {
+            return safeText(JSON.stringify(raw));
+          } catch {
+            return '-';
+          }
+        }
+        return safeText(this.getFormattedValue(field));
+      };
+
+      const rows: unknown[][] = [
+        ['THÔNG TIN THIẾT BỊ', ''],
+        ['Mã thiết bị', safeText(item.code)],
+        ['Tên thiết bị', safeText(item.name)],
+        ['Loại thiết bị', safeText(item.equipmentTypeName)],
+        ['Trạm/đường dây', safeText(item.infrastructureName)],
+        ['Đơn vị quản lý', safeText(item.unitName)],
+        ['Lưới điện', safeText(item.gridTypeName)],
+        ['Năm sản xuất', safeText(item.manufactureYear)],
+        ['Trạng thái', safeText(item.equipmentStatusName || (item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'))],
+        [],
+        ['STT', 'Tên thông số', 'Giá trị'],
+        ...fields.map((field, index) => [
+          index + 1,
+          safeText(field?.label || this.getEavFieldKey(field) || `Thông số ${index + 1}`),
+          fieldValue(field)
+        ])
+      ];
+
+      const worksheet = XLSX.utils.aoa_to_sheet(rows);
+      worksheet['!cols'] = [{ wch: 8 }, { wch: 42 }, { wch: 45 }];
+      worksheet['!merges'] = [XLSX.utils.decode_range('A1:C1')];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Thông số kỹ thuật');
+
+      const safeCode = String(item.code || 'ThietBi')
+        .trim()
+        .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_');
+      const now = new Date();
+      const timestamp = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, '0'),
+        String(now.getDate()).padStart(2, '0'),
+        String(now.getHours()).padStart(2, '0'),
+        String(now.getMinutes()).padStart(2, '0'),
+        String(now.getSeconds()).padStart(2, '0')
+      ].join('');
+
+      XLSX.writeFile(workbook, `ThongSoKyThuat_${safeCode}_${timestamp}.xlsx`);
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Thành công',
+        detail: 'Đã xuất thông số kỹ thuật ra file Excel.'
+      });
+    } catch {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Lỗi',
+        detail: 'Không thể xuất thông số kỹ thuật ra file Excel.'
+      });
+    } finally {
+      this.isExportingTechnicalSpecs.set(false);
+    }
+  }
+
   onViewSpecs(item: any) {
     this.router.navigate(['/equipment/device-list', item.id], { queryParams: { mode: 'view-specs' } });
   }
@@ -1446,7 +1574,8 @@ export class EquipmentComponent implements OnInit {
             unitName: res.unitName,
             equipmentStatusName: res.equipmentStatusName,
             creator: res.creator,
-            createdBy: res.createdBy
+            createdBy: res.createdBy,
+            qrCode: res.qrCode
           });
 
           let parsedFields: any[] = [];

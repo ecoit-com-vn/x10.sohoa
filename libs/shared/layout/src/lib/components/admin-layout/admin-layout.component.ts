@@ -375,6 +375,32 @@ export class AdminLayout implements OnInit, OnDestroy {
       }
     }
 
+    const canViewPmisEquipmentTypeMapping =
+      this.authService.hasPermission('SUPER_ADMIN') ||
+      this.authService.hasPermission('PMIS_EQUIPMENT_TYPE_MAPPING_VIEW') ||
+      this.authService.hasPermission('PMIS_EQUIPMENT_TYPE_MAPPING_EDIT');
+    const hasPmisEquipmentTypeMappingMenu = menusCopy.some(
+      (m) => m.url === '/pmis-sync/equipment-type-mapping'
+    );
+    if (!hasPmisEquipmentTypeMappingMenu && canViewPmisEquipmentTypeMapping) {
+      const administrationParentForMapping = menusCopy.find(
+        (m) =>
+          !m.url &&
+          (m.name === 'Quản trị hệ thống' || m.permissionCode === 'USER_VIEW')
+      );
+      if (administrationParentForMapping) {
+        menusCopy.push({
+          id: 999991,
+          name: 'Ánh xạ loại thiết bị PMIS',
+          icon: 'pi pi-sitemap',
+          url: '/pmis-sync/equipment-type-mapping',
+          parentId: administrationParentForMapping.id,
+          sortOrder: 103,
+          permissionCode: 'PMIS_EQUIPMENT_TYPE_MAPPING_VIEW',
+        });
+      }
+    }
+
     const canViewPmisManualSync =
       this.authService.hasPermission('SUPER_ADMIN') ||
       this.authService.hasPermission('PMIS_MANUAL_SYNC_VIEW') ||
