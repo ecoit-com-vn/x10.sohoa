@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, effect, inject, signal, computed } from '@angular/core';
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -11,7 +11,7 @@ import { CheckboxModule } from 'primeng/checkbox';
 import { CardModule } from 'primeng/card';
 import { TextareaModule } from 'primeng/textarea';
 import { ActivatedRoute, Router } from '@angular/router';
-import { FormTemplateService, EavFormTemplate } from '../../data-access/form-template.service';
+import { FormTemplateService, EavFormTemplate, PmisSpecKeyOption } from '../../data-access/form-template.service';
 import { EquipmentTypeService } from '../../data-access/equipment-type.service';
 import { ToggleSwitch } from 'primeng/toggleswitch';
 import { AuthService } from '@sohoa.frontend/shared/core';
@@ -98,6 +98,13 @@ export class FormBuilderComponent implements OnInit {
   equipmentTypeId = signal<string>('');
   equipmentTypes = signal<any[]>([]);
 
+  /**
+   * Khoá thông số PMIS thật của loại thiết bị đang chọn — gợi ý cho ô "Tên trường PMIS" (khoá thật viết
+   * UPPER_SNAKE như DUNG_LUONG/TAN_SO, không đoán được từ tên trường hệ thống). Rỗng khi loại thiết bị
+   * chưa có thiết bị nào đồng bộ thông số từ PMIS; lỗi tải cũng chỉ để rỗng, không chặn màn hình.
+   */
+  pmisSpecKeys = signal<PmisSpecKeyOption[]>([]);
+
   filteredEquipmentTypes = computed(() => {
     const gridId = this.selectedGridTypeId();
     if (!gridId) {
@@ -131,6 +138,22 @@ export class FormBuilderComponent implements OnInit {
   draggedType: string | null = null;
   draggedIndex: number | null = null;
   catalogTypes = signal<any[]>([]);
+
+  constructor() {
+    // Loại thiết bị đổi (chọn tay hoặc do loadTemplate gán) thì tải lại danh sách khoá PMIS tương ứng.
+    effect(() => {
+      const equipmentTypeId = this.equipmentTypeId();
+      if (!equipmentTypeId) {
+        this.pmisSpecKeys.set([]);
+        return;
+      }
+
+      this.formTemplateService.getPmisSpecKeys(equipmentTypeId).subscribe({
+        next: (keys) => this.pmisSpecKeys.set(keys || []),
+        error: () => this.pmisSpecKeys.set([])
+      });
+    });
+  }
 
   ngOnInit() {
     this.loadCatalogTypes();

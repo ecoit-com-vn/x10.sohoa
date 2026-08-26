@@ -275,6 +275,32 @@
               }})
             </span>
           </div>
+
+          <!-- Mã QR do PMIS cấp (chỉ có với thiết bị đã đồng bộ từ PMIS) -->
+          <div
+            style="display: flex; padding-bottom: 8px; border-top: 1px solid #f1f5f9; padding-top: 14px"
+            *ngIf="qrCodeDataUrl()"
+          >
+            <span style="width: 200px; color: #64748b; font-weight: 600"
+              >Mã QR (PMIS):</span
+            >
+            <span style="display: flex; flex-direction: column; gap: 8px">
+              <img
+                [src]="qrCodeDataUrl()"
+                alt="Mã QR thiết bị"
+                width="160"
+                height="160"
+                style="border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px; background: #ffffff"
+              />
+              <a
+                [href]="qrCodeDataUrl()"
+                [download]="'QR_' + (currentItem().code || 'thiet-bi') + '.jpg'"
+                style="font-size: 0.85rem"
+              >
+                <i class="pi pi-download" style="margin-right: 4px"></i>Tải ảnh QR
+              </a>
+            </span>
+          </div>
           </div>
         </div>
 

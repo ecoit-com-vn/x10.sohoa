@@ -140,7 +140,7 @@
                 </td>
                 <td>{{ item.name }}</td>
                 <td>{{ item.address || '-' }}</td>
-                <td>{{ item.gridTypeId === 1 ? 'Cao áp' : (item.gridTypeId === 2 ? 'Trung áp' : '-') }}</td>
+                <td>{{ item.gridTypeId === 1 ? 'Cao áp' : (item.gridTypeId === 2 ? 'Trung áp' : (item.gridTypeId === 3 ? 'Hạ áp' : '-')) }}</td>
                 <td>
                   <span *ngIf="item.organization">
                     {{ item.organization.name }}

@@ -294,9 +294,23 @@
 
                 <div class="field mb-2">
                   <label class="block font-bold text-sm text-muted mb-1">Tên trường PMIS</label>
+                  <!-- datalist: gợi ý khoá PMIS thật của loại thiết bị đang chọn nhưng vẫn cho tự nhập
+                       (loại thiết bị chưa đồng bộ thông số nào thì danh sách rỗng). -->
                   <input type="text" pInputText [ngModel]="fields()[selectedFieldIndex()!].pmisFieldName"
                     (ngModelChange)="updateSelectedField('pmisFieldName', $event)" class="w-full p-inputtext-sm"
-                    placeholder="Key trong thongSoKyThuat PMIS trả về (vd: congSuatDinhMuc)" />
+                    list="pmisSpecKeyList"
+                    placeholder="Key trong thongSoKyThuat PMIS trả về (vd: DUNG_LUONG)" />
+                  <datalist id="pmisSpecKeyList">
+                    <option *ngFor="let item of pmisSpecKeys()" [value]="item.key">
+                      {{ item.sampleValue }}
+                    </option>
+                  </datalist>
+                  <small class="text-muted" *ngIf="pmisSpecKeys().length > 0">
+                    Có {{ pmisSpecKeys().length }} khoá PMIS thật để chọn — bấm vào ô để xem gợi ý.
+                  </small>
+                  <small class="text-muted" *ngIf="pmisSpecKeys().length === 0 && equipmentTypeId()">
+                    Chưa có thiết bị nào của loại này đồng bộ thông số từ PMIS nên chưa gợi ý được khoá.
+                  </small>
                 </div>
 
                 <div class="field mb-2" *ngIf="fields()[selectedFieldIndex()!].type !== 'checkbox'">

@@ -137,10 +137,10 @@
                 <td>{{ item.address || '-' }}</td>
                 <td>
                   <span class="status-pill"
-                    [style.background-color]="item.gridTypeId === 1 ? '#eff6ff' : (item.gridTypeId === 2 ? '#f5f3ff' : '#f9fafb')"
-                    [style.color]="item.gridTypeId === 1 ? '#1e40af' : (item.gridTypeId === 2 ? '#5b21b6' : '#6b7280')"
-                    [style.border-color]="item.gridTypeId === 1 ? '#bfdbfe' : (item.gridTypeId === 2 ? '#ddd6fe' : '#e5e7eb')">
-                    {{ item.gridTypeId === 1 ? 'Cao áp' : (item.gridTypeId === 2 ? 'Trung áp' : '-') }}
+                    [style.background-color]="item.gridTypeId === 1 ? '#eff6ff' : (item.gridTypeId === 2 ? '#f5f3ff' : (item.gridTypeId === 3 ? '#ecfdf5' : '#f9fafb'))"
+                    [style.color]="item.gridTypeId === 1 ? '#1e40af' : (item.gridTypeId === 2 ? '#5b21b6' : (item.gridTypeId === 3 ? '#065f46' : '#6b7280'))"
+                    [style.border-color]="item.gridTypeId === 1 ? '#bfdbfe' : (item.gridTypeId === 2 ? '#ddd6fe' : (item.gridTypeId === 3 ? '#a7f3d0' : '#e5e7eb'))">
+                    {{ item.gridTypeId === 1 ? 'Cao áp' : (item.gridTypeId === 2 ? 'Trung áp' : (item.gridTypeId === 3 ? 'Hạ áp' : '-')) }}
                   </span>
                 </td>
                 <td>

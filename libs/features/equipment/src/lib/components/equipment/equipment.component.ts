@@ -126,6 +126,29 @@ export class EquipmentComponent implements OnInit {
 
   pmisDiffCount = computed(() => this.pmisDiffRows().filter((r) => r.hasDifference).length);
   pmisDiffWarningCount = computed(() => this.pmisDiffRows().filter((r) => r.hasMappingWarning).length);
+
+  /** Số trường thật sự so sánh được — 0 nghĩa là chưa khai ánh xạ nào, banner phải cảnh báo chứ không báo "không sai khác". */
+  pmisMappedCount = computed(() => this.pmisDiffRows().filter((r) => !r.hasMappingWarning).length);
+
+  /**
+   * Khoá PMIS có dữ liệu thật nhưng chưa trường nào dùng làm "Tên trường PMIS" — buildPmisDiffRows chỉ
+   * duyệt schema nên các khoá này bị bỏ qua hoàn toàn; liệt kê ra để admin biết chọn gì trong Form Builder.
+   */
+  unmappedPmisKeys = computed<{ key: string; value: string }[]>(() => {
+    const diff = this.pmisSpecDiff();
+    if (!diff?.pmisFormValues) return [];
+
+    const pmisValues = parsePmisFormValues(diff.pmisFormValues) || {};
+    const usedKeys = new Set(
+      this.pmisDiffRows()
+        .filter((r) => !r.hasMappingWarning)
+        .map((r) => (r.field.pmisFieldName?.trim() || r.field.key || '').toLowerCase())
+    );
+
+    return Object.keys(pmisValues)
+      .filter((key) => !usedKeys.has(key.toLowerCase()))
+      .map((key) => ({ key, value: String((pmisValues as Record<string, unknown>)[key] ?? '') }));
+  });
   isEditingGeneral = signal<boolean>(false);
   isEditingFormValues = signal<boolean>(false);
   isLoadingTemplate = signal<boolean>(false);
@@ -252,6 +275,17 @@ export class EquipmentComponent implements OnInit {
 
   currentView = signal<'list' | 'add' | 'edit'>('list');
   currentItem = signal<any>({});
+
+  /**
+   * Ảnh QR do PMIS cấp, lưu base64 thuần trong EQUIPMENTS.QR_CODE (không kèm tiền tố "data:", cũng
+   * không lưu MIME thật vì PmisClient bỏ content-type) — gắn tiền tố image/jpeg ở đây; trình duyệt tự
+   * nhận dạng đúng kể cả khi PMIS trả PNG.
+   */
+  qrCodeDataUrl = computed<string | null>(() => {
+    const qr = this.currentItem()?.qrCode;
+    return qr ? `data:image/jpeg;base64,${qr}` : null;
+  });
+
   isSaving = signal<boolean>(false);
 
   // Pagination
@@ -429,7 +463,8 @@ export class EquipmentComponent implements OnInit {
                 unitName: res.unitName,
                 equipmentStatusName: res.equipmentStatusName,
                 creator: res.creator,
-                createdBy: res.createdBy
+                createdBy: res.createdBy,
+                qrCode: res.qrCode
               });
 
               // Load form template directly from response
@@ -1446,7 +1481,8 @@ export class EquipmentComponent implements OnInit {
             unitName: res.unitName,
             equipmentStatusName: res.equipmentStatusName,
             creator: res.creator,
-            createdBy: res.createdBy
+            createdBy: res.createdBy,
+            qrCode: res.qrCode
           });
 
           let parsedFields: any[] = [];

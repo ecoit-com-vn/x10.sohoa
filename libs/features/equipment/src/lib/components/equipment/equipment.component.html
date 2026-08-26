@@ -685,6 +685,20 @@
                   }})
                 </span>
               </div>
+
+              <!-- Mã QR do PMIS cấp (chỉ có với thiết bị đã đồng bộ từ PMIS) -->
+              <div style="display: flex; padding-bottom: 8px; border-top: 1px solid #f1f5f9; padding-top: 14px"
+                *ngIf="qrCodeDataUrl()">
+                <span style="width: 200px; font-weight: 600">Mã QR (PMIS):</span>
+                <span style="display: flex; flex-direction: column; gap: 8px">
+                  <img [src]="qrCodeDataUrl()" alt="Mã QR thiết bị" width="160" height="160"
+                    style="border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px; background: #ffffff" />
+                  <a [href]="qrCodeDataUrl()" [download]="'QR_' + (currentItem().code || 'thiet-bi') + '.jpg'"
+                    style="font-size: 0.85rem">
+                    <i class="pi pi-download" style="margin-right: 4px"></i>Tải ảnh QR
+                  </a>
+                </span>
+              </div>
             </div>
           </div>
 
@@ -1150,18 +1164,35 @@
                   </div>
 
                   <ng-container *ngIf="diff.pmisFormValues">
-                    <div [style.background]="pmisDiffCount() > 0 ? '#fef2f2' : '#f0fdf4'"
-                      [style.border]="pmisDiffCount() > 0 ? '1px solid #fecaca' : '1px solid #bbf7d0'" style="
+                    <!-- 3 trạng thái: chưa ánh xạ được trường nào (vàng) / có sai khác (đỏ) / khớp hết (xanh).
+                         Không gộp trường hợp "chưa ánh xạ" vào màu xanh vì đó không phải là dữ liệu khớp nhau. -->
+                    <div [style.background]="
+                        pmisMappedCount() === 0 ? '#fffbeb' : (pmisDiffCount() > 0 ? '#fef2f2' : '#f0fdf4')
+                      " [style.border]="
+                        pmisMappedCount() === 0
+                          ? '1px solid #fde68a'
+                          : (pmisDiffCount() > 0 ? '1px solid #fecaca' : '1px solid #bbf7d0')
+                      " style="
                         border-radius: 6px;
                         padding: 10px 14px;
                         margin-bottom: 16px;
                         font-size: 0.85rem;
-                      " [style.color]="pmisDiffCount() > 0 ? '#b91c1c' : '#15803d'">
-                      <i class="pi" [ngClass]="pmisDiffCount() > 0 ? 'pi-exclamation-triangle' : 'pi-check-circle'"></i>
-                      <span *ngIf="pmisDiffCount() > 0">
+                      " [style.color]="
+                        pmisMappedCount() === 0 ? '#b45309' : (pmisDiffCount() > 0 ? '#b91c1c' : '#15803d')
+                      ">
+                      <i class="pi" [ngClass]="
+                          pmisMappedCount() === 0
+                            ? 'pi-exclamation-circle'
+                            : (pmisDiffCount() > 0 ? 'pi-exclamation-triangle' : 'pi-check-circle')
+                        "></i>
+                      <span *ngIf="pmisMappedCount() === 0">
+                        Chưa cấu hình ánh xạ trường nào — không so sánh được với PMIS. Vào Form Builder khai
+                        "Tên trường PMIS" cho các trường bên dưới.
+                      </span>
+                      <span *ngIf="pmisMappedCount() > 0 && pmisDiffCount() > 0">
                         Phát hiện {{ pmisDiffCount() }} trường có sai khác giữa dữ liệu hệ thống và PMIS.
                       </span>
-                      <span *ngIf="pmisDiffCount() === 0">
+                      <span *ngIf="pmisMappedCount() > 0 && pmisDiffCount() === 0">
                         Không phát hiện sai khác giữa dữ liệu hệ thống và PMIS.
                       </span>
                     </div>
@@ -1205,6 +1236,27 @@
                             {{ row.field.label }}
                           </div>
                         </ng-container>
+                      </div>
+                    </div>
+
+                    <!-- Chiều ngược lại: khoá PMIS có dữ liệu thật nhưng chưa trường nào dùng — đây chính là
+                         danh sách giá trị hợp lệ để điền vào "Tên trường PMIS" trong Form Builder. -->
+                    <div *ngIf="unmappedPmisKeys().length > 0" style="margin-top: 16px">
+                      <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 6px">
+                        Khoá PMIS chưa được trường nào sử dụng (dùng làm "Tên trường PMIS" trong Form Builder):
+                      </div>
+                      <div style="display: flex; flex-direction: column; gap: 4px">
+                        <div *ngFor="let item of unmappedPmisKeys()" style="
+                            background: #f8fafc;
+                            color: #64748b;
+                            font-size: 0.85rem;
+                            padding: 6px 10px;
+                            border-radius: 4px;
+                          ">
+                          <i class="pi pi-tag" style="margin-right: 6px"></i>
+                          <b>{{ item.key }}</b>
+                          <span *ngIf="item.value"> = {{ item.value }}</span>
+                        </div>
                       </div>
                     </div>
                   </ng-container>

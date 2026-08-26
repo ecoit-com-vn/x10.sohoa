@@ -32,6 +32,21 @@ export const pmisEndpointConfigMenuGuard = withPermissionsLoaded((auth, router) 
   return deny(router);
 });
 
+/**
+ * Menu Ánh xạ loại thiết bị PMIS ↔ loại thiết bị hệ thống.
+ * Mã quyền do PermissionCodeResolver tự suy ra từ tên controller PmisEquipmentTypeMappingController.
+ */
+export const pmisEquipmentTypeMappingMenuGuard = withPermissionsLoaded((auth, router) => {
+  if (
+    auth.hasPermission('SUPER_ADMIN') ||
+    auth.hasPermission('PMIS_EQUIPMENT_TYPE_MAPPING_VIEW') ||
+    auth.hasPermission('PMIS_EQUIPMENT_TYPE_MAPPING_EDIT')
+  ) {
+    return true;
+  }
+  return deny(router);
+});
+
 /** Menu Đồng bộ thủ công PMIS (Trạm/Đường dây/Thiết bị) */
 export const pmisManualSyncMenuGuard = withPermissionsLoaded((auth, router) => {
   if (
