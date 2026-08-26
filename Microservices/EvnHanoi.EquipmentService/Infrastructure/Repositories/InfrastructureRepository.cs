@@ -320,16 +320,19 @@ public class InfrastructureRepository : IInfrastructureRepository
     }
 
     public async Task<(Guid Id, bool WasCreated)> UpsertFromPmisAsync(
-        int infraTypeId, string pmisCode, string code, string name, string? address, string? unitCode, DateTime? operationDate)
+        int infraTypeId, string pmisCode, string code, string name, string? address, string? unitCode, DateTime? operationDate, int? gridTypeId = null)
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
+        // Mã đơn vị PMIS (vd. "HN0200") KHÔNG khớp trực tiếp ORGANIZATION_UNIT.Code (vd. "HN02") —
+        // xác nhận bằng dữ liệu thật, xem PMIS_UNIT_CODE_MAPPING (Migration0051). Không fallback so
+        // khớp trực tiếp Code = Code để tránh khớp nhầm ngẫu nhiên.
         long? unitId = null;
         if (!string.IsNullOrWhiteSpace(unitCode))
         {
             unitId = await _connection.QuerySingleOrDefaultAsync<long?>(
-                "SELECT Id FROM ORGANIZATION_UNIT WHERE Code = :Code", new { Code = unitCode });
+                "SELECT UnitId FROM PMIS_UNIT_CODE_MAPPING WHERE PmisUnitCode = :Code AND IsDeleted = 0", new { Code = unitCode });
         }
 
         var existingId = await _connection.QuerySingleOrDefaultAsync<string?>(
@@ -344,6 +347,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                             {nameof(Infrastructure.Address)} = :Address,
                             UNIT_ID = :UnitId,
                             OPERATION_DATE = :OperationDate,
+                            GRIDTYPEID = COALESCE(:GridTypeId, GRIDTYPEID),
                             LAST_SYNCED_FROM_PMIS_AT = SYSTIMESTAMP,
                             {nameof(Infrastructure.ModifiedBy)} = :ModifiedBy,
                             {nameof(Infrastructure.ModifiedDate)} = SYSTIMESTAMP
@@ -357,6 +361,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                 Address = address,
                 UnitId = unitId,
                 OperationDate = operationDate,
+                GridTypeId = gridTypeId,
                 ModifiedBy = "PMIS_SYNC"
             });
             return (Guid.Parse(existingId), false);
@@ -365,11 +370,11 @@ public class InfrastructureRepository : IInfrastructureRepository
         var newId = Guid.Parse(EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid());
         var insertSql = $@"INSERT INTO INFRASTRUCTURE (
                         {nameof(Infrastructure.Id)}, {nameof(Infrastructure.Code)}, {nameof(Infrastructure.Name)},
-                        {nameof(Infrastructure.Address)}, INFRA_TYPE_ID, UNIT_ID, OPERATION_DATE, IS_ACTIVE,
+                        {nameof(Infrastructure.Address)}, INFRA_TYPE_ID, UNIT_ID, OPERATION_DATE, GRIDTYPEID, IS_ACTIVE,
                         PMIS_CODE, LAST_SYNCED_FROM_PMIS_AT,
                         {nameof(Infrastructure.CreatedBy)}, {nameof(Infrastructure.CreatedDate)}, {nameof(Infrastructure.IsDeleted)}
                     ) VALUES (
-                        :Id, :Code, :Name, :Address, :InfraTypeId, :UnitId, :OperationDate, 1,
+                        :Id, :Code, :Name, :Address, :InfraTypeId, :UnitId, :OperationDate, :GridTypeId, 1,
                         :PmisCode, SYSTIMESTAMP, :CreatedBy, SYSTIMESTAMP, 0
                     )";
 
@@ -382,6 +387,7 @@ public class InfrastructureRepository : IInfrastructureRepository
             InfraTypeId = infraTypeId,
             UnitId = unitId,
             OperationDate = operationDate,
+            GridTypeId = gridTypeId,
             PmisCode = pmisCode,
             CreatedBy = "PMIS_SYNC"
         });

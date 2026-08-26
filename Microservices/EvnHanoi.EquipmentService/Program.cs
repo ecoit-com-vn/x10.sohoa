@@ -102,6 +102,7 @@ builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IExternalAp
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IExternalApiCallLogRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.ExternalApiCallLogRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.ISystemParamRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.SystemParamRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentTypeRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentTypeRepository>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IPmisEquipmentTypeMappingRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.PmisEquipmentTypeMappingRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IPhysicalStorageRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.PhysicalStorageRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.ICatalogRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.CatalogRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEavFormTemplateRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EavFormTemplateRepository>();

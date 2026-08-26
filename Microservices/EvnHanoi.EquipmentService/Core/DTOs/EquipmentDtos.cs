@@ -66,6 +66,13 @@ public class EquipmentDto
     public string? FormTemplateName { get; set; }
     public Guid? FormTemplateId { get; set; }
     public string? FormSchema { get; set; }
+
+    /// <summary>
+    /// Ảnh QR thiết bị dạng base64 (không kèm tiền tố "data:"), do PMIS cấp — đồng bộ về qua
+    /// API AnhQRCode, xem PmisSyncExecutionService.SyncEquipmentAsync. CHỈ truy vấn chi tiết
+    /// (GetDtoByIdAsync) mới trả về, danh sách phân trang để null để không phình payload (~58KB/thiết bị).
+    /// </summary>
+    public string? QrCode { get; set; }
 }
 
 public class EquipmentTypeDto

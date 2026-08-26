@@ -20,6 +20,9 @@ namespace EvnHanoi.EquipmentService.Controllers;
 [Route("api/v1/[controller]")]
 public partial class EquipmentController : ControllerBase
 {
+    /// <summary>Số bản ghi PMIS gần nhất quét để rút danh sách khoá gợi ý — thiết bị cùng loại có cùng bộ khoá.</summary>
+    private const int PmisSpecKeySampleRows = 50;
+
     private readonly IEquipmentRepository _equipmentRepository;
     private readonly IEquipmentTypeRepository _equipmentTypeRepository;
     private readonly IMessageProducer _messageProducer;
@@ -901,6 +904,67 @@ public partial class EquipmentController : ControllerBase
             pmisSyncedAt,
             fieldMappingWarnings
         });
+    }
+
+    /// <summary>
+    /// Danh sách khoá thông số kỹ thuật PMIS thật đã đồng bộ của 1 loại thiết bị (kèm giá trị mẫu và số
+    /// lần xuất hiện) — gợi ý cho admin khi khai "Tên trường PMIS" trong Form Builder, thay vì phải đoán
+    /// tên khoá. Khoá PMIS thật viết UPPER_SNAKE (DUNG_LUONG, TAN_SO...), khác hẳn tên đoán theo tài liệu.
+    /// [BypassDynamicPermission] vì người dùng Form Builder có quyền thiết kế biểu mẫu, không nhất thiết
+    /// có quyền xem thiết bị — giống các endpoint lookup khác trong controller này.
+    /// </summary>
+    [HttpGet("pmis-spec-keys")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetPmisSpecKeys([FromQuery] Guid equipmentTypeId)
+    {
+        if (equipmentTypeId == Guid.Empty)
+            return BadRequest(new { message = "Thiếu loại thiết bị (equipmentTypeId)." });
+
+        var formValuesRows = await _equipmentPmisSpecRepository
+            .GetRecentFormValuesByEquipmentTypeAsync(equipmentTypeId, PmisSpecKeySampleRows);
+
+        var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var samples = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var json in formValuesRows)
+        {
+            if (string.IsNullOrWhiteSpace(json)) continue;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(json);
+                if (doc.RootElement.ValueKind != JsonValueKind.Object) continue;
+
+                foreach (var property in doc.RootElement.EnumerateObject())
+                {
+                    counts[property.Name] = counts.TryGetValue(property.Name, out var count) ? count + 1 : 1;
+
+                    // Giữ giá trị mẫu đầu tiên khác rỗng để admin nhận ra khoá nào là thông số nào.
+                    if (!samples.TryGetValue(property.Name, out var existing) || string.IsNullOrWhiteSpace(existing))
+                    {
+                        samples[property.Name] = property.Value.ValueKind == JsonValueKind.String
+                            ? property.Value.GetString()
+                            : property.Value.ToString();
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // Dòng FormValues không phải JSON hợp lệ — bỏ qua, không làm hỏng cả danh sách gợi ý.
+            }
+        }
+
+        var items = counts
+            .OrderByDescending(pair => pair.Value)
+            .ThenBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(pair => new
+            {
+                key = pair.Key,
+                sampleValue = samples.TryGetValue(pair.Key, out var sample) ? sample : null,
+                count = pair.Value
+            });
+
+        return Ok(items);
     }
 
     private static IEnumerable<JsonElement> EnumerateSchemaFields(string formSchemaJson)

@@ -24,6 +24,7 @@ public class UpsertInfrastructureFromPmisRequest
     public string? Address { get; set; }
     public string? UnitCode { get; set; } // maDonVi
     public DateTime? OperationDate { get; set; }
+    public int? GridTypeId { get; set; } // Suy ra từ capDienAp (1 = Cao áp, 2 = Trung áp, 3 = Hạ áp) — xem PmisSyncExecutionService.ResolveGridTypeId
 }
 
 public class UpsertInfrastructureFromPmisResult
@@ -47,6 +48,10 @@ public class UpsertEquipmentFromPmisRequest
     public string? UnitCode { get; set; } // maDonVi
     public int? ManufactureYear { get; set; }
     public string? QrCodeBase64{ get; set; } // maQRCode
+
+    /// <summary>Cấp điện áp (1 = Cao áp, 2 = Trung áp, 3 = Hạ áp) — thiết bị TBA có capDienAp riêng nên tự suy ra
+    /// được, thiết bị đường dây thì để null (EquipmentRepository tự lấy từ GRIDTYPEID của đường dây cha).</summary>
+    public int? GridTypeId { get; set; }
 
     /// <summary>Chuỗi JSON thông số kỹ thuật — lưu riêng vào EQUIPMENT_PMIS_SPEC, không ghi đè FormValues.</summary>
     public string? ThongSoKyThuat { get; set; }

@@ -30,7 +30,7 @@ public interface IInfrastructureRepository
     /// (dùng ghi ACTION_TYPE CREATE/UPDATE vào SYNC_HISTORY_DETAIL).
     /// </summary>
     Task<(Guid Id, bool WasCreated)> UpsertFromPmisAsync(
-        int infraTypeId, string pmisCode, string code, string name, string? address, string? unitCode, DateTime? operationDate);
+        int infraTypeId, string pmisCode, string code, string name, string? address, string? unitCode, DateTime? operationDate, int? gridTypeId = null);
 
     /// <summary>Danh sách PmisCode đã đồng bộ (dùng cho auto-sync Thiết bị — lặp qua từng Trạm/Đường dây đã có để lấy thiết bị con).</summary>
     Task<IEnumerable<(string PmisCode, int InfraTypeId)>> GetSyncedPmisCodesAsync();

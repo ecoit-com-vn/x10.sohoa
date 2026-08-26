@@ -70,6 +70,12 @@ public class PmisDeviceDetailRequest
     public string? MaTBA { get; set; }
 }
 
+/// <summary>Tiêu chí lọc — API ảnh QR (ngoài 9 API gốc, phát hiện thêm khi test thật).</summary>
+public class PmisDeviceQrImageRequest
+{
+    public string IdPmis { get; set; } = string.Empty;
+}
+
 /// <summary>Tiêu chí lọc — API 8: Danh sách tài liệu thiết bị TBA.</summary>
 public class PmisSubstationDocumentSearchRequest
 {
