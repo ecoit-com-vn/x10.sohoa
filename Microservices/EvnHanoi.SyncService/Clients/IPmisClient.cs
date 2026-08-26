@@ -2,7 +2,8 @@ using EvnHanoi.SyncService.Models.Pmis;
 
 namespace EvnHanoi.SyncService.Clients;
 
-/// <summary>9 API pull PMIS theo tài liệu "[EVNHANOI_SHHSKT] Phương án đồng bộ PMIS".</summary>
+/// <summary>9 API pull PMIS theo tài liệu "[EVNHANOI_SHHSKT] Phương án đồng bộ PMIS", cộng thêm API ảnh QR
+/// (phát hiện khi gọi thật vào gateway PMIS — xem BAO_CAO_TEST_API_PMIS_GATEWAY_THAT.md).</summary>
 public interface IPmisClient
 {
     Task<PmisListResponse<PmisSubstationDto>> GetSubstationsAsync(PmisSubstationSearchRequest request);
@@ -14,6 +15,10 @@ public interface IPmisClient
     Task<PmisDeviceDetailDto?> GetDeviceDetailAsync(PmisDeviceDetailRequest request);
     Task<PmisListResponse<PmisSubstationDocumentDto>> GetSubstationDocumentsAsync(PmisSubstationDocumentSearchRequest request);
     Task<PmisListResponse<PmisLineDocumentDto>> GetLineDocumentsAsync(PmisLineDocumentSearchRequest request);
+
+    /// <summary>Tải ảnh QR nhị phân thật (JPEG) theo mã thiết bị — trả null nếu API chưa cấu hình hoặc lỗi
+    /// (không chặn phần còn lại của đồng bộ). Field maQRCode ở các API khác chỉ là URL, không phải base64.</summary>
+    Task<byte[]?> GetDeviceQrImageBytesAsync(string idPmis);
 }
 
 /// <summary>Báo lỗi nghiệp vụ khi 1 API PMIS chưa được cấu hình (chưa bật hoặc chưa nhập Url) qua màn "Cấu hình kết nối PMIS".</summary>

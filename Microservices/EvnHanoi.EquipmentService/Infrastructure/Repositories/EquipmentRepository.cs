@@ -110,6 +110,7 @@ public class EquipmentRepository : IEquipmentRepository
                             eft.Name AS {nameof(EquipmentDto.FormTemplateName)},
                             eft.Id AS {nameof(EquipmentDto.FormTemplateId)},
                             eft.FormSchema AS {nameof(EquipmentDto.FormSchema)},
+                            e.QR_CODE AS {nameof(EquipmentDto.QrCode)},
                             usr.Id AS CreatorId,
                             usr.UserName AS Username,
                             usr.FullName AS FullName
@@ -1498,34 +1499,57 @@ StatusTransition,
         return await _connection.ExecuteScalarAsync<int>(sql, new { InfrastructureId = infrastructureId.ToString() });
     }
 
+    private class InfraLookupRow
+    {
+        public string? Id { get; set; }
+        public int? GridTypeId { get; set; }
+    }
+
     public async Task<EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult> UpsertFromPmisAsync(
         string pmisCode, string code, string name, string? serialNumber,
         string equipmentTypeCode, string? parentPmisCode, string? unitCode,
-        int? manufactureYear, string? qrCodeBase64)
+        int? manufactureYear, string? qrCodeBase64, int? gridTypeId = null)
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
-        var equipmentTypeId = await _connection.QuerySingleOrDefaultAsync<string?>(
-            "SELECT Id FROM EquipmentTypes WHERE Code = :Code AND IsDeleted = 0", new { Code = equipmentTypeCode });
-        if (equipmentTypeId == null)
-        {
-            return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
-                $"Chưa cấu hình loại thiết bị '{equipmentTypeCode}' trong hệ thống — cần Admin ánh xạ EquipmentTypes.Code trước khi đồng bộ được.");
-        }
-
         string? infrastructureId = null;
+        var effectiveGridTypeId = gridTypeId;
         if (!string.IsNullOrWhiteSpace(parentPmisCode))
         {
-            infrastructureId = await _connection.QuerySingleOrDefaultAsync<string?>(
-                "SELECT Id FROM INFRASTRUCTURE WHERE PMIS_CODE = :PmisCode AND IsDeleted = 0", new { PmisCode = parentPmisCode });
+            // Thiết bị đường dây không có capDienAp riêng (chỉ thiết bị TBA có) — lấy GridTypeId của
+            // Trạm/Đường dây cha làm phương án dự phòng khi không truyền sẵn (xem Migration0051/0052 +
+            // BAO_CAO_TEST_API_PMIS_GATEWAY_THAT.md).
+            var infraRow = await _connection.QuerySingleOrDefaultAsync<InfraLookupRow>(
+                "SELECT Id, GRIDTYPEID AS GridTypeId FROM INFRASTRUCTURE WHERE PMIS_CODE = :PmisCode AND IsDeleted = 0",
+                new { PmisCode = parentPmisCode });
+            infrastructureId = infraRow?.Id;
+            effectiveGridTypeId ??= infraRow?.GridTypeId;
         }
 
+        string? equipmentTypeId = null;
+        if (effectiveGridTypeId != null)
+        {
+            equipmentTypeId = await _connection.QuerySingleOrDefaultAsync<string?>(
+                @"SELECT EquipmentTypeId FROM PMIS_EQUIPMENT_TYPE_MAPPING
+                  WHERE PmisMaLoaiTB = :Code AND GridTypeId = :GridTypeId AND IsDeleted = 0",
+                new { Code = equipmentTypeCode, GridTypeId = effectiveGridTypeId });
+        }
+
+        if (equipmentTypeId == null)
+        {
+            var gridLabel = effectiveGridTypeId switch { 1 => "Cao áp", 2 => "Trung áp", 3 => "Hạ áp", _ => "chưa xác định" };
+            return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
+                $"Chưa cấu hình ánh xạ loại thiết bị PMIS '{equipmentTypeCode}' (cấp {gridLabel}) — vào Quản trị hệ thống > Ánh xạ loại thiết bị PMIS để bổ sung.");
+        }
+
+        // Mã đơn vị PMIS (vd. "HN0200") KHÔNG khớp trực tiếp ORGANIZATION_UNIT.Code (vd. "HN02") —
+        // xác nhận bằng dữ liệu thật, xem PMIS_UNIT_CODE_MAPPING (Migration0051).
         long? unitId = null;
         if (!string.IsNullOrWhiteSpace(unitCode))
         {
             unitId = await _connection.QuerySingleOrDefaultAsync<long?>(
-                "SELECT Id FROM ORGANIZATION_UNIT WHERE Code = :Code", new { Code = unitCode });
+                "SELECT UnitId FROM PMIS_UNIT_CODE_MAPPING WHERE PmisUnitCode = :Code AND IsDeleted = 0", new { Code = unitCode });
         }
 
         var existingId = await _connection.QuerySingleOrDefaultAsync<string?>(
@@ -1533,14 +1557,19 @@ StatusTransition,
 
         if (existingId != null)
         {
-            const string updateSql = @"UPDATE EQUIPMENTS
+            // Lần đồng bộ sau mà tải ảnh QR từ PMIS lỗi (qrCodeBase64 = null) thì bỏ QR_CODE ra khỏi câu
+            // UPDATE để giữ lại ảnh đã có, không xoá trắng dữ liệu cũ. Không dùng COALESCE được vì Oracle
+            // suy tham số bind đầu tiên thành CHAR rồi báo ORA-00932 khi so với cột CLOB.
+            var hasQrCode = !string.IsNullOrEmpty(qrCodeBase64);
+            var updateSql = $@"UPDATE EQUIPMENTS
                         SET Name = :Name, Code = :Code, SerialNumber = :SerialNumber,
                             INFRASTRUCTURE_ID = :InfrastructureId, MANUFACTURE_YEAR = :ManufactureYear,
-                            UnitId = :UnitId, QR_CODE = :QrCode, LAST_SYNCED_FROM_PMIS_AT = SYSTIMESTAMP,
+                            UnitId = :UnitId, {(hasQrCode ? "QR_CODE = :QrCode," : string.Empty)}
+                            LAST_SYNCED_FROM_PMIS_AT = SYSTIMESTAMP,
                             ModifiedBy = :ModifiedBy, ModifiedDate = SYSTIMESTAMP
                         WHERE Id = :Id";
 
-            await _connection.ExecuteAsync(updateSql, new
+            var updateParameters = new DynamicParameters(new
             {
                 Id = existingId,
                 Name = name,
@@ -1549,9 +1578,14 @@ StatusTransition,
                 InfrastructureId = infrastructureId,
                 ManufactureYear = manufactureYear,
                 UnitId = unitId,
-                QrCode = EvnHanoi.Infrastructure.Database.OracleClob.Param(qrCodeBase64),
                 ModifiedBy = "PMIS_SYNC"
             });
+            if (hasQrCode)
+            {
+                updateParameters.Add("QrCode", EvnHanoi.Infrastructure.Database.OracleClob.Param(qrCodeBase64));
+            }
+
+            await _connection.ExecuteAsync(updateSql, updateParameters);
             return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Ok(Guid.Parse(existingId), false);
         }
 

@@ -12,6 +12,7 @@ public class UpsertInfrastructureFromPmisRequest
     public string? Address { get; set; }
     public string? UnitCode { get; set; }
     public DateTime? OperationDate { get; set; }
+    public int? GridTypeId { get; set; }
 }
 
 public class UpsertInfrastructureFromPmisResult
@@ -34,6 +35,7 @@ public class UpsertEquipmentFromPmisRequest
     public string? UnitCode { get; set; }
     public int? ManufactureYear { get; set; }
     public string? QrCodeBase64 { get; set; }
+    public int? GridTypeId { get; set; }
     public string? ThongSoKyThuat { get; set; }
 }
 

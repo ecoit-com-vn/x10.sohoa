@@ -58,7 +58,7 @@ public class InternalPmisSyncController : ControllerBase
             try
             {
                 var (id, wasCreated) = await _infrastructureRepository.UpsertFromPmisAsync(
-                    item.InfraTypeId, item.PmisCode, item.Code, item.Name, item.Address, item.UnitCode, item.OperationDate);
+                    item.InfraTypeId, item.PmisCode, item.Code, item.Name, item.Address, item.UnitCode, item.OperationDate, item.GridTypeId);
                 results.Add(new UpsertInfrastructureFromPmisResult
                 {
                     PmisCode = item.PmisCode,
@@ -97,7 +97,7 @@ public class InternalPmisSyncController : ControllerBase
                 var upsertResult = await _equipmentRepository.UpsertFromPmisAsync(
                     item.PmisCode, item.Code, item.Name, item.SerialNumber,
                     item.EquipmentTypeCode, item.ParentPmisCode, item.UnitCode,
-                    item.ManufactureYear, item.QrCodeBase64);
+                    item.ManufactureYear, item.QrCodeBase64, item.GridTypeId);
 
                 if (!upsertResult.Success)
                 {

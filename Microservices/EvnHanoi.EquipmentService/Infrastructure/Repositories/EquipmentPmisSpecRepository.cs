@@ -55,4 +55,24 @@ public class EquipmentPmisSpecRepository : IEquipmentPmisSpecRepository
         if (row == null) return null;
         return ((string?)row.FORMVALUES, (DateTime?)row.SYNCEDAT);
     }
+
+    public async Task<IEnumerable<string?>> GetRecentFormValuesByEquipmentTypeAsync(Guid equipmentTypeId, int maxRows)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        const string sql = @"
+            SELECT FormValues FROM (
+                SELECT s.FormValues AS FormValues
+                FROM EQUIPMENT_PMIS_SPEC s
+                JOIN EQUIPMENTS e ON e.Id = s.EquipmentId
+                WHERE s.IsDeleted = 0 AND e.IsDeleted = 0 AND e.EquipmentTypeId = :EquipmentTypeId
+                ORDER BY s.SyncedAt DESC
+            ) WHERE ROWNUM <= :MaxRows";
+
+        return await _connection.QueryAsync<string?>(sql, new
+        {
+            EquipmentTypeId = equipmentTypeId.ToString(),
+            MaxRows = maxRows
+        });
+    }
 }
