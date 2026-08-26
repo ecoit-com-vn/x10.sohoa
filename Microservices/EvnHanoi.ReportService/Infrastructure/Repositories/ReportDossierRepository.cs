@@ -246,7 +246,9 @@ public class ReportDossierRepository : IReportDossierRepository
         EnsureOpen();
         var parameters = new DynamicParameters();
         var sql = @"
-            SELECT CAST(b.Id AS VARCHAR2(50)) AS Id, b.Name, b.Code, f.Code AS FloorCode, s.Code AS ShelfCode
+            SELECT CAST(b.Id AS VARCHAR2(50)) AS Id, b.Name, b.Code,
+                   f.Code AS FloorCode, f.Name AS FloorName,
+                   s.Code AS ShelfCode, s.Name AS ShelfName
             FROM PHYSICAL_BOX b
             INNER JOIN PHYSICAL_FLOOR f ON b.FloorId = f.Id AND NVL(f.IS_DELETED, 0) = 0
             INNER JOIN PHYSICAL_SHELF s ON f.ShelfId = s.Id AND NVL(s.IS_DELETED, 0) = 0
@@ -3387,6 +3389,7 @@ public class ReportDossierRepository : IReportDossierRepository
             SELECT
                 doc.ID AS DocumentId,
                 d.ID AS DossierId,
+                dt.ID AS DocumentTypeId,
                 dt.NAME AS DocumentTypeName,
                 dt_dossier.NAME AS DossierTypeName,
                 i.NAME AS InfrastructureName,
@@ -3396,12 +3399,25 @@ public class ReportDossierRepository : IReportDossierRepository
                     INNER JOIN Equipments e ON de.EquipmentId = e.Id AND NVL(e.IsDeleted, 0) = 0
                     WHERE de.DossierId = d.Id
                 ) AS EquipmentName,
-                doc.NAME AS DocumentName
+                doc.NAME AS DocumentName,
+                latest.LATEST_VERSION_ID AS VersionId,
+                latest.MIME_TYPE AS MimeType
             FROM DOSSIERS d
             INNER JOIN INFRASTRUCTURE i ON d.InfrastructureId = i.ID
             INNER JOIN DOCUMENTS doc ON doc.DOSSIER_ID = d.Id AND doc.IS_DELETED = 0
             INNER JOIN DOCUMENT_TYPES dt ON doc.DOCUMENT_TYPE_ID = dt.ID AND NVL(dt.IsDeleted, 0) = 0
             LEFT JOIN DOSSIER_TYPES dt_dossier ON d.DossierTypeId = dt_dossier.ID
+            LEFT JOIN (
+                SELECT dv.DOCUMENT_ID, dv.ID AS LATEST_VERSION_ID, dv.MIME_TYPE
+                FROM DOCUMENT_VERSIONS dv
+                INNER JOIN (
+                    SELECT DOCUMENT_ID, MAX(VERSION_NUMBER) AS MAX_VER
+                    FROM DOCUMENT_VERSIONS
+                    WHERE IS_DELETED = 0
+                    GROUP BY DOCUMENT_ID
+                ) mx ON mx.DOCUMENT_ID = dv.DOCUMENT_ID AND mx.MAX_VER = dv.VERSION_NUMBER
+                WHERE dv.IS_DELETED = 0
+            ) latest ON latest.DOCUMENT_ID = doc.ID
             WHERE {baseWhere}{documentTypeClause}
             ORDER BY dt.NAME, i.NAME, doc.NAME
             OFFSET :Offset ROWS
@@ -3418,11 +3434,14 @@ public class ReportDossierRepository : IReportDossierRepository
                 Stt = stt++,
                 DocumentId = Convert.ToString(r.DOCUMENTID ?? r.DocumentId) ?? string.Empty,
                 DossierId = Convert.ToString(r.DOSSIERID ?? r.DossierId) ?? string.Empty,
+                DocumentTypeId = Convert.ToString(r.DOCUMENTTYPEID ?? r.DocumentTypeId),
                 DocumentTypeName = Convert.ToString(r.DOCUMENTTYPENAME ?? r.DocumentTypeName) ?? "-",
                 DossierTypeName = Convert.ToString(r.DOSSIERTYPENAME ?? r.DossierTypeName) ?? "-",
                 InfrastructureName = Convert.ToString(r.INFRASTRUCTURENAME ?? r.InfrastructureName) ?? "-",
                 EquipmentName = Convert.ToString(r.EQUIPMENTNAME ?? r.EquipmentName) ?? "-",
-                DocumentName = Convert.ToString(r.DOCUMENTNAME ?? r.DocumentName) ?? "-"
+                DocumentName = Convert.ToString(r.DOCUMENTNAME ?? r.DocumentName) ?? "-",
+                VersionId = Convert.ToString(r.VERSIONID ?? r.VersionId),
+                MimeType = Convert.ToString(r.MIMETYPE ?? r.MimeType)
             });
         }
 

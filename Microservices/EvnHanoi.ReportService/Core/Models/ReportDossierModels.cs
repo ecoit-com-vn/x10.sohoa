@@ -22,7 +22,9 @@ public class ReportBoxsesDetailLookupItem
     public string Name { get; set; } = string.Empty;
     public string? Code { get; set; }
     public string? FloorCode { get; set; }
+    public string? FloorName { get; set; }
     public string? ShelfCode { get; set; }
+    public string? ShelfName { get; set; }
 }
 
 public class ReportDossierBhsColumn
