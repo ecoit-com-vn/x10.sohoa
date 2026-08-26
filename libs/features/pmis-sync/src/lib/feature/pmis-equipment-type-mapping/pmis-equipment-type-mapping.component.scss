@@ -1,0 +1,35 @@
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+th.col-hd,
+td.col-hd {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.api-key-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 8px;
+}
+
+.loading-row {
+  padding: 28px;
+  color: #64748b;
+  text-align: center;
+}
+
+.hint-text {
+  margin: 0 0 12px;
+  color: #475569;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.required {
+  color: #dc2626;
+}

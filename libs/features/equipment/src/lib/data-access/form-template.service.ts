@@ -27,6 +27,12 @@ export interface EavFormTemplate {
   extractionPosition?: string;
 }
 
+export interface PmisSpecKeyOption {
+  key: string;
+  sampleValue: string | null;
+  count: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -50,6 +56,16 @@ export class FormTemplateService {
 
   getTemplateById(id: string): Observable<EavFormTemplate> {
     return this.api.get<EavFormTemplate>(`${this.apiUrl}/${id}`);
+  }
+
+  /**
+   * Khoá thông số kỹ thuật PMIS thật đã đồng bộ của loại thiết bị — gợi ý cho ô "Tên trường PMIS".
+   * Khoá thật viết UPPER_SNAKE (DUNG_LUONG, TAN_SO...), không suy được từ tên trường hệ thống.
+   */
+  getPmisSpecKeys(equipmentTypeId: string): Observable<PmisSpecKeyOption[]> {
+    return this.api.get<PmisSpecKeyOption[]>('/api/v1/equipment/pmis-spec-keys', {
+      params: { equipmentTypeId }
+    });
   }
 
   getTemplateByIdAndVersion(id: string, version: number): Observable<EavFormTemplate> {

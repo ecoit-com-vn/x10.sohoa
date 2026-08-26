@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, effect, inject } from '@angular/core';
+import { Component, OnInit, computed, signal, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ToastModule } from 'primeng/toast';
@@ -39,6 +39,12 @@ export class EquipmentSearchDetailComponent implements OnInit {
 
   isLoadingDetail = signal<boolean>(true);
   currentItem = signal<any>({});
+
+  /** Ảnh QR PMIS lưu base64 thuần trong EQUIPMENTS.QR_CODE — gắn tiền tố data: ở đây (xem equipment.component.ts). */
+  qrCodeDataUrl = computed<string | null>(() => {
+    const qr = this.currentItem()?.qrCode;
+    return qr ? `data:image/jpeg;base64,${qr}` : null;
+  });
   eavTemplate = signal<any>(null);
   eavFields = signal<any[]>([]);
   formValuesObj = signal<any>({});
@@ -136,7 +142,8 @@ export class EquipmentSearchDetailComponent implements OnInit {
             unitName: res.unitName,
             equipmentStatusName: res.equipmentStatusName,
             creator: res.creator,
-            createdBy: res.createdBy
+            createdBy: res.createdBy,
+            qrCode: res.qrCode
           });
 
           let parsedFields: any[] = [];
