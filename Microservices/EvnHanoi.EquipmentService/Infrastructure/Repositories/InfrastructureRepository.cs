@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Dapper;
 using EvnHanoi.EquipmentService.Core.Interfaces;
@@ -14,6 +16,51 @@ using OrganizationDto = EvnHanoi.EquipmentService.Core.Entities.OrganizationDto;
 public class InfrastructureRepository : IInfrastructureRepository
 {
     private readonly IDbConnection _connection;
+
+    // Precomposed lowercase Vietnamese characters mapped to their unaccented base letter.
+    // Used to fold both the search keyword and the compared SQL columns so that typing
+    // "tram" (no diacritics) still matches "trạm".
+    private static readonly (string From, string To)[] VietnameseDiacriticsMap = new[]
+    {
+        ("à","a"),("á","a"),("ả","a"),("ã","a"),("ạ","a"),
+        ("ă","a"),("ắ","a"),("ằ","a"),("ẳ","a"),("ẵ","a"),("ặ","a"),
+        ("â","a"),("ấ","a"),("ầ","a"),("ẩ","a"),("ẫ","a"),("ậ","a"),
+        ("è","e"),("é","e"),("ẻ","e"),("ẽ","e"),("ẹ","e"),
+        ("ê","e"),("ế","e"),("ề","e"),("ể","e"),("ễ","e"),("ệ","e"),
+        ("ì","i"),("í","i"),("ỉ","i"),("ĩ","i"),("ị","i"),
+        ("ò","o"),("ó","o"),("ỏ","o"),("õ","o"),("ọ","o"),
+        ("ô","o"),("ố","o"),("ồ","o"),("ổ","o"),("ỗ","o"),("ộ","o"),
+        ("ơ","o"),("ớ","o"),("ờ","o"),("ở","o"),("ỡ","o"),("ợ","o"),
+        ("ù","u"),("ú","u"),("ủ","u"),("ũ","u"),("ụ","u"),
+        ("ư","u"),("ứ","u"),("ừ","u"),("ử","u"),("ữ","u"),("ự","u"),
+        ("ỳ","y"),("ý","y"),("ỷ","y"),("ỹ","y"),("ỵ","y"),
+        ("đ","d")
+    };
+
+    private static string BuildUnaccentSql(string columnExpr)
+    {
+        var result = columnExpr;
+        foreach (var (from, to) in VietnameseDiacriticsMap)
+        {
+            result = $"REPLACE({result}, '{from}', '{to}')";
+        }
+        return result;
+    }
+
+    private static string RemoveDiacritics(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+
+        text = text.Replace('đ', 'd').Replace('Đ', 'D');
+        var normalized = text.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder();
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                sb.Append(c);
+        }
+        return sb.ToString().Normalize(NormalizationForm.FormC);
+    }
 
     public InfrastructureRepository(IDbConnection connection)
     {
@@ -133,8 +180,10 @@ public class InfrastructureRepository : IInfrastructureRepository
 
         if (!string.IsNullOrEmpty(keyword))
         {
-            sqlBase += $" AND (LOWER(i.{nameof(Infrastructure.Code)}) LIKE :Keyword OR LOWER(i.{nameof(Infrastructure.Name)}) LIKE :Keyword)";
-            parameters.Add("Keyword", $"%{keyword.ToLower().Trim()}%");
+            var codeExpr = BuildUnaccentSql($"LOWER(i.{nameof(Infrastructure.Code)})");
+            var nameExpr = BuildUnaccentSql($"LOWER(i.{nameof(Infrastructure.Name)})");
+            sqlBase += $" AND ({codeExpr} LIKE :Keyword OR {nameExpr} LIKE :Keyword)";
+            parameters.Add("Keyword", $"%{RemoveDiacritics(keyword.ToLower().Trim())}%");
         }
 
         if (status.HasValue)

@@ -220,6 +220,8 @@ public class DossierEquipmentDto
     public string? SerialNumber { get; set; }
     public string? EquipmentTypeName { get; set; }
     public string? InfrastructureName { get; set; }
+    public int? ManufactureYear { get; set; }
+    public string? EquipmentStatusName { get; set; }
 }
 
 public class AddDossierEquipmentDto
