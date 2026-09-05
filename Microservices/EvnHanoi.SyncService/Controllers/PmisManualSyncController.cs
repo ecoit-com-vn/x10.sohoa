@@ -96,11 +96,11 @@ public class PmisManualSyncController : ControllerBase
             return StatusCode(500, new { message = "Không thể khởi tạo lịch sử đồng bộ. Vui lòng thử lại sau." });
         }
 
-        int successCount, failedCount;
+        int successCount, failedCount, warningCount;
         List<string> errors;
         try
         {
-            (successCount, failedCount, errors) = normalizedType switch
+            (successCount, failedCount, warningCount, errors) = normalizedType switch
             {
                 SyncObjectType.Substation => await _executionService.SyncInfrastructureAsync(1, historyId, request.Items),
                 SyncObjectType.TransmissionLine => await _executionService.SyncInfrastructureAsync(2, historyId, request.Items),
@@ -136,7 +136,9 @@ public class PmisManualSyncController : ControllerBase
             return StatusCode(500, new { message });
         }
 
-        var finalStatus = successCount == 0 ? SyncHistoryStatus.Failed : SyncHistoryStatus.Success;
+        var finalStatus = successCount == 0
+            ? SyncHistoryStatus.Failed
+            : (warningCount > 0 ? SyncHistoryStatus.Warning : SyncHistoryStatus.Success);
         await _syncHistoryRepository.CompleteAsync(
             historyId, finalStatus, request.Items.Count, successCount, failedCount,
             errors.Count > 0 ? string.Join("; ", errors.Take(5)) : null);

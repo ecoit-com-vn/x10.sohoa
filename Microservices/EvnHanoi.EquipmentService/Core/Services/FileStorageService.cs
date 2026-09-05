@@ -118,6 +118,19 @@ public interface IFileStorageService
     string DossierBucketName { get; }
 
     string BuildDossierObjectKey(string unitCode, Guid dossierId, string fileName);
+
+    /// <summary>Upload tài liệu đồng bộ từ PMIS — không gắn Folder/Dossier nào (khác 2 luồng trên), chỉ
+    /// gắn theo đối tượng sở hữu (Trạm/Đường dây/Thiết bị), dùng bucket tài liệu chung sẵn có.</summary>
+    Task<(string ObjectKey, string VersionId)> UploadPmisDocumentAsync(
+        Stream fileStream,
+        string fileName,
+        string mimeType,
+        long fileSize,
+        string ownerType,
+        Guid ownerId,
+        CancellationToken cancellationToken = default);
+
+    string BuildPmisDocumentObjectKey(string ownerType, Guid ownerId, string fileName);
 }
 
 public class FileStorageService : IFileStorageService
@@ -415,6 +428,45 @@ public class FileStorageService : IFileStorageService
         _logger.LogInformation(
             "Uploaded dossier file to MinIO: {Bucket}/{ObjectKey} (DossierId: {DossierId}, Version: {Version})",
             _dossierBucket, objectKey, dossierId, stat.VersionId);
+        return (objectKey, stat.VersionId ?? "");
+    }
+
+    public string BuildPmisDocumentObjectKey(string ownerType, Guid ownerId, string fileName)
+    {
+        var safeName = SanitizeFileName(fileName);
+        var datePrefix = DateTime.UtcNow.ToString("yyyy/MM");
+        return $"pmis/{ownerType.ToLowerInvariant()}/{ownerId}/{datePrefix}/{Guid.NewGuid()}_{safeName}";
+    }
+
+    public async Task<(string ObjectKey, string VersionId)> UploadPmisDocumentAsync(
+        Stream fileStream,
+        string fileName,
+        string mimeType,
+        long fileSize,
+        string ownerType,
+        Guid ownerId,
+        CancellationToken cancellationToken = default)
+    {
+        var objectKey = BuildPmisDocumentObjectKey(ownerType, ownerId, fileName);
+        await EnsureBucketAsync(_documentBucket, cancellationToken);
+
+        var putArgs = new PutObjectArgs()
+            .WithBucket(_documentBucket)
+            .WithObject(objectKey)
+            .WithStreamData(fileStream)
+            .WithObjectSize(fileSize)
+            .WithContentType(mimeType);
+
+        await _minioClient.PutObjectAsync(putArgs, cancellationToken);
+
+        var statArgs = new StatObjectArgs()
+            .WithBucket(_documentBucket)
+            .WithObject(objectKey);
+        var stat = await _minioClient.StatObjectAsync(statArgs, cancellationToken);
+
+        _logger.LogInformation(
+            "Uploaded PMIS document to MinIO: {Bucket}/{ObjectKey} (OwnerType: {OwnerType}, OwnerId: {OwnerId})",
+            _documentBucket, objectKey, ownerType, ownerId);
         return (objectKey, stat.VersionId ?? "");
     }
 

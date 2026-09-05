@@ -24,7 +24,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         _pmisClient = pmisClient;
     }
 
-    public async Task<(int Success, int Failed, List<string> Errors)> SyncInfrastructureAsync(
+    public async Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncInfrastructureAsync(
         int infraTypeId, string syncHistoryId, IReadOnlyList<JsonElement> rawItems)
     {
         var upsertRequests = new List<UpsertInfrastructureFromPmisRequest>();
@@ -61,7 +61,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             }
         }
 
-        if (upsertRequests.Count == 0) return (0, 0, []);
+        if (upsertRequests.Count == 0) return (0, 0, 0, []);
 
         var results = await _equipmentServiceClient.UpsertInfrastructureAsync(upsertRequests);
 
@@ -89,13 +89,40 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         }
 
         await _syncHistoryRepository.InsertDetailsAsync(details);
-        return (successCount, results.Count - successCount, errors);
+
+        // Đồng bộ tài liệu đính kèm (API 8/9) cho từng Trạm/Đường dây vừa lưu thành công — lỗi ở bước này
+        // CHỈ ghi cảnh báo, không ảnh hưởng successCount/errors ở trên (xem SyncDocumentsForOwnerAsync).
+        var warnings = 0;
+        var docDetails = new List<SyncHistoryDetail>();
+        for (var i = 0; i < results.Count; i++)
+        {
+            if (!results[i].Success) continue;
+            var req = upsertRequests[i];
+            var isSubstationOrigin = req.InfraTypeId == 1;
+            var (w, d) = await SyncDocumentsForOwnerAsync(
+                ownerType: "INFRASTRUCTURE",
+                ownerPmisCode: req.PmisCode,
+                sourceName: req.Name,
+                isSubstationOrigin: isSubstationOrigin,
+                maTBA: isSubstationOrigin ? req.PmisCode : null,
+                maDuongDay: isSubstationOrigin ? null : req.PmisCode,
+                maTB: null,
+                syncHistoryId: syncHistoryId);
+            warnings += w;
+            docDetails.AddRange(d);
+        }
+        if (docDetails.Count > 0) await _syncHistoryRepository.InsertDetailsAsync(docDetails);
+
+        return (successCount, results.Count - successCount, warnings, errors);
     }
 
-    public async Task<(int Success, int Failed, List<string> Errors)> SyncEquipmentAsync(
+    public async Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncEquipmentAsync(
         string syncHistoryId, IReadOnlyList<JsonElement> rawItems)
     {
         var upsertRequests = new List<UpsertEquipmentFromPmisRequest>();
+        // Song song 1:1 với upsertRequests — giữ lại ngữ cảnh gốc (TBA hay đường dây, mã cha) để đồng bộ
+        // tài liệu đính kèm (API 8/9) đúng đối tượng sau khi thiết bị đã lưu thành công.
+        var origins = new List<(bool IsSubstationOrigin, string? MaTBA, string? MaDuongDay, string MaTB)>();
         foreach (var raw in rawItems)
         {
             var item = raw.Deserialize<EquipmentSaveShape>(JsonOptions)!;
@@ -155,6 +182,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 Code = maTB,
                 Name = tenTB,
                 EquipmentTypeCode = item.MaLoaiTB ?? string.Empty,
+                EquipmentTypeName = item.TenLoaiTB,
                 ParentPmisCode = item.MaTBA ?? item.MaDuongDay,
                 UnitCode = item.MaDonVi,
                 ManufactureYear = item.NamSanXuat,
@@ -162,9 +190,10 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 GridTypeId = gridTypeId,
                 ThongSoKyThuat = thongSoKyThuat
             });
+            origins.Add((isSubstationDevice, item.MaTBA, item.MaDuongDay, maTB));
         }
 
-        if (upsertRequests.Count == 0) return (0, 0, []);
+        if (upsertRequests.Count == 0) return (0, 0, 0, []);
 
         var results = await _equipmentServiceClient.UpsertEquipmentAsync(upsertRequests);
 
@@ -192,7 +221,132 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         }
 
         await _syncHistoryRepository.InsertDetailsAsync(details);
-        return (successCount, results.Count - successCount, errors);
+
+        // Đồng bộ tài liệu đính kèm (API 8/9) cho từng thiết bị vừa lưu thành công — theo đúng nguyên
+        // tắc "lỗi ở đây chỉ cảnh báo, không ảnh hưởng successCount/errors ở trên" (xem
+        // SyncDocumentsForOwnerAsync).
+        var warnings = 0;
+        var docDetails = new List<SyncHistoryDetail>();
+        for (var i = 0; i < results.Count; i++)
+        {
+            if (!results[i].Success) continue;
+            var origin = origins[i];
+            var (w, d) = await SyncDocumentsForOwnerAsync(
+                ownerType: "EQUIPMENT",
+                ownerPmisCode: origin.MaTB,
+                sourceName: upsertRequests[i].Name,
+                isSubstationOrigin: origin.IsSubstationOrigin,
+                maTBA: origin.MaTBA,
+                maDuongDay: origin.MaDuongDay,
+                maTB: origin.MaTB,
+                syncHistoryId: syncHistoryId);
+            warnings += w;
+            docDetails.AddRange(d);
+        }
+        if (docDetails.Count > 0) await _syncHistoryRepository.InsertDetailsAsync(docDetails);
+
+        return (successCount, results.Count - successCount, warnings, errors);
+    }
+
+    /// <summary>
+    /// Đồng bộ tài liệu đính kèm (API 8 SUBSTATION_DOCUMENT_LIST / API 9 LINE_DOCUMENT_LIST) cho 1 Trạm/
+    /// Đường dây/Thiết bị đã lưu thành công — tải file thật qua URL PMIS trả về, gửi base64 sang
+    /// EquipmentService để lưu MinIO. Lỗi ở BẤT KỲ bước nào (gọi API danh sách, tải file, lưu) đều CHỈ
+    /// tạo dòng SyncHistoryDetail trạng thái Warning — không throw ra ngoài, không được cộng vào
+    /// successCount/errors của bản ghi chính (Trạm/Đường dây/Thiết bị đã lưu xong trước khi gọi hàm này).
+    /// </summary>
+    private async Task<(int Warning, List<SyncHistoryDetail> Details)> SyncDocumentsForOwnerAsync(
+        string ownerType, string ownerPmisCode, string sourceName, bool isSubstationOrigin,
+        string? maTBA, string? maDuongDay, string? maTB, string syncHistoryId)
+    {
+        var details = new List<SyncHistoryDetail>();
+        try
+        {
+            List<(string MaTaiLieu, string? TenTaiLieu, string? LoaiTaiLieu, string? File)> items;
+            if (isSubstationOrigin)
+            {
+                var resp = await _pmisClient.GetSubstationDocumentsAsync(new PmisSubstationDocumentSearchRequest
+                {
+                    MaTBA = maTBA,
+                    MaTB = maTB,
+                    Take = 200
+                });
+                items = resp.Items.Select(d => (d.MaTaiLieu, d.TenTaiLieu, d.LoaiTaiLieu, d.File)).ToList();
+            }
+            else
+            {
+                var resp = await _pmisClient.GetLineDocumentsAsync(new PmisLineDocumentSearchRequest
+                {
+                    MaDuongDay = maDuongDay,
+                    MaTB = maTB,
+                    Take = 200
+                });
+                items = resp.Items.Select(d => (d.MaTaiLieu, d.TenTaiLieu, d.LoaiTaiLieu, d.File)).ToList();
+            }
+
+            if (items.Count == 0) return (0, details);
+
+            var requests = new List<UpsertPmisDocumentRequest>();
+            foreach (var doc in items)
+            {
+                if (string.IsNullOrWhiteSpace(doc.MaTaiLieu)) continue;
+
+                string? fileBase64 = null;
+                if (!string.IsNullOrWhiteSpace(doc.File))
+                {
+                    var bytes = await _pmisClient.DownloadDocumentFileAsync(doc.File);
+                    if (bytes is { Length: > 0 }) fileBase64 = Convert.ToBase64String(bytes);
+                }
+
+                requests.Add(new UpsertPmisDocumentRequest
+                {
+                    PmisDocumentCode = doc.MaTaiLieu,
+                    OwnerType = ownerType,
+                    OwnerPmisCode = ownerPmisCode,
+                    DocumentName = doc.TenTaiLieu,
+                    DocumentType = doc.LoaiTaiLieu,
+                    FileName = doc.TenTaiLieu ?? doc.MaTaiLieu,
+                    FileBase64 = fileBase64
+                });
+            }
+
+            if (requests.Count == 0) return (0, details);
+
+            var results = await _equipmentServiceClient.UpsertDocumentsAsync(requests);
+            var warningCount = 0;
+            foreach (var result in results)
+            {
+                var isWarning = !result.Success;
+                if (isWarning) warningCount++;
+
+                details.Add(new SyncHistoryDetail
+                {
+                    SyncHistoryId = syncHistoryId,
+                    SourceId = result.PmisDocumentCode,
+                    SourceCode = ownerPmisCode,
+                    SourceName = sourceName,
+                    ActionType = SyncActionType.Skip,
+                    Status = isWarning ? SyncDetailStatus.Warning : SyncDetailStatus.Success,
+                    ErrorMessage = result.ErrorMessage
+                });
+            }
+            return (warningCount, details);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "PmisSyncExecutionService: lỗi đồng bộ tài liệu cho {OwnerType} {OwnerPmisCode}.", ownerType, ownerPmisCode);
+            details.Add(new SyncHistoryDetail
+            {
+                SyncHistoryId = syncHistoryId,
+                SourceId = ownerPmisCode,
+                SourceCode = ownerPmisCode,
+                SourceName = sourceName,
+                ActionType = SyncActionType.Skip,
+                Status = SyncDetailStatus.Warning,
+                ErrorMessage = $"Lỗi đồng bộ tài liệu đính kèm: {ex.Message}"
+            });
+            return (1, details);
+        }
     }
 
     /// <summary>
@@ -240,6 +394,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         public string MaTB { get; set; } = string.Empty;
         public string TenTB { get; set; } = string.Empty;
         public string? MaLoaiTB { get; set; }
+        public string? TenLoaiTB { get; set; }
         public string? MaTBA { get; set; }
         public string? MaDuongDay { get; set; }
         public string? MaDonVi { get; set; }

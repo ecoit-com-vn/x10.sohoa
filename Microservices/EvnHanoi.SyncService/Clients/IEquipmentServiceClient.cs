@@ -10,6 +10,8 @@ public interface IEquipmentServiceClient
 
     /// <summary>Danh sách Trạm/Đường dây đã có PmisCode — dùng để lặp lấy thiết bị con khi auto-sync Thiết bị.</summary>
     Task<List<SyncedInfrastructurePmisCode>> GetSyncedInfrastructurePmisCodesAsync();
+
+    Task<List<UpsertPmisDocumentResult>> UpsertDocumentsAsync(List<UpsertPmisDocumentRequest> items);
 }
 
 public class SyncedInfrastructurePmisCode

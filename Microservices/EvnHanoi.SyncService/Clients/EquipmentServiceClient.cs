@@ -49,4 +49,17 @@ public class EquipmentServiceClient : IEquipmentServiceClient
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<List<SyncedInfrastructurePmisCode>>() ?? [];
     }
+
+    public async Task<List<UpsertPmisDocumentResult>> UpsertDocumentsAsync(List<UpsertPmisDocumentRequest> items)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "internal/v1/documents/upsert-from-pmis")
+        {
+            Content = JsonContent.Create(items)
+        };
+        request.Headers.Add("X-Internal-Token", _internalToken);
+
+        var response = await _httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<List<UpsertPmisDocumentResult>>() ?? [];
+    }
 }
