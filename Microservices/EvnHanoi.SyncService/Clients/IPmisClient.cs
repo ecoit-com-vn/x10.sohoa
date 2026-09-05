@@ -19,6 +19,10 @@ public interface IPmisClient
     /// <summary>Tải ảnh QR nhị phân thật (JPEG) theo mã thiết bị — trả null nếu API chưa cấu hình hoặc lỗi
     /// (không chặn phần còn lại của đồng bộ). Field maQRCode ở các API khác chỉ là URL, không phải base64.</summary>
     Task<byte[]?> GetDeviceQrImageBytesAsync(string idPmis);
+
+    /// <summary>Tải file nhị phân tài liệu đính kèm theo URL động (field "File" của API 8/9) — trả null
+    /// nếu lỗi, không throw (đồng bộ tài liệu không được chặn lượt đồng bộ chính).</summary>
+    Task<byte[]?> DownloadDocumentFileAsync(string fileUrl);
 }
 
 /// <summary>Báo lỗi nghiệp vụ khi 1 API PMIS chưa được cấu hình (chưa bật hoặc chưa nhập Url) qua màn "Cấu hình kết nối PMIS".</summary>

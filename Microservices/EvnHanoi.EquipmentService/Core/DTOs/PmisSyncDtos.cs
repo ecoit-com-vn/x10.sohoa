@@ -7,8 +7,12 @@ public class EquipmentPmisUpsertResult
     public bool WasCreated { get; set; }
     public string? ErrorMessage { get; set; }
 
-    public static EquipmentPmisUpsertResult Ok(Guid id, bool wasCreated) =>
-        new() { Success = true, EquipmentId = id, WasCreated = wasCreated };
+    /// <summary>Loại thiết bị đã tra/tự tạo (xem EquipmentRepository.ResolveOrCreateEquipmentTypeIdAsync)
+    /// — dùng ở tầng controller để tự tạo biểu mẫu thông số kỹ thuật nếu loại thiết bị chưa có.</summary>
+    public Guid? EquipmentTypeId { get; set; }
+
+    public static EquipmentPmisUpsertResult Ok(Guid id, bool wasCreated, Guid equipmentTypeId) =>
+        new() { Success = true, EquipmentId = id, WasCreated = wasCreated, EquipmentTypeId = equipmentTypeId };
 
     public static EquipmentPmisUpsertResult Fail(string message) =>
         new() { Success = false, ErrorMessage = message };
@@ -44,6 +48,7 @@ public class UpsertEquipmentFromPmisRequest
     public string Name { get; set; } = string.Empty;
     public string? SerialNumber { get; set; }
     public string EquipmentTypeCode { get; set; } = string.Empty; // maLoaiTB
+    public string? EquipmentTypeName { get; set; } // tenLoaiTB — dùng để đặt Name khi tự tạo EquipmentTypes mới
     public string? ParentPmisCode { get; set; } // maTBA hoặc maDuongDay
     public string? UnitCode { get; set; } // maDonVi
     public int? ManufactureYear { get; set; }
@@ -63,5 +68,26 @@ public class UpsertEquipmentFromPmisResult
     public bool Success { get; set; }
     public Guid? EquipmentId { get; set; }
     public bool WasCreated { get; set; }
+    public string? ErrorMessage { get; set; }
+}
+
+/// <summary>Payload endpoint nội bộ POST internal/v1/documents/upsert-from-pmis (gọi bởi SyncService).</summary>
+public class UpsertPmisDocumentRequest
+{
+    public string PmisDocumentCode { get; set; } = string.Empty; // maTaiLieu
+    public string OwnerType { get; set; } = string.Empty;        // INFRASTRUCTURE | EQUIPMENT
+    public string OwnerPmisCode { get; set; } = string.Empty;    // maTBA/maDuongDay/maTB — dò OwnerId phía server
+    public string? DocumentName { get; set; }
+    public string? DocumentType { get; set; }
+    public string? FileName { get; set; }
+    public string? FileBase64 { get; set; }                     // null nếu SyncService tải file thất bại
+    public string? SyncHistoryId { get; set; }
+}
+
+public class UpsertPmisDocumentResult
+{
+    public string PmisDocumentCode { get; set; } = string.Empty;
+    public bool Success { get; set; }
+    public bool WasSkippedAsExisting { get; set; }
     public string? ErrorMessage { get; set; }
 }

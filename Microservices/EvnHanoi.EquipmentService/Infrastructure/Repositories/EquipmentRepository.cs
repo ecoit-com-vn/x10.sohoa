@@ -1511,7 +1511,7 @@ StatusTransition,
     public async Task<EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult> UpsertFromPmisAsync(
         string pmisCode, string code, string name, string? serialNumber,
         string equipmentTypeCode, string? parentPmisCode, string? unitCode,
-        int? manufactureYear, string? qrCodeBase64, int? gridTypeId = null)
+        int? manufactureYear, string? qrCodeBase64, int? gridTypeId = null, string? equipmentTypeName = null)
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
@@ -1541,9 +1541,22 @@ StatusTransition,
 
         if (equipmentTypeId == null)
         {
-            var gridLabel = effectiveGridTypeId switch { 1 => "Cao áp", 2 => "Trung áp", 3 => "Hạ áp", _ => "chưa xác định" };
-            return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
-                $"Chưa cấu hình ánh xạ loại thiết bị PMIS '{equipmentTypeCode}' (cấp {gridLabel}) — vào Quản trị hệ thống > Ánh xạ loại thiết bị PMIS để bổ sung.");
+            if (effectiveGridTypeId == null)
+            {
+                return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
+                    "Không xác định được cấp điện áp của thiết bị nên chưa thể tự động tạo/ánh xạ loại thiết bị (capDienAp trống hoặc không đọc được).");
+            }
+
+            // Chặn mã loại thiết bị PMIS rỗng — nếu không chặn, mọi thiết bị PMIS thiếu maLoaiTB (dù
+            // thuộc loại thật khác nhau) sẽ bị ResolveOrCreateEquipmentTypeIdAsync gộp chung vào 1
+            // EquipmentTypes rác có Code = "_TA"/"_CA"/"_HA" (tự tạo lần đầu, tái dùng các lần sau).
+            if (string.IsNullOrWhiteSpace(equipmentTypeCode))
+            {
+                return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
+                    "PMIS không trả về mã loại thiết bị (maLoaiTB) cho thiết bị này nên chưa thể tự động tạo/ánh xạ loại thiết bị.");
+            }
+
+            equipmentTypeId = await ResolveOrCreateEquipmentTypeIdAsync(equipmentTypeCode, equipmentTypeName, effectiveGridTypeId.Value);
         }
 
         // Mã đơn vị PMIS (vd. "HN0200") KHÔNG khớp trực tiếp ORGANIZATION_UNIT.Code (vd. "HN02") —
@@ -1564,10 +1577,13 @@ StatusTransition,
             // UPDATE để giữ lại ảnh đã có, không xoá trắng dữ liệu cũ. Không dùng COALESCE được vì Oracle
             // suy tham số bind đầu tiên thành CHAR rồi báo ORA-00932 khi so với cột CLOB.
             var hasQrCode = !string.IsNullOrEmpty(qrCodeBase64);
+            // EquipmentTypeId GIỜ được cập nhật lại mỗi lần resync (trước đây bỏ sót — nếu admin sửa lại
+            // 1 ánh xạ loại thiết bị sai qua màn "Ánh xạ loại thiết bị PMIS", thiết bị đã đồng bộ trước đó
+            // sẽ không bao giờ được chuyển sang loại đúng khi resync).
             var updateSql = $@"UPDATE EQUIPMENTS
                         SET Name = :Name, Code = :Code, SerialNumber = :SerialNumber,
                             INFRASTRUCTURE_ID = :InfrastructureId, MANUFACTURE_YEAR = :ManufactureYear,
-                            UnitId = :UnitId, {(hasQrCode ? "QR_CODE = :QrCode," : string.Empty)}
+                            UnitId = :UnitId, EquipmentTypeId = :EquipmentTypeId, {(hasQrCode ? "QR_CODE = :QrCode," : string.Empty)}
                             LAST_SYNCED_FROM_PMIS_AT = SYSTIMESTAMP,
                             ModifiedBy = :ModifiedBy, ModifiedDate = SYSTIMESTAMP
                         WHERE Id = :Id";
@@ -1581,6 +1597,7 @@ StatusTransition,
                 InfrastructureId = infrastructureId,
                 ManufactureYear = manufactureYear,
                 UnitId = unitId,
+                EquipmentTypeId = equipmentTypeId,
                 ModifiedBy = "PMIS_SYNC"
             });
             if (hasQrCode)
@@ -1589,7 +1606,7 @@ StatusTransition,
             }
 
             await _connection.ExecuteAsync(updateSql, updateParameters);
-            return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Ok(Guid.Parse(existingId), false);
+            return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Ok(Guid.Parse(existingId), false, Guid.Parse(equipmentTypeId));
         }
 
         var newId = Guid.Parse(EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid());
@@ -1615,6 +1632,73 @@ StatusTransition,
             PmisCode = pmisCode,
             QrCode = EvnHanoi.Infrastructure.Database.OracleClob.Param(qrCodeBase64)
         });
-        return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Ok(newId, true);
+        return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Ok(newId, true, Guid.Parse(equipmentTypeId));
+    }
+
+    /// <summary>
+    /// Tra ánh xạ loại thiết bị PMIS ↔ EquipmentTypes; nếu chưa có thì TỰ ĐỘNG tạo cả 2 (đảo ngược thiết
+    /// kế cũ vốn cố ý fail-cứng chờ Admin cấu hình tay — xem BAO_CAO_TEST_API_PMIS_GATEWAY_THAT.md và
+    /// Migration0052). Quy ước mã tự tạo: "&lt;maLoaiTB PMIS&gt;_&lt;CA|TA|HA&gt;" — trùng đúng cách admin đã đặt
+    /// tay từ trước (vd. PMIS "MBA" + Trung áp → "MBA_TA", đã tồn tại thật) nên ưu tiên tái dùng nếu có,
+    /// giảm rủi ro tạo trùng ý nghĩa loại thiết bị. Race 2 tiến trình cùng tạo mới được bắt bằng
+    /// ORA-00001 (EquipmentTypes.Code UNIQUE, PMIS_EQUIPMENT_TYPE_MAPPING có UX_PMIS_EQTYPE_MAPPING_ACTIVE).
+    /// </summary>
+    private async Task<string> ResolveOrCreateEquipmentTypeIdAsync(string pmisCode, string? pmisName, int gridTypeId)
+    {
+        var gridSuffix = gridTypeId switch { 1 => "CA", 2 => "TA", 3 => "HA", _ => "KX" };
+        var autoCode = $"{pmisCode}_{gridSuffix}";
+
+        var existingTypeId = await _connection.QuerySingleOrDefaultAsync<string?>(
+            "SELECT Id FROM EquipmentTypes WHERE Code = :Code AND IsDeleted = 0", new { Code = autoCode });
+
+        string equipmentTypeId;
+        if (existingTypeId != null)
+        {
+            equipmentTypeId = existingTypeId;
+        }
+        else
+        {
+            equipmentTypeId = EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid();
+            try
+            {
+                await _connection.ExecuteAsync(
+                    @"INSERT INTO EquipmentTypes (Id, Code, Name, Description, GridTypeId, IsActive, CreatedBy, CreatedAt, IsDeleted)
+                      VALUES (:Id, :Code, :Name, :Description, :GridTypeId, 1, 'PMIS_SYNC', SYSTIMESTAMP, 0)",
+                    new
+                    {
+                        Id = equipmentTypeId,
+                        Code = autoCode,
+                        Name = string.IsNullOrWhiteSpace(pmisName) ? autoCode : pmisName,
+                        Description = $"Tự động tạo từ PMIS (mã loại thiết bị PMIS gốc: {pmisCode}).",
+                        GridTypeId = gridTypeId
+                    });
+            }
+            catch (Exception ex) when (ex.Message.Contains("ORA-00001", StringComparison.OrdinalIgnoreCase))
+            {
+                // Trùng Code do race (2 tiến trình cùng tạo loại thiết bị mới) — tra lại lấy Id thật.
+                equipmentTypeId = await _connection.QuerySingleAsync<string>(
+                    "SELECT Id FROM EquipmentTypes WHERE Code = :Code AND IsDeleted = 0", new { Code = autoCode });
+            }
+        }
+
+        try
+        {
+            await _connection.ExecuteAsync(
+                @"INSERT INTO PMIS_EQUIPMENT_TYPE_MAPPING (Id, PmisMaLoaiTB, GridTypeId, EquipmentTypeId, CreatedBy)
+                  VALUES (:Id, :Code, :GridTypeId, :EquipmentTypeId, 'PMIS_SYNC')",
+                new
+                {
+                    Id = EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid(),
+                    Code = pmisCode,
+                    GridTypeId = gridTypeId,
+                    EquipmentTypeId = equipmentTypeId
+                });
+        }
+        catch (Exception ex) when (ex.Message.Contains("ORA-00001", StringComparison.OrdinalIgnoreCase))
+        {
+            // Ánh xạ đã được 1 tiến trình khác tạo đúng lúc — equipmentTypeId tra ở trên vẫn dùng được.
+        }
+
+        return equipmentTypeId;
     }
 }
