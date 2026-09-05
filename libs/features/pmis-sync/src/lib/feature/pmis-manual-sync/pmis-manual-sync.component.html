@@ -112,8 +112,13 @@
               <td>{{ h.syncType === 'MANUAL' ? 'Thủ công' : 'Tự động' }}</td>
               <td>
                 <span
-                  [class]="h.status === 'SUCCESS' ? 'status-pill status-active' : h.status === 'FAILED' ? 'status-pill status-inactive' : 'status-pill'"
-                >{{ h.status === 'SUCCESS' ? 'Thành công' : h.status === 'FAILED' ? 'Thất bại' : 'Đang chạy' }}</span>
+                  class="status-pill"
+                  [class.status-active]="h.status === 'SUCCESS'"
+                  [class.status-inactive]="h.status === 'FAILED'"
+                  [style.background]="h.status === 'WARNING' ? '#fffbeb' : null"
+                  [style.color]="h.status === 'WARNING' ? '#b45309' : null"
+                  [style.border]="h.status === 'WARNING' ? '1px solid #fde68a' : null"
+                >{{ h.status === 'SUCCESS' ? 'Thành công' : h.status === 'FAILED' ? 'Thất bại' : h.status === 'WARNING' ? 'Cảnh báo' : 'Đang chạy' }}</span>
               </td>
               <td>{{ h.totalRecords }}</td>
               <td>{{ h.successRecords }}</td>
@@ -239,8 +244,15 @@
             <td>{{ getParentName(d.dataContent) }}</td>
             <td>{{ d.actionType === 'CREATE' ? 'Tạo mới' : d.actionType === 'UPDATE' ? 'Cập nhật' : 'Bỏ qua' }}</td>
             <td>
-              <span [class]="d.status === 'SUCCESS' ? 'status-pill status-active' : 'status-pill status-inactive'">
-                {{ d.status === 'SUCCESS' ? 'Thành công' : 'Lỗi' }}
+              <span
+                class="status-pill"
+                [class.status-active]="d.status === 'SUCCESS'"
+                [class.status-inactive]="d.status === 'FAILED'"
+                [style.background]="d.status === 'WARNING' ? '#fffbeb' : null"
+                [style.color]="d.status === 'WARNING' ? '#b45309' : null"
+                [style.border]="d.status === 'WARNING' ? '1px solid #fde68a' : null"
+              >
+                {{ d.status === 'SUCCESS' ? 'Thành công' : d.status === 'WARNING' ? 'Cảnh báo' : 'Lỗi' }}
               </span>
             </td>
             <td class="note-cell">{{ d.errorMessage || '---' }}</td>
