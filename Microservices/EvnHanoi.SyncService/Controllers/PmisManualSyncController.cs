@@ -7,6 +7,7 @@ using EvnHanoi.SyncService.Repositories;
 using EvnHanoi.SyncService.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Serilog;
 
 namespace EvnHanoi.SyncService.Controllers;
 
@@ -74,24 +75,66 @@ public class PmisManualSyncController : ControllerBase
         if (request.Items.Count == 0)
             return BadRequest(new { message = "Chưa chọn bản ghi nào để đồng bộ." });
 
-        var syncConfig = await _syncConfigRepository.GetByObjectTypeAsync(normalizedType);
-        var historyId = await _syncHistoryRepository.CreateAsync(new SyncHistory
+        string historyId;
+        try
         {
-            SyncConfigId = syncConfig?.Id ?? string.Empty,
-            ObjectType = normalizedType,
-            SyncType = SyncType.Manual,
-            StartTime = DateTime.UtcNow,
-            Status = SyncHistoryStatus.Running,
-            CreatedBy = CurrentUserName()
-        });
+            var syncConfig = await _syncConfigRepository.GetByObjectTypeAsync(normalizedType);
+            historyId = await _syncHistoryRepository.CreateAsync(new SyncHistory
+            {
+                SyncConfigId = syncConfig?.Id ?? string.Empty,
+                ObjectType = normalizedType,
+                SyncType = SyncType.Manual,
+                StartTime = DateTime.UtcNow,
+                Status = SyncHistoryStatus.Running,
+                CreatedBy = CurrentUserName()
+            });
+        }
+        catch (Exception ex)
+        {
+            // Lỗi ngay khi khởi tạo lịch sử đồng bộ (DB SyncService) — chưa gọi gì tới EquipmentService/PMIS.
+            Log.Error(ex, "PmisManualSyncController.Save: lỗi khởi tạo lịch sử đồng bộ cho {ObjectType}.", normalizedType);
+            return StatusCode(500, new { message = "Không thể khởi tạo lịch sử đồng bộ. Vui lòng thử lại sau." });
+        }
 
-        var (successCount, failedCount, errors) = normalizedType switch
+        int successCount, failedCount;
+        List<string> errors;
+        try
         {
-            SyncObjectType.Substation => await _executionService.SyncInfrastructureAsync(1, historyId, request.Items),
-            SyncObjectType.TransmissionLine => await _executionService.SyncInfrastructureAsync(2, historyId, request.Items),
-            SyncObjectType.Equipment => await _executionService.SyncEquipmentAsync(historyId, request.Items),
-            _ => throw new InvalidOperationException()
-        };
+            (successCount, failedCount, errors) = normalizedType switch
+            {
+                SyncObjectType.Substation => await _executionService.SyncInfrastructureAsync(1, historyId, request.Items),
+                SyncObjectType.TransmissionLine => await _executionService.SyncInfrastructureAsync(2, historyId, request.Items),
+                SyncObjectType.Equipment => await _executionService.SyncEquipmentAsync(historyId, request.Items),
+                _ => throw new InvalidOperationException()
+            };
+        }
+        catch (Exception ex)
+        {
+            // Không để lỗi bay thẳng thành 500 vô danh — trước đây action này không bắt gì cả nên mọi lỗi
+            // gọi sang EquipmentService (token nội bộ sai cấu hình, EquipmentService sập, lỗi DB không
+            // nằm trong vòng try/catch theo từng bản ghi ở InternalPmisSyncController, vd. ghi
+            // SYNC_HISTORY_DETAIL) đều thành "Lỗi máy chủ nội bộ" và KHÔNG được log ở đâu cả (SyncService
+          // không có UseExceptionHandler/UseSerilogRequestLogging toàn cục). Log lại đây để tra được
+            // trong Elasticsearch (index app_logs-*) hoặc Logs/log-*.txt, đồng thời đánh dấu lịch sử đồng
+            // bộ là Failed thay vì để mãi ở trạng thái Running.
+            Log.Error(ex, "PmisManualSyncController.Save: lỗi khi lưu dữ liệu {ObjectType}, syncHistoryId={SyncHistoryId}.", normalizedType, historyId);
+
+            try
+            {
+                await _syncHistoryRepository.CompleteAsync(
+                    historyId, SyncHistoryStatus.Failed, request.Items.Count, 0, request.Items.Count,
+                    "Lỗi hệ thống khi lưu dữ liệu — xem log SyncService để biết chi tiết.");
+            }
+            catch (Exception completeEx)
+            {
+                Log.Error(completeEx, "PmisManualSyncController.Save: lỗi khi cập nhật trạng thái Failed cho syncHistoryId={SyncHistoryId}.", historyId);
+            }
+
+            var message = ex is HttpRequestException or TimeoutException or TaskCanceledException
+                ? "Không lưu được dữ liệu — dịch vụ EquipmentService đang gặp sự cố hoặc không phản hồi. Vui lòng thử lại sau hoặc liên hệ quản trị hệ thống."
+                : "Không lưu được dữ liệu do lỗi hệ thống. Vui lòng thử lại sau hoặc liên hệ quản trị hệ thống.";
+            return StatusCode(500, new { message });
+        }
 
         var finalStatus = successCount == 0 ? SyncHistoryStatus.Failed : SyncHistoryStatus.Success;
         await _syncHistoryRepository.CompleteAsync(
