@@ -81,6 +81,7 @@ public class UpsertPmisDocumentRequest
     public string? DocumentType { get; set; }
     public string? FileName { get; set; }
     public string? FileBase64 { get; set; }                     // null nếu SyncService tải file thất bại
+    public string? SyncHistoryId { get; set; }
 }
 
 public class UpsertPmisDocumentResult

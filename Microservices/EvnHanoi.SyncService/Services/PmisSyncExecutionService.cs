@@ -11,6 +11,8 @@ namespace EvnHanoi.SyncService.Services;
 public class PmisSyncExecutionService : IPmisSyncExecutionService
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+    private const int DocumentPageSize = 200;
+    private const int DocumentMaxPages = 50; // an toàn: tối đa 10.000 tài liệu/đối tượng/lần đồng bộ
 
     private readonly IEquipmentServiceClient _equipmentServiceClient;
     private readonly ISyncHistoryRepository _syncHistoryRepository;
@@ -262,26 +264,35 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         var details = new List<SyncHistoryDetail>();
         try
         {
-            List<(string MaTaiLieu, string? TenTaiLieu, string? LoaiTaiLieu, string? File)> items;
-            if (isSubstationOrigin)
+            var items = new List<(string MaTaiLieu, string? TenTaiLieu, string? LoaiTaiLieu, string? File)>();
+            var skip = 0;
+            for (var page = 0; page < DocumentMaxPages; page++)
             {
-                var resp = await _pmisClient.GetSubstationDocumentsAsync(new PmisSubstationDocumentSearchRequest
+                if (isSubstationOrigin)
                 {
-                    MaTBA = maTBA,
-                    MaTB = maTB,
-                    Take = 200
-                });
-                items = resp.Items.Select(d => (d.MaTaiLieu, d.TenTaiLieu, d.LoaiTaiLieu, d.File)).ToList();
-            }
-            else
-            {
-                var resp = await _pmisClient.GetLineDocumentsAsync(new PmisLineDocumentSearchRequest
+                    var resp = await _pmisClient.GetSubstationDocumentsAsync(new PmisSubstationDocumentSearchRequest
+                    {
+                        MaTBA = maTBA,
+                        MaTB = maTB,
+                        Skip = skip,
+                        Take = DocumentPageSize
+                    });
+                    items.AddRange(resp.Items.Select(d => (d.MaTaiLieu, d.TenTaiLieu, d.LoaiTaiLieu, d.File)));
+                    if (resp.Items.Count < DocumentPageSize || items.Count >= resp.Total) break;
+                }
+                else
                 {
-                    MaDuongDay = maDuongDay,
-                    MaTB = maTB,
-                    Take = 200
-                });
-                items = resp.Items.Select(d => (d.MaTaiLieu, d.TenTaiLieu, d.LoaiTaiLieu, d.File)).ToList();
+                    var resp = await _pmisClient.GetLineDocumentsAsync(new PmisLineDocumentSearchRequest
+                    {
+                        MaDuongDay = maDuongDay,
+                        MaTB = maTB,
+                        Skip = skip,
+                        Take = DocumentPageSize
+                    });
+                    items.AddRange(resp.Items.Select(d => (d.MaTaiLieu, d.TenTaiLieu, d.LoaiTaiLieu, d.File)));
+                    if (resp.Items.Count < DocumentPageSize || items.Count >= resp.Total) break;
+                }
+                skip += DocumentPageSize;
             }
 
             if (items.Count == 0) return (0, details);
@@ -306,7 +317,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                     DocumentName = doc.TenTaiLieu,
                     DocumentType = doc.LoaiTaiLieu,
                     FileName = doc.TenTaiLieu ?? doc.MaTaiLieu,
-                    FileBase64 = fileBase64
+                    FileBase64 = fileBase64,
+                    SyncHistoryId = syncHistoryId
                 });
             }
 

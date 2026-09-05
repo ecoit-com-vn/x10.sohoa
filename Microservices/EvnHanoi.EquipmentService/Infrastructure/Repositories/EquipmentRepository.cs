@@ -1547,6 +1547,15 @@ StatusTransition,
                     "Không xác định được cấp điện áp của thiết bị nên chưa thể tự động tạo/ánh xạ loại thiết bị (capDienAp trống hoặc không đọc được).");
             }
 
+            // Chặn mã loại thiết bị PMIS rỗng — nếu không chặn, mọi thiết bị PMIS thiếu maLoaiTB (dù
+            // thuộc loại thật khác nhau) sẽ bị ResolveOrCreateEquipmentTypeIdAsync gộp chung vào 1
+            // EquipmentTypes rác có Code = "_TA"/"_CA"/"_HA" (tự tạo lần đầu, tái dùng các lần sau).
+            if (string.IsNullOrWhiteSpace(equipmentTypeCode))
+            {
+                return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
+                    "PMIS không trả về mã loại thiết bị (maLoaiTB) cho thiết bị này nên chưa thể tự động tạo/ánh xạ loại thiết bị.");
+            }
+
             equipmentTypeId = await ResolveOrCreateEquipmentTypeIdAsync(equipmentTypeCode, equipmentTypeName, effectiveGridTypeId.Value);
         }
 
@@ -1568,10 +1577,13 @@ StatusTransition,
             // UPDATE để giữ lại ảnh đã có, không xoá trắng dữ liệu cũ. Không dùng COALESCE được vì Oracle
             // suy tham số bind đầu tiên thành CHAR rồi báo ORA-00932 khi so với cột CLOB.
             var hasQrCode = !string.IsNullOrEmpty(qrCodeBase64);
+            // EquipmentTypeId GIỜ được cập nhật lại mỗi lần resync (trước đây bỏ sót — nếu admin sửa lại
+            // 1 ánh xạ loại thiết bị sai qua màn "Ánh xạ loại thiết bị PMIS", thiết bị đã đồng bộ trước đó
+            // sẽ không bao giờ được chuyển sang loại đúng khi resync).
             var updateSql = $@"UPDATE EQUIPMENTS
                         SET Name = :Name, Code = :Code, SerialNumber = :SerialNumber,
                             INFRASTRUCTURE_ID = :InfrastructureId, MANUFACTURE_YEAR = :ManufactureYear,
-                            UnitId = :UnitId, {(hasQrCode ? "QR_CODE = :QrCode," : string.Empty)}
+                            UnitId = :UnitId, EquipmentTypeId = :EquipmentTypeId, {(hasQrCode ? "QR_CODE = :QrCode," : string.Empty)}
                             LAST_SYNCED_FROM_PMIS_AT = SYSTIMESTAMP,
                             ModifiedBy = :ModifiedBy, ModifiedDate = SYSTIMESTAMP
                         WHERE Id = :Id";
@@ -1585,6 +1597,7 @@ StatusTransition,
                 InfrastructureId = infrastructureId,
                 ManufactureYear = manufactureYear,
                 UnitId = unitId,
+                EquipmentTypeId = equipmentTypeId,
                 ModifiedBy = "PMIS_SYNC"
             });
             if (hasQrCode)

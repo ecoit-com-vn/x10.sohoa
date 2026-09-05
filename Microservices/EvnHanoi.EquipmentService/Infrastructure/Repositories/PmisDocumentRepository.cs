@@ -27,9 +27,18 @@ public class PmisDocumentRepository : IPmisDocumentRepository
     {
         EnsureOpen();
 
-        var sql = ownerType == "INFRASTRUCTURE"
-            ? "SELECT Id FROM INFRASTRUCTURE WHERE PMIS_CODE = :Code AND IsDeleted = 0"
-            : "SELECT Id FROM EQUIPMENTS WHERE PMIS_CODE = :Code AND IsDeleted = 0";
+        string sql;
+        switch (ownerType)
+        {
+            case "INFRASTRUCTURE":
+                sql = "SELECT Id FROM INFRASTRUCTURE WHERE PMIS_CODE = :Code AND IsDeleted = 0";
+                break;
+            case "EQUIPMENT":
+                sql = "SELECT Id FROM EQUIPMENTS WHERE PMIS_CODE = :Code AND IsDeleted = 0";
+                break;
+            default:
+                return null;
+        }
 
         var id = await _connection.QuerySingleOrDefaultAsync<string?>(sql, new { Code = ownerPmisCode });
         return id != null ? Guid.Parse(id) : null;
@@ -41,9 +50,9 @@ public class PmisDocumentRepository : IPmisDocumentRepository
 
         const string sql = @"
             INSERT INTO PMIS_DOCUMENT (
-                Id, PmisDocumentCode, OwnerType, OwnerId, DocumentName, DocumentType, ObjectKey, FileSize, CreatedBy
+                Id, PmisDocumentCode, OwnerType, OwnerId, DocumentName, DocumentType, ObjectKey, FileSize, SyncHistoryId, CreatedBy
             ) VALUES (
-                :Id, :PmisDocumentCode, :OwnerType, :OwnerId, :DocumentName, :DocumentType, :ObjectKey, :FileSize, 'PMIS_SYNC'
+                :Id, :PmisDocumentCode, :OwnerType, :OwnerId, :DocumentName, :DocumentType, :ObjectKey, :FileSize, :SyncHistoryId, 'PMIS_SYNC'
             )";
 
         await _connection.ExecuteAsync(sql, new
@@ -55,7 +64,8 @@ public class PmisDocumentRepository : IPmisDocumentRepository
             DocumentName = item.DocumentName,
             DocumentType = item.DocumentType,
             ObjectKey = objectKey,
-            FileSize = fileSize
+            FileSize = fileSize,
+            SyncHistoryId = item.SyncHistoryId
         });
     }
 
