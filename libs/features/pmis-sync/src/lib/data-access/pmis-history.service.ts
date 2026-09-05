@@ -10,7 +10,7 @@ export interface SyncHistory {
   syncType: 'AUTO' | 'MANUAL';
   startTime: string;
   endTime: string | null;
-  status: 'RUNNING' | 'SUCCESS' | 'FAILED';
+  status: 'RUNNING' | 'SUCCESS' | 'FAILED' | 'WARNING';
   totalRecords: number;
   successRecords: number;
   failedRecords: number;
@@ -25,7 +25,7 @@ export interface SyncHistoryDetail {
   sourceName: string | null;
   targetId: string | null;
   actionType: 'CREATE' | 'UPDATE' | 'SKIP';
-  status: 'SUCCESS' | 'FAILED';
+  status: 'SUCCESS' | 'FAILED' | 'WARNING';
   dataContent: string | null;
   errorMessage: string | null;
   syncTime: string;
