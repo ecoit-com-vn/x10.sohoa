@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, computed, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
@@ -7,7 +7,7 @@ import { MessageService } from 'primeng/api';
 import { finalize } from 'rxjs';
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { PmisFrequencyUnit, PmisScheduleService, SyncConfig } from '../../data-access/pmis-schedule.service';
-import { PmisHistoryService, SyncHistory, SyncHistoryDetail } from '../../data-access/pmis-history.service';
+import { groupConsecutiveFailures, PmisHistoryService, SyncHistory, SyncHistoryDetail } from '../../data-access/pmis-history.service';
 
 interface EditForm {
   objectType: string;
@@ -54,6 +54,7 @@ export class PmisScheduleComponent implements OnInit {
   historyDialogVisible = signal(false);
   historyLoading = signal(false);
   historyItems = signal<SyncHistory[]>([]);
+  displayHistoryItems = computed(() => groupConsecutiveFailures(this.historyItems()));
   historyTarget = signal<string | null>(null);
 
   historyDetailDialogVisible = signal(false);

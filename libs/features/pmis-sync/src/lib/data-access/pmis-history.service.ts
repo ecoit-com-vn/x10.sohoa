@@ -31,6 +31,36 @@ export interface SyncHistoryDetail {
   syncTime: string;
 }
 
+export interface GroupedSyncHistory extends SyncHistory {
+  /** > 1 nghĩa là dòng này đại diện cho N lần "Thất bại" liên tiếp giống nhau (cùng đối tượng, 0 bản ghi). */
+  groupedCount?: number;
+  /** startTime của lần cũ nhất trong nhóm — items đến theo thứ tự mới nhất trước nên đây là mốc nhỏ hơn `startTime`. */
+  groupedFrom?: string;
+}
+
+/**
+ * Gộp các dòng "Thất bại" liên tiếp (0 bản ghi, cùng đối tượng) thành 1 dòng đại diện — tránh rối mắt
+ * khi PMIS sập kéo dài sinh ra hàng chục dòng thất bại giống hệt nhau trong Lịch sử đồng bộ. Chỉ gộp
+ * hiển thị trên dữ liệu đã tải về (trang hiện tại) — không đổi gì ở API/backend.
+ */
+export function groupConsecutiveFailures(items: SyncHistory[]): GroupedSyncHistory[] {
+  const result: GroupedSyncHistory[] = [];
+  for (const item of items) {
+    const prev = result[result.length - 1];
+    const isNoopFailure = item.status === 'FAILED' && item.totalRecords === 0;
+    const prevIsSameGroup =
+      !!prev && prev.status === 'FAILED' && prev.totalRecords === 0 && prev.objectType === item.objectType;
+
+    if (isNoopFailure && prevIsSameGroup) {
+      prev.groupedCount = (prev.groupedCount ?? 1) + 1;
+      prev.groupedFrom = item.startTime;
+      continue;
+    }
+    result.push({ ...item });
+  }
+  return result;
+}
+
 @Injectable({ providedIn: 'root' })
 export class PmisHistoryService {
   private readonly http = inject(HttpClient);
