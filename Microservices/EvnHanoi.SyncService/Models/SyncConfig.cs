@@ -11,6 +11,11 @@ public class SyncConfig
     public DateTime? LastSyncAt { get; set; }
     public DateTime? NextSyncAt { get; set; }
     public int RowVersion { get; set; }
+
+    /// <summary>Số lần đồng bộ tự động lỗi liên tiếp ngay từ bước gọi danh sách PMIS — reset về 0 khi
+    /// có 1 lượt chạy xong bình thường (kể cả Failed vì 0/n item thành công). Dùng để backoff tăng dần
+    /// và quyết định khi nào cảnh báo admin — xem PmisScheduledSyncJob.</summary>
+    public int ConsecutiveFailureCount { get; set; }
 }
 
 public class UpdateSyncConfigRequest
