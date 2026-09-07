@@ -46,6 +46,7 @@ builder.Services.AddScoped<IPmisEndpointConfigProvider, PmisEndpointConfigProvid
 builder.Services.AddScoped<ISyncConfigRepository, SyncConfigRepository>();
 builder.Services.AddScoped<ISyncHistoryRepository, SyncHistoryRepository>();
 builder.Services.AddScoped<IPmisClient, PmisClient>();
+builder.Services.AddScoped<IInteractivePmisClient, InteractivePmisClient>();
 builder.Services.AddScoped<IEquipmentServiceClient, EquipmentServiceClient>();
 builder.Services.AddScoped<IPmisSyncExecutionService, PmisSyncExecutionService>();
 
@@ -95,6 +96,14 @@ var circuitBreakerPolicy = HttpPolicyExtensions
     .HandleTransientHttpError()
     .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30));
 
+// Circuit breaker RIÊNG cho HttpClient "PMIS-Interactive" (xem PmisClient/InteractivePmisClient) — nếu
+// dùng chung 1 policy instance với "PMIS", 5 lỗi liên tiếp của đồng bộ nền (tự động theo lịch/Lưu thủ
+// công) sẽ "mở mạch" luôn cho cả API Tra cứu/Tìm kiếm tương tác, khoá màn hình người dùng đang chờ
+// trong 30s dù bản thân API đó có thể vẫn gọi được PMIS bình thường.
+var interactiveCircuitBreakerPolicy = HttpPolicyExtensions
+    .HandleTransientHttpError()
+    .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30));
+
 var timeoutPolicy = Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromSeconds(10));
 
 var bulkheadPolicy = Policy.BulkheadAsync<HttpResponseMessage>(10, 20); // Concurrency Limiter for CA
@@ -106,6 +115,16 @@ builder.Services.AddHttpClient("PMIS", client =>
 })
 .AddPolicyHandler(retryPolicy)
 .AddPolicyHandler(circuitBreakerPolicy)
+.AddPolicyHandler(timeoutPolicy);
+
+// 3b. PMIS HttpClient — bản dành cho API tra cứu/tìm kiếm tương tác, cùng cấu hình base URL/timeout/
+// retry nhưng circuit breaker riêng (interactiveCircuitBreakerPolicy) — xem InteractivePmisClient.
+builder.Services.AddHttpClient("PMIS-Interactive", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Endpoints:PMIS"] ?? "https://api.pmis.mock/");
+})
+.AddPolicyHandler(retryPolicy)
+.AddPolicyHandler(interactiveCircuitBreakerPolicy)
 .AddPolicyHandler(timeoutPolicy);
 
 // 4. CA HttpClient

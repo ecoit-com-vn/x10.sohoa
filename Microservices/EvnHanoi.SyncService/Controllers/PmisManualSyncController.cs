@@ -27,7 +27,7 @@ public class PmisManualSyncController : ControllerBase
     private readonly ISyncHistoryRepository _syncHistoryRepository;
 
     public PmisManualSyncController(
-        IPmisClient pmisClient,
+        IInteractivePmisClient pmisClient,
         IPmisSyncExecutionService executionService,
         ISyncConfigRepository syncConfigRepository,
         ISyncHistoryRepository syncHistoryRepository)
