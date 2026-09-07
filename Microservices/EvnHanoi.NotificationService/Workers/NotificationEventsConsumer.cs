@@ -107,6 +107,10 @@ public sealed class NotificationEventsConsumer : BackgroundService
                 await HandleEquipmentDossierTransferredAsync(body, repository, identityClient, hubContext, cancellationToken);
                 break;
 
+            case NotificationTopicTopology.PmisSyncFailedRoutingKey:
+                await HandlePmisSyncFailedAsync(body, repository, identityClient, hubContext, cancellationToken);
+                break;
+
             default:
                 _logger.LogWarning("NotificationEventsConsumer: routing key không xác định {RoutingKey}.", ea.RoutingKey);
                 break;
@@ -202,6 +206,45 @@ public sealed class NotificationEventsConsumer : BackgroundService
 
         await PushToRecipientsAsync(hubContext, recipients, notificationId, "EQUIPMENT_DOSSIER_TRANSFERRED", title, bodyText, "EQUIPMENT", evt.EquipmentId.ToString());
     }
+
+    private async Task HandlePmisSyncFailedAsync(
+        string body,
+        INotificationRepository repository,
+        IIdentityServiceClient identityClient,
+        IHubContext<NotificationHub> hubContext,
+        CancellationToken cancellationToken)
+    {
+        var evt = JsonSerializer.Deserialize<PmisSyncFailedEvent>(body, JsonOptions);
+        if (evt == null) return;
+
+        var recipients = (await identityClient.GetActiveUserIdsByRoleAsync("ADMIN", cancellationToken))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (recipients.Count == 0) return;
+
+        var title = "Đồng bộ PMIS tự động đang lỗi liên tục";
+        var bodyText = $"Đồng bộ tự động cho đối tượng {FormatObjectType(evt.ObjectType)} đã thất bại {evt.ConsecutiveFailureCount} lần liên tiếp" +
+                       (string.IsNullOrWhiteSpace(evt.LastErrorMessage) ? "." : $" — lỗi gần nhất: {evt.LastErrorMessage}");
+
+        var notificationId = await repository.CreateWithRecipientsAsync(
+            "PMIS_SYNC_FAILED",
+            title,
+            bodyText,
+            "SYNC_CONFIG",
+            evt.ObjectType,
+            null,
+            recipients);
+
+        await PushToRecipientsAsync(hubContext, recipients, notificationId, "PMIS_SYNC_FAILED", title, bodyText, "SYNC_CONFIG", evt.ObjectType);
+    }
+
+    private static string FormatObjectType(string objectType) => objectType switch
+    {
+        "SUBSTATION" => "Trạm biến áp",
+        "TRANSMISSION_LINE" => "Đường dây",
+        "EQUIPMENT" => "Thiết bị",
+        _ => objectType
+    };
 
     /// <summary>
     /// Đẩy qua sự kiện riêng "NotificationCreated" (khác "ReceiveNotification" dùng cho toast broadcast chung)

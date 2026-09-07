@@ -149,6 +149,7 @@ var rabbitFactory = new ConnectionFactory
 var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
 builder.Services.AddSingleton<IConnection>(rabbitConnection);
 builder.Services.AddAuditInfrastructure("SyncService");
+builder.Services.AddScoped<EvnHanoi.SyncService.Infrastructure.Messaging.IMessageProducer, EvnHanoi.SyncService.Infrastructure.Messaging.RabbitMQProducer>();
 
 builder.Services.AddSingleton<EvnHanoi.SyncService.Services.IPmisSyncTriggerService, EvnHanoi.SyncService.Services.PmisSyncTriggerService>();
 builder.Services.AddHostedService<EvnHanoi.SyncService.Workers.EquipmentSyncWorker>();

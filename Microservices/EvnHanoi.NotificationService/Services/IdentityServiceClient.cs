@@ -5,6 +5,7 @@ namespace EvnHanoi.NotificationService.Services;
 public interface IIdentityServiceClient
 {
     Task<IReadOnlyList<string>> GetActiveUserIdsByUnitAsync(long unitId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<string>> GetActiveUserIdsByRoleAsync(string roleCode, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Gọi API nội bộ IdentityService (internal/v1/users/by-unit/{unitId}) để phân giải người nhận theo đơn vị.</summary>
@@ -45,6 +46,36 @@ public class IdentityServiceClient : IIdentityServiceClient
         catch (Exception ex)
         {
             _logger.LogError(ex, "Lỗi khi gọi IdentityService để lấy tài khoản theo đơn vị {UnitId}.", unitId);
+            return Array.Empty<string>();
+        }
+    }
+
+    public async Task<IReadOnlyList<string>> GetActiveUserIdsByRoleAsync(string roleCode, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var client = _httpClientFactory.CreateClient("IdentityService");
+            var response = await client.GetAsync($"internal/v1/users/by-role/{roleCode}", cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "Không lấy được danh sách tài khoản theo vai trò {RoleCode} từ IdentityService: {StatusCode}",
+                    roleCode,
+                    response.StatusCode);
+                return Array.Empty<string>();
+            }
+
+            using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            var result = await JsonSerializer.DeserializeAsync<ByUnitResponse>(
+                stream,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true },
+                cancellationToken);
+
+            return result?.UserIds ?? new List<string>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi khi gọi IdentityService để lấy tài khoản theo vai trò {RoleCode}.", roleCode);
             return Array.Empty<string>();
         }
     }

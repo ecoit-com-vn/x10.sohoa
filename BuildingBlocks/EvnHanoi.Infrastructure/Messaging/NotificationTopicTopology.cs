@@ -14,6 +14,7 @@ public static class NotificationTopicTopology
     public const string DossierMovedRoutingKey = "dossier.moved";
     public const string EquipmentTbaTransferredRoutingKey = "equipment.tba-transferred";
     public const string EquipmentDossierTransferredRoutingKey = "equipment.dossier-transferred";
+    public const string PmisSyncFailedRoutingKey = "pmis.sync.failed";
 
     public static async Task EnsureAsync(IChannel channel, CancellationToken cancellationToken = default)
     {
@@ -36,5 +37,6 @@ public static class NotificationTopicTopology
         await channel.QueueBindAsync(QueueName, ExchangeName, DossierMovedRoutingKey, cancellationToken: cancellationToken);
         await channel.QueueBindAsync(QueueName, ExchangeName, EquipmentTbaTransferredRoutingKey, cancellationToken: cancellationToken);
         await channel.QueueBindAsync(QueueName, ExchangeName, EquipmentDossierTransferredRoutingKey, cancellationToken: cancellationToken);
+        await channel.QueueBindAsync(QueueName, ExchangeName, PmisSyncFailedRoutingKey, cancellationToken: cancellationToken);
     }
 }

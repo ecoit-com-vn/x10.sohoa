@@ -5,8 +5,9 @@ using Microsoft.AspNetCore.Mvc;
 namespace EvnHanoi.IdentityService.Controllers;
 
 /// <summary>
-/// API NỘI BỘ tra cứu tài khoản theo đơn vị — dùng bởi NotificationService để xác định người nhận
-/// khi phát sinh thông báo theo đơn vị (chuyển thiết bị sang TBA mới, chuyển hồ sơ thiết bị).
+/// API NỘI BỘ tra cứu tài khoản theo đơn vị/vai trò — dùng bởi NotificationService để xác định người
+/// nhận khi phát sinh thông báo theo đơn vị (chuyển thiết bị sang TBA mới, chuyển hồ sơ thiết bị) hoặc
+/// theo vai trò (cảnh báo hệ thống — ví dụ đồng bộ PMIS lỗi liên tục, gửi cho tài khoản vai trò ADMIN).
 /// - Đặt ngoài tiền tố "/api/v1/..." nên KHÔNG có route ở ApiGateway ⇒ không expose ra Internet.
 /// - [BypassDynamicPermission]: không kiểm quyền người dùng cuối (gọi service-to-service).
 /// - Phòng thủ chiều sâu: bắt buộc khớp shared-secret header "X-Internal-Token".
@@ -48,6 +49,24 @@ public class InternalUsersController : ControllerBase
             includeDescendants: false);
 
         var userIds = items.Select(u => u.Id).ToList();
+        return Ok(new { userIds });
+    }
+
+    [HttpGet("by-role/{roleCode}")]
+    public async Task<IActionResult> GetActiveUserIdsByRole(
+        string roleCode,
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken)
+    {
+        var expected = _configuration["Internal:Token"];
+        if (string.IsNullOrEmpty(expected))
+            return StatusCode(503, new { message = "Internal:Token chưa được cấu hình trên IdentityService." });
+
+        if (!string.Equals(internalToken, expected, StringComparison.Ordinal))
+            return Unauthorized(new { message = "Token nội bộ không hợp lệ." });
+
+        // GetUsersLookupAsync đã tự lọc theo roleCodeFilter (so khớp không phân biệt hoa/thường).
+        var users = await _userRepository.GetUsersLookupAsync(roleCode);
+        var userIds = users.Select(u => u.Id).ToList();
         return Ok(new { userIds });
     }
 }

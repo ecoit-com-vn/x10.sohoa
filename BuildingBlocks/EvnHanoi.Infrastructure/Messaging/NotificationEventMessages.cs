@@ -32,3 +32,12 @@ public class EquipmentDossierTransferredEvent
     public string? ActorUserId { get; set; }
     public DateTime Timestamp { get; set; }
 }
+
+/// <summary>Đồng bộ PMIS tự động lỗi liên tiếp vượt ngưỡng — cảnh báo cho tài khoản có vai trò ADMIN.</summary>
+public class PmisSyncFailedEvent
+{
+    public string ObjectType { get; set; } = string.Empty;
+    public int ConsecutiveFailureCount { get; set; }
+    public string? LastErrorMessage { get; set; }
+    public DateTime Timestamp { get; set; }
+}

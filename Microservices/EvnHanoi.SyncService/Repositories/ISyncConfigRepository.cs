@@ -7,5 +7,5 @@ public interface ISyncConfigRepository
     Task<IEnumerable<SyncConfig>> GetAllAsync();
     Task<SyncConfig?> GetByObjectTypeAsync(string objectType);
     Task<bool> UpdateAsync(string objectType, UpdateSyncConfigRequest request, string? modifiedBy);
-    Task UpdateRunResultAsync(string objectType, DateTime lastSyncAt, DateTime? nextSyncAt);
+    Task UpdateRunResultAsync(string objectType, DateTime lastSyncAt, DateTime? nextSyncAt, int consecutiveFailureCount);
 }
