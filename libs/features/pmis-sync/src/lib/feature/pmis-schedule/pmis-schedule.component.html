@@ -110,7 +110,7 @@
           <td colspan="8" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
         </tr>
         <ng-container *ngIf="!historyLoading()">
-          <tr *ngFor="let h of historyItems(); let index = index">
+          <tr *ngFor="let h of displayHistoryItems(); let index = index">
             <td class="col-stt text-muted">{{ index + 1 }}</td>
             <td>{{ formatDate(h.startTime) }}</td>
             <td>{{ h.syncType === 'MANUAL' ? 'Thủ công' : 'Tự động' }}</td>
@@ -122,7 +122,9 @@
                 [style.background]="h.status === 'WARNING' ? '#fffbeb' : null"
                 [style.color]="h.status === 'WARNING' ? '#b45309' : null"
                 [style.border]="h.status === 'WARNING' ? '1px solid #fde68a' : null"
-              >{{ h.status === 'SUCCESS' ? 'Thành công' : h.status === 'FAILED' ? 'Thất bại' : h.status === 'WARNING' ? 'Cảnh báo' : 'Đang chạy' }}</span>
+              >{{ h.groupedCount && h.groupedCount > 1
+                    ? 'Thất bại liên tục (x' + h.groupedCount + ' lần, từ ' + formatDate(h.groupedFrom ?? h.startTime) + ')'
+                    : (h.status === 'SUCCESS' ? 'Thành công' : h.status === 'FAILED' ? 'Thất bại' : h.status === 'WARNING' ? 'Cảnh báo' : 'Đang chạy') }}</span>
             </td>
             <td>{{ h.totalRecords }}</td>
             <td>{{ h.successRecords }}</td>
@@ -155,6 +157,13 @@
   [style]="{ width: '900px' }"
   styleClass="evn-dialog-custom"
 >
+  <div
+    *ngIf="historyDetailTarget()?.errorMessage as errorMessage"
+    style="margin-bottom: 12px; padding: 10px 14px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #b91c1c; white-space: pre-wrap; word-break: break-word;"
+  >
+    <b>Lỗi của cả lượt đồng bộ:</b> {{ errorMessage }}
+  </div>
+
   <div class="wf-table-wrap">
     <table class="wf-table">
       <thead>

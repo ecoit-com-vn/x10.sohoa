@@ -12,7 +12,7 @@ import {
   PmisSyncObjectType,
   PmisSyncPreviewItem,
 } from '../../data-access/pmis-manual-sync.service';
-import { PmisHistoryService, SyncHistory, SyncHistoryDetail } from '../../data-access/pmis-history.service';
+import { groupConsecutiveFailures, PmisHistoryService, SyncHistory, SyncHistoryDetail } from '../../data-access/pmis-history.service';
 
 interface TabDef {
   type: PmisSyncObjectType;
@@ -57,6 +57,7 @@ export class PmisManualSyncComponent implements OnInit {
 
   historyLoading = signal(false);
   historyItems = signal<SyncHistory[]>([]);
+  displayHistoryItems = computed(() => groupConsecutiveFailures(this.historyItems()));
   historyDetailDialogVisible = signal(false);
   historyDetailLoading = signal(false);
   historyDetails = signal<SyncHistoryDetail[]>([]);
