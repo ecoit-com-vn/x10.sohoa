@@ -110,8 +110,8 @@ public class PmisScheduledSyncJob : IJob
                 errors.Count > 0 ? string.Join("; ", errors.Take(5)) : null);
 
             // Lượt chạy hoàn tất bình thường (kể cả Failed do 0/n item thành công vẫn là 1 lượt đã thử
-            // xong) — đẩy NextSyncAt theo tần suất cấu hình như cũ, và reset bộ đếm lỗi liên tiếp vì
-            // PMIS đã phản hồi được (dù dữ liệu bên trong có lỗi riêng lẻ hay không).
+            // xong) — đẩy NextSyncAt theo tần suất cấu hình, và reset bộ đếm lỗi liên tiếp vì PMIS đã
+            // phản hồi được (dù dữ liệu bên trong có lỗi riêng lẻ hay không).
             var nextSyncAt = now.Add(ToTimeSpan(config.FrequencyValue, config.FrequencyUnit));
             await _syncConfigRepository.UpdateRunResultAsync(objectType, now, nextSyncAt, consecutiveFailureCount: 0);
         }
@@ -120,15 +120,12 @@ public class PmisScheduledSyncJob : IJob
             Log.Error(ex, "PmisScheduledSyncJob: đồng bộ tự động {ObjectType} thất bại.", objectType);
             await _syncHistoryRepository.CompleteAsync(historyId, SyncHistoryStatus.Failed, total, success, failed, ex.Message);
 
-            // Lỗi ngay từ bước gọi PMIS (timeout/401/404/circuit breaker) — trước đây KHÔNG đẩy
-            // NextSyncAt để tick 1 phút kế tiếp thử lại ngay, nhưng khi PMIS sập kéo dài, cách đó tạo
-            // ra hàng chục dòng "Thất bại" mỗi phút trong Lịch sử đồng bộ. Giờ backoff tăng dần theo
-            // BackoffMinutes (không vượt quá tần suất cấu hình bình thường), và cảnh báo admin đúng 1
-            // lần khi chạm ngưỡng FailureNotifyThreshold.
+            // Lỗi ngay từ bước gọi PMIS — đánh dấu thất bại ngay (không tự retry), và chờ đúng đến lần
+            // kế tiếp theo tần suất đã cấu hình mới thử lại, giống hệt nhánh thành công — không rút
+            // ngắn chu kỳ. Chỉ cảnh báo admin đúng 1 lần khi chạm ngưỡng FailureNotifyThreshold.
             var newFailureCount = config.ConsecutiveFailureCount + 1;
-            var normalFrequencyMinutes = (int)ToTimeSpan(config.FrequencyValue, config.FrequencyUnit).TotalMinutes;
-            var backoffDelay = TimeSpan.FromMinutes(GetBackoffMinutes(newFailureCount, normalFrequencyMinutes));
-            await _syncConfigRepository.UpdateRunResultAsync(objectType, now, now.Add(backoffDelay), newFailureCount);
+            var nextSyncAtOnFailure = now.Add(ToTimeSpan(config.FrequencyValue, config.FrequencyUnit));
+            await _syncConfigRepository.UpdateRunResultAsync(objectType, now, nextSyncAtOnFailure, newFailureCount);
 
             if (newFailureCount == FailureNotifyThreshold)
                 await PublishSyncFailedNotificationAsync(objectType, newFailureCount, ex.Message);
@@ -136,13 +133,6 @@ public class PmisScheduledSyncJob : IJob
     }
 
     private const int FailureNotifyThreshold = 5;
-    private static readonly int[] BackoffMinutes = [1, 2, 5, 15, 30];
-
-    private static int GetBackoffMinutes(int consecutiveFailureCount, int normalFrequencyMinutes)
-    {
-        var step = BackoffMinutes[Math.Min(consecutiveFailureCount - 1, BackoffMinutes.Length - 1)];
-        return Math.Min(step, Math.Max(normalFrequencyMinutes, 1)); // không lùi xa hơn tần suất bình thường đã cấu hình
-    }
 
     private async Task PublishSyncFailedNotificationAsync(string objectType, int failureCount, string? lastError)
     {
