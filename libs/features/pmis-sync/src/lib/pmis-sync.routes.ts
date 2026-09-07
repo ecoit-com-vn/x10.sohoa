@@ -1,7 +1,6 @@
 import { Routes } from '@angular/router';
 import {
   pmisEndpointConfigMenuGuard,
-  pmisEquipmentTypeMappingMenuGuard,
   pmisManualSyncMenuGuard,
   pmisScheduleMenuGuard,
 } from '@sohoa.frontend/shared/core';
@@ -14,14 +13,6 @@ export const PMIS_SYNC_ROUTES: Routes = [
         (m) => m.PmisEndpointConfigComponent
       ),
     canActivate: [pmisEndpointConfigMenuGuard],
-  },
-  {
-    path: 'equipment-type-mapping',
-    loadComponent: () =>
-      import('./feature/pmis-equipment-type-mapping/pmis-equipment-type-mapping.component').then(
-        (m) => m.PmisEquipmentTypeMappingComponent
-      ),
-    canActivate: [pmisEquipmentTypeMappingMenuGuard],
   },
   {
     path: 'manual-sync',
