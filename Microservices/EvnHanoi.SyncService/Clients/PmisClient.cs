@@ -73,15 +73,16 @@ public class PmisClient : IPmisClient
     /// <summary>
     /// Tải file nhị phân tài liệu từ URL PMIS trả về trong field "File" (API 8/9) — khác các API khác,
     /// URL này ĐỘNG theo từng tài liệu nên không resolve qua cấu hình endpoint như <see cref="SendAsync"/>.
-    /// Vẫn đính kèm header đã cấu hình cho SUBSTATION_DOCUMENT_LIST (phòng trường hợp cần xác thực như
-    /// AnhQRCode — chưa xác nhận được vì PMIS dev chưa từng trả tài liệu thật, thừa header thường vô hại).
+    /// Vẫn đính kèm header đã cấu hình cho đúng endpoint nguồn (<paramref name="endpointApiCode"/> —
+    /// SUBSTATION_DOCUMENT_LIST hoặc LINE_DOCUMENT_LIST, mỗi endpoint có thể cấu hình header/API key
+    /// khác nhau) phòng trường hợp cần xác thực như AnhQRCode.
     /// Trả về null nếu tải lỗi — KHÔNG throw, để caller tự quyết định ghi cảnh báo mà không chặn đồng bộ.
     /// </summary>
-    public async Task<byte[]?> DownloadDocumentFileAsync(string fileUrl)
+    public async Task<byte[]?> DownloadDocumentFileAsync(string fileUrl, string endpointApiCode)
     {
         try
         {
-            var endpoint = await _endpointConfigProvider.GetEndpointAsync("SUBSTATION_DOCUMENT_LIST");
+            var endpoint = await _endpointConfigProvider.GetEndpointAsync(endpointApiCode);
             using var request = new HttpRequestMessage(HttpMethod.Get, fileUrl);
             if (endpoint != null)
             {

@@ -91,3 +91,11 @@ public class UpsertPmisDocumentResult
     public bool WasSkippedAsExisting { get; set; }
     public string? ErrorMessage { get; set; }
 }
+
+/// <summary>Kết quả tra PMIS_DOCUMENT theo mã — ObjectKey null nghĩa là lần trước lưu được metadata
+/// nhưng chưa tải được file (cần thử tải lại), khác với đã có file thật (bỏ qua hẳn).</summary>
+public class PmisDocumentLookup
+{
+    public string Id { get; set; } = string.Empty;
+    public string? ObjectKey { get; set; }
+}
