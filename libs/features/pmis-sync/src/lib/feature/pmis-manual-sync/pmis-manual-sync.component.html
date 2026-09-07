@@ -126,7 +126,7 @@
               <td>{{ h.successRecords }}</td>
               <td>{{ h.failedRecords }}</td>
               <td class="col-hd">
-                <button *ngIf="!h.groupedCount || h.groupedCount <= 1" type="button" class="act-btn act-view" title="Xem chi tiết" (click)="openHistoryDetail(h)"><i class="pi pi-eye"></i></button>
+                <button type="button" class="act-btn act-view" title="Xem chi tiết" (click)="openHistoryDetail(h)"><i class="pi pi-eye"></i></button>
               </td>
             </tr>
             <tr *ngIf="historyItems().length === 0">
@@ -221,6 +221,13 @@
   [style]="{ width: '900px' }"
   styleClass="evn-dialog-custom"
 >
+  <div
+    *ngIf="historyDetailTarget()?.errorMessage as errorMessage"
+    style="margin-bottom: 12px; padding: 10px 14px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #b91c1c; white-space: pre-wrap; word-break: break-word;"
+  >
+    <b>Lỗi của cả lượt đồng bộ:</b> {{ errorMessage }}
+  </div>
+
   <div class="wf-table-wrap">
     <table class="wf-table">
       <thead>

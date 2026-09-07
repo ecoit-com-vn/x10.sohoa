@@ -60,6 +60,7 @@ export class PmisScheduleComponent implements OnInit {
   historyDetailDialogVisible = signal(false);
   historyDetailLoading = signal(false);
   historyDetails = signal<SyncHistoryDetail[]>([]);
+  historyDetailTarget = signal<SyncHistory | null>(null);
 
   ngOnInit(): void {
     this.load();
@@ -139,6 +140,7 @@ export class PmisScheduleComponent implements OnInit {
   }
 
   openHistoryDetail(history: SyncHistory): void {
+    this.historyDetailTarget.set(history);
     this.historyDetailDialogVisible.set(true);
     this.historyDetailLoading.set(true);
     this.historyService
