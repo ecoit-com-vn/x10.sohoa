@@ -36,10 +36,6 @@
       </p>
 
       <div class="ocr-options">
-        <label class="ocr-option">
-          <input type="radio" name="ocrMode" value="none" [(ngModel)]="ocrMode" [disabled]="submitting()" />
-          <span>Không xử lý OCR</span>
-        </label>
         <label class="ocr-option" [class.disabled]="!hasDocumentTypeForm()">
           <input
             type="radio"
@@ -49,6 +45,10 @@
             [disabled]="!hasDocumentTypeForm() || submitting()"
           />
           <span>OCR + bóc tách dữ liệu</span>
+        </label>
+        <label class="ocr-option">
+          <input type="radio" name="ocrMode" value="none" [(ngModel)]="ocrMode" [disabled]="submitting()" />
+          <span>Không xử lý OCR</span>
         </label>
         <label class="ocr-option" [class.disabled]="!hasDocumentTypeForm()">
           <input
