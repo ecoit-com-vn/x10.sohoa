@@ -14,13 +14,15 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         _connection = connection;
     }
 
-    public async Task<bool> ExistsByCodeAsync(string pmisDocumentCode)
+    public async Task<PmisDocumentLookup?> GetByCodeAsync(string pmisDocumentCode)
     {
         EnsureOpen();
-        var count = await _connection.ExecuteScalarAsync<int>(
-            "SELECT COUNT(1) FROM PMIS_DOCUMENT WHERE PmisDocumentCode = :Code AND IsDeleted = 0",
+        // KHÔNG lọc IsDeleted: PmisDocumentCode có UQ_PMIS_DOCUMENT_CODE (không loại trừ dòng đã xoá
+        // mềm) — nếu lọc IsDeleted=0 ở đây, 1 dòng đã xoá mềm sẽ "vô hình", khiến InsertAsync sau đó
+        // đụng đúng constraint này (giống lỗi đã sửa ở EquipmentRepository.ResolveOrCreateEquipmentTypeIdAsync).
+        return await _connection.QuerySingleOrDefaultAsync<PmisDocumentLookup>(
+            "SELECT Id, ObjectKey FROM PMIS_DOCUMENT WHERE PmisDocumentCode = :Code",
             new { Code = pmisDocumentCode });
-        return count > 0;
     }
 
     public async Task<Guid?> ResolveOwnerIdAsync(string ownerType, string ownerPmisCode)
@@ -66,6 +68,25 @@ public class PmisDocumentRepository : IPmisDocumentRepository
             ObjectKey = objectKey,
             FileSize = fileSize,
             SyncHistoryId = item.SyncHistoryId
+        });
+    }
+
+    public async Task UpdateFileAsync(string id, string objectKey, long fileSize, string? syncHistoryId)
+    {
+        EnsureOpen();
+        // IsDeleted = 0: khôi phục nếu dòng đang bị xoá mềm (xem comment ở GetByCodeAsync) — vô hại nếu
+        // dòng đang active sẵn.
+        const string sql = @"
+            UPDATE PMIS_DOCUMENT
+            SET ObjectKey = :ObjectKey, FileSize = :FileSize, SyncHistoryId = :SyncHistoryId,
+                SyncedAt = SYSTIMESTAMP, ModifiedBy = 'PMIS_SYNC', ModifiedDate = SYSTIMESTAMP, IsDeleted = 0
+            WHERE Id = :Id";
+        await _connection.ExecuteAsync(sql, new
+        {
+            Id = id,
+            ObjectKey = objectKey,
+            FileSize = fileSize,
+            SyncHistoryId = syncHistoryId
         });
     }
 

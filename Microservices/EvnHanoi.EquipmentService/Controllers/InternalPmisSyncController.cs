@@ -179,8 +179,8 @@ public class InternalPmisSyncController : ControllerBase
         {
             try
             {
-                var alreadyExists = await _pmisDocumentRepository.ExistsByCodeAsync(item.PmisDocumentCode);
-                if (alreadyExists)
+                var existing = await _pmisDocumentRepository.GetByCodeAsync(item.PmisDocumentCode);
+                if (existing != null && !string.IsNullOrEmpty(existing.ObjectKey))
                 {
                     results.Add(new UpsertPmisDocumentResult
                     {
@@ -214,6 +214,24 @@ public class InternalPmisSyncController : ControllerBase
                         item.OwnerType, ownerId.Value);
                     objectKey = key;
                     fileSize = bytes.Length;
+                }
+
+                if (existing != null)
+                {
+                    // Đã có dòng metadata từ lần trước (tải file lỗi) — chỉ update nếu lần này tải
+                    // được, không INSERT lại vì PmisDocumentCode đã UNIQUE.
+                    if (objectKey != null)
+                        await _pmisDocumentRepository.UpdateFileAsync(existing.Id, objectKey, fileSize!.Value, item.SyncHistoryId);
+
+                    results.Add(new UpsertPmisDocumentResult
+                    {
+                        PmisDocumentCode = item.PmisDocumentCode,
+                        Success = objectKey != null,
+                        ErrorMessage = objectKey == null
+                            ? "Không tải được file tài liệu từ PMIS — đã lưu thông tin, chưa có file."
+                            : null
+                    });
+                    continue;
                 }
 
                 await _pmisDocumentRepository.InsertAsync(item, ownerId.Value, objectKey, fileSize);
