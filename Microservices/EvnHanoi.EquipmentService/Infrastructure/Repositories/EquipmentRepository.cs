@@ -1675,9 +1675,16 @@ StatusTransition,
             }
             catch (Exception ex) when (ex.Message.Contains("ORA-00001", StringComparison.OrdinalIgnoreCase))
             {
-                // Trùng Code do race (2 tiến trình cùng tạo loại thiết bị mới) — tra lại lấy Id thật.
+                // Trùng Code do race (2 tiến trình cùng tạo mới) HOẶC do Code này đã tồn tại nhưng đang
+                // bị xoá mềm (IsDeleted=1) — UNIQUE(Code) không lọc IsDeleted nên vẫn chặn INSERT trong
+                // cả 2 trường hợp. Tra lại KHÔNG lọc IsDeleted để luôn tìm ra dòng đang xung đột.
                 equipmentTypeId = await _connection.QuerySingleAsync<string>(
-                    "SELECT Id FROM EquipmentTypes WHERE Code = :Code AND IsDeleted = 0", new { Code = autoCode });
+                    "SELECT Id FROM EquipmentTypes WHERE Code = :Code", new { Code = autoCode });
+
+                // Nếu đang bị xoá mềm thì khôi phục lại (đã có dữ liệu này rồi, không tạo trùng ý nghĩa).
+                await _connection.ExecuteAsync(
+                    "UPDATE EquipmentTypes SET IsDeleted = 0, IsActive = 1, ModifiedBy = 'PMIS_SYNC', UpdatedAt = SYSTIMESTAMP WHERE Id = :Id AND IsDeleted = 1",
+                    new { Id = equipmentTypeId });
             }
         }
 

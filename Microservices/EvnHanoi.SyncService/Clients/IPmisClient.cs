@@ -21,8 +21,10 @@ public interface IPmisClient
     Task<byte[]?> GetDeviceQrImageBytesAsync(string idPmis);
 
     /// <summary>Tải file nhị phân tài liệu đính kèm theo URL động (field "File" của API 8/9) — trả null
-    /// nếu lỗi, không throw (đồng bộ tài liệu không được chặn lượt đồng bộ chính).</summary>
-    Task<byte[]?> DownloadDocumentFileAsync(string fileUrl);
+    /// nếu lỗi, không throw (đồng bộ tài liệu không được chặn lượt đồng bộ chính). <paramref name="endpointApiCode"/>
+    /// chỉ định lấy header xác thực từ đúng cấu hình endpoint nguồn (SUBSTATION_DOCUMENT_LIST hoặc
+    /// LINE_DOCUMENT_LIST) — không dùng cố định 1 endpoint cho cả 2 nguồn.</summary>
+    Task<byte[]?> DownloadDocumentFileAsync(string fileUrl, string endpointApiCode);
 }
 
 /// <summary>Báo lỗi nghiệp vụ khi 1 API PMIS chưa được cấu hình (chưa bật hoặc chưa nhập Url) qua màn "Cấu hình kết nối PMIS".</summary>

@@ -13,6 +13,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
     private const int DocumentPageSize = 200;
     private const int DocumentMaxPages = 50; // an toàn: tối đa 10.000 tài liệu/đối tượng/lần đồng bộ
+    private const int DocumentUpsertBatchSize = 20; // gửi theo lô, tránh 1 request base64 hoá hết cả nghìn tài liệu
 
     private readonly IEquipmentServiceClient _equipmentServiceClient;
     private readonly ISyncHistoryRepository _syncHistoryRepository;
@@ -297,6 +298,30 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
 
             if (items.Count == 0) return (0, details);
 
+            // Gửi lỗi 1 lô KHÔNG được làm mất kết quả của các lô trước đã gửi thành công — mỗi lô tự bắt
+            // lỗi riêng và báo Warning cho đúng các tài liệu trong lô đó, thay vì để exception bay lên
+            // catch ngoài cùng (vốn chỉ tạo 1 dòng cảnh báo chung, xoá mất kết quả các lô đã xong).
+            async Task SendBatchAsync(List<UpsertPmisDocumentRequest> batch, List<UpsertPmisDocumentResult> sink)
+            {
+                if (batch.Count == 0) return;
+                try
+                {
+                    sink.AddRange(await _equipmentServiceClient.UpsertDocumentsAsync(batch));
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "PmisSyncExecutionService: lỗi gửi 1 lô tài liệu cho {OwnerType} {OwnerPmisCode}.", ownerType, ownerPmisCode);
+                    sink.AddRange(batch.Select(b => new UpsertPmisDocumentResult
+                    {
+                        PmisDocumentCode = b.PmisDocumentCode,
+                        Success = false,
+                        ErrorMessage = $"Lỗi gửi lô tài liệu: {ex.Message}"
+                    }));
+                }
+            }
+
+            var endpointApiCode = isSubstationOrigin ? "SUBSTATION_DOCUMENT_LIST" : "LINE_DOCUMENT_LIST";
+            var results = new List<UpsertPmisDocumentResult>();
             var requests = new List<UpsertPmisDocumentRequest>();
             foreach (var doc in items)
             {
@@ -305,7 +330,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 string? fileBase64 = null;
                 if (!string.IsNullOrWhiteSpace(doc.File))
                 {
-                    var bytes = await _pmisClient.DownloadDocumentFileAsync(doc.File);
+                    var bytes = await _pmisClient.DownloadDocumentFileAsync(doc.File, endpointApiCode);
                     if (bytes is { Length: > 0 }) fileBase64 = Convert.ToBase64String(bytes);
                 }
 
@@ -320,11 +345,20 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                     FileBase64 = fileBase64,
                     SyncHistoryId = syncHistoryId
                 });
+
+                // Gửi theo lô cố định thay vì gộp hết rồi gửi 1 request duy nhất ở cuối — tránh 1 owner
+                // có nhiều tài liệu thật (base64 hoá) tạo ra request khổng lồ dễ vượt timeout/OOM.
+                if (requests.Count >= DocumentUpsertBatchSize)
+                {
+                    await SendBatchAsync(requests, results);
+                    requests.Clear();
+                }
             }
 
-            if (requests.Count == 0) return (0, details);
+            await SendBatchAsync(requests, results);
 
-            var results = await _equipmentServiceClient.UpsertDocumentsAsync(requests);
+            if (results.Count == 0) return (0, details);
+
             var warningCount = 0;
             foreach (var result in results)
             {

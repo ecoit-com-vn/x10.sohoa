@@ -41,7 +41,7 @@ public class Migration0007_AddConsecutiveFailureCountToSyncConfig : IScript
             }
         }
 
-        ExecuteNonQuery("ALTER TABLE SYNC_CONFIG ADD CONSECUTIVE_FAILURE_COUNT NUMBER DEFAULT 0 NOT NULL", 1430, 904);
+        ExecuteNonQuery("ALTER TABLE SYNC_CONFIG ADD CONSECUTIVE_FAILURE_COUNT NUMBER DEFAULT 0 NOT NULL", 1430);
 
         return string.Empty;
     }
