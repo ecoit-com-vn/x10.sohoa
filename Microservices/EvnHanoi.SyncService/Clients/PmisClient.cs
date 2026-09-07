@@ -11,11 +11,19 @@ public class PmisClient : IPmisClient
 
     private readonly IPmisEndpointConfigProvider _endpointConfigProvider;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly string _httpClientName;
 
-    public PmisClient(IPmisEndpointConfigProvider endpointConfigProvider, IHttpClientFactory httpClientFactory)
+    /// <param name="httpClientName">Tên HttpClient đã đăng ký ở Program.cs — mặc định "PMIS" (dùng bởi
+    /// đồng bộ nền: PmisSyncExecutionService/PmisScheduledSyncJob). <see cref="InteractivePmisClient"/>
+    /// truyền "PMIS-Interactive" để có circuit breaker RIÊNG cho các API tra cứu/tìm kiếm tương tác
+    /// (PmisLookupController, PmisManualSyncController.Search) — tránh việc đồng bộ nền gọi PMIS lỗi
+    /// dồn dập làm mở circuit breaker chung, khoá luôn thao tác tra cứu/tìm kiếm của người dùng đang
+    /// chờ trên màn hình trong lúc đó.</param>
+    public PmisClient(IPmisEndpointConfigProvider endpointConfigProvider, IHttpClientFactory httpClientFactory, string httpClientName = "PMIS")
     {
         _endpointConfigProvider = endpointConfigProvider;
         _httpClientFactory = httpClientFactory;
+        _httpClientName = httpClientName;
     }
 
     public Task<PmisListResponse<PmisSubstationDto>> GetSubstationsAsync(PmisSubstationSearchRequest request) =>
@@ -83,7 +91,7 @@ public class PmisClient : IPmisClient
                 }
             }
 
-            var httpClient = _httpClientFactory.CreateClient("PMIS");
+            var httpClient = _httpClientFactory.CreateClient(_httpClientName);
             var response = await httpClient.SendAsync(request);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadAsByteArrayAsync();
@@ -116,7 +124,7 @@ public class PmisClient : IPmisClient
             httpRequest.Headers.TryAddWithoutValidation(header.Key, header.Value);
         }
 
-        var httpClient = _httpClientFactory.CreateClient("PMIS");
+        var httpClient = _httpClientFactory.CreateClient(_httpClientName);
         if (endpoint.TimeoutSeconds is > 0)
         {
             httpClient.Timeout = TimeSpan.FromSeconds(endpoint.TimeoutSeconds.Value);
