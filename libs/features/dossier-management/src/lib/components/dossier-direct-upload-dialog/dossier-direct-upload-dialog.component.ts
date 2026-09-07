@@ -124,7 +124,7 @@ export class DossierDirectUploadDialogComponent implements OnInit {
 
   scanInProgress = signal(false);
 
-  ocrMode: OcrMode = 'none';
+  ocrMode: OcrMode = 'OcrAndExtract';
 
   /**
    * Phạm vi trang cần bóc tách. Mặc định 'FirstAndLastPage' vì với biểu mẫu ngành điện, dữ liệu cần
@@ -332,7 +332,7 @@ export class DossierDirectUploadDialogComponent implements OnInit {
 
     this.uploadedFiles.set([]);
 
-    this.ocrMode = 'none';
+    this.ocrMode = 'OcrAndExtract';
     this.extractionScope = 'FirstAndLastPage';
 
     this.submitting.set(false);
