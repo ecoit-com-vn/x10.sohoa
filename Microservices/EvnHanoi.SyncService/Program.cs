@@ -108,22 +108,23 @@ var timeoutPolicy = Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromSecond
 
 var bulkheadPolicy = Policy.BulkheadAsync<HttpResponseMessage>(10, 20); // Concurrency Limiter for CA
 
-// 3. PMIS HttpClient
+// 3. PMIS HttpClient — KHÔNG gắn retryPolicy: PMIS lỗi thì đánh dấu thất bại ngay lập tức, không tự
+// thử lại nhiều lần trong 1 lượt gọi — đồng bộ tự động chỉ cần đúng theo tần suất đã cấu hình
+// (PmisScheduledSyncJob), không cần dồn thêm các lượt retry nội bộ của HttpClient.
 builder.Services.AddHttpClient("PMIS", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Endpoints:PMIS"] ?? "https://api.pmis.mock/");
 })
-.AddPolicyHandler(retryPolicy)
 .AddPolicyHandler(circuitBreakerPolicy)
 .AddPolicyHandler(timeoutPolicy);
 
-// 3b. PMIS HttpClient — bản dành cho API tra cứu/tìm kiếm tương tác, cùng cấu hình base URL/timeout/
-// retry nhưng circuit breaker riêng (interactiveCircuitBreakerPolicy) — xem InteractivePmisClient.
+// 3b. PMIS HttpClient — bản dành cho API tra cứu/tìm kiếm tương tác, cùng cấu hình base URL/timeout
+// nhưng circuit breaker riêng (interactiveCircuitBreakerPolicy) — xem InteractivePmisClient. Cũng
+// không retry, cùng lý do như HttpClient "PMIS" ở trên.
 builder.Services.AddHttpClient("PMIS-Interactive", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Endpoints:PMIS"] ?? "https://api.pmis.mock/");
 })
-.AddPolicyHandler(retryPolicy)
 .AddPolicyHandler(interactiveCircuitBreakerPolicy)
 .AddPolicyHandler(timeoutPolicy);
 
