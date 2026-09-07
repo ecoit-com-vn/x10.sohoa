@@ -1,5 +1,7 @@
 using System.Text.Json;
+using EvnHanoi.Infrastructure.Messaging;
 using EvnHanoi.SyncService.Clients;
+using EvnHanoi.SyncService.Infrastructure.Messaging;
 using EvnHanoi.SyncService.Models;
 using EvnHanoi.SyncService.Models.Pmis;
 using EvnHanoi.SyncService.Repositories;
@@ -27,6 +29,7 @@ public class PmisScheduledSyncJob : IJob
     private readonly IEquipmentServiceClient _equipmentServiceClient;
     private readonly IPmisSyncExecutionService _executionService;
     private readonly IDistributedLockFactory _lockFactory;
+    private readonly IMessageProducer _messageProducer;
 
     public PmisScheduledSyncJob(
         ISyncConfigRepository syncConfigRepository,
@@ -34,7 +37,8 @@ public class PmisScheduledSyncJob : IJob
         IPmisClient pmisClient,
         IEquipmentServiceClient equipmentServiceClient,
         IPmisSyncExecutionService executionService,
-        IDistributedLockFactory lockFactory)
+        IDistributedLockFactory lockFactory,
+        IMessageProducer messageProducer)
     {
         _syncConfigRepository = syncConfigRepository;
         _syncHistoryRepository = syncHistoryRepository;
@@ -42,6 +46,7 @@ public class PmisScheduledSyncJob : IJob
         _equipmentServiceClient = equipmentServiceClient;
         _executionService = executionService;
         _lockFactory = lockFactory;
+        _messageProducer = messageProducer;
     }
 
     public async Task Execute(IJobExecutionContext context)
@@ -88,11 +93,6 @@ public class PmisScheduledSyncJob : IJob
 
         int total = 0, success = 0, failed = 0, warnings = 0;
         List<string> errors = [];
-        // Chỉ đẩy NextSyncAt lên (theo tần suất cấu hình) khi lượt chạy hoàn tất bình thường — kể cả
-        // khi status cuối là Failed do 0/n item thành công, đó vẫn là 1 lượt đã thử xong. Khi rơi vào
-        // catch (lỗi hệ thống ngoài dự kiến, ví dụ mất kết nối PMIS ngay từ bước fetch) thì KHÔNG đẩy,
-        // để tick 1 phút kế tiếp thử lại ngay thay vì phải chờ hết nguyên 1 chu kỳ tần suất.
-        var completedNormally = false;
         try
         {
             (total, success, failed, warnings, errors) = objectType switch
@@ -108,18 +108,60 @@ public class PmisScheduledSyncJob : IJob
                 : (warnings > 0 ? SyncHistoryStatus.Warning : SyncHistoryStatus.Success);
             await _syncHistoryRepository.CompleteAsync(historyId, status, total, success, failed,
                 errors.Count > 0 ? string.Join("; ", errors.Take(5)) : null);
-            completedNormally = true;
+
+            // Lượt chạy hoàn tất bình thường (kể cả Failed do 0/n item thành công vẫn là 1 lượt đã thử
+            // xong) — đẩy NextSyncAt theo tần suất cấu hình như cũ, và reset bộ đếm lỗi liên tiếp vì
+            // PMIS đã phản hồi được (dù dữ liệu bên trong có lỗi riêng lẻ hay không).
+            var nextSyncAt = now.Add(ToTimeSpan(config.FrequencyValue, config.FrequencyUnit));
+            await _syncConfigRepository.UpdateRunResultAsync(objectType, now, nextSyncAt, consecutiveFailureCount: 0);
         }
         catch (Exception ex)
         {
             Log.Error(ex, "PmisScheduledSyncJob: đồng bộ tự động {ObjectType} thất bại.", objectType);
             await _syncHistoryRepository.CompleteAsync(historyId, SyncHistoryStatus.Failed, total, success, failed, ex.Message);
-        }
 
-        if (completedNormally)
+            // Lỗi ngay từ bước gọi PMIS (timeout/401/404/circuit breaker) — trước đây KHÔNG đẩy
+            // NextSyncAt để tick 1 phút kế tiếp thử lại ngay, nhưng khi PMIS sập kéo dài, cách đó tạo
+            // ra hàng chục dòng "Thất bại" mỗi phút trong Lịch sử đồng bộ. Giờ backoff tăng dần theo
+            // BackoffMinutes (không vượt quá tần suất cấu hình bình thường), và cảnh báo admin đúng 1
+            // lần khi chạm ngưỡng FailureNotifyThreshold.
+            var newFailureCount = config.ConsecutiveFailureCount + 1;
+            var normalFrequencyMinutes = (int)ToTimeSpan(config.FrequencyValue, config.FrequencyUnit).TotalMinutes;
+            var backoffDelay = TimeSpan.FromMinutes(GetBackoffMinutes(newFailureCount, normalFrequencyMinutes));
+            await _syncConfigRepository.UpdateRunResultAsync(objectType, now, now.Add(backoffDelay), newFailureCount);
+
+            if (newFailureCount == FailureNotifyThreshold)
+                await PublishSyncFailedNotificationAsync(objectType, newFailureCount, ex.Message);
+        }
+    }
+
+    private const int FailureNotifyThreshold = 5;
+    private static readonly int[] BackoffMinutes = [1, 2, 5, 15, 30];
+
+    private static int GetBackoffMinutes(int consecutiveFailureCount, int normalFrequencyMinutes)
+    {
+        var step = BackoffMinutes[Math.Min(consecutiveFailureCount - 1, BackoffMinutes.Length - 1)];
+        return Math.Min(step, Math.Max(normalFrequencyMinutes, 1)); // không lùi xa hơn tần suất bình thường đã cấu hình
+    }
+
+    private async Task PublishSyncFailedNotificationAsync(string objectType, int failureCount, string? lastError)
+    {
+        try
         {
-            var nextSyncAt = now.Add(ToTimeSpan(config.FrequencyValue, config.FrequencyUnit));
-            await _syncConfigRepository.UpdateRunResultAsync(objectType, now, nextSyncAt);
+            await _messageProducer.PublishToExchangeAsync(
+                new PmisSyncFailedEvent
+                {
+                    ObjectType = objectType,
+                    ConsecutiveFailureCount = failureCount,
+                    LastErrorMessage = lastError,
+                    Timestamp = DateTime.UtcNow
+                },
+                NotificationTopicTopology.ExchangeName,
+                NotificationTopicTopology.PmisSyncFailedRoutingKey);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "PmisScheduledSyncJob: lỗi khi publish cảnh báo đồng bộ PMIS thất bại liên tục.");
         }
     }
 

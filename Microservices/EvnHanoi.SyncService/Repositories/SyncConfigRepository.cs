@@ -19,7 +19,8 @@ public class SyncConfigRepository : ISyncConfigRepository
         const string sql = @"
             SELECT ID AS Id, OBJECT_TYPE AS ObjectType, FREQUENCY_VALUE AS FrequencyValue,
                    FREQUENCY_UNIT AS FrequencyUnit, IS_ENABLED AS IsEnabled,
-                   LAST_SYNC_AT AS LastSyncAt, NEXT_SYNC_AT AS NextSyncAt, ROW_VERSION AS RowVersion
+                   LAST_SYNC_AT AS LastSyncAt, NEXT_SYNC_AT AS NextSyncAt, ROW_VERSION AS RowVersion,
+                   CONSECUTIVE_FAILURE_COUNT AS ConsecutiveFailureCount
             FROM SYNC_CONFIG
             WHERE IS_DELETED = 0
             ORDER BY OBJECT_TYPE";
@@ -32,7 +33,8 @@ public class SyncConfigRepository : ISyncConfigRepository
         const string sql = @"
             SELECT ID AS Id, OBJECT_TYPE AS ObjectType, FREQUENCY_VALUE AS FrequencyValue,
                    FREQUENCY_UNIT AS FrequencyUnit, IS_ENABLED AS IsEnabled,
-                   LAST_SYNC_AT AS LastSyncAt, NEXT_SYNC_AT AS NextSyncAt, ROW_VERSION AS RowVersion
+                   LAST_SYNC_AT AS LastSyncAt, NEXT_SYNC_AT AS NextSyncAt, ROW_VERSION AS RowVersion,
+                   CONSECUTIVE_FAILURE_COUNT AS ConsecutiveFailureCount
             FROM SYNC_CONFIG
             WHERE OBJECT_TYPE = :ObjectType AND IS_DELETED = 0";
         return await _connection.QuerySingleOrDefaultAsync<SyncConfig>(sql, new { ObjectType = objectType });
@@ -63,14 +65,21 @@ public class SyncConfigRepository : ISyncConfigRepository
         return affected > 0;
     }
 
-    public async Task UpdateRunResultAsync(string objectType, DateTime lastSyncAt, DateTime? nextSyncAt)
+    public async Task UpdateRunResultAsync(string objectType, DateTime lastSyncAt, DateTime? nextSyncAt, int consecutiveFailureCount)
     {
         EnsureOpen();
         const string sql = @"
             UPDATE SYNC_CONFIG
-            SET LAST_SYNC_AT = :LastSyncAt, NEXT_SYNC_AT = :NextSyncAt, ROW_VERSION = ROW_VERSION + 1
+            SET LAST_SYNC_AT = :LastSyncAt, NEXT_SYNC_AT = :NextSyncAt,
+                CONSECUTIVE_FAILURE_COUNT = :ConsecutiveFailureCount, ROW_VERSION = ROW_VERSION + 1
             WHERE OBJECT_TYPE = :ObjectType AND IS_DELETED = 0";
-        await _connection.ExecuteAsync(sql, new { ObjectType = objectType, LastSyncAt = lastSyncAt, NextSyncAt = nextSyncAt });
+        await _connection.ExecuteAsync(sql, new
+        {
+            ObjectType = objectType,
+            LastSyncAt = lastSyncAt,
+            NextSyncAt = nextSyncAt,
+            ConsecutiveFailureCount = consecutiveFailureCount
+        });
     }
 
     private void EnsureOpen()

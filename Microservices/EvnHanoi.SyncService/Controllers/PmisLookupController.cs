@@ -18,7 +18,7 @@ public class PmisLookupController : ControllerBase
 
     private readonly IPmisClient _pmisClient;
 
-    public PmisLookupController(IPmisClient pmisClient)
+    public PmisLookupController(IInteractivePmisClient pmisClient)
     {
         _pmisClient = pmisClient;
     }
