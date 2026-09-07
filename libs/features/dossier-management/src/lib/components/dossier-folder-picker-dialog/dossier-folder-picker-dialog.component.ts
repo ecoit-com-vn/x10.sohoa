@@ -73,7 +73,7 @@ export class DossierFolderPickerDialogComponent {
   documentTypes = signal<DocumentTypeLookupItem[]>([]);
   loadingDocTypes = signal(false);
   selectedDocumentTypeId = signal('');
-  ocrMode: OcrMode = 'none';
+  ocrMode: OcrMode = 'OcrAndExtract';
 
   /**
    * Phạm vi trang cần bóc tách — giống dialog upload trực tiếp, mặc định 'FirstAndLastPage' vì dữ
@@ -110,7 +110,7 @@ export class DossierFolderPickerDialogComponent {
     this.docSearch.set('');
     this.page.set(1);
     this.selectedDocumentTypeId.set('');
-    this.ocrMode = 'none';
+    this.ocrMode = 'OcrAndExtract';
     this.extractionScope = 'FirstAndLastPage';
     if (this.flatFolderList().length === 0) {
       this.loadFolderTree();
