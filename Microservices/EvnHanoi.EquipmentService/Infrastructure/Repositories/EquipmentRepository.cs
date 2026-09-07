@@ -135,7 +135,7 @@ public class EquipmentRepository : IEquipmentRepository
                            ) WHERE rn = 1
                        ) eft ON e.EquipmentTypeId = eft.EquipmentTypeId
                      LEFT JOIN APP_USER usr ON e.CreatorId = usr.Id
-                     WHERE e.Id = :Id AND e.IsDeleted = 0 AND e.StatusTransition != 1";
+                     WHERE e.Id = :Id AND e.IsDeleted = 0 AND NVL(e.StatusTransition, 0) != 1";
 
         var result = await _connection.QueryAsync<EquipmentDto, CreatorInfoRow, EquipmentDto>(
             sql,
