@@ -118,7 +118,7 @@ public class PmisScheduledSyncJob : IJob
         catch (Exception ex)
         {
             Log.Error(ex, "PmisScheduledSyncJob: đồng bộ tự động {ObjectType} thất bại.", objectType);
-            await _syncHistoryRepository.CompleteAsync(historyId, SyncHistoryStatus.Failed, total, success, failed, ex.Message);
+            await _syncHistoryRepository.CompleteAsync(historyId, SyncHistoryStatus.Failed, total, success, failed, SyncErrorFormatter.Format(ex));
 
             // Lỗi ngay từ bước gọi PMIS — đánh dấu thất bại ngay (không tự retry), và chờ đúng đến lần
             // kế tiếp theo tần suất đã cấu hình mới thử lại, giống hệt nhánh thành công — không rút
@@ -128,7 +128,7 @@ public class PmisScheduledSyncJob : IJob
             await _syncConfigRepository.UpdateRunResultAsync(objectType, now, nextSyncAtOnFailure, newFailureCount);
 
             if (newFailureCount == FailureNotifyThreshold)
-                await PublishSyncFailedNotificationAsync(objectType, newFailureCount, ex.Message);
+                await PublishSyncFailedNotificationAsync(objectType, newFailureCount, SyncErrorFormatter.FormatShort(ex));
         }
     }
 
@@ -173,7 +173,7 @@ public class PmisScheduledSyncJob : IJob
         catch (Exception ex)
         {
             Log.Error(ex, "PmisScheduledSyncJob: lỗi khi đồng bộ 1 trang ({PageLabel}).", pageLabel);
-            return (0, pageItems.Count, 0, [$"{pageLabel}: {ex.Message}"]);
+            return (0, pageItems.Count, 0, [$"{pageLabel}: {SyncErrorFormatter.FormatShort(ex)}"]);
         }
     }
 
