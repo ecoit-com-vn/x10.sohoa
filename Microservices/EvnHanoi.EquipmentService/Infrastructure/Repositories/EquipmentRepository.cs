@@ -111,6 +111,9 @@ public class EquipmentRepository : IEquipmentRepository
                             eft.Id AS {nameof(EquipmentDto.FormTemplateId)},
                             eft.FormSchema AS {nameof(EquipmentDto.FormSchema)},
                             e.QR_CODE AS {nameof(EquipmentDto.QrCode)},
+                            e.PMIS_CODE AS {nameof(EquipmentDto.PmisCode)},
+                            inf.PMIS_CODE AS {nameof(EquipmentDto.ParentPmisCode)},
+                            inf.INFRA_TYPE_ID AS {nameof(EquipmentDto.ParentInfraTypeId)},
                             usr.Id AS CreatorId,
                             usr.UserName AS Username,
                             usr.FullName AS FullName
@@ -736,7 +739,10 @@ StatusTransition,
                 UnitId,
                 FORM_VALUES,
                 Note,
-                StatusTransition
+                StatusTransition,
+                PMIS_CODE,
+                QR_CODE,
+                LAST_SYNCED_FROM_PMIS_AT
             )
             VALUES (
                 :Id,
@@ -755,7 +761,10 @@ StatusTransition,
                 :UnitId,
                 :FormValues,
                 :Note,
-                NULL
+                NULL,
+                :PmisCode,
+                :QrCode,
+                :LastSyncedFromPmisAt
             )";
 
             await _connection.ExecuteAsync(insertEquipmentSql, new
@@ -775,6 +784,9 @@ StatusTransition,
                 replacementEquipment.UnitId,
                 FormValues = OracleClob.Param(replacementEquipment.FormValues),
                 replacementEquipment.Note,
+                replacementEquipment.PmisCode,
+                QrCode = OracleClob.Param(replacementEquipment.QrCode),
+                replacementEquipment.LastSyncedFromPmisAt,
             }, transaction);
 
             var sourceAttributes = await _connection.QueryAsync<AttributeValue>(
@@ -806,13 +818,19 @@ StatusTransition,
                     )", copiedAttributes, transaction);
             }
 
+            // AND StatusTransition IS NULL: khoá kiểu compare-and-swap — nếu 2 tiến trình cùng chuyển 1
+            // thiết bị đồng thời (vd. job đồng bộ tự động + người dùng bấm "Cập nhật từ PMIS" cùng lúc),
+            // chỉ tiến trình đầu tiên cập nhật được dòng nguồn; tiến trình sau sẽ update 0 dòng (vì dòng
+            // nguồn đã có StatusTransition khác NULL), rơi vào nhánh throw bên dưới và toàn bộ transaction
+            // (kể cả bản ghi mới vừa insert) bị rollback — tránh tạo ra 2 bản ghi mới trùng PmisCode.
             var sourceUpdated = await _connection.ExecuteAsync(@"UPDATE EQUIPMENTS
                 SET IS_ACTIVE = 0,
                     ModifiedBy = :ModifiedBy,
                     ModifiedDate = :ModifiedDate,
                     StatusTransition = :StatusTransition
                 WHERE Id = :Id
-                  AND IsDeleted = 0",
+                  AND IsDeleted = 0
+                  AND StatusTransition IS NULL",
                 new
                 {
                     Id = sourceEquipment.Id.ToString(),
@@ -823,7 +841,7 @@ StatusTransition,
                 transaction);
 
             if (sourceUpdated != 1)
-                throw new InvalidOperationException("Thiết bị nguồn không còn tồn tại hoặc đã bị xóa.");
+                throw new InvalidOperationException("Thiết bị nguồn không còn tồn tại, đã bị xóa, hoặc đã được chuyển bởi 1 thao tác khác.");
 
             transaction.Commit();
             return true;
@@ -1518,6 +1536,8 @@ StatusTransition,
         public int? ManufactureYear { get; set; }
         public long? UnitId { get; set; }
         public string? EquipmentTypeId { get; set; }
+        public long? EquipmentStatusId { get; set; }
+        public string? FormValues { get; set; }
     }
 
     public async Task<EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult> UpsertFromPmisAsync(
@@ -1582,15 +1602,85 @@ StatusTransition,
 
         var existing = await _connection.QuerySingleOrDefaultAsync<EquipmentCompareRow>(
             @"SELECT Id, Name, Code, SerialNumber, INFRASTRUCTURE_ID AS InfrastructureId,
-                     MANUFACTURE_YEAR AS ManufactureYear, UnitId, EquipmentTypeId
-              FROM EQUIPMENTS WHERE PMIS_CODE = :PmisCode AND IsDeleted = 0", new { PmisCode = pmisCode });
+                     MANUFACTURE_YEAR AS ManufactureYear, UnitId, EquipmentTypeId,
+                     EQUIPMENT_STATUS_ID AS EquipmentStatusId, FORM_VALUES AS FormValues
+              FROM EQUIPMENTS WHERE PMIS_CODE = :PmisCode AND IsDeleted = 0 AND StatusTransition IS NULL",
+            new { PmisCode = pmisCode });
 
         if (existing != null)
         {
+            // PMIS báo thiết bị này giờ thuộc 1 Trạm/Đường dây KHÁC với trạm/đường dây đang lưu — đây là
+            // "chuyển TBA" thật (không phải gán trạm lần đầu, vốn existing.InfrastructureId sẽ null) nên
+            // KHÔNG được ghi đè INFRASTRUCTURE_ID tại chỗ (mất dấu vết thiết bị từng ở trạm nào). Tái dùng
+            // đúng cơ chế "Chuyển thiết bị" thủ công đã có (CloneForInfrastructureTransferAsync + quy ước
+            // StatusTransition=0 "Đã chuyển TBA") — xem EquipmentController.CreateFromById.
+            var infrastructureChanged =
+                existing.InfrastructureId != null &&
+                infrastructureId != null &&
+                existing.InfrastructureId != infrastructureId;
+
+            if (infrastructureChanged)
+            {
+                var oldId = Guid.Parse(existing.Id!);
+                var replacementId = Guid.Parse(EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid());
+
+                var sourceEquipment = new Equipment
+                {
+                    Id = oldId,
+                    StatusTransition = 0, // 0: Đã chuyển TBA
+                    ModifiedBy = "PMIS_SYNC",
+                    ModifiedDate = DateTime.UtcNow,
+                };
+
+                var replacementEquipment = new Equipment
+                {
+                    Id = replacementId,
+                    EquipmentTypeId = Guid.Parse(equipmentTypeId),
+                    Name = name,
+                    Code = code,
+                    SerialNumber = serialNumber ?? string.Empty,
+                    InfrastructureId = Guid.Parse(infrastructureId!),
+                    ManufactureYear = manufactureYear,
+                    EquipmentStatusId = existing.EquipmentStatusId,
+                    IsActive = true,
+                    UnitId = unitId,
+                    FormValues = existing.FormValues,
+                    CreatedBy = "PMIS_SYNC",
+                    CreatedAt = DateTime.UtcNow,
+                    StatusTransition = null,
+                    PmisCode = pmisCode,
+                    QrCode = qrCodeBase64,
+                    LastSyncedFromPmisAt = DateTime.UtcNow,
+                };
+
+                try
+                {
+                    await CloneForInfrastructureTransferAsync(sourceEquipment, replacementEquipment);
+                }
+                catch (InvalidOperationException)
+                {
+                    // Thiết bị nguồn đã bị xoá, hoặc đã được 1 tiến trình khác chuyển đồng thời (xem guard
+                    // "AND StatusTransition IS NULL" trong CloneForInfrastructureTransferAsync) — không phải
+                    // lỗi hệ thống, chỉ báo lỗi thân thiện thay vì để exception kỹ thuật lộ ra ngoài.
+                    return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
+                        "Không thể tự động chuyển thiết bị sang trạm/đường dây mới — thiết bị vừa được chuyển bởi 1 thao tác khác, vui lòng đồng bộ lại.");
+                }
+
+                return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Transferred(
+                    replacementId, Guid.Parse(equipmentTypeId), oldId, existing.UnitId, unitId);
+            }
+
             // Lần đồng bộ sau mà tải ảnh QR từ PMIS lỗi (qrCodeBase64 = null) thì bỏ QR_CODE ra khỏi câu
             // UPDATE để giữ lại ảnh đã có, không xoá trắng dữ liệu cũ. Không dùng COALESCE được vì Oracle
             // suy tham số bind đầu tiên thành CHAR rồi báo ORA-00932 khi so với cột CLOB.
             var hasQrCode = !string.IsNullOrEmpty(qrCodeBase64);
+
+            // PMIS lần này không xác định được trạm/đường dây cha (parentPmisCode rỗng, hoặc INFRASTRUCTURE
+            // ứng với mã đó chưa đồng bộ về kịp) thì GIỮ NGUYÊN InfrastructureId đang lưu thay vì xoá trắng
+            // — tương tự nguyên tắc "không có dữ liệu mới thì không ghi đè dữ liệu cũ" đã áp dụng cho QR_CODE
+            // ở trên. Chỉ khi PMIS THẬT SỰ trả về 1 trạm khác (không null) mới coi là đổi trạm (đã xử lý ở
+            // nhánh infrastructureChanged phía trên).
+            var effectiveInfrastructureId = infrastructureId ?? existing.InfrastructureId;
 
             // Chỉ update khi có ít nhất 1 trường "lõi" thay đổi thật, hoặc lần này tải được ảnh QR mới
             // — tránh ghi đè/tăng ModifiedDate vô ích mỗi lần resync khi PMIS không có gì mới. Không so
@@ -1599,7 +1689,7 @@ StatusTransition,
                 existing.Name != name ||
                 existing.Code != code ||
                 existing.SerialNumber != serialNumber ||
-                existing.InfrastructureId != infrastructureId ||
+                existing.InfrastructureId != effectiveInfrastructureId ||
                 existing.ManufactureYear != manufactureYear ||
                 existing.UnitId != unitId ||
                 existing.EquipmentTypeId != equipmentTypeId;
@@ -1625,7 +1715,7 @@ StatusTransition,
                 Name = name,
                 Code = code,
                 SerialNumber = serialNumber,
-                InfrastructureId = infrastructureId,
+                InfrastructureId = effectiveInfrastructureId,
                 ManufactureYear = manufactureYear,
                 UnitId = unitId,
                 EquipmentTypeId = equipmentTypeId,
@@ -1664,6 +1754,24 @@ StatusTransition,
             QrCode = EvnHanoi.Infrastructure.Database.OracleClob.Param(qrCodeBase64)
         });
         return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Ok(newId, true, true, Guid.Parse(equipmentTypeId));
+    }
+
+    public async Task<bool> SetFormValuesIfEmptyAsync(Guid equipmentId, string formValuesJson)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"UPDATE EQUIPMENTS
+                    SET FORM_VALUES = :FormValues, ModifiedBy = :ModifiedBy, ModifiedDate = SYSTIMESTAMP
+                    WHERE Id = :Id AND IsDeleted = 0 AND FORM_VALUES IS NULL";
+
+        var affected = await _connection.ExecuteAsync(sql, new
+        {
+            Id = equipmentId.ToString(),
+            FormValues = OracleClob.Param(formValuesJson),
+            ModifiedBy = "PMIS_SYNC"
+        });
+        return affected > 0;
     }
 
     /// <summary>

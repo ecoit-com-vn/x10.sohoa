@@ -73,6 +73,17 @@ public class EquipmentDto
     /// (GetDtoByIdAsync) mới trả về, danh sách phân trang để null để không phình payload (~58KB/thiết bị).
     /// </summary>
     public string? QrCode { get; set; }
+
+    /// <summary>Mã PMIS của chính thiết bị này — null nếu thiết bị chưa từng đồng bộ từ PMIS.</summary>
+    public string? PmisCode { get; set; }
+
+    /// <summary>Mã PMIS của Trạm/Đường dây cha — cần để gọi API "Cập nhật thông số từ PMIS" cho 1 thiết bị.</summary>
+    public string? ParentPmisCode { get; set; }
+
+    /// <summary>1 = Trạm biến áp, 2 = Đường dây (INFRASTRUCTURE.INFRA_TYPE_ID của trạm/đường dây cha) —
+    /// cần để "Cập nhật từ PMIS" gọi đúng API tài liệu đính kèm (SUBSTATION_DOCUMENT_LIST vs
+    /// LINE_DOCUMENT_LIST), PMIS không tự phân biệt được qua ChiTietThietBi.</summary>
+    public int? ParentInfraTypeId { get; set; }
 }
 
 public class EquipmentTypeDto
