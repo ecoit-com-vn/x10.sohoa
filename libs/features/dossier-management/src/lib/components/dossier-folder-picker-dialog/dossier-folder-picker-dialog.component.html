@@ -21,7 +21,7 @@
 
       <div class="folder-tree-panel" *ngIf="!loadingTree(); else treeLoading">
         <div *ngIf="filteredFolderTree().length === 0" class="empty-hint">
-          {{ flatFolderList().length === 0 ? 'Bạn chưa được phân bổ thư mục nhập liệu' : 'Không tìm thấy thư mục' }}
+          {{ flatFolderList().length === 0 ? 'Chưa có thư mục nào được phân bổ hoặc do bạn tạo' : 'Không tìm thấy thư mục' }}
         </div>
         <ng-container *ngTemplateOutlet="folderTreeTpl; context: { $implicit: filteredFolderTree() }"></ng-container>
       </div>
@@ -166,26 +166,24 @@
         <h4 class="step-title">Bước 2 — Xử lý OCR &amp; bóc tách</h4>
         <div class="ocr-options">
           <label class="ocr-option">
-            <input type="radio" name="folderOcrMode" value="none" [(ngModel)]="ocrMode" />
-            <span>Không xử lý OCR</span>
-          </label>
-          <label class="ocr-option" [class.disabled]="!hasDocumentTypeForm()">
             <input
               type="radio"
               name="folderOcrMode"
               value="OcrAndExtract"
               [(ngModel)]="ocrMode"
-              [disabled]="!hasDocumentTypeForm()"
             />
             <span>OCR + bóc tách dữ liệu</span>
           </label>
-          <label class="ocr-option" [class.disabled]="!hasDocumentTypeForm()">
+          <label class="ocr-option">
+            <input type="radio" name="folderOcrMode" value="none" [(ngModel)]="ocrMode" />
+            <span>Không xử lý OCR</span>
+          </label>
+          <label class="ocr-option">
             <input
               type="radio"
               name="folderOcrMode"
               value="ExtractOnly"
               [(ngModel)]="ocrMode"
-              [disabled]="!hasDocumentTypeForm()"
             />
             <span>Chỉ bóc tách dữ liệu (PDF đã có lớp text)</span>
           </label>

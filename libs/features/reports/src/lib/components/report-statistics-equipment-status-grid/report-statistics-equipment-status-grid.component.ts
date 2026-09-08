@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TableModule } from 'primeng/table';
+import { EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
 import { ReportStatisticsEquipmentStatusGridConfig } from '../../data-access/report-statistics.config';
 import {
   ReportStatisticsEquipmentStatusGridItem,
@@ -17,7 +18,7 @@ import { finalize } from 'rxjs';
 @Component({
   selector: 'app-report-statistics-equipment-status-grid',
   standalone: true,
-  imports: [CommonModule, TableModule],
+  imports: [CommonModule, TableModule, EcoPaginatorComponent],
   templateUrl: './report-statistics-equipment-status-grid.component.html',
   styleUrl: './report-statistics-equipment-status-grid.component.scss'
 })

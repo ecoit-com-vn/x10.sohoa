@@ -9,7 +9,9 @@ export interface BoxLookupItem {
   name: string;
   code?: string;
   floorCode?: string;
+  floorName?: string;
   shelfCode?: string;
+  shelfName?: string;
 }
 
 export interface DossierByBoxFilter {

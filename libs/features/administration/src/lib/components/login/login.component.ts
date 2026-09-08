@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, afterNextRender } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '@sohoa.frontend/shared/core';
 
@@ -22,6 +22,7 @@ export class Login implements OnInit {
   
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private location = inject(Location);
   private authService = inject(AuthService);
 
   constructor() {
@@ -36,20 +37,14 @@ export class Login implements OnInit {
   }
   
   ngOnInit() {
-    if (typeof window !== 'undefined') {
-      this.route.queryParams.subscribe(params => {
-        const ticket = params['ticket'];
-        if (ticket) {
-          this.router.navigate([], {
-            relativeTo: this.route,
-            queryParams: { ticket: null },
-            queryParamsHandling: 'merge',
-            replaceUrl: true
-          });
-          this.verifySsoTicket(ticket);
-        }
-      });
-    }
+    if (typeof window === 'undefined') return;
+
+    const ticket = this.route.snapshot.queryParamMap.get('ticket')
+      || this.route.snapshot.paramMap.get('ticket');
+    if (!ticket) return;
+
+    this.location.replaceState('/sso-login');
+    this.verifySsoTicket(ticket);
   }
 
   private persistRememberMe(): void {

@@ -19,17 +19,17 @@
 
   .filter-row {
     display: grid;
-    grid-template-columns: minmax(200px, 1.1fr) minmax(180px, 0.9fr) minmax(200px, 1fr) minmax(120px, 0.65fr) auto;
+    grid-template-columns: minmax(200px, 1.1fr) minmax(180px, 0.9fr) minmax(200px, 1fr) minmax(120px, 0.65fr);
     align-items: end;
     gap: 1rem;
+    padding: 0;
+    margin-bottom: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
 
     @media (max-width: 1200px) {
       grid-template-columns: 1fr 1fr;
-
-      .filter-actions {
-        grid-column: 1 / -1;
-        justify-content: flex-start;
-      }
     }
 
     @media (max-width: 576px) {
@@ -55,9 +55,10 @@
 
   .filter-actions {
     display: flex;
+    justify-content: flex-end;
     align-items: center;
     gap: 0.5rem;
-    padding-bottom: 1px;
+    margin-top: 1rem;
   }
 }
 

@@ -37,26 +37,26 @@
 
       <div class="ocr-options">
         <label class="ocr-option">
-          <input type="radio" name="ocrMode" value="none" [(ngModel)]="ocrMode" [disabled]="submitting()" />
-          <span>Không xử lý OCR</span>
-        </label>
-        <label class="ocr-option" [class.disabled]="!hasDocumentTypeForm()">
           <input
             type="radio"
             name="ocrMode"
             value="OcrAndExtract"
             [(ngModel)]="ocrMode"
-            [disabled]="!hasDocumentTypeForm() || submitting()"
+            [disabled]="submitting()"
           />
           <span>OCR + bóc tách dữ liệu</span>
         </label>
-        <label class="ocr-option" [class.disabled]="!hasDocumentTypeForm()">
+        <label class="ocr-option">
+          <input type="radio" name="ocrMode" value="none" [(ngModel)]="ocrMode" [disabled]="submitting()" />
+          <span>Không xử lý OCR</span>
+        </label>
+        <label class="ocr-option">
           <input
             type="radio"
             name="ocrMode"
             value="ExtractOnly"
             [(ngModel)]="ocrMode"
-            [disabled]="!hasDocumentTypeForm() || submitting()"
+            [disabled]="submitting()"
           />
           <span>Chỉ bóc tách dữ liệu (PDF đã có lớp text)</span>
         </label>

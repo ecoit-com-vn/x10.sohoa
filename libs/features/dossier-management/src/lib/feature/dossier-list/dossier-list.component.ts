@@ -311,9 +311,21 @@ export class DossierListComponent implements OnInit {
       });
   }
 
+  // Bulk Approval Signals
+  selectedDossierIds = signal<Set<string>>(new Set());
+  showBulkApproveConfirm = signal<boolean>(false);
+  bulkApproveComment = signal<string>('Đồng ý phê duyệt hàng loạt');
+  bulkApproveSubmitting = signal<boolean>(false);
 
+  selectedDossiersList = computed(() => {
+    const ids = this.selectedDossierIds();
+    return this.items().filter((item) => ids.has(item.id));
+  });
 
-  tableColSpan = computed(() => this.bhsColumns().length + 6);
+  tableColSpan = computed(() => {
+    const base = this.bhsColumns().length + 6;
+    return (this.isApproverMenu() && this.activeTab() === 'pending-action') ? base + 1 : base;
+  });
 
   getDossierStatusPillClass = getDossierStatusPillClass;
 
@@ -363,6 +375,8 @@ export class DossierListComponent implements OnInit {
   selectTab(tab: DossierListTab) {
 
     if (this.activeTab() === tab) return;
+
+    this.clearSelection();
 
     this.activeTab.set(tab);
 
@@ -1406,6 +1420,120 @@ export class DossierListComponent implements OnInit {
     });
   }
 
+  isSelected(id: string): boolean {
+    return this.selectedDossierIds().has(id);
+  }
+
+  toggleSelectDossier(id: string): void {
+    const current = new Set(this.selectedDossierIds());
+    if (current.has(id)) {
+      current.delete(id);
+    } else {
+      current.add(id);
+    }
+    this.selectedDossierIds.set(current);
+  }
+
+  allPageSelected(): boolean {
+    const list = this.items();
+    if (list.length === 0) return false;
+    const current = this.selectedDossierIds();
+    return list.every((item) => current.has(item.id));
+  }
+
+  toggleSelectAllPage(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    const current = new Set(this.selectedDossierIds());
+    if (checked) {
+      this.items().forEach((item) => current.add(item.id));
+    } else {
+      this.items().forEach((item) => current.delete(item.id));
+    }
+    this.selectedDossierIds.set(current);
+  }
+
+  clearSelection(): void {
+    if (this.selectedDossierIds().size > 0) {
+      this.selectedDossierIds.set(new Set());
+    }
+  }
+
+  openBulkApproveDialog(): void {
+    if (this.selectedDossierIds().size === 0) return;
+    this.bulkApproveComment.set('Đồng ý phê duyệt hàng loạt');
+    this.showBulkApproveConfirm.set(true);
+  }
+
+  onCancelBulkApprove(): void {
+    if (this.bulkApproveSubmitting()) return;
+    this.showBulkApproveConfirm.set(false);
+  }
+
+  confirmBulkApprove(): void {
+    const selectedItems = this.selectedDossiersList();
+    if (selectedItems.length === 0 || this.bulkApproveSubmitting()) return;
+
+    this.bulkApproveSubmitting.set(true);
+    const comment = this.bulkApproveComment().trim() || 'Đồng ý phê duyệt hàng loạt';
+
+    const requests = selectedItems.map((item) => {
+      const actions = sortWorkflowActionsRejectLast(this.getItemAvailableActions(item));
+      const approveAction = actions.find((a: any) => !isRejectWorkflowAction(a)) ?? actions[0];
+      const actionLabel = approveAction?.name || 'Phê duyệt';
+      const nextNodeId = approveAction?.nextNodeId || '';
+
+      const reqPayload = {
+        nextNodeId,
+        actionLabel,
+        comment,
+      };
+
+      const workflowCall = this.shouldUseResubmit(item)
+        ? this.service.resubmitWorkflow(item.id, reqPayload, this.kindIdSignal())
+        : this.service.moveWorkflow(item.id, reqPayload, this.kindIdSignal());
+
+      return workflowCall.pipe(
+        map(() => ({ id: item.id, success: true, error: null })),
+        catchError((err) => of({ id: item.id, success: false, error: err?.error?.message || 'Lỗi' }))
+      );
+    });
+
+    forkJoin(requests)
+      .pipe(finalize(() => this.bulkApproveSubmitting.set(false)))
+      .subscribe({
+        next: (results) => {
+          const successCount = results.filter((r) => r.success).length;
+          const failCount = results.filter((r) => !r.success).length;
+
+          if (successCount > 0) {
+            this.messageService.add({
+              severity: 'success',
+              summary: 'Thành công',
+              detail: `Đã phê duyệt thành công ${successCount} hồ sơ!`,
+            });
+          }
+          if (failCount > 0) {
+            this.messageService.add({
+              severity: 'warn',
+              summary: 'Cảnh báo',
+              detail: `${failCount} hồ sơ không thể phê duyệt.`,
+            });
+          }
+
+          this.showBulkApproveConfirm.set(false);
+          this.clearSelection();
+          this.refreshList();
+          this.loadTabCounts();
+        },
+        error: () => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: 'Không thể thực hiện phê duyệt hàng loạt.',
+          });
+        },
+      });
+  }
 }
 
 

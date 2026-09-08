@@ -102,8 +102,19 @@ export class TransmissionLineSearchComponent implements OnInit {
   technicalSelectedDocumentTypeId = signal<string>('');
   technicalDocumentPage = signal<number>(1);
   technicalDocumentPageSize = signal<number>(10);
+
+  // Strips Vietnamese diacritics so keyword filters match regardless of accents
+  // (e.g. typing "duong day" still matches "đường dây").
+  private static stripDiacritics(value: string): string {
+    return value
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'D');
+  }
+
   attachmentDocumentFolders = computed(() => {
-    const keyword = this.attachmentFolderSearchKeyword().trim().toLocaleLowerCase();
+    const keyword = TransmissionLineSearchComponent.stripDiacritics(this.attachmentFolderSearchKeyword().trim().toLocaleLowerCase());
     const groups = new Map<string, { id: string; name: string; documents: Array<{ dossier: any; document: any }> }>();
 
     this.attachmentDossierDocuments().forEach(item => {
@@ -114,7 +125,7 @@ export class TransmissionLineSearchComponent implements OnInit {
     });
 
     return Array.from(groups.values())
-      .filter(folder => !keyword || folder.name.toLocaleLowerCase().includes(keyword))
+      .filter(folder => !keyword || TransmissionLineSearchComponent.stripDiacritics(folder.name.toLocaleLowerCase()).includes(keyword))
       .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
   });
 
@@ -128,10 +139,10 @@ export class TransmissionLineSearchComponent implements OnInit {
   );
 
   selectedAttachmentDocuments = computed(() => {
-    const keyword = this.attachmentDocumentKeyword().trim().toLocaleLowerCase();
+    const keyword = TransmissionLineSearchComponent.stripDiacritics(this.attachmentDocumentKeyword().trim().toLocaleLowerCase());
     const equipmentId = this.attachmentSelectedEquipmentId();
     return (this.selectedAttachmentFolder()?.documents ?? []).filter(item => {
-      const name = (item.document.name || item.document.fileName || '').toLocaleLowerCase();
+      const name = TransmissionLineSearchComponent.stripDiacritics((item.document.name || item.document.fileName || '').toLocaleLowerCase());
       const itemEquipmentId = String(item.document.equipmentId || item.dossier.equipmentId || '');
       return (!keyword || name.includes(keyword)) && (!equipmentId || itemEquipmentId === equipmentId);
     });
@@ -143,7 +154,7 @@ export class TransmissionLineSearchComponent implements OnInit {
   });
 
   technicalDossierFolders = computed(() => {
-    const keyword = this.technicalFolderSearchKeyword().trim().toLocaleLowerCase();
+    const keyword = TransmissionLineSearchComponent.stripDiacritics(this.technicalFolderSearchKeyword().trim().toLocaleLowerCase());
     const groups = new Map<string, { id: string; name: string; dossiers: any[] }>();
 
     this.technicalDossiers().forEach(dossier => {
@@ -154,7 +165,7 @@ export class TransmissionLineSearchComponent implements OnInit {
     });
 
     return Array.from(groups.values())
-      .filter(folder => !keyword || folder.name.toLocaleLowerCase().includes(keyword))
+      .filter(folder => !keyword || TransmissionLineSearchComponent.stripDiacritics(folder.name.toLocaleLowerCase()).includes(keyword))
       .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
   });
 
@@ -163,10 +174,10 @@ export class TransmissionLineSearchComponent implements OnInit {
   );
 
   selectedTechnicalDocuments = computed(() => {
-    const keyword = this.technicalDocumentKeyword().trim().toLocaleLowerCase();
+    const keyword = TransmissionLineSearchComponent.stripDiacritics(this.technicalDocumentKeyword().trim().toLocaleLowerCase());
     const documentTypeId = this.technicalSelectedDocumentTypeId();
     return this.getTechnicalFolderDocuments(this.selectedTechnicalFolder() ?? { dossiers: [] }).filter(item => {
-      const name = (item.document.name || item.document.fileName || '').toLocaleLowerCase();
+      const name = TransmissionLineSearchComponent.stripDiacritics((item.document.name || item.document.fileName || '').toLocaleLowerCase());
       return (!keyword || name.includes(keyword))
         && (!documentTypeId || String(item.document.documentTypeId || '') === documentTypeId);
     });
@@ -305,12 +316,12 @@ export class TransmissionLineSearchComponent implements OnInit {
   }
 
   private filterUnitTree(nodes: any[], keyword: string): any[] {
-    const search = keyword.trim().toLocaleLowerCase('vi');
+    const search = TransmissionLineSearchComponent.stripDiacritics(keyword.trim().toLocaleLowerCase('vi'));
     if (!search) return nodes;
 
     return nodes.reduce<any[]>((result, node) => {
       const children = this.filterUnitTree(node.children || [], keyword);
-      const label = `${node.name || ''} ${node.code || ''}`.toLocaleLowerCase('vi');
+      const label = TransmissionLineSearchComponent.stripDiacritics(`${node.name || ''} ${node.code || ''}`.toLocaleLowerCase('vi'));
 
       if (label.includes(search) || children.length > 0) {
         result.push({ ...node, children });

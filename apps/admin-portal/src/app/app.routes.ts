@@ -7,6 +7,10 @@ export const appRoutes: Route[] = [
     loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.Login)
   },
   {
+    path: 'sso-login/:ticket',
+    loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.Login)
+  },
+  {
     path: 'sso-login',
     loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.Login)
   },
@@ -91,6 +95,10 @@ export const appRoutes: Route[] = [
       {
         path: 'administration/trainning-ai-ocr/:jobId/ocr-analysis',
         loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.AiOcrTrainingDocumentOcrInsightsPageComponent)
+      },
+      {
+        path: 'administration/user-guide',
+        loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.UserGuideManagementComponent)
       },
       {
         path: 'administration/workflow-builder/new',

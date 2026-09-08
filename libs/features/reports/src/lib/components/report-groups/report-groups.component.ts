@@ -208,7 +208,7 @@ export class ReportGroupsComponent implements OnInit {
   }
 
   loadOrganizationUnits() {
-    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/organization-units/lookup`).subscribe({
+    this.http.get<any[]>(`${environment.apiGatewayUrl}/api/v1/organization-units/lookup`, { params: { status: 1 } }).subscribe({
       next: (res) => {
         this.organizationUnits.set(res || []);
       },

@@ -104,8 +104,18 @@ export class SubstationSearchComponent implements OnInit {
   technicalDocumentPageSize = signal<number>(10);
   private attachmentLoadSequence = 0;
   private technicalLoadSequence = 0;
+
+  // Strips Vietnamese diacritics so keyword filters match regardless of accents
+  // (e.g. typing "tram" still matches "trạm").
+  private static stripDiacritics(value: string): string {
+    return value
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'D');
+  }
   attachmentDocumentFolders = computed(() => {
-    const keyword = this.attachmentFolderSearchKeyword().trim().toLocaleLowerCase();
+    const keyword = SubstationSearchComponent.stripDiacritics(this.attachmentFolderSearchKeyword().trim().toLocaleLowerCase());
     const groups = new Map<string, { id: string; name: string; documents: Array<{ dossier: any; document: any }> }>();
 
     this.attachmentDossierDocuments().forEach(item => {
@@ -116,7 +126,7 @@ export class SubstationSearchComponent implements OnInit {
     });
 
     return Array.from(groups.values())
-      .filter(folder => !keyword || folder.name.toLocaleLowerCase().includes(keyword))
+      .filter(folder => !keyword || SubstationSearchComponent.stripDiacritics(folder.name.toLocaleLowerCase()).includes(keyword))
       .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
   });
 
@@ -130,10 +140,10 @@ export class SubstationSearchComponent implements OnInit {
   );
 
   selectedAttachmentDocuments = computed(() => {
-    const keyword = this.attachmentDocumentKeyword().trim().toLocaleLowerCase();
+    const keyword = SubstationSearchComponent.stripDiacritics(this.attachmentDocumentKeyword().trim().toLocaleLowerCase());
     const equipmentId = this.attachmentSelectedEquipmentId();
     return (this.selectedAttachmentFolder()?.documents ?? []).filter(item => {
-      const name = (item.document.name || item.document.fileName || '').toLocaleLowerCase();
+      const name = SubstationSearchComponent.stripDiacritics((item.document.name || item.document.fileName || '').toLocaleLowerCase());
       const itemEquipmentId = String(item.document.equipmentId || item.dossier.equipmentId || '');
       return (!keyword || name.includes(keyword)) && (!equipmentId || itemEquipmentId === equipmentId);
     });
@@ -145,7 +155,7 @@ export class SubstationSearchComponent implements OnInit {
   });
 
   technicalDossierFolders = computed(() => {
-    const keyword = this.technicalFolderSearchKeyword().trim().toLocaleLowerCase();
+    const keyword = SubstationSearchComponent.stripDiacritics(this.technicalFolderSearchKeyword().trim().toLocaleLowerCase());
     const groups = new Map<string, { id: string; name: string; dossiers: any[] }>();
 
     this.technicalDossiers().forEach(dossier => {
@@ -156,7 +166,7 @@ export class SubstationSearchComponent implements OnInit {
     });
 
     return Array.from(groups.values())
-      .filter(folder => !keyword || folder.name.toLocaleLowerCase().includes(keyword))
+      .filter(folder => !keyword || SubstationSearchComponent.stripDiacritics(folder.name.toLocaleLowerCase()).includes(keyword))
       .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
   });
 
@@ -165,10 +175,10 @@ export class SubstationSearchComponent implements OnInit {
   );
 
   selectedTechnicalDocuments = computed(() => {
-    const keyword = this.technicalDocumentKeyword().trim().toLocaleLowerCase();
+    const keyword = SubstationSearchComponent.stripDiacritics(this.technicalDocumentKeyword().trim().toLocaleLowerCase());
     const documentTypeId = this.technicalSelectedDocumentTypeId();
     return this.getTechnicalFolderDocuments(this.selectedTechnicalFolder() ?? { dossiers: [] }).filter(item => {
-      const name = (item.document.name || item.document.fileName || '').toLocaleLowerCase();
+      const name = SubstationSearchComponent.stripDiacritics((item.document.name || item.document.fileName || '').toLocaleLowerCase());
       return (!keyword || name.includes(keyword))
         && (!documentTypeId || String(item.document.documentTypeId || '') === documentTypeId);
     });
@@ -307,12 +317,12 @@ export class SubstationSearchComponent implements OnInit {
   }
 
   private filterUnitTree(nodes: any[], keyword: string): any[] {
-    const search = keyword.trim().toLocaleLowerCase('vi');
+    const search = SubstationSearchComponent.stripDiacritics(keyword.trim().toLocaleLowerCase('vi'));
     if (!search) return nodes;
 
     return nodes.reduce<any[]>((result, node) => {
       const children = this.filterUnitTree(node.children || [], keyword);
-      const label = `${node.name || ''} ${node.code || ''}`.toLocaleLowerCase('vi');
+      const label = SubstationSearchComponent.stripDiacritics(`${node.name || ''} ${node.code || ''}`.toLocaleLowerCase('vi'));
 
       if (label.includes(search) || children.length > 0) {
         result.push({ ...node, children });

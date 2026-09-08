@@ -237,6 +237,15 @@ export class ReportDossierByEquipmentStatusComponent implements OnInit, AfterVie
     return roots;
   }
 
+  onResetFilters(): void {
+    this.selectedUnitId.set(null);
+    this.applyDefaultUnitFilter();
+    this.selectedStationIds.set([]);
+    this.selectedEquipmentStatusIds.set([]);
+    this.loadStationOrLineOptions();
+    this.onFilter();
+  }
+
   onFilter(): void {
     this.filterVersion.update((v) => v + 1);
     this.dossierList?.resetPagination();

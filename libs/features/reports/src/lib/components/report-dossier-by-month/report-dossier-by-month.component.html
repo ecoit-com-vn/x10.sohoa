@@ -2,16 +2,28 @@
 
 <div class="wf-page dossier-report-page">
   <div class="list-toolbar standard-page-toolbar breadcrumb-container">
-    <wf-breadcrumb
-      [customItems]="[
-        { label: 'Báo cáo & Thống kê' },
-        { label: 'Thống kê báo cáo', url: '/reports/statistics' } ,
-        { label: 'Báo cáo thống kê hồ sơ nhập liệu theo tháng'} 
-      ]" 
-    ></wf-breadcrumb>
+    <div class="toolbar-left">
+      <wf-breadcrumb
+        [customItems]="[
+          { label: 'Báo cáo & Thống kê' },
+          { label: 'Thống kê báo cáo', url: '/reports/statistics' } ,
+          { label: 'Báo cáo thống kê hồ sơ nhập liệu theo tháng'}
+        ]"
+      ></wf-breadcrumb>
+    </div>
+    <div class="toolbar-right" *ngIf="activeTab() === 'list'">
+      <button
+        type="button"
+        class="btn-green"
+        (click)="exportExcel()"
+        [disabled]="exporting() || loading()"
+      >
+        <i class="pi pi-file-excel"></i> Xuất Excel
+      </button>
+    </div>
   </div>
 
-  <div class="standard-search-card template-search-card">
+  <div class="template-search-card">
     <div class="standard-search-grid">
       <div class="standard-search-field">
         <eco-input-tree-select
@@ -57,24 +69,15 @@
           (ngModelChange)="onReportMonthChange($event)"
         ></eco-input-date>
       </div>
+    </div>
 
-      <div class="standard-search-actions">
-        <button type="button" class="btn-outlined" (click)="onResetFilters()" [disabled]="loading()">
-          <i class="pi pi-refresh"></i> Làm mới
-        </button>
-        <button type="button" class="btn-tim" (click)="onFilter()" [disabled]="loading()">
-          <i class="pi pi-check"></i> Áp dụng
-        </button>
-        <button
-          *ngIf="activeTab() === 'list'"
-          type="button"
-          class="btn-green"
-          (click)="exportExcel()"
-          [disabled]="exporting() || loading()"
-        >
-          <i class="pi pi-file-excel"></i> Xuất Excel
-        </button>
-      </div>
+    <div class="standard-search-actions">
+      <button type="button" class="btn-outlined" (click)="onResetFilters()" [disabled]="loading()">
+        <i class="pi pi-refresh"></i> Làm mới
+      </button>
+      <button type="button" class="btn-tim" (click)="onFilter()" [disabled]="loading()">
+        <i class="pi pi-check"></i> Áp dụng
+      </button>
     </div>
   </div>
 

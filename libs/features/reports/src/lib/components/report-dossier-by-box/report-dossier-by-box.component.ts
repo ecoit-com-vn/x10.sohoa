@@ -380,8 +380,8 @@ export class ReportDossierByBoxComponent implements OnInit, AfterViewInit {
       if (!shelfNode) {
         shelfNode = {
           key: `shelf-${box.shelfCode}`, // Unique key for shelf
-          label: box.shelfCode,
-          data: { type: 'shelf', code: box.shelfCode },
+          label: box.shelfName ? `${box.shelfCode} - ${box.shelfName}` : box.shelfCode,
+          data: { type: 'shelf', code: box.shelfCode, name: box.shelfName },
           children: []
         };
         shelfMap.set(box.shelfCode, shelfNode);
@@ -393,8 +393,8 @@ export class ReportDossierByBoxComponent implements OnInit, AfterViewInit {
       if (!floorNode) {
         floorNode = {
           key: `floor-${floorKey}`, // Unique key for floor
-          label: box.floorCode,
-          data: { type: 'floor', code: box.floorCode },
+          label: box.floorName ? `${box.floorCode} - ${box.floorName}` : box.floorCode,
+          data: { type: 'floor', code: box.floorCode, name: box.floorName },
           children: []
         };
         floorMap.set(floorKey, floorNode);

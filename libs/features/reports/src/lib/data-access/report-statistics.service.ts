@@ -26,11 +26,15 @@ export interface ReportStatisticsDocumentListItem {
   stt: number;
   documentId: string;
   dossierId: string;
+  documentTypeId?: string | null;
   documentTypeName: string;
   dossierTypeName: string;
   infrastructureName: string;
   equipmentName: string;
   documentName: string;
+  /** Id phiên bản mới nhất của tài liệu — dùng để mở popup xem chi tiết tài liệu. */
+  versionId?: string | null;
+  mimeType?: string | null;
 }
 
 export interface ReportStatisticsDocumentListResponse {
