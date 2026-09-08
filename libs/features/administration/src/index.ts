@@ -22,3 +22,4 @@ export * from './lib/components/digital-signature-endpoint-config/digital-signat
 export * from './lib/services/user.service';
 export * from './lib/services/user-guide.service';
 export * from './lib/services/digital-signature-endpoint-config.service';
+export * from './lib/services/digital-signature-sign-history.service';
