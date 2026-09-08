@@ -101,6 +101,10 @@ export const appRoutes: Route[] = [
         loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.UserGuideManagementComponent)
       },
       {
+        path: 'administration/digital-signature-sync',
+        loadComponent: () => import('@sohoa.frontend/features/administration').then(m => m.DigitalSignatureEndpointConfigComponent)
+      },
+      {
         path: 'administration/workflow-builder/new',
         loadComponent: () => import('@sohoa.frontend/features/workflow').then(m => m.WorkflowBuilderComponent)
       },
