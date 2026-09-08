@@ -161,6 +161,16 @@ builder.Services.AddQuartz(q =>
         .WithIdentity("PmisApiCallLogCleanupJob-trigger")
         .WithSimpleSchedule(x => x.WithIntervalInHours(24).RepeatForever())
     );
+
+    // Dọn SYNC_HISTORY/SYNC_HISTORY_DETAIL cũ hơn 30 ngày — bảng này trước đây KHÔNG có cơ chế dọn
+    // nào, đã gây tràn tablespace (ORA-01653) thật trên production, xem SyncHistoryCleanupJob.
+    var syncHistoryCleanupJobKey = new JobKey("SyncHistoryCleanupJob");
+    q.AddJob<SyncHistoryCleanupJob>(opts => opts.WithIdentity(syncHistoryCleanupJobKey));
+    q.AddTrigger(opts => opts
+        .ForJob(syncHistoryCleanupJobKey)
+        .WithIdentity("SyncHistoryCleanupJob-trigger")
+        .WithSimpleSchedule(x => x.WithIntervalInHours(24).RepeatForever())
+    );
 });
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
