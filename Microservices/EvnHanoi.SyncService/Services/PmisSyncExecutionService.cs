@@ -11,8 +11,8 @@ namespace EvnHanoi.SyncService.Services;
 public class PmisSyncExecutionService : IPmisSyncExecutionService
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
-    private const int DocumentPageSize = 200;
-    private const int DocumentMaxPages = 50; // an toàn: tối đa 10.000 tài liệu/đối tượng/lần đồng bộ
+    private const int DocumentPageSize = 1000;
+    private const int DocumentMaxPages = 50; // an toàn: tối đa 50.000 tài liệu/đối tượng/lần đồng bộ
     private const int DocumentUpsertBatchSize = 20; // gửi theo lô, tránh 1 request base64 hoá hết cả nghìn tài liệu
 
     private readonly IEquipmentServiceClient _equipmentServiceClient;
@@ -84,7 +84,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 SourceCode = result.PmisCode,
                 SourceName = upsertRequests[i].Name,
                 TargetId = result.InfrastructureId?.ToString(),
-                ActionType = result.WasCreated ? SyncActionType.Create : SyncActionType.Update,
+                ActionType = !result.HasChanged ? SyncActionType.Skip : (result.WasCreated ? SyncActionType.Create : SyncActionType.Update),
                 Status = result.Success ? SyncDetailStatus.Success : SyncDetailStatus.Failed,
                 DataContent = rawItems[i].GetRawText(),
                 ErrorMessage = result.ErrorMessage
@@ -216,7 +216,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 SourceCode = result.PmisCode,
                 SourceName = upsertRequests[i].Name,
                 TargetId = result.EquipmentId?.ToString(),
-                ActionType = result.WasCreated ? SyncActionType.Create : SyncActionType.Update,
+                ActionType = !result.HasChanged ? SyncActionType.Skip : (result.WasCreated ? SyncActionType.Create : SyncActionType.Update),
                 Status = result.Success ? SyncDetailStatus.Success : SyncDetailStatus.Failed,
                 DataContent = rawItems[i].GetRawText(),
                 ErrorMessage = result.ErrorMessage
