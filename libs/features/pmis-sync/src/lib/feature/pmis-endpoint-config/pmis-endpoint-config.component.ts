@@ -12,6 +12,7 @@ import {
   PmisApiEndpointHeader,
   PmisEndpointConfigService,
 } from '../../data-access/pmis-endpoint-config.service';
+import { formatUtcDate } from '../../data-access/date-format.util';
 
 interface EditableHeader extends PmisApiEndpointHeader {
   /** true nếu header bí mật này đã có giá trị lưu sẵn — để trống ô nhập nghĩa là giữ nguyên. */
@@ -206,9 +207,7 @@ export class PmisEndpointConfigComponent implements OnInit {
   }
 
   formatDate(value: string | null | undefined): string {
-    if (!value) return '---';
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleString('vi-VN');
+    return formatUtcDate(value);
   }
 
   private emptyForm(): EditForm {
