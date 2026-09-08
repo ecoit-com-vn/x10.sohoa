@@ -216,4 +216,22 @@ public class DocumentOcrIndexHintDto
     public int TotalPages { get; set; }
 }
 
+/// <summary>Dòng danh sách "Lịch sử ký số" — tab lịch sử trên màn Thiết lập đồng bộ ký số.</summary>
+public class DocumentSignHistoryListItemDto
+{
+    public Guid Id { get; set; }
+    public Guid DocumentId { get; set; }
+    public string? DocumentName { get; set; }
+    public Guid? DossierId { get; set; }
+    /// <summary>Tên file đã ký (trích từ đường dẫn lưu trữ của phiên bản mới) — null khi ký thất bại.</summary>
+    public string? SignedFileName { get; set; }
+    public string? SignerName { get; set; }
+    public string? SerialNumber { get; set; }
+    public DateTime? SignedAt { get; set; }
+    /// <summary>"Success" | "Failed".</summary>
+    public string Status { get; set; } = "Failed";
+    public string? ErrorMessage { get; set; }
+    public DateTime CreatedDate { get; set; }
+}
+
 

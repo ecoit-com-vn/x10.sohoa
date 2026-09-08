@@ -149,6 +149,7 @@ builder.Services.AddHttpClient("KySo", client =>
 .AddPolicyHandler(kySoTimeoutPolicy);
 
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IKySoClient, EvnHanoi.EquipmentService.Infrastructure.Services.KySoClient>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDigitalSignatureEndpointConfigRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.DigitalSignatureEndpointConfigRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IIdentityServiceClient, EvnHanoi.EquipmentService.Infrastructure.Services.IdentityServiceClient>();
 
 builder.Services.AddHttpClient("WorkflowService", client =>

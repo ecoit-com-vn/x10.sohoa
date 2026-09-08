@@ -35,6 +35,8 @@ public interface IDocumentRepository
 
     // Digital signature (ký số) history — bảng DOCUMENT_SIGN_HISTORY (Migration0050)
     Task<Guid> CreateDocumentSignHistoryAsync(DocumentSignHistory history);
+    Task<(IEnumerable<DocumentSignHistoryListItemDto> Items, int TotalCount)> GetDocumentSignHistoryPagedAsync(
+        int page, int pageSize, string? keyword, string? status, DateTime? fromDate = null, DateTime? toDate = null);
 
     // Upload Session operations (new for file upload system)
     Task<Guid> CreateUploadSessionAsync(UploadSession session);
