@@ -1,7 +1,6 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
-  DeleteConfirmDialogComponent,
   EcoPaginatorComponent,
   EcoInputTreeSelectComponent,
   WfBreadcrumbComponent
@@ -47,8 +46,7 @@ interface AuditLogView {
     TabsModule,
     WfBreadcrumbComponent,
     EcoInputTreeSelectComponent,
-    EcoPaginatorComponent,
-    DeleteConfirmDialogComponent
+    EcoPaginatorComponent
   ],
   providers: [MessageService],
   templateUrl: './audit-log.component.html',

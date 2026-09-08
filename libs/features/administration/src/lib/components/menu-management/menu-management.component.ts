@@ -1,7 +1,6 @@
 import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
-  EcoPaginatorComponent,
   WfBreadcrumbComponent,
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
@@ -29,8 +28,7 @@ import {
     ToastModule,
     MenuModule,
     WfBreadcrumbComponent,
-    DeleteConfirmDialogComponent,
-    EcoPaginatorComponent,
+    DeleteConfirmDialogComponent
   ],
   providers: [MessageService],
   templateUrl: './menu-management.component.html',

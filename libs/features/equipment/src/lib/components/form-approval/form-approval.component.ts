@@ -9,7 +9,6 @@ import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
-import { Select } from 'primeng/select';
 import { CheckboxModule } from 'primeng/checkbox';
 import { CardModule } from 'primeng/card';
 import { TextareaModule } from 'primeng/textarea';
@@ -47,7 +46,6 @@ interface FormField {
     MenuModule,
     ButtonModule,
     InputTextModule,
-    Select,
     CheckboxModule,
     CardModule,
     TextareaModule,
