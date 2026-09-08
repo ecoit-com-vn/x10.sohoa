@@ -1508,6 +1508,18 @@ StatusTransition,
         public int? GridTypeId { get; set; }
     }
 
+    private class EquipmentCompareRow
+    {
+        public string? Id { get; set; }
+        public string? Name { get; set; }
+        public string? Code { get; set; }
+        public string? SerialNumber { get; set; }
+        public string? InfrastructureId { get; set; }
+        public int? ManufactureYear { get; set; }
+        public long? UnitId { get; set; }
+        public string? EquipmentTypeId { get; set; }
+    }
+
     public async Task<EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult> UpsertFromPmisAsync(
         string pmisCode, string code, string name, string? serialNumber,
         string equipmentTypeCode, string? parentPmisCode, string? unitCode,
@@ -1568,15 +1580,34 @@ StatusTransition,
                 "SELECT UnitId FROM PMIS_UNIT_CODE_MAPPING WHERE PmisUnitCode = :Code AND IsDeleted = 0", new { Code = unitCode });
         }
 
-        var existingId = await _connection.QuerySingleOrDefaultAsync<string?>(
-            "SELECT Id FROM EQUIPMENTS WHERE PMIS_CODE = :PmisCode AND IsDeleted = 0", new { PmisCode = pmisCode });
+        var existing = await _connection.QuerySingleOrDefaultAsync<EquipmentCompareRow>(
+            @"SELECT Id, Name, Code, SerialNumber, INFRASTRUCTURE_ID AS InfrastructureId,
+                     MANUFACTURE_YEAR AS ManufactureYear, UnitId, EquipmentTypeId
+              FROM EQUIPMENTS WHERE PMIS_CODE = :PmisCode AND IsDeleted = 0", new { PmisCode = pmisCode });
 
-        if (existingId != null)
+        if (existing != null)
         {
             // Lần đồng bộ sau mà tải ảnh QR từ PMIS lỗi (qrCodeBase64 = null) thì bỏ QR_CODE ra khỏi câu
             // UPDATE để giữ lại ảnh đã có, không xoá trắng dữ liệu cũ. Không dùng COALESCE được vì Oracle
             // suy tham số bind đầu tiên thành CHAR rồi báo ORA-00932 khi so với cột CLOB.
             var hasQrCode = !string.IsNullOrEmpty(qrCodeBase64);
+
+            // Chỉ update khi có ít nhất 1 trường "lõi" thay đổi thật, hoặc lần này tải được ảnh QR mới
+            // — tránh ghi đè/tăng ModifiedDate vô ích mỗi lần resync khi PMIS không có gì mới. Không so
+            // sánh QR_CODE (CLOB) — tốn kém và không cần thiết vì hasQrCode đã tự quyết định có ghi lại hay không.
+            var coreFieldsChanged =
+                existing.Name != name ||
+                existing.Code != code ||
+                existing.SerialNumber != serialNumber ||
+                existing.InfrastructureId != infrastructureId ||
+                existing.ManufactureYear != manufactureYear ||
+                existing.UnitId != unitId ||
+                existing.EquipmentTypeId != equipmentTypeId;
+            var hasChanged = coreFieldsChanged || hasQrCode;
+
+            if (!hasChanged)
+                return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Ok(Guid.Parse(existing.Id!), false, false, Guid.Parse(equipmentTypeId));
+
             // EquipmentTypeId GIỜ được cập nhật lại mỗi lần resync (trước đây bỏ sót — nếu admin sửa lại
             // 1 ánh xạ loại thiết bị sai qua màn "Ánh xạ loại thiết bị PMIS", thiết bị đã đồng bộ trước đó
             // sẽ không bao giờ được chuyển sang loại đúng khi resync).
@@ -1590,7 +1621,7 @@ StatusTransition,
 
             var updateParameters = new DynamicParameters(new
             {
-                Id = existingId,
+                Id = existing.Id,
                 Name = name,
                 Code = code,
                 SerialNumber = serialNumber,
@@ -1606,7 +1637,7 @@ StatusTransition,
             }
 
             await _connection.ExecuteAsync(updateSql, updateParameters);
-            return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Ok(Guid.Parse(existingId), false, Guid.Parse(equipmentTypeId));
+            return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Ok(Guid.Parse(existing.Id!), false, true, Guid.Parse(equipmentTypeId));
         }
 
         var newId = Guid.Parse(EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid());
@@ -1632,7 +1663,7 @@ StatusTransition,
             PmisCode = pmisCode,
             QrCode = EvnHanoi.Infrastructure.Database.OracleClob.Param(qrCodeBase64)
         });
-        return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Ok(newId, true, Guid.Parse(equipmentTypeId));
+        return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Ok(newId, true, true, Guid.Parse(equipmentTypeId));
     }
 
     /// <summary>

@@ -45,6 +45,7 @@ builder.Services.AddSingleton<IPmisHeaderValueProtector, PmisHeaderValueProtecto
 builder.Services.AddScoped<IPmisEndpointConfigProvider, PmisEndpointConfigProvider>();
 builder.Services.AddScoped<ISyncConfigRepository, SyncConfigRepository>();
 builder.Services.AddScoped<ISyncHistoryRepository, SyncHistoryRepository>();
+builder.Services.AddScoped<IPmisApiCallLogRepository, PmisApiCallLogRepository>();
 builder.Services.AddScoped<IPmisClient, PmisClient>();
 builder.Services.AddScoped<IInteractivePmisClient, InteractivePmisClient>();
 builder.Services.AddScoped<IEquipmentServiceClient, EquipmentServiceClient>();
@@ -149,6 +150,16 @@ builder.Services.AddQuartz(q =>
         .ForJob(jobKey)
         .WithIdentity("PmisSyncJob-trigger")
         .WithSimpleSchedule(x => x.WithIntervalInMinutes(1).RepeatForever())
+    );
+
+    // Dọn PMIS_API_CALL_LOG (lịch sử gọi PMIS thật) cũ hơn 30 ngày — bảng có thể phình rất nhanh vì
+    // mỗi trang trong 1 lượt đồng bộ là 1 dòng log, xem PmisApiCallLogCleanupJob.
+    var cleanupJobKey = new JobKey("PmisApiCallLogCleanupJob");
+    q.AddJob<PmisApiCallLogCleanupJob>(opts => opts.WithIdentity(cleanupJobKey));
+    q.AddTrigger(opts => opts
+        .ForJob(cleanupJobKey)
+        .WithIdentity("PmisApiCallLogCleanupJob-trigger")
+        .WithSimpleSchedule(x => x.WithIntervalInHours(24).RepeatForever())
     );
 });
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);

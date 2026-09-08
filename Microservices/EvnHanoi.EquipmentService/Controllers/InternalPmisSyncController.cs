@@ -75,14 +75,15 @@ public class InternalPmisSyncController : ControllerBase
         {
             try
             {
-                var (id, wasCreated) = await _infrastructureRepository.UpsertFromPmisAsync(
+                var (id, wasCreated, hasChanged) = await _infrastructureRepository.UpsertFromPmisAsync(
                     item.InfraTypeId, item.PmisCode, item.Code, item.Name, item.Address, item.UnitCode, item.OperationDate, item.GridTypeId);
                 results.Add(new UpsertInfrastructureFromPmisResult
                 {
                     PmisCode = item.PmisCode,
                     Success = true,
                     InfrastructureId = id,
-                    WasCreated = wasCreated
+                    WasCreated = wasCreated,
+                    HasChanged = hasChanged
                 });
             }
             catch (Exception ex)
@@ -146,7 +147,8 @@ public class InternalPmisSyncController : ControllerBase
                     PmisCode = item.PmisCode,
                     Success = true,
                     EquipmentId = upsertResult.EquipmentId,
-                    WasCreated = upsertResult.WasCreated
+                    WasCreated = upsertResult.WasCreated,
+                    HasChanged = upsertResult.HasChanged
                 });
             }
             catch (Exception ex)
