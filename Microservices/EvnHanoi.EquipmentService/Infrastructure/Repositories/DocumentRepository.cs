@@ -1,4 +1,5 @@
 using System.Data;
+using System.Linq;
 using Dapper;
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Entities;
@@ -857,6 +858,86 @@ public class DocumentRepository : IDocumentRepository
         });
 
         return id;
+    }
+
+    public async Task<(IEnumerable<DocumentSignHistoryListItemDto> Items, int TotalCount)> GetDocumentSignHistoryPagedAsync(
+        int page, int pageSize, string? keyword, string? status, DateTime? fromDate = null, DateTime? toDate = null)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var conditions = new List<string> { "h.IsDeleted = 0" };
+        var parameters = new DynamicParameters();
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            conditions.Add("(LOWER(d.Name) LIKE :Keyword OR LOWER(h.SignerName) LIKE :Keyword OR LOWER(dv.FilePath) LIKE :Keyword)");
+            parameters.Add("Keyword", $"%{keyword.Trim().ToLowerInvariant()}%");
+        }
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            conditions.Add("h.Status = :Status");
+            parameters.Add("Status", status);
+        }
+
+        if (fromDate.HasValue)
+        {
+            conditions.Add("h.SignedAt >= :FromDate");
+            parameters.Add("FromDate", fromDate.Value.Date);
+        }
+
+        if (toDate.HasValue)
+        {
+            conditions.Add("h.SignedAt < :ToDate");
+            parameters.Add("ToDate", toDate.Value.Date.AddDays(1));
+        }
+
+        var whereClause = string.Join(" AND ", conditions);
+
+        var countSql = $@"
+            SELECT COUNT(1)
+            FROM DOCUMENT_SIGN_HISTORY h
+            LEFT JOIN DOCUMENTS d ON d.Id = h.DocumentId
+            LEFT JOIN DOCUMENT_VERSIONS dv ON dv.Id = h.DocumentVersionId
+            WHERE {whereClause}";
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+
+        var offset = (page - 1) * pageSize;
+        parameters.Add("Offset", offset);
+        parameters.Add("PageSize", pageSize);
+
+        var listSql = $@"
+            SELECT h.Id AS Id,
+                   h.DocumentId AS DocumentId,
+                   d.Name AS DocumentName,
+                   d.DossierId AS DossierId,
+                   dv.FilePath AS SignedFileName,
+                   h.SignerName AS SignerName,
+                   h.SerialNumber AS SerialNumber,
+                   h.SignedAt AS SignedAt,
+                   h.Status AS Status,
+                   h.ErrorMessage AS ErrorMessage,
+                   h.CreatedDate AS CreatedDate
+            FROM DOCUMENT_SIGN_HISTORY h
+            LEFT JOIN DOCUMENTS d ON d.Id = h.DocumentId
+            LEFT JOIN DOCUMENT_VERSIONS dv ON dv.Id = h.DocumentVersionId
+            WHERE {whereClause}
+            ORDER BY h.CreatedDate DESC
+            OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
+
+        var items = (await _connection.QueryAsync<DocumentSignHistoryListItemDto>(listSql, parameters)).ToList();
+        foreach (var item in items)
+        {
+            if (!string.IsNullOrEmpty(item.SignedFileName))
+            {
+                var lastSlash = item.SignedFileName.LastIndexOfAny(new[] { '/', '\\' });
+                if (lastSlash >= 0)
+                    item.SignedFileName = item.SignedFileName[(lastSlash + 1)..];
+            }
+        }
+
+        return (items, totalCount);
     }
 
     public async Task<IEnumerable<DocumentVersionDto>> GetDocumentVersionsAsync(Guid documentId)

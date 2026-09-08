@@ -650,31 +650,42 @@ public class DossierDocumentService : IDossierDocumentService
         if (latestVersion == null || string.IsNullOrEmpty(latestVersion.FilePath))
             throw new InvalidOperationException("Tài liệu chưa có file để ký số.");
 
+        // Serial chứng thư — gán được ở nhánh nào trong try thì log lịch sử thất bại (nếu có) sẽ kèm theo,
+        // khai báo ngoài try để catch phía dưới cũng đọc được (có thể vẫn null nếu lỗi xảy ra trước khi lấy serial).
+        KySoSerialNumberData? serialInfo = null;
+
         // Resolve ns_ID người dùng hiện tại (EVN HRMS) — không có thì báo lỗi nghiệp vụ, không throw.
         var nsIdRaw = await _identityServiceClient.GetCurrentUserSsoNsIdAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(nsIdRaw) || !long.TryParse(nsIdRaw, out var nsId))
         {
-            return SignDocumentResult.Fail(
-                "Người dùng chưa được cấu hình ns_ID để ký số, vui lòng liên hệ quản trị hệ thống.");
+            const string nsIdError = "Người dùng chưa được cấu hình ns_ID để ký số, vui lòng liên hệ quản trị hệ thống.";
+            await LogSignFailureAsync(document.Id, userId, userName, null, nsIdError);
+            return SignDocumentResult.Fail(nsIdError);
         }
 
         try
         {
-            var serialInfo = await _kySoClient.GetSerialNumberAsync(nsId, cancellationToken);
+            serialInfo = await _kySoClient.GetSerialNumberAsync(nsId, cancellationToken);
             if (serialInfo == null || string.IsNullOrWhiteSpace(serialInfo.Serial))
             {
-                return SignDocumentResult.Fail("Không lấy được thông tin chứng thư số (serial number) từ hệ thống ký số.");
+                const string serialError = "Không lấy được thông tin chứng thư số (serial number) từ hệ thống ký số.";
+                await LogSignFailureAsync(document.Id, userId, userName, serialInfo?.Serial, serialError);
+                return SignDocumentResult.Fail(serialError);
             }
 
             if (serialInfo.ValidTo.HasValue && serialInfo.ValidTo.Value < DateTime.Now)
             {
-                return SignDocumentResult.Fail("Chứng thư số đã hết hạn.");
+                const string expiredError = "Chứng thư số đã hết hạn.";
+                await LogSignFailureAsync(document.Id, userId, userName, serialInfo.Serial, expiredError);
+                return SignDocumentResult.Fail(expiredError);
             }
 
             var signatureImageBase64 = await _kySoClient.GetSignatureImageAsync(nsId, cancellationToken);
             if (string.IsNullOrWhiteSpace(signatureImageBase64))
             {
-                return SignDocumentResult.Fail("Không lấy được ảnh chữ ký từ hệ thống ký số.");
+                const string signatureImageError = "Không lấy được ảnh chữ ký từ hệ thống ký số.";
+                await LogSignFailureAsync(document.Id, userId, userName, serialInfo.Serial, signatureImageError);
+                return SignDocumentResult.Fail(signatureImageError);
             }
 
             byte[] sourceBytes;
@@ -713,18 +724,7 @@ public class DossierDocumentService : IDossierDocumentService
                 if (string.IsNullOrWhiteSpace(errorMessage))
                     errorMessage = "Ký số thất bại không rõ nguyên nhân.";
 
-                await _documentRepository.CreateDocumentSignHistoryAsync(new DocumentSignHistory
-                {
-                    DocumentId = document.Id,
-                    DocumentVersionId = null,
-                    SignerUserId = userId,
-                    SignerName = userName,
-                    SerialNumber = serialInfo.Serial,
-                    SignedAt = null,
-                    Status = "Failed",
-                    ErrorMessage = Truncate(errorMessage, 2000),
-                    CreatedBy = userId
-                });
+                await LogSignFailureAsync(document.Id, userId, userName, serialInfo.Serial, errorMessage);
 
                 _logger.LogWarning(
                     "Ký số thất bại tài liệu {DocumentId} — signStatus=false", document.Id);
@@ -794,7 +794,38 @@ public class DossierDocumentService : IDossierDocumentService
             ex is not UnauthorizedAccessException)
         {
             _logger.LogError(ex, "Lỗi khi gọi hệ thống ký số ngoài cho tài liệu {DocumentId}", documentId);
-            return SignDocumentResult.Fail("Không thể kết nối tới hệ thống ký số, vui lòng thử lại sau.");
+            const string connectionError = "Không thể kết nối tới hệ thống ký số, vui lòng thử lại sau.";
+            await LogSignFailureAsync(document.Id, userId, userName, serialInfo?.Serial, $"{connectionError} ({ex.GetType().Name}: {ex.Message})");
+            return SignDocumentResult.Fail(connectionError);
+        }
+    }
+
+    /// <summary>
+    /// Ghi 1 dòng thất bại vào DOCUMENT_SIGN_HISTORY — dùng cho MỌI nhánh lỗi trong SignDocumentAsync
+    /// (kể cả lỗi sớm trước khi gọi API ký số ngoài), để tab "Lịch sử ký số" phản ánh đầy đủ, không chỉ
+    /// riêng lỗi trả về từ API sign-pdf-base64-image.
+    /// </summary>
+    private async Task LogSignFailureAsync(Guid documentId, string userId, string userName, string? serialNumber, string? errorMessage)
+    {
+        try
+        {
+            await _documentRepository.CreateDocumentSignHistoryAsync(new DocumentSignHistory
+            {
+                DocumentId = documentId,
+                DocumentVersionId = null,
+                SignerUserId = userId,
+                SignerName = userName,
+                SerialNumber = serialNumber,
+                SignedAt = null,
+                Status = "Failed",
+                ErrorMessage = Truncate(errorMessage, 2000),
+                CreatedBy = userId
+            });
+        }
+        catch (Exception logEx)
+        {
+            // Không để lỗi ghi lịch sử che mất lỗi ký số gốc — chỉ log, không throw.
+            _logger.LogError(logEx, "Lỗi khi ghi lịch sử ký số thất bại cho tài liệu {DocumentId}", documentId);
         }
     }
 
