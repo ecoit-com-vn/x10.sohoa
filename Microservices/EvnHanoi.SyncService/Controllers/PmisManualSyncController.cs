@@ -123,7 +123,7 @@ public class PmisManualSyncController : ControllerBase
             {
                 await _syncHistoryRepository.CompleteAsync(
                     historyId, SyncHistoryStatus.Failed, request.Items.Count, 0, request.Items.Count,
-                    "Lỗi hệ thống khi lưu dữ liệu — xem log SyncService để biết chi tiết.");
+                    SyncErrorFormatter.Format(ex));
             }
             catch (Exception completeEx)
             {
