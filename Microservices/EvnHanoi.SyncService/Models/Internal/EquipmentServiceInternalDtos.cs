@@ -21,6 +21,7 @@ public class UpsertInfrastructureFromPmisResult
     public bool Success { get; set; }
     public Guid? InfrastructureId { get; set; }
     public bool WasCreated { get; set; }
+    public bool HasChanged { get; set; } = true;
     public string? ErrorMessage { get; set; }
 }
 
@@ -46,6 +47,7 @@ public class UpsertEquipmentFromPmisResult
     public bool Success { get; set; }
     public Guid? EquipmentId { get; set; }
     public bool WasCreated { get; set; }
+    public bool HasChanged { get; set; } = true;
     public string? ErrorMessage { get; set; }
 }
 

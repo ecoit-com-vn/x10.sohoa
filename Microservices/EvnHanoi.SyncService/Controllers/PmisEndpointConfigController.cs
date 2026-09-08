@@ -21,15 +21,18 @@ public class PmisEndpointConfigController : ControllerBase
     private readonly IPmisEndpointConfigRepository _repository;
     private readonly IPmisHeaderValueProtector _protector;
     private readonly IPmisEndpointConfigProvider _provider;
+    private readonly IPmisApiCallLogRepository _apiCallLogRepository;
 
     public PmisEndpointConfigController(
         IPmisEndpointConfigRepository repository,
         IPmisHeaderValueProtector protector,
-        IPmisEndpointConfigProvider provider)
+        IPmisEndpointConfigProvider provider,
+        IPmisApiCallLogRepository apiCallLogRepository)
     {
         _repository = repository;
         _protector = protector;
         _provider = provider;
+        _apiCallLogRepository = apiCallLogRepository;
     }
 
     [HttpGet]
@@ -37,6 +40,16 @@ public class PmisEndpointConfigController : ControllerBase
     {
         var items = await _repository.GetAllAsync();
         return Ok(items);
+    }
+
+    /// <summary>Lịch sử gọi PMIS thật cho 1 API — xem PMIS_API_CALL_LOG (ghi tại PmisClient).</summary>
+    [HttpGet("{apiCode}/call-logs")]
+    public async Task<IActionResult> GetCallLogs(string apiCode, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+        var (items, totalCount) = await _apiCallLogRepository.GetPagedAsync(apiCode, page, pageSize);
+        return Ok(new { items, totalCount });
     }
 
     [HttpGet("{apiCode}/headers")]

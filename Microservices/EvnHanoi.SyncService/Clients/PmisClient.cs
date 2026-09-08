@@ -1,6 +1,9 @@
+using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
+using EvnHanoi.SyncService.Models;
 using EvnHanoi.SyncService.Models.Pmis;
+using EvnHanoi.SyncService.Repositories;
 using EvnHanoi.SyncService.Services;
 
 namespace EvnHanoi.SyncService.Clients;
@@ -11,6 +14,7 @@ public class PmisClient : IPmisClient
 
     private readonly IPmisEndpointConfigProvider _endpointConfigProvider;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IPmisApiCallLogRepository _apiCallLogRepository;
     private readonly string _httpClientName;
 
     /// <param name="httpClientName">Tên HttpClient đã đăng ký ở Program.cs — mặc định "PMIS" (dùng bởi
@@ -19,10 +23,13 @@ public class PmisClient : IPmisClient
     /// (PmisLookupController, PmisManualSyncController.Search) — tránh việc đồng bộ nền gọi PMIS lỗi
     /// dồn dập làm mở circuit breaker chung, khoá luôn thao tác tra cứu/tìm kiếm của người dùng đang
     /// chờ trên màn hình trong lúc đó.</param>
-    public PmisClient(IPmisEndpointConfigProvider endpointConfigProvider, IHttpClientFactory httpClientFactory, string httpClientName = "PMIS")
+    public PmisClient(
+        IPmisEndpointConfigProvider endpointConfigProvider, IHttpClientFactory httpClientFactory,
+        IPmisApiCallLogRepository apiCallLogRepository, string httpClientName = "PMIS")
     {
         _endpointConfigProvider = endpointConfigProvider;
         _httpClientFactory = httpClientFactory;
+        _apiCallLogRepository = apiCallLogRepository;
         _httpClientName = httpClientName;
     }
 
@@ -80,6 +87,9 @@ public class PmisClient : IPmisClient
     /// </summary>
     public async Task<byte[]?> DownloadDocumentFileAsync(string fileUrl, string endpointApiCode)
     {
+        var sw = Stopwatch.StartNew();
+        HttpResponseMessage? response = null;
+        Exception? callError = null;
         try
         {
             var endpoint = await _endpointConfigProvider.GetEndpointAsync(endpointApiCode);
@@ -93,14 +103,20 @@ public class PmisClient : IPmisClient
             }
 
             var httpClient = _httpClientFactory.CreateClient(_httpClientName);
-            var response = await httpClient.SendAsync(request);
+            response = await httpClient.SendAsync(request);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadAsByteArrayAsync();
         }
         catch (Exception ex)
         {
+            callError = ex;
             Serilog.Log.Warning(ex, "PmisClient: lỗi tải file tài liệu từ URL {FileUrl}.", fileUrl);
             return null;
+        }
+        finally
+        {
+            sw.Stop();
+            await LogCallAsync(endpointApiCode, "GET", fileUrl, null, response, callError, sw.ElapsedMilliseconds);
         }
     }
 
@@ -131,9 +147,52 @@ public class PmisClient : IPmisClient
             httpClient.Timeout = TimeSpan.FromSeconds(endpoint.TimeoutSeconds.Value);
         }
 
-        var response = await httpClient.SendAsync(httpRequest);
-        response.EnsureSuccessStatusCode();
-        return response;
+        var sw = Stopwatch.StartNew();
+        HttpResponseMessage? response = null;
+        Exception? callError = null;
+        try
+        {
+            response = await httpClient.SendAsync(httpRequest);
+            response.EnsureSuccessStatusCode();
+            return response;
+        }
+        catch (Exception ex)
+        {
+            callError = ex;
+            throw; // giữ nguyên loại exception — PmisUpstreamFailure.Matches ở PmisManualSyncController vẫn nhận diện đúng
+        }
+        finally
+        {
+            sw.Stop();
+            await LogCallAsync(apiCode, endpoint.HttpMethod, uri, query, response, callError, sw.ElapsedMilliseconds);
+        }
+    }
+
+    /// <summary>Ghi 1 dòng lịch sử gọi PMIS thật (PMIS_API_CALL_LOG) — không được để việc ghi log làm
+    /// hỏng luồng đồng bộ/tra cứu chính, tự bắt lỗi riêng, chỉ log Serilog Warning nếu ghi thất bại.</summary>
+    private async Task LogCallAsync(
+        string apiCode, string httpMethod, string uri, string? payload,
+        HttpResponseMessage? response, Exception? error, long durationMs)
+    {
+        try
+        {
+            await _apiCallLogRepository.InsertAsync(new PmisApiCallLog
+            {
+                ApiCode = apiCode,
+                HttpMethod = httpMethod,
+                Url = uri,
+                RequestPayload = payload,
+                StatusCode = response == null ? null : (int)response.StatusCode,
+                IsSuccess = error == null,
+                ErrorMessage = error == null ? null : SyncErrorFormatter.Format(error),
+                DurationMs = durationMs,
+                HttpClientName = _httpClientName
+            });
+        }
+        catch (Exception logEx)
+        {
+            Serilog.Log.Warning(logEx, "PmisClient: lỗi khi ghi lịch sử gọi API {ApiCode}.", apiCode);
+        }
     }
 
     private static string BuildQueryString(object request)

@@ -5,14 +5,18 @@ public class EquipmentPmisUpsertResult
     public bool Success { get; set; }
     public Guid? EquipmentId { get; set; }
     public bool WasCreated { get; set; }
+
+    /// <summary>false nếu bản ghi đã tồn tại và dữ liệu PMIS gửi về giống hệt dữ liệu đang lưu — không
+    /// issue câu UPDATE, caller ghi ACTION_TYPE=SKIP thay vì UPDATE.</summary>
+    public bool HasChanged { get; set; } = true;
     public string? ErrorMessage { get; set; }
 
     /// <summary>Loại thiết bị đã tra/tự tạo (xem EquipmentRepository.ResolveOrCreateEquipmentTypeIdAsync)
     /// — dùng ở tầng controller để tự tạo biểu mẫu thông số kỹ thuật nếu loại thiết bị chưa có.</summary>
     public Guid? EquipmentTypeId { get; set; }
 
-    public static EquipmentPmisUpsertResult Ok(Guid id, bool wasCreated, Guid equipmentTypeId) =>
-        new() { Success = true, EquipmentId = id, WasCreated = wasCreated, EquipmentTypeId = equipmentTypeId };
+    public static EquipmentPmisUpsertResult Ok(Guid id, bool wasCreated, bool hasChanged, Guid equipmentTypeId) =>
+        new() { Success = true, EquipmentId = id, WasCreated = wasCreated, HasChanged = hasChanged, EquipmentTypeId = equipmentTypeId };
 
     public static EquipmentPmisUpsertResult Fail(string message) =>
         new() { Success = false, ErrorMessage = message };
@@ -37,6 +41,7 @@ public class UpsertInfrastructureFromPmisResult
     public bool Success { get; set; }
     public Guid? InfrastructureId { get; set; }
     public bool WasCreated { get; set; }
+    public bool HasChanged { get; set; } = true;
     public string? ErrorMessage { get; set; }
 }
 
@@ -68,6 +73,7 @@ public class UpsertEquipmentFromPmisResult
     public bool Success { get; set; }
     public Guid? EquipmentId { get; set; }
     public bool WasCreated { get; set; }
+    public bool HasChanged { get; set; } = true;
     public string? ErrorMessage { get; set; }
 }
 

@@ -20,8 +20,8 @@ namespace EvnHanoi.SyncService.Schedulers;
 /// </summary>
 public class PmisScheduledSyncJob : IJob
 {
-    private const int PageSize = 100;
-    private const int MaxPages = 100; // an toàn: tối đa 10.000 bản ghi/đối tượng/lần chạy
+    private const int PageSize = 1000;
+    private const int MaxPages = 50; // an toàn: tối đa 50.000 bản ghi/đối tượng/lần chạy
 
     private readonly ISyncConfigRepository _syncConfigRepository;
     private readonly ISyncHistoryRepository _syncHistoryRepository;
