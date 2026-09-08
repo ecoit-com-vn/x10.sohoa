@@ -871,7 +871,7 @@ public class DocumentRepository : IDocumentRepository
 
         if (!string.IsNullOrWhiteSpace(keyword))
         {
-            conditions.Add("(LOWER(d.Name) LIKE :Keyword OR LOWER(h.SignerName) LIKE :Keyword OR LOWER(dv.FilePath) LIKE :Keyword)");
+            conditions.Add("(LOWER(d.Name) LIKE :Keyword OR LOWER(h.SignerName) LIKE :Keyword OR LOWER(dv.FILE_PATH) LIKE :Keyword)");
             parameters.Add("Keyword", $"%{keyword.Trim().ToLowerInvariant()}%");
         }
 
@@ -911,8 +911,8 @@ public class DocumentRepository : IDocumentRepository
             SELECT h.Id AS Id,
                    h.DocumentId AS DocumentId,
                    d.Name AS DocumentName,
-                   d.DossierId AS DossierId,
-                   dv.FilePath AS SignedFileName,
+                   d.DOSSIER_ID AS DossierId,
+                   dv.FILE_PATH AS SignedFileName,
                    h.SignerName AS SignerName,
                    h.SerialNumber AS SerialNumber,
                    h.SignedAt AS SignedAt,
