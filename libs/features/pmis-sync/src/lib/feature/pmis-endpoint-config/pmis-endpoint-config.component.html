@@ -39,6 +39,9 @@
                 <button type="button" class="act-btn act-edit" title="Sửa cấu hình" (click)="openEdit(item)">
                   <i class="pi pi-pencil"></i>
                 </button>
+                <button type="button" class="act-btn act-history" title="Lịch sử gọi" (click)="openCallLogs(item.apiCode)">
+                  <i class="pi pi-history"></i>
+                </button>
               </td>
             </tr>
           </ng-container>
@@ -147,6 +150,76 @@
         <ng-template #saveIcon><i class="pi pi-save"></i></ng-template>
         Lưu thông tin
       </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog lịch sử gọi API -->
+<p-dialog
+  [visible]="callLogDialogVisible()"
+  (visibleChange)="callLogDialogVisible.set($event)"
+  [header]="'Lịch sử gọi API - ' + (callLogTarget() || '')"
+  [modal]="true"
+  [style]="{ width: '1000px' }"
+  styleClass="evn-dialog-custom"
+>
+  <div class="wf-table-wrap">
+    <table class="wf-table">
+      <thead>
+        <tr>
+          <th class="col-stt">STT</th>
+          <th>Thời gian</th>
+          <th>Phương thức / URL</th>
+          <th>Payload</th>
+          <th>Trạng thái</th>
+          <th>Lỗi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngIf="callLogLoading() && callLogItems().length === 0">
+          <td colspan="6" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
+        </tr>
+        <ng-container *ngIf="!callLogLoading() || callLogItems().length > 0">
+          <tr *ngFor="let log of callLogItems(); let index = index">
+            <td class="col-stt text-muted">{{ index + 1 }}</td>
+            <td>{{ formatDate(log.calledAt) }} <br /><small class="text-muted">{{ log.durationMs }}ms</small></td>
+            <td class="note-cell"><b>{{ log.httpMethod }}</b> {{ log.url }}</td>
+            <td class="note-cell">{{ log.requestPayload || '---' }}</td>
+            <td>
+              <span [class]="log.isSuccess ? 'status-pill status-active' : 'status-pill status-inactive'">
+                {{ log.isSuccess ? 'Thành công' : 'Lỗi' }}{{ log.statusCode ? ' (' + log.statusCode + ')' : '' }}
+              </span>
+            </td>
+            <td
+              style="white-space: pre-wrap; word-break: break-word; max-height: 120px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; display: block;"
+            >{{ log.errorMessage || '---' }}</td>
+          </tr>
+          <tr *ngIf="!callLogLoading() && callLogItems().length === 0">
+            <td colspan="6" class="empty-row"><i class="pi pi-inbox"></i><div>Chưa có lượt gọi nào.</div></td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+  </div>
+
+  <div *ngIf="callLogItems().length > 0" style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+    <small class="text-muted">Đang hiện {{ callLogItems().length }} / {{ callLogTotalCount() }} lượt gọi</small>
+    <button
+      *ngIf="hasMoreCallLogs()"
+      type="button"
+      class="btn-outlined btn-small"
+      (click)="loadMoreCallLogs()"
+      [disabled]="callLogLoading()"
+    >
+      <i *ngIf="callLogLoading(); else moreIcon" class="pi pi-spin pi-spinner"></i>
+      <ng-template #moreIcon><i class="pi pi-chevron-down"></i></ng-template>
+      Xem thêm
+    </button>
+  </div>
+
+  <ng-template #footer>
+    <div class="dialog-footer">
+      <button type="button" class="btn-outlined btn-small" (click)="callLogDialogVisible.set(false)">Đóng</button>
     </div>
   </ng-template>
 </p-dialog>
