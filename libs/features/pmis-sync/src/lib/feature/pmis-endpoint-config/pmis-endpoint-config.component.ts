@@ -7,6 +7,7 @@ import { MessageService } from 'primeng/api';
 import { finalize, forkJoin } from 'rxjs';
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import {
+  PmisApiCallLog,
   PmisApiEndpointConfig,
   PmisApiEndpointHeader,
   PmisEndpointConfigService,
@@ -45,6 +46,16 @@ export class PmisEndpointConfigComponent implements OnInit {
   dialogVisible = signal(false);
   form = signal<EditForm>(this.emptyForm());
   headers = signal<EditableHeader[]>([]);
+
+  private static readonly CALL_LOG_PAGE_SIZE = 20;
+  private callLogRequestId = 0;
+
+  callLogDialogVisible = signal(false);
+  callLogLoading = signal(false);
+  callLogItems = signal<PmisApiCallLog[]>([]);
+  callLogTarget = signal<string | null>(null);
+  callLogPage = signal(1);
+  callLogTotalCount = signal(0);
 
   ngOnInit(): void {
     this.load();
@@ -150,6 +161,54 @@ export class PmisEndpointConfigComponent implements OnInit {
         },
         error: (error) => this.showError(error, 'Không thể lưu cấu hình — dữ liệu có thể đã bị người khác cập nhật, vui lòng tải lại.'),
       });
+  }
+
+  openCallLogs(apiCode: string): void {
+    this.callLogTarget.set(apiCode);
+    this.callLogDialogVisible.set(true);
+    // Reset ngay — tránh hiện tạm dữ liệu của API trước đó nếu người dùng chuyển API nhanh.
+    this.callLogItems.set([]);
+    this.callLogPage.set(1);
+    this.callLogTotalCount.set(0);
+    this.loadCallLogPage(apiCode, 1, false);
+  }
+
+  loadMoreCallLogs(): void {
+    const apiCode = this.callLogTarget();
+    if (!apiCode) return;
+    this.loadCallLogPage(apiCode, this.callLogPage() + 1, true);
+  }
+
+  hasMoreCallLogs(): boolean {
+    return this.callLogItems().length < this.callLogTotalCount();
+  }
+
+  private loadCallLogPage(apiCode: string, page: number, append: boolean): void {
+    // Đánh dấu lượt gọi hiện tại — nếu người dùng chuyển sang API khác hoặc đóng dialog trước khi
+    // response về, kết quả cũ (đến sau) sẽ bị bỏ qua thay vì ghi đè nhầm lên dữ liệu đang hiển thị.
+    const requestId = ++this.callLogRequestId;
+    this.callLogLoading.set(true);
+    this.service
+      .getCallLogs(apiCode, page, PmisEndpointConfigComponent.CALL_LOG_PAGE_SIZE)
+      .pipe(finalize(() => this.callLogLoading.set(false)))
+      .subscribe({
+        next: (response) => {
+          if (requestId !== this.callLogRequestId) return;
+          this.callLogItems.set(append ? [...this.callLogItems(), ...response.items] : response.items);
+          this.callLogPage.set(page);
+          this.callLogTotalCount.set(response.totalCount);
+        },
+        error: (error) => {
+          if (requestId !== this.callLogRequestId) return;
+          this.showError(error, 'Không thể tải lịch sử gọi API.');
+        },
+      });
+  }
+
+  formatDate(value: string | null | undefined): string {
+    if (!value) return '---';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString('vi-VN');
   }
 
   private emptyForm(): EditForm {

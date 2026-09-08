@@ -29,6 +29,20 @@ export interface UpdatePmisApiEndpointConfigRequest {
   rowVersion: number;
 }
 
+export interface PmisApiCallLog {
+  id: string;
+  apiCode: string;
+  httpMethod: string;
+  url: string;
+  requestPayload: string | null;
+  statusCode: number | null;
+  isSuccess: boolean;
+  errorMessage: string | null;
+  durationMs: number;
+  httpClientName: string | null;
+  calledAt: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class PmisEndpointConfigService {
   private readonly http = inject(HttpClient);
@@ -48,5 +62,11 @@ export class PmisEndpointConfigService {
 
   replaceHeaders(apiCode: string, headers: PmisApiEndpointHeader[]): Observable<void> {
     return this.http.put<void>(`${this.apiUrl}/${apiCode}/headers`, { headers });
+  }
+
+  getCallLogs(apiCode: string, page: number, pageSize: number): Observable<{ items: PmisApiCallLog[]; totalCount: number }> {
+    return this.http.get<{ items: PmisApiCallLog[]; totalCount: number }>(`${this.apiUrl}/${apiCode}/call-logs`, {
+      params: { page: String(page), pageSize: String(pageSize) },
+    });
   }
 }
