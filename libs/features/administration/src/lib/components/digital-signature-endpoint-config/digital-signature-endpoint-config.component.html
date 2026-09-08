@@ -1,0 +1,309 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb
+        [customItems]="[
+          { label: 'Quản trị hệ thống' },
+          { label: 'Thiết lập đồng bộ ký số', url: '/administration/digital-signature-sync' }
+        ]"
+      />
+    </div>
+  </div>
+
+  <div class="wf-card approval-list-card">
+    <div class="tab-bar">
+      <button class="tab-item" [class.tab-active]="activeTab() === 'config'" (click)="switchTab('config')">
+        <i class="pi pi-cog mr-2"></i>Thiết lập API
+      </button>
+      <button class="tab-item" [class.tab-active]="activeTab() === 'history'" (click)="switchTab('history')">
+        <i class="pi pi-history mr-2"></i>Lịch sử ký số
+      </button>
+    </div>
+
+    <!-- ======= TAB 1: THIẾT LẬP API ======= -->
+    <div class="tab-content" *ngIf="activeTab() === 'config'">
+      <div class="wf-table-wrap">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th class="col-stt">STT</th>
+              <th>Tên API</th>
+              <th>Url</th>
+              <th>Trạng thái</th>
+              <th class="col-hd">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="loading()">
+              <td colspan="5" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
+            </tr>
+            <ng-container *ngIf="!loading()">
+              <tr *ngFor="let item of endpoints(); let index = index">
+                <td class="col-stt text-muted">{{ index + 1 }}</td>
+                <td><b>{{ item.displayName }}</b><br /><small class="text-muted">{{ item.apiCode }}</small></td>
+                <td class="note-cell">{{ item.url || '(chưa cấu hình)' }}</td>
+                <td>
+                  <span [class]="item.isActive ? 'status-pill status-active' : 'status-pill status-inactive'">
+                    {{ item.isActive ? 'Đang bật' : 'Đang tắt' }}
+                  </span>
+                </td>
+                <td class="col-hd">
+                  <button type="button" class="act-btn act-edit" title="Sửa cấu hình" (click)="openEdit(item)">
+                    <i class="pi pi-pencil"></i>
+                  </button>
+                </td>
+              </tr>
+
+              <tr *ngIf="endpoints().length === 0">
+                <td colspan="5" class="empty-row">
+                  <i class="pi pi-inbox"></i>
+                  <div>Chưa có cấu hình API ký số nào.</div>
+                </td>
+              </tr>
+            </ng-container>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-footer">
+        <span class="record-count">Tổng số: <b>{{ endpoints().length }}</b> API.</span>
+      </div>
+    </div>
+
+    <!-- ======= TAB 2: LỊCH SỬ KÝ SỐ ======= -->
+    <div class="tab-content" *ngIf="activeTab() === 'history'">
+      <div class="approval-search-card">
+        <div class="search-form-grid history-search-grid">
+          <div class="search-form-item">
+            <label class="search-field-label">Từ khóa</label>
+            <span class="wf-search-input-wrap">
+              <i class="pi pi-search wf-search-input-icon"></i>
+              <input
+                type="text"
+                class="wf-search-input"
+                placeholder="Tên tài liệu, tên file, người ký..."
+                [ngModel]="historyKeyword()"
+                (ngModelChange)="historyKeyword.set($event)"
+                (keyup.enter)="onHistoryFilterChange()"
+              />
+            </span>
+          </div>
+          <div class="search-form-item">
+            <label class="search-field-label">Trạng thái</label>
+            <select class="wf-input" [ngModel]="historyStatus()" (ngModelChange)="historyStatus.set($event)">
+              <option value="">-- Tất cả trạng thái --</option>
+              <option value="Success">Thành công</option>
+              <option value="Failed">Thất bại</option>
+            </select>
+          </div>
+          <div class="search-form-item">
+            <label class="search-field-label">Từ ngày</label>
+            <input
+              type="date"
+              class="wf-input"
+              [ngModel]="historyFromDate()"
+              (ngModelChange)="historyFromDate.set($event)"
+            />
+          </div>
+          <div class="search-form-item">
+            <label class="search-field-label">Đến ngày</label>
+            <input
+              type="date"
+              class="wf-input"
+              [ngModel]="historyToDate()"
+              (ngModelChange)="historyToDate.set($event)"
+            />
+          </div>
+          <div class="search-actions">
+            <button type="button" class="btn-outlined" (click)="onHistoryResetFilter()">
+              <i class="pi pi-refresh"></i> Làm mới
+            </button>
+            <button type="button" class="btn-tim" (click)="onHistoryFilterChange()">
+              <i class="pi pi-check"></i> Áp dụng
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="wf-table-wrap">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th class="col-stt">STT</th>
+              <th>Tài liệu</th>
+              <th>Tên file ký số</th>
+              <th>Người ký</th>
+              <th>Thời gian ký</th>
+              <th>Trạng thái</th>
+              <th class="col-hd">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="historyLoading()">
+              <td colspan="7" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
+            </tr>
+            <ng-container *ngIf="!historyLoading()">
+              <tr *ngFor="let item of historyItems(); let index = index">
+                <td class="col-stt text-muted">{{ (historyPage() - 1) * historyPageSize() + index + 1 }}</td>
+                <td>{{ item.documentName || '(không rõ)' }}</td>
+                <td class="file-name-cell" [title]="item.signedFileName || ''">
+                  <i class="pi pi-file-pdf" *ngIf="item.signedFileName"></i>
+                  {{ item.signedFileName || '-' }}
+                </td>
+                <td>{{ item.signerName || '-' }}</td>
+                <td>{{ item.signedAt ? (item.signedAt | date: 'dd/MM/yyyy HH:mm:ss') : '-' }}</td>
+                <td>
+                  <span [class]="item.status === 'Success' ? 'status-pill status-active' : 'status-pill status-inactive'">
+                    {{ item.status === 'Success' ? 'Thành công' : 'Thất bại' }}
+                  </span>
+                </td>
+                <td class="col-hd">
+                  <button type="button" class="act-btn btn-view-detail" title="Xem chi tiết" (click)="viewHistoryDetail(item)">
+                    <i class="pi pi-eye"></i>
+                  </button>
+                </td>
+              </tr>
+
+              <tr *ngIf="historyItems().length === 0">
+                <td colspan="7" class="empty-row">
+                  <i class="pi pi-inbox"></i>
+                  <div>Chưa có lịch sử ký số nào.</div>
+                </td>
+              </tr>
+            </ng-container>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-footer-paginator" *ngIf="historyTotalCount() > 0">
+        <span class="record-count">Tổng số: <b>{{ historyTotalCount() }}</b> lượt ký.</span>
+        <app-eco-paginator
+          [first]="(historyPage() - 1) * historyPageSize()"
+          [rows]="historyPageSize()"
+          [totalRecords]="historyTotalCount()"
+          [rowsPerPageOptions]="[10, 20, 50]"
+          (onPageChange)="onHistoryPageChange($event)"
+        ></app-eco-paginator>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== DIALOG SỬA CẤU HÌNH API ==================== -->
+<p-dialog
+  [visible]="dialogVisible()"
+  (visibleChange)="closeDialog()"
+  [header]="'Cấu hình - ' + form().displayName"
+  [modal]="true"
+  [style]="{ width: '520px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!saving()"
+>
+  <div style="display: flex; flex-direction: column; gap: 16px; padding: 10px 0;">
+    <div class="form-group">
+      <label class="form-label">Mã API</label>
+      <input class="wf-input w-full" type="text" [value]="form().apiCode" disabled />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Url</label>
+      <input
+        class="wf-input w-full"
+        type="text"
+        [ngModel]="form().url"
+        (ngModelChange)="updateFormField('url', $event)"
+        [disabled]="saving()"
+        placeholder="https://gwlocal.evnhanoi.vn/api/..."
+      />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Trạng thái</label>
+      <select
+        class="wf-select w-full"
+        [ngModel]="form().isActive"
+        (ngModelChange)="updateFormField('isActive', $event)"
+        [disabled]="saving()"
+      >
+        <option [ngValue]="true">Bật</option>
+        <option [ngValue]="false">Tắt</option>
+      </select>
+    </div>
+  </div>
+
+  <ng-template #footer>
+    <div class="dialog-footer-actions">
+      <button class="btn-cancel btn-small" (click)="closeDialog()" [disabled]="saving()">
+        <i class="pi pi-times"></i> Đóng
+      </button>
+      <button class="btn-save btn-small" (click)="save()" [disabled]="saving()">
+        <i class="pi pi-spin pi-spinner" *ngIf="saving()" style="margin-right: 4px;"></i>
+        <i class="pi pi-save" *ngIf="!saving()" style="margin-right: 4px;"></i>
+        Lưu thông tin
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- ==================== DIALOG XEM CHI TIẾT LỊCH SỬ KÝ SỐ ==================== -->
+<p-dialog
+  [visible]="historyDetailVisible()"
+  (visibleChange)="closeHistoryDetail()"
+  header="Chi tiết lịch sử ký số"
+  [modal]="true"
+  [style]="{ width: '560px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="true"
+>
+  <div *ngIf="historyDetail() as item" class="detail-dialog-wrapper">
+    <div class="metadata-grid">
+      <div>
+        <label class="metadata-field-label">Tài liệu: </label>
+        <div class="metadata-field-value">{{ item.documentName || '(không rõ)' }}</div>
+      </div>
+      <div>
+        <label class="metadata-field-label">Tên file ký số: </label>
+        <div class="metadata-field-value">{{ item.signedFileName || '-' }}</div>
+      </div>
+      <div>
+        <label class="metadata-field-label">Người ký: </label>
+        <div class="metadata-field-value">{{ item.signerName || '-' }}</div>
+      </div>
+      <div>
+        <label class="metadata-field-label">Serial chứng thư: </label>
+        <div class="metadata-field-value">{{ item.serialNumber || '-' }}</div>
+      </div>
+      <div>
+        <label class="metadata-field-label">Thời gian ký: </label>
+        <div class="metadata-field-value">{{ item.signedAt ? (item.signedAt | date: 'dd/MM/yyyy HH:mm:ss') : '-' }}</div>
+      </div>
+      <div>
+        <label class="metadata-field-label">Trạng thái: </label>
+        <div class="metadata-field-value">
+          <span [class]="item.status === 'Success' ? 'status-pill status-active' : 'status-pill status-inactive'">
+            {{ item.status === 'Success' ? 'Thành công' : 'Thất bại' }}
+          </span>
+        </div>
+      </div>
+      <div>
+        <label class="metadata-field-label">Thời điểm ghi nhận: </label>
+        <div class="metadata-field-value">{{ item.createdDate | date: 'dd/MM/yyyy HH:mm:ss' }}</div>
+      </div>
+    </div>
+
+    <div class="metadata-desc-group" *ngIf="item.status !== 'Success'">
+      <label class="metadata-field-label">Chi tiết lỗi: </label>
+      <div class="metadata-desc-box">{{ item.errorMessage || '(không có thông tin lỗi)' }}</div>
+    </div>
+  </div>
+
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <button class="btn-cancel btn-small" (click)="closeHistoryDetail()">
+        <i class="pi pi-times"></i> Đóng
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
