@@ -223,7 +223,7 @@
 >
   <div
     *ngIf="historyDetailTarget()?.errorMessage as errorMessage"
-    style="margin-bottom: 12px; padding: 10px 14px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #b91c1c; white-space: pre-wrap; word-break: break-word;"
+    style="margin-bottom: 12px; padding: 10px 14px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #b91c1c; white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5;"
   >
     <b>Lỗi của cả lượt đồng bộ:</b> {{ errorMessage }}
   </div>
