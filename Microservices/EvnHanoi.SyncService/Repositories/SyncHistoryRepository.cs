@@ -130,6 +130,45 @@ public class SyncHistoryRepository : ISyncHistoryRepository
         return (items, totalCount);
     }
 
+    public async Task<int> DeleteAsync(string objectType, string mode, DateTime? fromDate, DateTime? toDate)
+    {
+        EnsureOpen();
+        var parameters = new DynamicParameters();
+        parameters.Add("ObjectType", objectType);
+
+        string whereClause;
+        switch (mode)
+        {
+            case "DATE_RANGE":
+                whereClause = "OBJECT_TYPE = :ObjectType AND START_TIME BETWEEN :FromDate AND :ToDate";
+                parameters.Add("FromDate", fromDate);
+                parameters.Add("ToDate", toDate);
+                break;
+            case "KEEP_LAST_1_DAY":
+                whereClause = "OBJECT_TYPE = :ObjectType AND START_TIME < SYSTIMESTAMP - 1";
+                break;
+            case "KEEP_LAST_7_DAYS":
+                whereClause = "OBJECT_TYPE = :ObjectType AND START_TIME < SYSTIMESTAMP - 7";
+                break;
+            case "ALL":
+                whereClause = "OBJECT_TYPE = :ObjectType";
+                break;
+            default:
+                throw new ArgumentException($"Không nhận diện được mode xoá lịch sử: {mode}", nameof(mode));
+        }
+
+        // SYNC_HISTORY_DETAIL tự động xoá theo (FK_SYNC_HISTORY_DETAIL_HISTORY ON DELETE CASCADE).
+        return await _connection.ExecuteAsync($"DELETE FROM SYNC_HISTORY WHERE {whereClause}", parameters);
+    }
+
+    public async Task<int> DeleteOlderThanAsync(int retentionDays)
+    {
+        EnsureOpen();
+        return await _connection.ExecuteAsync(
+            "DELETE FROM SYNC_HISTORY WHERE START_TIME < SYSTIMESTAMP - :RetentionDays",
+            new { RetentionDays = retentionDays });
+    }
+
     private void EnsureOpen()
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
