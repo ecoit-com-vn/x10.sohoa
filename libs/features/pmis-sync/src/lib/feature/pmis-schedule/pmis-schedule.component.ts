@@ -7,7 +7,13 @@ import { MessageService } from 'primeng/api';
 import { finalize } from 'rxjs';
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { PmisFrequencyUnit, PmisScheduleService, SyncConfig } from '../../data-access/pmis-schedule.service';
-import { groupConsecutiveFailures, PmisHistoryService, SyncHistory, SyncHistoryDetail } from '../../data-access/pmis-history.service';
+import {
+  groupConsecutiveFailures,
+  PmisHistoryService,
+  SyncHistory,
+  SyncHistoryCleanupMode,
+  SyncHistoryDetail,
+} from '../../data-access/pmis-history.service';
 
 interface EditForm {
   objectType: string;
@@ -61,6 +67,12 @@ export class PmisScheduleComponent implements OnInit {
   historyDetailLoading = signal(false);
   historyDetails = signal<SyncHistoryDetail[]>([]);
   historyDetailTarget = signal<SyncHistory | null>(null);
+
+  cleanupDialogVisible = signal(false);
+  cleanupMode = signal<SyncHistoryCleanupMode>('KEEP_LAST_7_DAYS');
+  cleanupFromDate = signal<string | null>(null);
+  cleanupToDate = signal<string | null>(null);
+  cleaning = signal(false);
 
   ngOnInit(): void {
     this.load();
@@ -149,6 +161,45 @@ export class PmisScheduleComponent implements OnInit {
       .subscribe({
         next: (response) => this.historyDetails.set(response.items),
         error: (error) => this.showError(error, 'Không thể tải chi tiết lịch sử.'),
+      });
+  }
+
+  openCleanupDialog(): void {
+    this.cleanupMode.set('KEEP_LAST_7_DAYS');
+    this.cleanupFromDate.set(null);
+    this.cleanupToDate.set(null);
+    this.cleanupDialogVisible.set(true);
+  }
+
+  closeCleanupDialog(): void {
+    if (!this.cleaning()) this.cleanupDialogVisible.set(false);
+  }
+
+  confirmCleanup(): void {
+    const objectType = this.historyTarget();
+    if (!objectType) return;
+
+    const mode = this.cleanupMode();
+    if (mode === 'DATE_RANGE' && (!this.cleanupFromDate() || !this.cleanupToDate())) {
+      this.messageService.add({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng chọn đủ Từ ngày và Đến ngày.' });
+      return;
+    }
+
+    this.cleaning.set(true);
+    this.historyService
+      .cleanup(objectType as any, mode, this.cleanupFromDate(), this.cleanupToDate())
+      .pipe(finalize(() => this.cleaning.set(false)))
+      .subscribe({
+        next: (response) => {
+          this.cleanupDialogVisible.set(false);
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Đã xoá lịch sử',
+            detail: `Đã xoá ${response.deletedCount} lượt đồng bộ.`,
+          });
+          this.openHistory(objectType);
+        },
+        error: (error) => this.showError(error, 'Không thể xoá lịch sử đồng bộ.'),
       });
   }
 

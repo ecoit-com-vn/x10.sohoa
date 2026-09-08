@@ -91,6 +91,12 @@
   [style]="{ width: '860px' }"
   styleClass="evn-dialog-custom"
 >
+  <div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+    <button class="btn-outlined btn-small" type="button" (click)="openCleanupDialog()">
+      <i class="pi pi-trash"></i> Xoá lịch sử
+    </button>
+  </div>
+
   <div class="wf-table-wrap">
     <table class="wf-table">
       <thead>
@@ -159,7 +165,7 @@
 >
   <div
     *ngIf="historyDetailTarget()?.errorMessage as errorMessage"
-    style="margin-bottom: 12px; padding: 10px 14px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #b91c1c; white-space: pre-wrap; word-break: break-word;"
+    style="margin-bottom: 12px; padding: 10px 14px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #b91c1c; white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5;"
   >
     <b>Lỗi của cả lượt đồng bộ:</b> {{ errorMessage }}
   </div>
@@ -213,6 +219,66 @@
   <ng-template #footer>
     <div class="dialog-footer">
       <button type="button" class="btn-outlined btn-small" (click)="historyDetailDialogVisible.set(false)">Đóng</button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog xoá lịch sử đồng bộ -->
+<p-dialog
+  [visible]="cleanupDialogVisible()"
+  (visibleChange)="closeCleanupDialog()"
+  [header]="'Xoá lịch sử đồng bộ - ' + (objectTypeLabels[historyTarget() || ''] || '')"
+  [modal]="true"
+  [style]="{ width: '480px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!cleaning()"
+>
+  <div class="api-key-form">
+    <div class="form-group">
+      <label class="form-label flex items-center gap-2">
+        <input type="radio" name="cleanupMode" [checked]="cleanupMode() === 'DATE_RANGE'" (change)="cleanupMode.set('DATE_RANGE')" />
+        Xoá theo khoảng thời gian
+      </label>
+      <div class="frequency-inputs" *ngIf="cleanupMode() === 'DATE_RANGE'" style="margin-top: 6px; display: flex; gap: 8px;">
+        <input class="wf-input" type="date" [ngModel]="cleanupFromDate()" (ngModelChange)="cleanupFromDate.set($event)" placeholder="Từ ngày" />
+        <input class="wf-input" type="date" [ngModel]="cleanupToDate()" (ngModelChange)="cleanupToDate.set($event)" placeholder="Đến ngày" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label flex items-center gap-2">
+        <input type="radio" name="cleanupMode" [checked]="cleanupMode() === 'KEEP_LAST_1_DAY'" (change)="cleanupMode.set('KEEP_LAST_1_DAY')" />
+        Xoá toàn bộ, chỉ giữ lại 1 ngày gần nhất
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label flex items-center gap-2">
+        <input type="radio" name="cleanupMode" [checked]="cleanupMode() === 'KEEP_LAST_7_DAYS'" (change)="cleanupMode.set('KEEP_LAST_7_DAYS')" />
+        Xoá toàn bộ, chỉ giữ lại 7 ngày gần nhất
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label flex items-center gap-2">
+        <input type="radio" name="cleanupMode" [checked]="cleanupMode() === 'ALL'" (change)="cleanupMode.set('ALL')" />
+        Xoá toàn bộ
+      </label>
+    </div>
+
+    <div style="margin-top: 10px; padding: 10px 14px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #b91c1c; font-size: 13px;">
+      <i class="pi pi-exclamation-triangle"></i> Thao tác này xoá vĩnh viễn, không khôi phục được — chỉ áp dụng cho đối tượng "{{ objectTypeLabels[historyTarget() || ''] || '' }}".
+    </div>
+  </div>
+
+  <ng-template #footer>
+    <div class="dialog-footer">
+      <button type="button" class="btn-outlined btn-small" (click)="closeCleanupDialog()" [disabled]="cleaning()">Đóng</button>
+      <button type="button" class="btn-save btn-small" style="background: #dc2626; border-color: #dc2626;" (click)="confirmCleanup()" [disabled]="cleaning()">
+        <i *ngIf="cleaning(); else deleteIcon" class="pi pi-spin pi-spinner"></i>
+        <ng-template #deleteIcon><i class="pi pi-trash"></i></ng-template>
+        Xoá vĩnh viễn
+      </button>
     </div>
   </ng-template>
 </p-dialog>

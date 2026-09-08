@@ -31,6 +31,8 @@ export interface SyncHistoryDetail {
   syncTime: string;
 }
 
+export type SyncHistoryCleanupMode = 'DATE_RANGE' | 'KEEP_LAST_1_DAY' | 'KEEP_LAST_7_DAYS' | 'ALL';
+
 export interface GroupedSyncHistory extends SyncHistory {
   /** > 1 nghĩa là dòng này đại diện cho N lần "Thất bại" liên tiếp giống nhau (cùng đối tượng, 0 bản ghi). */
   groupedCount?: number;
@@ -75,6 +77,20 @@ export class PmisHistoryService {
   getHistoryItems(historyId: string, page: number, pageSize: number): Observable<{ items: SyncHistoryDetail[]; totalCount: number }> {
     return this.http.get<{ items: SyncHistoryDetail[]; totalCount: number }>(`${this.apiUrl}/${historyId}/items`, {
       params: { page: String(page), pageSize: String(pageSize) },
+    });
+  }
+
+  cleanup(
+    objectType: PmisSyncObjectType,
+    mode: SyncHistoryCleanupMode,
+    fromDate?: string | null,
+    toDate?: string | null
+  ): Observable<{ deletedCount: number }> {
+    return this.http.post<{ deletedCount: number }>(`${this.apiUrl}/cleanup`, {
+      objectType,
+      mode,
+      fromDate: fromDate || null,
+      toDate: toDate || null,
     });
   }
 }

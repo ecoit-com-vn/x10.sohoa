@@ -12,7 +12,13 @@ import {
   PmisSyncObjectType,
   PmisSyncPreviewItem,
 } from '../../data-access/pmis-manual-sync.service';
-import { groupConsecutiveFailures, PmisHistoryService, SyncHistory, SyncHistoryDetail } from '../../data-access/pmis-history.service';
+import {
+  groupConsecutiveFailures,
+  PmisHistoryService,
+  SyncHistory,
+  SyncHistoryCleanupMode,
+  SyncHistoryDetail,
+} from '../../data-access/pmis-history.service';
 
 interface TabDef {
   type: PmisSyncObjectType;
@@ -62,6 +68,12 @@ export class PmisManualSyncComponent implements OnInit {
   historyDetailLoading = signal(false);
   historyDetails = signal<SyncHistoryDetail[]>([]);
   historyDetailTarget = signal<SyncHistory | null>(null);
+
+  cleanupDialogVisible = signal(false);
+  cleanupMode = signal<SyncHistoryCleanupMode>('KEEP_LAST_7_DAYS');
+  cleanupFromDate = signal<string | null>(null);
+  cleanupToDate = signal<string | null>(null);
+  cleaning = signal(false);
 
   selectedCount = computed(() => this.selectedCodes().size);
   allSelected = computed(() => this.results().length > 0 && this.selectedCodes().size === this.results().length);
@@ -201,6 +213,42 @@ export class PmisManualSyncComponent implements OnInit {
     } catch {
       return '---';
     }
+  }
+
+  openCleanupDialog(): void {
+    this.cleanupMode.set('KEEP_LAST_7_DAYS');
+    this.cleanupFromDate.set(null);
+    this.cleanupToDate.set(null);
+    this.cleanupDialogVisible.set(true);
+  }
+
+  closeCleanupDialog(): void {
+    if (!this.cleaning()) this.cleanupDialogVisible.set(false);
+  }
+
+  confirmCleanup(): void {
+    const mode = this.cleanupMode();
+    if (mode === 'DATE_RANGE' && (!this.cleanupFromDate() || !this.cleanupToDate())) {
+      this.messageService.add({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng chọn đủ Từ ngày và Đến ngày.' });
+      return;
+    }
+
+    this.cleaning.set(true);
+    this.historyService
+      .cleanup(this.activeTab(), mode, this.cleanupFromDate(), this.cleanupToDate())
+      .pipe(finalize(() => this.cleaning.set(false)))
+      .subscribe({
+        next: (response) => {
+          this.cleanupDialogVisible.set(false);
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Đã xoá lịch sử',
+            detail: `Đã xoá ${response.deletedCount} lượt đồng bộ.`,
+          });
+          this.loadHistory();
+        },
+        error: (error) => this.showError(error, 'Không thể xoá lịch sử đồng bộ.'),
+      });
   }
 
   formatDate(value: string | null | undefined): string {
