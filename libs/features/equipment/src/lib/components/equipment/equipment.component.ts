@@ -113,6 +113,7 @@ export class EquipmentComponent implements OnInit {
   // Module 6 — so sánh thông số kỹ thuật với PMIS
   pmisSpecDiff = signal<PmisSpecDiffResponse | null>(null);
   pmisDiffLoading = signal(false);
+  refreshingFromPmis = signal(false);
 
   /** 1 dòng/field: giá trị hệ thống vs PMIS, hoặc cảnh báo "chưa cấu hình mapping" nếu chưa khai báo pmisFieldName khớp được. */
   pmisDiffRows = computed(() => {
@@ -465,7 +466,10 @@ export class EquipmentComponent implements OnInit {
                 equipmentStatusName: res.equipmentStatusName,
                 creator: res.creator,
                 createdBy: res.createdBy,
-                qrCode: res.qrCode
+                qrCode: res.qrCode,
+                pmisCode: res.pmisCode,
+                parentPmisCode: res.parentPmisCode,
+                parentInfraTypeId: res.parentInfraTypeId
               });
 
               // Load form template directly from response
@@ -1252,6 +1256,42 @@ export class EquipmentComponent implements OnInit {
         this.pmisDiffLoading.set(false);
       }
     });
+  }
+
+  refreshFromPmis(): void {
+    const item = this.currentItem();
+    if (!item?.id || !item?.pmisCode || this.refreshingFromPmis()) return;
+
+    this.refreshingFromPmis.set(true);
+    this.equipmentService
+      .refreshFromPmis(item.pmisCode, item.parentPmisCode ?? null, item.parentInfraTypeId === 1)
+      .pipe(finalize(() => this.refreshingFromPmis.set(false)))
+      .subscribe({
+        next: (res) => {
+          this.messageService.add({
+            severity: res.success ? 'success' : 'warn',
+            summary: res.success ? 'Thành công' : 'Không thành công',
+            detail: res.message || (res.success ? 'Đã cập nhật thông số thiết bị từ PMIS.' : 'Không thể cập nhật thông số thiết bị từ PMIS.')
+          });
+          if (!res.success) return;
+
+          // PMIS có thể báo đổi trạm/đường dây ngay trong lần cập nhật này — hệ thống tự tạo bản ghi mới
+          // (equipmentId khác id đang xem). Điều hướng sang id mới thay vì tải lại id cũ đã "Đã chuyển TBA".
+          if (res.equipmentId && res.equipmentId !== item.id) {
+            this.router.navigate(['/equipment/device-list', res.equipmentId]);
+            return;
+          }
+          this.reloadDetail(item.id);
+          this.loadPmisSpecDiff(item.id);
+        },
+        error: (err) => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Lỗi',
+            detail: err?.error?.message || 'Không thể cập nhật thông số thiết bị từ PMIS.'
+          });
+        }
+      });
   }
 
   loadDossiers() {

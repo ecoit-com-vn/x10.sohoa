@@ -1146,9 +1146,26 @@
                   <i class="pi pi-sync" style="color: #2563eb; margin-right: 6px"></i>
                   So sánh với PMIS
                 </span>
-                <span *ngIf="pmisSpecDiff()?.pmisSyncedAt" style="font-size: 0.8rem; color: #64748b">
-                  Đồng bộ lần cuối: {{ pmisSpecDiff()?.pmisSyncedAt | date: 'dd/MM/yyyy HH:mm' }}
-                </span>
+                <div style="display: flex; align-items: center; gap: 12px">
+                  <span *ngIf="pmisSpecDiff()?.pmisSyncedAt" style="font-size: 0.8rem; color: #64748b">
+                    Đồng bộ lần cuối: {{ pmisSpecDiff()?.pmisSyncedAt | date: 'dd/MM/yyyy HH:mm' }}
+                  </span>
+                  <button
+                    *ngIf="currentItem()?.pmisCode"
+                    type="button"
+                    class="btn-outlined btn-small"
+                    title="Cập nhật từ PMIS"
+                    [disabled]="refreshingFromPmis()"
+                    (click)="refreshFromPmis()"
+                  >
+                    <i class="pi" [ngClass]="refreshingFromPmis() ? 'pi-spin pi-spinner' : 'pi-refresh'"></i>
+                    {{ refreshingFromPmis() ? 'Đang cập nhật...' : 'Cập nhật từ PMIS' }}
+                  </button>
+                </div>
+              </div>
+
+              <div *ngIf="currentItem()?.code" style="font-size: 0.85rem; color: #64748b; margin-bottom: 12px">
+                Mã thiết bị: <b style="color: #002d72">{{ currentItem()?.code }}</b>
               </div>
 
               <div *ngIf="pmisDiffLoading()" style="text-align: center; padding: 24px 0; color: #64748b">

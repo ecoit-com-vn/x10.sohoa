@@ -167,6 +167,20 @@ export class EquipmentService {
     return this.http.get<PmisSpecDiffResponse>(`${this.base}/${id}/pmis-spec-diff`);
   }
 
+  /** Nút "Cập nhật từ PMIS" — gọi PMIS lấy dữ liệu tươi cho đúng 1 thiết bị (route sang SyncService).
+   * equipmentId trả về có thể KHÁC id đang xem nếu PMIS báo đổi trạm/đường dây (hệ thống tự tạo bản ghi
+   * mới) — phải dùng đúng id này để tải lại, không được giữ nguyên id cũ. */
+  refreshFromPmis(
+    pmisCode: string,
+    parentPmisCode: string | null,
+    isSubstationDevice: boolean
+  ): Observable<{ success: boolean; message?: string; equipmentId?: string | null }> {
+    return this.http.post<{ success: boolean; message?: string; equipmentId?: string | null }>(
+      `${this.config.apiGatewayUrl}/api/v1/sync/manual/equipment/refresh-device`,
+      { pmisCode, parentPmisCode, isSubstationDevice }
+    );
+  }
+
   /** Lấy danh sách tài liệu lý lịch thiết bị kỹ thuật EAV/OCR. */
   getProfileDocuments(
     equipmentId: string,
