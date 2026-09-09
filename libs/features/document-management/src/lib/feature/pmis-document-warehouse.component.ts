@@ -1,9 +1,11 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { finalize } from 'rxjs';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { PmisDocumentCatalogService } from '../data-access/pmis-document-catalog.service';
 import { PmisCatalogNode, PmisDocumentItem } from '../models/pmis-catalog.models';
 import { convertPmisFlatToTree, findPmisBreadcrumbPath } from '../utils/pmis-catalog-tree.util';
@@ -25,9 +27,10 @@ const PAGE_SIZE = 10;
 @Component({
   selector: 'app-pmis-document-warehouse',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule],
+  imports: [CommonModule, FormsModule, DialogModule, ToastModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './pmis-document-warehouse.component.html',
+  styleUrl: './document-management.component.css',
 })
 export class PmisDocumentWarehouseComponent implements OnInit {
   private readonly catalogService = inject(PmisDocumentCatalogService);
@@ -50,6 +53,13 @@ export class PmisDocumentWarehouseComponent implements OnInit {
   page = signal(1);
   pageSize = PAGE_SIZE;
   downloadingId = signal<string | null>(null);
+
+  // Upload thủ công — dùng khi đồng bộ tự động từ PMIS lỗi.
+  uploadDialogVisible = signal(false);
+  uploadFile = signal<File | null>(null);
+  uploadDocumentName = signal('');
+  uploadDocumentType = signal('');
+  uploading = signal(false);
 
   /** Chỉ node Trạm/Đường dây/Thiết bị mới có danh sách tài liệu riêng để xem (Đơn vị chỉ để điều hướng). */
   canShowDocuments = computed(() => {
@@ -160,5 +170,50 @@ export class PmisDocumentWarehouseComponent implements OnInit {
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err?.message || 'Không thể tải file.' });
       })
       .finally(() => this.downloadingId.set(null));
+  }
+
+  openUploadDialog(): void {
+    this.uploadFile.set(null);
+    this.uploadDocumentName.set('');
+    this.uploadDocumentType.set('');
+    this.uploadDialogVisible.set(true);
+  }
+
+  closeUploadDialog(): void {
+    if (!this.uploading()) this.uploadDialogVisible.set(false);
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    this.uploadFile.set(file);
+    if (file && !this.uploadDocumentName()) {
+      this.uploadDocumentName.set(file.name);
+    }
+  }
+
+  confirmUpload(): void {
+    const node = this.selectedNode();
+    const file = this.uploadFile();
+    if (!node || !file) {
+      this.messageService.add({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng chọn file cần upload.' });
+      return;
+    }
+
+    this.uploading.set(true);
+    this.catalogService
+      .uploadDocument(node.id, file, this.uploadDocumentName() || undefined, this.uploadDocumentType() || undefined)
+      .pipe(finalize(() => this.uploading.set(false)))
+      .subscribe({
+        next: () => {
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã upload tài liệu.' });
+          this.uploadDialogVisible.set(false);
+          this.loadTree();
+          this.loadDocuments();
+        },
+        error: (err) => {
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err?.error?.message || 'Không thể upload tài liệu.' });
+        },
+      });
   }
 }

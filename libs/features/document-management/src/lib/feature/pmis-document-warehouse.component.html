@@ -1,156 +1,256 @@
 <p-toast></p-toast>
 
-<div style="display: flex; gap: 16px; align-items: flex-start">
-  <!-- LEFT CARD: cây Đơn vị -> Trạm/Đường dây -> Thiết bị (chỉ đọc) -->
-  <div class="wf-card" style="width: 320px; flex-shrink: 0; padding: 16px">
-    <div style="font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px">
-      <i class="pi pi-folder-open" style="color: #2563eb"></i>
-      KHO TÀI LIỆU PMIS
+<div class="wf-page document-management-page">
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb />
     </div>
-
-    <div *ngIf="loadingTree()" style="text-align: center; color: #999; padding: 12px 0">
-      <i class="pi pi-spin pi-spinner" style="font-size: 1.2rem"></i>
-    </div>
-
-    <div *ngIf="!loadingTree() && tree().length === 0" style="color: #999; font-size: 0.85rem">
-      Chưa có tài liệu PMIS nào được đồng bộ.
-    </div>
-
-    <ng-container *ngIf="!loadingTree()">
-      <ng-container *ngTemplateOutlet="nodeTemplate; context: { $implicit: tree(), depth: 0 }"></ng-container>
-    </ng-container>
-
-    <ng-template #nodeTemplate let-nodes let-depth="depth">
-      <div *ngFor="let node of nodes" [style.padding-left.px]="depth * 14">
-        <div
-          (click)="selectNode(node)"
-          [style.background]="selectedNode()?.id === node.id ? '#eff6ff' : 'transparent'"
-          [style.color]="selectedNode()?.id === node.id ? '#2563eb' : '#334155'"
-          style="display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 4px; cursor: pointer; font-size: 0.85rem"
-        >
-          <i
-            *ngIf="node.children && node.children.length > 0"
-            class="pi"
-            [ngClass]="isExpanded(node.id) ? 'pi-chevron-down' : 'pi-chevron-right'"
-            style="font-size: 0.7rem; width: 12px"
-            (click)="toggleExpand(node, $event)"
-          ></i>
-          <span *ngIf="!node.children || node.children.length === 0" style="width: 12px"></span>
-          <i class="pi" [ngClass]="nodeIcons[node.nodeType]" style="color: #94a3b8"></i>
-          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{ node.name }}</span>
-          <span *ngIf="node.documentCount > 0" style="color: #94a3b8; font-size: 0.75rem">({{ node.documentCount }})</span>
-        </div>
-
-        <div *ngIf="node.children && node.children.length > 0 && isExpanded(node.id)">
-          <ng-container *ngTemplateOutlet="nodeTemplate; context: { $implicit: node.children, depth: depth + 1 }"></ng-container>
-        </div>
-      </div>
-    </ng-template>
   </div>
 
-  <!-- RIGHT CARD: danh sách tài liệu của node đang chọn -->
-  <div class="wf-card" style="flex: 1; padding: 16px">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
-      <div>
-        <span style="color: #6b7280; font-size: 0.85rem">Vị trí: </span>
-        <ng-container *ngIf="breadcrumbPath().length > 0; else emptyBreadcrumb">
-          <span *ngFor="let node of breadcrumbPath(); let isLast = last" style="font-size: 0.85rem">
-            {{ node.name }}<span *ngIf="!isLast" style="margin: 0 4px; color: #cbd5e1">/</span>
-          </span>
-        </ng-container>
-        <ng-template #emptyBreadcrumb>
-          <span style="font-size: 0.85rem; font-weight: 600">Kho tài liệu PMIS</span>
-        </ng-template>
+  <div class="document-layout">
+    <!-- LEFT CARD: cây Đơn vị -> Trạm/Đường dây -> Thiết bị (chỉ đọc, không có nút tạo/sửa/xoá) -->
+    <div class="wf-card document-folder-panel">
+      <div
+        style="
+          background-color: #3b82f6;
+          color: white;
+          padding: 8px 12px;
+          border-radius: 6px;
+          margin-bottom: 12px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        "
+      >
+        <i class="pi pi-fw pi-folder" style="font-size: 1.1rem"></i>
+        <strong style="font-size: 0.95rem">KHO TÀI LIỆU PMIS</strong>
       </div>
-    </div>
 
-    <div *ngIf="!canShowDocuments()" style="text-align: center; padding: 40px 0; color: #94a3b8">
-      <i class="pi pi-arrow-left" style="font-size: 1.4rem"></i>
-      <div style="margin-top: 8px">Chọn 1 Trạm biến áp, Đường dây hoặc Thiết bị bên trái để xem tài liệu.</div>
-    </div>
+      <div *ngIf="loadingTree()" style="text-align: center; color: #999; padding: 12px 0">
+        <i class="pi pi-spin pi-spinner" style="font-size: 1.2rem"></i>
+      </div>
 
-    <ng-container *ngIf="canShowDocuments()">
-      <div class="grid-filter-bar" style="margin-bottom: 12px">
-        <div class="filter-item">
-          <label>Từ khóa</label>
-          <div class="input-icon">
-            <i class="pi pi-search"></i>
-            <input
-              type="text"
-              class="wf-input"
-              placeholder="Tên tài liệu..."
-              [ngModel]="keyword()"
-              (ngModelChange)="keyword.set($event)"
-              (keyup.enter)="onSearch()"
-            />
+      <div *ngIf="!loadingTree() && tree().length === 0" style="color: #999; font-size: 0.85rem">
+        Chưa có tài liệu PMIS nào được đồng bộ.
+      </div>
+
+      <ng-container *ngIf="!loadingTree()">
+        <ng-container *ngTemplateOutlet="nodeTemplate; context: { $implicit: tree(), isRoot: true }"></ng-container>
+      </ng-container>
+
+      <ng-template #nodeTemplate let-nodes let-isRoot="isRoot">
+        <div *ngFor="let node of nodes; first as isFirst; last as isLast" [class.first-node]="isFirst" [class.last-node]="isLast">
+          <div class="folder-row">
+            <div class="connector-space" *ngIf="!isRoot">
+              <div class="connector-line"></div>
+            </div>
+
+            <button
+              (click)="toggleExpand(node, $event); selectNode(node)"
+              class="folder-tree-btn"
+              [class.active]="selectedNode()?.id === node.id"
+              [class.root-node]="isRoot"
+              [title]="node.name"
+            >
+              <i class="pi" [ngClass]="nodeIcons[node.nodeType]"></i>
+              <span class="folder-name-text">
+                {{ node.name }}<ng-container *ngIf="node.documentCount > 0"> ({{ node.documentCount }})</ng-container>
+              </span>
+            </button>
+          </div>
+
+          <div
+            *ngIf="node.children && node.children.length > 0 && isExpanded(node.id)"
+            class="folder-children-wrapper"
+            [class.root-children]="isRoot"
+          >
+            <ng-container *ngTemplateOutlet="nodeTemplate; context: { $implicit: node.children, isRoot: false }"></ng-container>
           </div>
         </div>
-        <div class="filter-buttons">
-          <button type="button" class="btn-outlined btn-small" (click)="onResetFilters()">
-            <i class="pi pi-refresh"></i> Làm mới
-          </button>
-          <button type="button" class="btn-save btn-small" (click)="onSearch()">
-            <i class="pi pi-search"></i> Áp dụng
-          </button>
+      </ng-template>
+    </div>
+
+    <!-- RIGHT CARD: danh sách tài liệu của node đang chọn -->
+    <div class="wf-card document-right-panel">
+      <div class="location-header">
+        <div class="location-breadcrumb">
+          <span class="location-label">Vị trí:</span>
+          <ng-container *ngIf="breadcrumbPath().length > 0; else emptyBreadcrumb">
+            <span *ngFor="let node of breadcrumbPath(); let isLast = last" style="display: flex; align-items: center; gap: 4px">
+              <span [style.font-weight]="selectedNode()?.id === node.id ? 'bold' : 'normal'" [style.color]="selectedNode()?.id === node.id ? '#3b82f6' : '#6b7280'" style="font-size: 0.9rem">
+                {{ node.name }}
+              </span>
+              <span *ngIf="!isLast" class="breadcrumb-separator">/</span>
+            </span>
+          </ng-container>
+          <ng-template #emptyBreadcrumb>
+            <span class="location-current">Kho tài liệu PMIS</span>
+          </ng-template>
         </div>
+        <button
+          *ngIf="canShowDocuments()"
+          type="button"
+          class="btn-save btn-small location-download-btn"
+          (click)="openUploadDialog()"
+          title="Upload tài liệu thủ công cho đúng Trạm/Đường dây/Thiết bị đang chọn — dùng khi đồng bộ tự động từ PMIS lỗi"
+        >
+          <i class="pi pi-upload"></i> Upload tài liệu
+        </button>
       </div>
 
-      <div class="wf-table-wrap">
-        <table class="wf-table">
-          <thead>
-            <tr>
-              <th class="col-stt">STT</th>
-              <th>Tên tài liệu</th>
-              <th style="width: 140px">Loại tài liệu</th>
-              <th style="width: 110px">Kích thước</th>
-              <th style="width: 150px">Ngày đồng bộ</th>
-              <th class="col-hd">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngIf="loadingDocuments()">
-              <td colspan="6" class="empty-row">
-                <i class="pi pi-spin pi-spinner"></i>
-                <div>Đang tải danh sách...</div>
-              </td>
-            </tr>
-            <tr *ngIf="!loadingDocuments() && documents().length === 0">
-              <td colspan="6" class="empty-row">Không có tài liệu nào.</td>
-            </tr>
-            <tr *ngFor="let doc of documents(); let i = index" [hidden]="loadingDocuments()">
-              <td class="col-stt text-muted">{{ (page() - 1) * pageSize + i + 1 }}</td>
-              <td>{{ doc.documentName || '—' }}</td>
-              <td>{{ doc.documentType || '—' }}</td>
-              <td>{{ formatFileSize(doc.fileSize) }}</td>
-              <td>{{ doc.syncedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
-              <td class="col-hd">
-                <button
-                  type="button"
-                  class="btn-outlined btn-small"
-                  [disabled]="!doc.objectKey || downloadingId() === doc.id"
-                  (click)="download(doc)"
-                  title="Tải về"
-                >
-                  <i class="pi" [ngClass]="downloadingId() === doc.id ? 'pi-spin pi-spinner' : 'pi-download'"></i>
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div *ngIf="!canShowDocuments()" style="text-align: center; padding: 40px 0; color: #94a3b8">
+        <i class="pi pi-arrow-left" style="font-size: 1.4rem"></i>
+        <div style="margin-top: 8px">Chọn 1 Trạm biến áp, Đường dây hoặc Thiết bị bên trái để xem tài liệu.</div>
       </div>
 
-      <div *ngIf="totalCount() > 0" style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px">
-        <small class="text-muted">Tổng số: {{ totalCount() }} tài liệu</small>
-        <div style="display: flex; align-items: center; gap: 8px">
-          <button type="button" class="btn-outlined btn-small" [disabled]="page() <= 1" (click)="goToPage(page() - 1)">
-            <i class="pi pi-chevron-left"></i>
-          </button>
-          <span style="font-size: 0.85rem">Trang {{ page() }} / {{ totalPages() }}</span>
-          <button type="button" class="btn-outlined btn-small" [disabled]="page() >= totalPages()" (click)="goToPage(page() + 1)">
-            <i class="pi pi-chevron-right"></i>
-          </button>
+      <ng-container *ngIf="canShowDocuments()">
+        <div class="grid-filter-bar">
+          <div class="filter-item">
+            <label>Từ khóa</label>
+            <div class="input-icon">
+              <i class="pi pi-search"></i>
+              <input
+                type="text"
+                class="wf-input"
+                placeholder="Tên tài liệu..."
+                [ngModel]="keyword()"
+                (ngModelChange)="keyword.set($event)"
+                (keyup.enter)="onSearch()"
+              />
+            </div>
+          </div>
+          <div class="filter-buttons">
+            <button type="button" class="btn-outlined btn-small" (click)="onResetFilters()">
+              <i class="pi pi-refresh"></i> Làm mới
+            </button>
+            <button type="button" class="btn-save btn-small" (click)="onSearch()">
+              <i class="pi pi-check"></i> Áp dụng
+            </button>
+          </div>
         </div>
-      </div>
-    </ng-container>
+
+        <div class="wf-table-wrap" [class.loading]="loadingDocuments()">
+          <table class="wf-table">
+            <thead>
+              <tr>
+                <th class="col-stt">STT</th>
+                <th>Tên tài liệu</th>
+                <th style="width: 160px">Loại tài liệu</th>
+                <th style="width: 110px">Kích thước</th>
+                <th style="width: 150px">Ngày đồng bộ</th>
+                <th class="col-hd">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="loadingDocuments()">
+                <td colspan="6" class="empty-row">
+                  <i class="pi pi-spin pi-spinner"></i>
+                  <div>Đang tải danh sách...</div>
+                </td>
+              </tr>
+              <tr *ngIf="!loadingDocuments() && documents().length === 0">
+                <td colspan="6" class="empty-row">Không có tài liệu nào.</td>
+              </tr>
+              <tr *ngFor="let doc of documents(); let i = index" [hidden]="loadingDocuments()" class="folder-row-table">
+                <td class="col-stt text-muted">{{ (page() - 1) * pageSize + i + 1 }}</td>
+                <td>
+                  <div class="table-item-name-container">
+                    <i class="pi pi-file table-item-icon" style="color: #64748b"></i>
+                    <span>{{ doc.documentName || '—' }}</span>
+                    <span
+                      *ngIf="doc.isManual"
+                      style="font-size: 0.7rem; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 4px; padding: 1px 6px"
+                      title="Do người dùng tự upload thủ công, không phải đồng bộ từ PMIS"
+                    >
+                      Thủ công
+                    </span>
+                  </div>
+                </td>
+                <td>{{ doc.documentType || '—' }}</td>
+                <td>{{ formatFileSize(doc.fileSize) }}</td>
+                <td>{{ doc.syncedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td class="col-hd">
+                  <button
+                    type="button"
+                    class="btn-outlined btn-small"
+                    [disabled]="!doc.objectKey || downloadingId() === doc.id"
+                    (click)="download(doc)"
+                    title="Tải về"
+                  >
+                    <i class="pi" [ngClass]="downloadingId() === doc.id ? 'pi-spin pi-spinner' : 'pi-download'"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-footer-paginator" *ngIf="totalCount() > 0">
+          <span class="record-count">Tổng số: <b>{{ totalCount() }}</b> tài liệu</span>
+          <div class="table-footer-paginator__actions" style="display: flex; align-items: center; gap: 8px">
+            <button type="button" class="btn-outlined btn-small" [disabled]="page() <= 1" (click)="goToPage(page() - 1)">
+              <i class="pi pi-chevron-left"></i>
+            </button>
+            <span style="font-size: 0.85rem">Trang {{ page() }} / {{ totalPages() }}</span>
+            <button type="button" class="btn-outlined btn-small" [disabled]="page() >= totalPages()" (click)="goToPage(page() + 1)">
+              <i class="pi pi-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+      </ng-container>
+    </div>
   </div>
 </div>
+
+<p-dialog
+  header="Upload tài liệu thủ công"
+  [visible]="uploadDialogVisible()"
+  (visibleChange)="closeUploadDialog()"
+  [modal]="true"
+  [style]="{ width: '480px' }"
+  [closable]="!uploading()"
+  [draggable]="false"
+>
+  <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 16px">
+    Dùng khi đồng bộ tự động từ PMIS bị lỗi — tài liệu sẽ được gắn vào đúng
+    <b>{{ selectedNode()?.name }}</b> đang chọn.
+  </div>
+
+  <div style="margin-bottom: 14px">
+    <label style="display: block; margin-bottom: 4px; font-size: 0.8rem; font-weight: 600; color: #475569">File <span style="color: #dc2626">*</span></label>
+    <input type="file" (change)="onFileSelected($event)" [disabled]="uploading()" />
+  </div>
+
+  <div style="margin-bottom: 14px">
+    <label style="display: block; margin-bottom: 4px; font-size: 0.8rem; font-weight: 600; color: #475569">Tên tài liệu</label>
+    <input
+      type="text"
+      class="wf-input"
+      style="width: 100%"
+      [ngModel]="uploadDocumentName()"
+      (ngModelChange)="uploadDocumentName.set($event)"
+      [disabled]="uploading()"
+    />
+  </div>
+
+  <div>
+    <label style="display: block; margin-bottom: 4px; font-size: 0.8rem; font-weight: 600; color: #475569">Loại tài liệu</label>
+    <input
+      type="text"
+      class="wf-input"
+      style="width: 100%"
+      placeholder="VD: Biên bản nghiệm thu..."
+      [ngModel]="uploadDocumentType()"
+      (ngModelChange)="uploadDocumentType.set($event)"
+      [disabled]="uploading()"
+    />
+  </div>
+
+  <ng-template #footer>
+    <button type="button" class="btn-outlined btn-small" (click)="closeUploadDialog()" [disabled]="uploading()">Hủy</button>
+    <button type="button" class="btn-save btn-small" (click)="confirmUpload()" [disabled]="uploading() || !uploadFile()">
+      <i class="pi" [ngClass]="uploading() ? 'pi-spin pi-spinner' : 'pi-upload'"></i>
+      {{ uploading() ? 'Đang upload...' : 'Upload' }}
+    </button>
+  </ng-template>
+</p-dialog>

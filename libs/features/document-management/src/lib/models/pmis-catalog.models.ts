@@ -19,6 +19,8 @@ export interface PmisDocumentItem {
   objectKey: string | null;
   fileSize: number | null;
   syncedAt: string;
+  /** true nếu do người dùng tự upload thủ công (khi đồng bộ tự động lỗi), false nếu đến từ đồng bộ PMIS thật. */
+  isManual: boolean;
 }
 
 export interface PmisCatalogDocumentsResponse {
