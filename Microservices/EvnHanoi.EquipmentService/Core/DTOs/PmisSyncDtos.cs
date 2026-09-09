@@ -141,6 +141,10 @@ public class PmisDocumentDetail
     public string? ObjectKey { get; set; }
     public long? FileSize { get; set; }
     public DateTime SyncedAt { get; set; }
+
+    /// <summary>true nếu do người dùng tự upload thủ công (nút "Upload tài liệu" khi đồng bộ tự động lỗi),
+    /// false nếu đến từ đồng bộ PMIS thật — suy ra từ CreatedBy, không phải cột riêng.</summary>
+    public bool IsManual { get; set; }
 }
 
 /// <summary>1 node cây "Kho tài liệu PMIS" (Đơn vị/Trạm biến áp/Đường dây/Thiết bị) — tổng hợp từ dữ
