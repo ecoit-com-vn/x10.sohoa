@@ -41,6 +41,8 @@ export interface PmisApiCallLog {
   durationMs: number;
   httpClientName: string | null;
   calledAt: string;
+  /** Số bản ghi trả về — chỉ có ở API dạng danh sách gọi thành công, null với API khác hoặc khi lỗi. */
+  recordCount: number | null;
 }
 
 @Injectable({ providedIn: 'root' })

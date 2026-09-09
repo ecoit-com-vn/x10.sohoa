@@ -189,6 +189,8 @@
               <span [class]="log.isSuccess ? 'status-pill status-active' : 'status-pill status-inactive'">
                 {{ log.isSuccess ? 'Thành công' : 'Lỗi' }}{{ log.statusCode ? ' (' + log.statusCode + ')' : '' }}
               </span>
+              <br *ngIf="log.isSuccess && log.recordCount !== null" />
+              <small *ngIf="log.isSuccess && log.recordCount !== null" class="text-muted">{{ log.recordCount }} bản ghi</small>
             </td>
             <td
               style="white-space: pre-wrap; word-break: break-word; max-height: 120px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; display: block;"

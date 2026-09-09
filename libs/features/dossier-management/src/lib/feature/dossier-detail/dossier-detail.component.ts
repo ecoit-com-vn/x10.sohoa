@@ -221,6 +221,19 @@ export class DossierDetailComponent implements OnInit, OnDestroy {
     return Array.isArray(list) ? list : [];
   });
 
+  /** Dùng để lọc "Chọn từ kho PMIS" — chỉ hiện đúng tài liệu của Trạm/Đường dây/Thiết bị hồ sơ này đã gắn. */
+  infrastructureIds = computed(() => {
+    const d = this.dossier();
+    const list = d?.infrastructureIds ?? d?.InfrastructureIds ?? [];
+    return Array.isArray(list) ? list : [];
+  });
+
+  equipmentIds = computed(() =>
+    this.equipments()
+      .map((e: any) => e.equipmentId ?? e.EquipmentId)
+      .filter((id: unknown): id is string => !!id)
+  );
+
   formatFieldDisplayValue = formatFieldDisplayValue;
 
   getFieldValueText(field: EavField): string {

@@ -19,6 +19,7 @@ import {
   SyncHistoryCleanupMode,
   SyncHistoryDetail,
 } from '../../data-access/pmis-history.service';
+import { formatUtcDate } from '../../data-access/date-format.util';
 
 interface TabDef {
   type: PmisSyncObjectType;
@@ -252,9 +253,7 @@ export class PmisManualSyncComponent implements OnInit {
   }
 
   formatDate(value: string | null | undefined): string {
-    if (!value) return '---';
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleString('vi-VN');
+    return formatUtcDate(value);
   }
 
   private showError(error: any, fallback: string): void {

@@ -71,6 +71,7 @@ import {
 } from '../../utils/dossier-permission.util';
 import { DossierUploadMenuComponent, DossierUploadAction } from '../../components/dossier-upload-menu/dossier-upload-menu.component';
 import { DossierFolderPickerDialogComponent } from '../../components/dossier-folder-picker-dialog/dossier-folder-picker-dialog.component';
+import { DossierPmisPickerDialogComponent } from '../../components/dossier-pmis-picker-dialog/dossier-pmis-picker-dialog.component';
 import { DossierDirectUploadDialogComponent } from '../../components/dossier-direct-upload-dialog/dossier-direct-upload-dialog.component';
 import { DossierDocumentEditDialogComponent } from '../../components/dossier-document-edit-dialog/dossier-document-edit-dialog.component';
 
@@ -99,6 +100,7 @@ const MAX_INLINE_DOCUMENT_ACTIONS = 0;
     DeleteConfirmDialogComponent,
     DossierUploadMenuComponent,
     DossierFolderPickerDialogComponent,
+    DossierPmisPickerDialogComponent,
     DossierDirectUploadDialogComponent,
     DossierDocumentEditDialogComponent,
   ],
@@ -122,6 +124,10 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
   private lastSignalRDossierId: string | null = null;
 
   @Input({ required: true }) dossierId!: string;
+  /** Trạm/Đường dây + Thiết bị hồ sơ đã gắn — dùng để lọc "Chọn từ kho PMIS" chỉ hiện đúng tài liệu
+   * thuộc các đối tượng này, tránh chọn nhầm tài liệu của Trạm/Đường dây/Thiết bị khác. */
+  @Input() infrastructureIds: string[] = [];
+  @Input() equipmentIds: string[] = [];
   @Input() canEdit = false;
   @Input() canUpload = false;
   @Input() kindId = 2;
@@ -202,6 +208,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
   justSignedInfo = signal<Map<string, SignDocumentResult>>(new Map());
 
   showFolderPicker = signal(false);
+  showPmisPicker = signal(false);
   showDirectUpload = signal(false);
   uploadSource = signal(3);
   uploadDialogTitle = signal('Upload trực tiếp vào hồ sơ');
@@ -900,6 +907,8 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
   onUploadAction(action: DossierUploadAction): void {
     if (action === 'folder') {
       this.showFolderPicker.set(true);
+    } else if (action === 'pmis') {
+      this.showPmisPicker.set(true);
     } else if (action === 'direct') {
       this.uploadSource.set(3);
       this.uploadDialogTitle.set('Upload trực tiếp vào hồ sơ');
