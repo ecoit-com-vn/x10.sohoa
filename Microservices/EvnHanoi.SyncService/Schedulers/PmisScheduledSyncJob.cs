@@ -184,7 +184,21 @@ public class PmisScheduledSyncJob : IJob
         var skip = 0;
         for (var page = 0; page < MaxPages; page++)
         {
-            var result = await _pmisClient.GetSubstationsAsync(new PmisSubstationSearchRequest { Skip = skip, Take = PageSize });
+            PmisListResponse<PmisSubstationDto> result;
+            try
+            {
+                result = await _pmisClient.GetSubstationsAsync(new PmisSubstationSearchRequest { Skip = skip, Take = PageSize });
+            }
+            catch (Exception ex)
+            {
+                // Lỗi khi GỌI PMIS (khác lỗi khi lưu — đã cách ly riêng ở PushPageAsync) — không để lỗi
+                // 1 trang làm mất kết quả các trang TRƯỚC đã lưu thành công; dừng phân trang tại đây,
+                // các trang sau coi như chưa kịp lấy, sẽ tự thử lại ở lượt đồng bộ kế tiếp.
+                Log.Error(ex, "PmisScheduledSyncJob: lỗi khi lấy danh sách Trạm biến áp (skip={Skip}).", skip);
+                errors.Add($"Trạm biến áp skip={skip}: {SyncErrorFormatter.FormatShort(ex)}");
+                break;
+            }
+
             var pageItems = result.Items.Select(i => JsonSerializer.SerializeToElement(i)).ToList();
             total += pageItems.Count;
 
@@ -209,7 +223,18 @@ public class PmisScheduledSyncJob : IJob
         var skip = 0;
         for (var page = 0; page < MaxPages; page++)
         {
-            var result = await _pmisClient.GetLinesAsync(new PmisLineSearchRequest { Skip = skip, Take = PageSize });
+            PmisListResponse<PmisLineDto> result;
+            try
+            {
+                result = await _pmisClient.GetLinesAsync(new PmisLineSearchRequest { Skip = skip, Take = PageSize });
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "PmisScheduledSyncJob: lỗi khi lấy danh sách Đường dây (skip={Skip}).", skip);
+                errors.Add($"Đường dây skip={skip}: {SyncErrorFormatter.FormatShort(ex)}");
+                break;
+            }
+
             var pageItems = result.Items.Select(i => JsonSerializer.SerializeToElement(i)).ToList();
             total += pageItems.Count;
 
@@ -242,28 +267,42 @@ public class PmisScheduledSyncJob : IJob
             {
                 List<JsonElement> pageItems;
                 int pageCount;
-                if (parent.InfraTypeId == 1)
+                try
                 {
-                    var result = await _pmisClient.GetSubstationDevicesAsync(new PmisSubstationDeviceSearchRequest
+                    if (parent.InfraTypeId == 1)
                     {
-                        MaTBA = parent.PmisCode,
-                        Skip = skip,
-                        Take = PageSize
-                    });
-                    pageItems = result.Items.Select(i => JsonSerializer.SerializeToElement(i)).ToList();
-                    pageCount = result.Items.Count;
+                        var result = await _pmisClient.GetSubstationDevicesAsync(new PmisSubstationDeviceSearchRequest
+                        {
+                            MaTBA = parent.PmisCode,
+                            Skip = skip,
+                            Take = PageSize
+                        });
+                        pageItems = result.Items.Select(i => JsonSerializer.SerializeToElement(i)).ToList();
+                        pageCount = result.Items.Count;
+                    }
+                    else
+                    {
+                        var result = await _pmisClient.GetLineDevicesAsync(new PmisLineDeviceSearchRequest
+                        {
+                            MaDuongDay = parent.PmisCode,
+                            KemQRCode = true, // chạy nền không có người quyết định — luôn lấy đầy đủ dữ liệu kể cả QR
+                            Skip = skip,
+                            Take = PageSize
+                        });
+                        pageItems = result.Items.Select(i => JsonSerializer.SerializeToElement(i)).ToList();
+                        pageCount = result.Items.Count;
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    var result = await _pmisClient.GetLineDevicesAsync(new PmisLineDeviceSearchRequest
-                    {
-                        MaDuongDay = parent.PmisCode,
-                        KemQRCode = true, // chạy nền không có người quyết định — luôn lấy đầy đủ dữ liệu kể cả QR
-                        Skip = skip,
-                        Take = PageSize
-                    });
-                    pageItems = result.Items.Select(i => JsonSerializer.SerializeToElement(i)).ToList();
-                    pageCount = result.Items.Count;
+                    // Lỗi khi GỌI PMIS cho ĐÚNG 1 trạm/đường dây cha (vd. timeout, PMIS lỗi tạm thời) —
+                    // TRƯỚC ĐÂY exception này văng thẳng ra ngoài foreach, làm cả lượt EQUIPMENT coi là
+                    // Failed và bỏ dở TẤT CẢ trạm/đường dây cha còn lại chưa xử lý tới (vd. nếu đường dây
+                    // đứng sau trạm biến áp trong danh sách cha, 1 trạm lỗi là không bao giờ chạm tới
+                    // thiết bị đường dây). Giờ chỉ ghi nhận lỗi cho riêng cha này rồi sang cha tiếp theo.
+                    Log.Error(ex, "PmisScheduledSyncJob: lỗi khi lấy danh sách thiết bị cho {PmisCode} (skip={Skip}), bỏ qua, tiếp tục các trạm/đường dây khác.", parent.PmisCode, skip);
+                    errors.Add($"Thiết bị cha={parent.PmisCode} skip={skip}: {SyncErrorFormatter.FormatShort(ex)}");
+                    break;
                 }
 
                 total += pageItems.Count;

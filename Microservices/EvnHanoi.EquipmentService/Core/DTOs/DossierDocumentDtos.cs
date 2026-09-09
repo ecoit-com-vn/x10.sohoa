@@ -20,6 +20,15 @@ public class MovedDossierDocumentDto
     public string Name { get; set; } = string.Empty;
 }
 
+/// <summary>"Chọn từ kho PMIS" — COPY tài liệu đã đồng bộ từ PMIS (PMIS_DOCUMENT) vào hồ sơ, khác hẳn
+/// MoveDocumentsFromFolderRequest (MOVE, xoá file gốc): tài liệu PMIS phải giữ nguyên để dùng lại được
+/// cho hồ sơ khác.</summary>
+public class CopyDocumentsFromPmisRequest
+{
+    public List<Guid> PmisDocumentIds { get; set; } = new();
+    public Guid DocumentTypeId { get; set; }
+}
+
 public class DossierDocumentSnapshotItemDto
 {
     public Guid Id { get; set; }

@@ -356,6 +356,45 @@ public abstract partial class DossierControllerBase
         }
     }
 
+    [HttpPost("{id:guid}/documents/copy-from-pmis")]
+    public async Task<IActionResult> CopyDocumentsFromPmis(
+        Guid id,
+        [FromBody] CopyDocumentsFromPmisRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request == null)
+            return BadRequest(new { message = "Dữ liệu không hợp lệ." });
+
+        try
+        {
+            var copied = await _dossierDocumentService.CopyFromPmisAsync(
+                id, request, UserId, GetUserUnitId(), UserFullName, cancellationToken);
+            return Ok(new
+            {
+                success = true,
+                movedCount = copied.Count,
+                movedNames = copied.Select(m => m.Name).ToList(),
+                movedDocuments = copied
+            });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpDelete("{id:guid}/documents/{documentId:guid}")]
     public async Task<IActionResult> DeleteDocument(
         Guid id,

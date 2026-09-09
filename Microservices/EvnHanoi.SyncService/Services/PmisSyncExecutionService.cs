@@ -19,12 +19,58 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
     private readonly ISyncHistoryRepository _syncHistoryRepository;
     private readonly IPmisClient _pmisClient;
 
+    // Danh mục loại thiết bị PMIS (maLoaiTB -> tenLoaiTB) — tải 1 lần/vòng đời service (Scoped: 1 lần
+    // đồng bộ tự động, hoặc 1 lần lưu thủ công), KHÔNG tải lại theo từng trang/từng thiết bị. Đây là
+    // NGUỒN TÊN LOẠI THIẾT BỊ CHUẨN của chính PMIS (API 3/5 "DanhSachLoaiThietBi(DuongDay)") — đáng tin
+    // hơn tenLoaiTB đính kèm từng dòng thiết bị (có thể null/thiếu tuỳ dữ liệu PMIS), dùng để đặt tên khi
+    // hệ thống tự tạo EquipmentTypes mới cho 1 loại thiết bị lần đầu gặp (xem ResolveOrCreateEquipmentTypeIdAsync).
+    private Dictionary<string, string>? _substationDeviceTypeNames;
+    private Dictionary<string, string>? _lineDeviceTypeNames;
+
     public PmisSyncExecutionService(
         IEquipmentServiceClient equipmentServiceClient, ISyncHistoryRepository syncHistoryRepository, IPmisClient pmisClient)
     {
         _equipmentServiceClient = equipmentServiceClient;
         _syncHistoryRepository = syncHistoryRepository;
         _pmisClient = pmisClient;
+    }
+
+    /// <summary>Tra tên loại thiết bị chuẩn từ danh mục PMIS (API 3/5) — null nếu tra lỗi (PMIS tạm gián
+    /// đoạn) hoặc không tìm thấy mã, để caller tự fallback sang tenLoaiTB đính kèm dòng thiết bị.</summary>
+    private async Task<string?> ResolveDeviceTypeNameAsync(bool isSubstationDevice, string? maLoaiTB)
+    {
+        if (string.IsNullOrWhiteSpace(maLoaiTB)) return null;
+
+        var dict = isSubstationDevice
+            ? _substationDeviceTypeNames ??= await LoadDeviceTypeNamesAsync(isSubstationDevice: true)
+            : _lineDeviceTypeNames ??= await LoadDeviceTypeNamesAsync(isSubstationDevice: false);
+
+        return dict.TryGetValue(maLoaiTB, out var name) ? name : null;
+    }
+
+    /// <summary>Luôn trả về Dictionary (rỗng nếu PMIS lỗi) — KHÔNG để null lọt qua caller's `??=`, vì null
+    /// sẽ khiến MỌI thiết bị tiếp theo trong cùng lượt chạy này thử tải lại danh mục 1 lần nữa (PMIS đang
+    /// lỗi thì lặp lại vô ích hàng trăm/nghìn lần cho từng thiết bị) — rỗng thì chỉ thử đúng 1 lần/lượt.</summary>
+    private async Task<Dictionary<string, string>> LoadDeviceTypeNamesAsync(bool isSubstationDevice)
+    {
+        try
+        {
+            var request = new PmisDeviceTypeSearchRequest { Take = 1000 };
+            var items = isSubstationDevice
+                ? (await _pmisClient.GetSubstationDeviceTypesAsync(request)).Items
+                : (await _pmisClient.GetLineDeviceTypesAsync(request)).Items;
+
+            return items
+                .Where(x => !string.IsNullOrWhiteSpace(x.MaLoaiTB))
+                .GroupBy(x => x.MaLoaiTB, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().TenLoaiTB, StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "PmisSyncExecutionService: lỗi khi tải danh mục loại thiết bị PMIS ({Kind}), dùng tạm tenLoaiTB đính kèm dòng thiết bị cho cả lượt chạy này.",
+                isSubstationDevice ? "TBA" : "đường dây");
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
     }
 
     public async Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncInfrastructureAsync(
@@ -179,13 +225,19 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             // tự lấy GridTypeId của đường dây cha làm phương án dự phòng.
             var gridTypeId = isSubstationDevice ? ResolveGridTypeId(item.CapDienAp) : null;
 
+            // Ưu tiên tên loại thiết bị CHUẨN từ danh mục PMIS (API 3/5) — chỉ thật sự được dùng khi hệ
+            // thống lần đầu gặp loại thiết bị này và phải tự tạo EquipmentTypes mới (xem
+            // ResolveOrCreateEquipmentTypeIdAsync), còn không thì bị bỏ qua vì loại đã tồn tại từ trước.
+            // Fallback về tenLoaiTB đính kèm dòng thiết bị nếu danh mục không có mã này hoặc PMIS lỗi.
+            var equipmentTypeName = await ResolveDeviceTypeNameAsync(isSubstationDevice, item.MaLoaiTB) ?? item.TenLoaiTB;
+
             upsertRequests.Add(new UpsertEquipmentFromPmisRequest
             {
                 PmisCode = maTB,
                 Code = maTB,
                 Name = tenTB,
                 EquipmentTypeCode = item.MaLoaiTB ?? string.Empty,
-                EquipmentTypeName = item.TenLoaiTB,
+                EquipmentTypeName = equipmentTypeName,
                 ParentPmisCode = item.MaTBA ?? item.MaDuongDay,
                 UnitCode = item.MaDonVi,
                 ManufactureYear = item.NamSanXuat,
@@ -265,7 +317,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         var details = new List<SyncHistoryDetail>();
         try
         {
-            var items = new List<(string MaTaiLieu, string? TenTaiLieu, string? LoaiTaiLieu, string? File)>();
+            var items = new List<(string MaTaiLieu, string? TenTaiLieu, string? LoaiTaiLieu, string? File, string? MaTB)>();
             var skip = 0;
             for (var page = 0; page < DocumentMaxPages; page++)
             {
@@ -278,7 +330,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                         Skip = skip,
                         Take = DocumentPageSize
                     });
-                    items.AddRange(resp.Items.Select(d => (d.MaTaiLieu, d.TenTaiLieu, d.LoaiTaiLieu, d.File)));
+                    items.AddRange(resp.Items.Select(d => (d.MaTaiLieu, d.TenTaiLieu, d.LoaiTaiLieu, d.File, d.MaTB)));
                     if (resp.Items.Count < DocumentPageSize || items.Count >= resp.Total) break;
                 }
                 else
@@ -290,7 +342,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                         Skip = skip,
                         Take = DocumentPageSize
                     });
-                    items.AddRange(resp.Items.Select(d => (d.MaTaiLieu, d.TenTaiLieu, d.LoaiTaiLieu, d.File)));
+                    items.AddRange(resp.Items.Select(d => (d.MaTaiLieu, d.TenTaiLieu, d.LoaiTaiLieu, d.File, d.MaTB)));
                     if (resp.Items.Count < DocumentPageSize || items.Count >= resp.Total) break;
                 }
                 skip += DocumentPageSize;
@@ -343,7 +395,14 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                     DocumentType = doc.LoaiTaiLieu,
                     FileName = doc.TenTaiLieu ?? doc.MaTaiLieu,
                     FileBase64 = fileBase64,
-                    SyncHistoryId = syncHistoryId
+                    SyncHistoryId = syncHistoryId,
+                    // Đồng bộ cấp Trạm/Đường dây (maTB tham số = null, không lọc) PMIS trả về CẢ tài liệu
+                    // thuộc riêng 1 thiết bị con (doc.MaTB có giá trị) LẪN tài liệu thuộc chính trạm/đường
+                    // dây — luôn gửi kèm doc.MaTB để EquipmentService tự ưu tiên gán đúng OwnerType=
+                    // EQUIPMENT nếu thiết bị đó đã tồn tại (xem InternalPmisSyncController.UpsertDocumentsFromPmis),
+                    // KHÔNG tự bỏ qua tài liệu ở đây — thiết bị chưa tồn tại thì vẫn giữ được tài liệu
+                    // (gán tạm theo OwnerType/OwnerPmisCode ở trên) thay vì mất hẳn.
+                    DeviceCode = doc.MaTB
                 });
 
                 // Gửi theo lô cố định thay vì gộp hết rồi gửi 1 request duy nhất ở cuối — tránh 1 owner

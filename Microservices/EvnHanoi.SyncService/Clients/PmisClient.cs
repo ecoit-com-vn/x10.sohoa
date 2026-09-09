@@ -116,18 +116,45 @@ public class PmisClient : IPmisClient
         finally
         {
             sw.Stop();
-            await LogCallAsync(endpointApiCode, "GET", fileUrl, null, response, callError, sw.ElapsedMilliseconds);
+            await LogCallAsync(endpointApiCode, "GET", fileUrl, null, response, callError, sw.ElapsedMilliseconds, null);
         }
     }
 
     private async Task<PmisListResponse<T>> GetListAsync<T>(string apiCode, object request)
     {
-        var response = await SendAsync(apiCode, request);
-        var parsed = await response.Content.ReadFromJsonAsync<PmisListResponse<T>>(JsonOptions);
-        return parsed ?? new PmisListResponse<T>();
+        // suppressSuccessLog=true: API danh sách cần ghi log KÈM số bản ghi (RecordCount), chỉ biết được
+        // sau khi đọc/parse xong body ở đây — nên tự ghi log thành công riêng (bên dưới) thay vì để
+        // SendCoreAsync ghi ngay lúc response vừa về (khi đó chưa biết được bao nhiêu bản ghi). Lỗi thì
+        // KHÔNG suppress được (không có cơ hội parse) — SendCoreAsync vẫn tự ghi log lỗi như cũ.
+        var (response, httpMethod, uri, query, sw) = await SendCoreAsync(apiCode, request, suppressSuccessLog: true);
+
+        PmisListResponse<T> parsed;
+        try
+        {
+            parsed = await response.Content.ReadFromJsonAsync<PmisListResponse<T>>(JsonOptions) ?? new PmisListResponse<T>();
+        }
+        catch (Exception ex)
+        {
+            // HTTP đã thành công (SendCoreAsync không log vì suppressSuccessLog=true, chờ đọc xong body
+            // mới log) nhưng đọc/parse JSON lỗi — nếu không tự ghi log ở đây, request này sẽ KHÔNG có
+            // dòng nào trong PMIS_API_CALL_LOG dù đã thật sự gọi tới PMIS, làm mất dấu vết trong "Lịch
+            // sử gọi API".
+            sw.Stop();
+            await LogCallAsync(apiCode, httpMethod, uri, query, response, ex, sw.ElapsedMilliseconds, null);
+            throw;
+        }
+
+        sw.Stop();
+        await LogCallAsync(apiCode, httpMethod, uri, query, response, null, sw.ElapsedMilliseconds, parsed.Items?.Count);
+
+        return parsed;
     }
 
-    private async Task<HttpResponseMessage> SendAsync(string apiCode, object request)
+    private async Task<HttpResponseMessage> SendAsync(string apiCode, object request) =>
+        (await SendCoreAsync(apiCode, request, suppressSuccessLog: false)).Response;
+
+    private async Task<(HttpResponseMessage Response, string HttpMethod, string Uri, string? Query, Stopwatch Stopwatch)> SendCoreAsync(
+        string apiCode, object request, bool suppressSuccessLog)
     {
         var endpoint = await _endpointConfigProvider.GetEndpointAsync(apiCode)
             ?? throw new PmisEndpointNotConfiguredException(apiCode, apiCode);
@@ -154,7 +181,9 @@ public class PmisClient : IPmisClient
         {
             response = await httpClient.SendAsync(httpRequest);
             response.EnsureSuccessStatusCode();
-            return response;
+            // Không sw.Stop()/trả về ngay ở đây — caller (GetListAsync) còn cần đọc/parse body xong mới
+            // dừng đồng hồ và tự ghi log, để DurationMs phản ánh đúng toàn bộ thời gian gọi (kể cả đọc body).
+            return (response, endpoint.HttpMethod, uri, query, sw);
         }
         catch (Exception ex)
         {
@@ -163,8 +192,11 @@ public class PmisClient : IPmisClient
         }
         finally
         {
-            sw.Stop();
-            await LogCallAsync(apiCode, endpoint.HttpMethod, uri, query, response, callError, sw.ElapsedMilliseconds);
+            if (callError != null || !suppressSuccessLog)
+            {
+                sw.Stop();
+                await LogCallAsync(apiCode, endpoint.HttpMethod, uri, query, response, callError, sw.ElapsedMilliseconds, null);
+            }
         }
     }
 
@@ -172,7 +204,7 @@ public class PmisClient : IPmisClient
     /// hỏng luồng đồng bộ/tra cứu chính, tự bắt lỗi riêng, chỉ log Serilog Warning nếu ghi thất bại.</summary>
     private async Task LogCallAsync(
         string apiCode, string httpMethod, string uri, string? payload,
-        HttpResponseMessage? response, Exception? error, long durationMs)
+        HttpResponseMessage? response, Exception? error, long durationMs, int? recordCount)
     {
         try
         {
@@ -186,7 +218,8 @@ public class PmisClient : IPmisClient
                 IsSuccess = error == null,
                 ErrorMessage = error == null ? null : SyncErrorFormatter.Format(error),
                 DurationMs = durationMs,
-                HttpClientName = _httpClientName
+                HttpClientName = _httpClientName,
+                RecordCount = recordCount
             });
         }
         catch (Exception logEx)
