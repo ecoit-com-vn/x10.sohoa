@@ -68,7 +68,7 @@
         <label class="search-field-label">Trạm / Đường dây</label>
         <p-select [options]="infrastructures()" [ngModel]="searchInfraName()"
           (ngModelChange)="searchInfraName.set($event)" optionLabel="name" optionValue="name" placeholder="Tất cả"
-          [showClear]="true" [filter]="true" filterPlaceholder="Tìm kiếm..." appendTo="body" [style]="{
+          [showClear]="true" [filter]="true" filterPlaceholder="Tìm kiếm..." [virtualScroll]="true" [virtualScrollItemSize]="36" appendTo="body" [style]="{
             width: '100%',
             height: '38px',
             'border-radius': '6px',

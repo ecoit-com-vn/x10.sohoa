@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject, Output, EventEmitter } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, Output, EventEmitter, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -11,7 +11,8 @@ import { DossierPublishService } from '../../data-access/dossier-publish.service
 import { DossierListTab } from '../../utils/dossier-status.util';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
-import { finalize, forkJoin, map, Observable, of, switchMap } from 'rxjs';
+import { debounceTime, distinctUntilChanged, finalize, forkJoin, map, Observable, of, Subject, switchMap } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 type PublishTab = 'pending-publish' | 'published' | 'unpublished';
 
@@ -74,6 +75,9 @@ function tabLabel(tab: PublishTab): string {
               [filter]="true"
               filterBy="name,code"
               filterPlaceholder="Tìm theo mã hoặc tên..."
+              (onFilter)="onInfrastructureFilter($event)"
+              [virtualScroll]="true"
+              [virtualScrollItemSize]="36"
               [showClear]="true"
               appendTo="body"
               styleClass="digitization-infrastructure-select">
@@ -471,9 +475,31 @@ export class DossierPublishComponent implements OnInit {
     }
   }
 
+  private readonly destroyRef = inject(DestroyRef);
+  /** Danh sách trạm/đường dây mặc định (chưa lọc theo từ khóa) — dùng để khôi phục khi xóa ô tìm kiếm. */
+  private defaultInfrastructureSource: any[] = [];
+  private readonly infrastructureFilterSubject = new Subject<string>();
+
   ngOnInit() {
     this.loadLookups();
     this.refreshList();
+
+    // Tìm kiếm Trạm/Đường dây phía server (debounce) — tránh phải render/lọc client-side
+    // hàng nghìn option cùng lúc gây đứng UI khi đơn vị có quá nhiều hạ tầng.
+    this.infrastructureFilterSubject
+      .pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        switchMap((keyword) =>
+          keyword ? this.service.getInfrastructureLookup(keyword) : of(this.defaultInfrastructureSource)
+        ),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((res) => this.infrastructures.set(res || []));
+  }
+
+  onInfrastructureFilter(event: { filter: string }): void {
+    this.infrastructureFilterSubject.next((event?.filter || '').trim());
   }
 
   selectTab(tab: PublishTab) {
@@ -555,7 +581,10 @@ export class DossierPublishComponent implements OnInit {
       error: () => console.error('Failed to load dossier types')
     });
     this.service.getInfrastructureLookup().subscribe({
-      next: (res) => this.infrastructures.set(res),
+      next: (res) => {
+        this.defaultInfrastructureSource = res || [];
+        this.infrastructures.set(res || []);
+      },
       error: () => console.error('Failed to load infrastructures')
     });
     this.service.getBhsCatalogColumns().subscribe({

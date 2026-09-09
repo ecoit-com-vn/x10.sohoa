@@ -136,13 +136,17 @@ export class EquipmentService {
     return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/organization-units/lookup-all-active`);
   }
 
-  getInfrastructures(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.base}/get-infrastructures`);
+  getInfrastructures(keyword?: string): Observable<any[]> {
+    let params = new HttpParams();
+    if (keyword) params = params.set('keyword', keyword);
+    return this.http.get<any[]>(`${this.base}/get-infrastructures`, { params });
   }
 
   /** Trạm/Đường dây của tất cả đơn vị — dùng cho dialog Chuyển thiết bị, không giới hạn theo đơn vị người dùng. */
-  getAllInfrastructures(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.base}/get-infrastructures-all`);
+  getAllInfrastructures(keyword?: string): Observable<any[]> {
+    let params = new HttpParams();
+    if (keyword) params = params.set('keyword', keyword);
+    return this.http.get<any[]>(`${this.base}/get-infrastructures-all`, { params });
   }
 
   getGridTypes(): Observable<any[]> {

@@ -328,7 +328,8 @@
                 currentItem().unitId
                   ? '-- Chọn Trạm / Đường dây --'
                   : '-- Vui lòng chọn Đơn vị quản lý --'
-              " [disabled]="!currentItem().unitId || isSaving()" [filter]="true" [style]="{
+              " [disabled]="!currentItem().unitId || isSaving()" [filter]="true"
+              [virtualScroll]="true" [virtualScrollItemSize]="36" [style]="{
                 width: '100%',
                 height: '38px',
                 'line-height': '24px',
@@ -1569,7 +1570,8 @@
             transferForm().unitId
               ? '-- Chọn Trạm/Đường dây --'
               : '-- Vui lòng chọn Đơn vị quản lý --'
-          " [disabled]="!transferForm().unitId || transferLoading()" [filter]="true" [style]="{
+          " [disabled]="!transferForm().unitId || transferLoading()" [filter]="true"
+          [virtualScroll]="true" [virtualScrollItemSize]="36" [style]="{
             width: '100%',
             height: '38px',
             'line-height': '24px',

@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit, signal, inject, Output, EventEmitter, Input, computed } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, signal, inject, Output, EventEmitter, Input, computed, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
@@ -21,7 +21,9 @@ import {
   readFormSchemaJson,
   serializeFormDataForSchema,
 } from '../../utils/dossier-form-schema.util';
-import { finalize, forkJoin } from 'rxjs';
+import { finalize, forkJoin, Subject, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePickerModule } from 'primeng/datepicker';
 import { AuthService } from '../../../../../../shared/core/src/lib/services/auth.service';
 import { EavFormService } from '../../../../../../shared/core/src/lib/services/eav-form.service';
@@ -141,6 +143,9 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
               [filter]="true"
               filterBy="name,code"
               filterPlaceholder="Tìm tên trạm/đường dây..."
+              (onFilter)="onInfrastructureFilter($event)"
+              [virtualScroll]="true"
+              [virtualScrollItemSize]="36"
               [showClear]="true"
               display="comma"
               [maxSelectedLabels]="2"
@@ -995,10 +1000,32 @@ export class DossierFormComponent implements OnInit {
   /** Lựa chọn tạm trong popup — chỉ áp dụng vào hồ sơ khi bấm Lưu. */
   dialogSelectedEquipments = signal<any[]>([]);
 
+  private readonly destroyRef = inject(DestroyRef);
+  /** Danh sách trạm/đường dây mặc định (chưa lọc theo từ khóa) — dùng để khôi phục khi xóa ô tìm kiếm. */
+  private defaultInfrastructureSource: any[] = [];
+  private readonly infrastructureFilterSubject = new Subject<string>();
+
   constructor() {
     if (typeof window !== 'undefined') {
       window.addEventListener('click', () => this.storageTreeOpen.set(false));
     }
+
+    // Tìm kiếm Trạm/Đường dây phía server (debounce) — tránh phải render/lọc client-side
+    // hàng nghìn option cùng lúc gây đứng UI khi đơn vị có quá nhiều hạ tầng.
+    this.infrastructureFilterSubject
+      .pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        switchMap((keyword) =>
+          keyword ? this.service.getInfrastructureLookup(keyword) : of(this.defaultInfrastructureSource)
+        ),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((res) => this.applyInfrastructureItems(res || []));
+  }
+
+  onInfrastructureFilter(event: { filter: string }): void {
+    this.infrastructureFilterSubject.next((event?.filter || '').trim());
   }
 
   ngOnInit() {
@@ -1106,19 +1133,26 @@ export class DossierFormComponent implements OnInit {
             return isActive === true || isActive === 1 || isActive === '1';
           })
         : (res || []);
-      const items = source.map((inf: any) => this.enrichInfrastructureOption(inf));
-      const selectedIds = this.dossier.infrastructureIds?.length
-        ? this.dossier.infrastructureIds
-        : (this.dossier.infrastructureId ? [this.dossier.infrastructureId] : []);
-      for (const selectedId of selectedIds) {
-        if (!selectedId || items.some((inf: any) => (inf.id ?? inf.Id) === selectedId)) continue;
-        const existing = this.infrastructures().find((inf) => (inf.id ?? inf.Id) === selectedId);
-        if (existing) {
-          items.push(this.enrichInfrastructureOption(existing));
-        }
-      }
-      this.infrastructures.set(items);
+      this.defaultInfrastructureSource = source;
+      this.applyInfrastructureItems(source);
     });
+  }
+
+  /** Áp dụng 1 danh sách trạm/đường dây (mặc định hoặc kết quả tìm kiếm server) vào signal `infrastructures`,
+   * luôn giữ lại các hạ tầng đang được chọn dù chúng không nằm trong danh sách mới (tránh mất lựa chọn đã lưu). */
+  private applyInfrastructureItems(source: any[]) {
+    const items = (source || []).map((inf: any) => this.enrichInfrastructureOption(inf));
+    const selectedIds = this.dossier.infrastructureIds?.length
+      ? this.dossier.infrastructureIds
+      : (this.dossier.infrastructureId ? [this.dossier.infrastructureId] : []);
+    for (const selectedId of selectedIds) {
+      if (!selectedId || items.some((inf: any) => (inf.id ?? inf.Id) === selectedId)) continue;
+      const existing = this.infrastructures().find((inf) => (inf.id ?? inf.Id) === selectedId);
+      if (existing) {
+        items.push(this.enrichInfrastructureOption(existing));
+      }
+    }
+    this.infrastructures.set(items);
   }
 
   private enrichInfrastructureOption(inf: any) {
