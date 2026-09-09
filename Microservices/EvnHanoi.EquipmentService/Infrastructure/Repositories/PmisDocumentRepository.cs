@@ -137,7 +137,7 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         EnsureOpen();
 
         var infraRows = (await _connection.QueryAsync<InfraCatalogRow>(@"
-            SELECT i.Id, i.Name, i.Code, i.INFRA_TYPE_ID AS InfraTypeId, i.UnitId,
+            SELECT i.Id, i.Name, i.Code, i.INFRA_TYPE_ID AS InfraTypeId, i.UNIT_ID AS UnitId,
                    (SELECT COUNT(1) FROM PMIS_DOCUMENT pd
                       WHERE pd.OwnerType = 'INFRASTRUCTURE' AND pd.OwnerId = i.Id AND pd.IsDeleted = 0) AS DirectDocumentCount,
                    (SELECT COUNT(1) FROM EQUIPMENTS e
