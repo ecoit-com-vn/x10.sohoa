@@ -45,6 +45,9 @@
           [filter]="true"
           filterBy="name,code"
           filterPlaceholder="Tìm theo mã hoặc tên..."
+          (onFilter)="onInfrastructureFilter($event)"
+          [virtualScroll]="true"
+          [virtualScrollItemSize]="36"
           [showClear]="true"
           appendTo="body"
           styleClass="digitization-infrastructure-select">

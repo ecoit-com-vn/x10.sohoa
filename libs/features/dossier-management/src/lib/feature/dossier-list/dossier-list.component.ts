@@ -1,4 +1,5 @@
-import { Component, OnInit, signal, computed, inject, Output, EventEmitter, Input } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, Output, EventEmitter, Input, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { CommonModule } from '@angular/common';
 
@@ -40,7 +41,7 @@ import {
   hasDossierCreatePermission,
 } from '../../utils/dossier-permission.util';
 import { isUserAuthorizedForWorkflowAction, buildListItemPatchFromSources, shouldKeepItemOnTab, DossierListItemPatch } from '../../utils/dossier-workflow-auth.util';
-import { catchError, finalize, forkJoin, map, of, switchMap } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, finalize, forkJoin, map, of, Subject, switchMap } from 'rxjs';
 
 function tabLabel(tab: DossierListTab, kindId?: number): string {
   const labels: Partial<Record<DossierListTab, string>> = {
@@ -364,10 +365,32 @@ export class DossierListComponent implements OnInit {
 
 
 
+  private readonly destroyRef = inject(DestroyRef);
+  /** Danh sách trạm/đường dây mặc định (chưa lọc theo từ khóa) — dùng để khôi phục khi xóa ô tìm kiếm. */
+  private defaultInfrastructureSource: any[] = [];
+  private readonly infrastructureFilterSubject = new Subject<string>();
+
   ngOnInit() {
     this.loadLookups();
     this.listBootstrapped = true;
     this.refreshList();
+
+    // Tìm kiếm Trạm/Đường dây phía server (debounce) — tránh phải render/lọc client-side
+    // hàng nghìn option cùng lúc gây đứng UI khi đơn vị có quá nhiều hạ tầng.
+    this.infrastructureFilterSubject
+      .pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        switchMap((keyword) =>
+          keyword ? this.service.getInfrastructureLookup(keyword) : of(this.defaultInfrastructureSource)
+        ),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((res) => this.infrastructures.set(res || []));
+  }
+
+  onInfrastructureFilter(event: { filter: string }): void {
+    this.infrastructureFilterSubject.next((event?.filter || '').trim());
   }
 
 
@@ -593,7 +616,10 @@ export class DossierListComponent implements OnInit {
 
     this.service.getInfrastructureLookup().subscribe({
 
-      next: (res) => this.infrastructures.set(res),
+      next: (res) => {
+        this.defaultInfrastructureSource = res || [];
+        this.infrastructures.set(res || []);
+      },
 
       error: () => console.error('Failed to load infrastructures')
 
