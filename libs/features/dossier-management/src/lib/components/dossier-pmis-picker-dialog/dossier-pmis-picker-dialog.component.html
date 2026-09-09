@@ -1,0 +1,181 @@
+<p-dialog
+  [visible]="visible"
+  (visibleChange)="visibleChange.emit($event)"
+  (onShow)="onShow()"
+  [header]="phase() === 'pick' ? 'Chọn tài liệu từ kho PMIS' : 'Thêm tài liệu vào hồ sơ'"
+  [modal]="true"
+  [style]="{ width: '920px', maxWidth: '95vw' }"
+  styleClass="evn-dialog-custom dossier-folder-picker-dialog"
+  [closable]="!copying()"
+  [draggable]="false"
+>
+  <div class="picker-layout" *ngIf="phase() === 'pick'; else configureTpl">
+    <aside class="picker-sidebar">
+      <div class="folder-tree-panel" *ngIf="!loadingTree(); else treeLoading">
+        <div *ngIf="allowedTree().length === 0" class="empty-hint">
+          Hồ sơ này chưa gắn Trạm/Đường dây/Thiết bị nào có tài liệu PMIS.
+        </div>
+        <ng-container *ngTemplateOutlet="nodeTreeTpl; context: { $implicit: allowedTree() }"></ng-container>
+      </div>
+
+      <ng-template #treeLoading>
+        <div class="empty-hint"><i class="pi pi-spin pi-spinner"></i> Đang tải...</div>
+      </ng-template>
+
+      <ng-template #nodeTreeTpl let-nodes>
+        <div *ngFor="let node of nodes; trackBy: trackByNodeId" class="folder-node">
+          <button
+            type="button"
+            class="folder-row"
+            [class.active]="selectedNode()?.id === node.id"
+            [style.opacity]="node.nodeType !== 'unit' && !canSelect(node) ? 0.55 : 1"
+            [style.cursor]="node.nodeType !== 'unit' && !canSelect(node) && !node.children?.length ? 'default' : 'pointer'"
+            (click)="node.children?.length ? toggleExpand(node, $event) : null; selectNode(node)"
+            [title]="node.nodeType !== 'unit' && !canSelect(node) ? (node.name + ' — không thuộc phạm vi hồ sơ này, chỉ hiện để dẫn tới nhánh bên dưới') : node.name"
+          >
+            <i
+              class="pi"
+              [ngClass]="node.children?.length ? (isExpanded(node.id) ? 'pi-chevron-down' : 'pi-chevron-right') : 'pi-minus'"
+              style="font-size: 0.7rem; width: 12px"
+            ></i>
+            <i class="pi" [ngClass]="nodeIcons[node.nodeType]"></i>
+            <span>{{ node.name }}</span>
+          </button>
+          <div *ngIf="node.children?.length && isExpanded(node.id)" class="folder-children">
+            <ng-container *ngTemplateOutlet="nodeTreeTpl; context: { $implicit: node.children }"></ng-container>
+          </div>
+        </div>
+      </ng-template>
+    </aside>
+
+    <section class="picker-main">
+      <div class="picker-toolbar">
+        <span class="folder-label" [title]="selectedNode()?.name || ''">
+          {{ selectedNode()?.name || 'Chưa chọn Trạm/Đường dây/Thiết bị' }}
+        </span>
+        <input
+          type="text"
+          class="wf-search-input"
+          placeholder="Tìm tài liệu..."
+          [ngModel]="docSearch()"
+          (ngModelChange)="onDocSearchChange($event)"
+          [disabled]="!selectedNode()"
+        />
+      </div>
+
+      <div class="wf-table-wrap" [class.loading]="loadingDocuments()">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th class="col-chk">
+                <input
+                  type="checkbox"
+                  [checked]="allPageSelected()"
+                  (change)="toggleSelectAll($event)"
+                  [disabled]="loadingDocuments() || documents().length === 0"
+                />
+              </th>
+              <th class="col-stt">STT</th>
+              <th>Tên tài liệu</th>
+              <th style="width: 100px">Kích thước</th>
+              <th style="width: 130px">Ngày đồng bộ</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="loadingDocuments()">
+              <td colspan="5" class="empty-row">
+                <i class="pi pi-spin pi-spinner"></i>
+                <div>Đang tải...</div>
+              </td>
+            </tr>
+            <tr
+              *ngFor="let doc of documents(); let i = index; trackBy: trackByDocumentId"
+              [hidden]="loadingDocuments()"
+              (click)="toggleSelect(doc, $event)"
+              class="doc-row"
+              [class.selected]="isSelected(doc.id)"
+            >
+              <td class="col-chk" (click)="$event.stopPropagation()">
+                <input type="checkbox" [checked]="isSelected(doc.id)" (change)="toggleSelect(doc, $event)" />
+              </td>
+              <td class="col-stt text-muted">{{ (page() - 1) * pageSize() + i + 1 }}</td>
+              <td>
+                <div class="doc-name-cell">
+                  <i class="pi pi-file"></i>
+                  <span [title]="doc.documentName || ''">{{ doc.documentName || '—' }}</span>
+                </div>
+              </td>
+              <td>{{ formatSize(doc.fileSize || undefined) }}</td>
+              <td>{{ formatDate(doc.syncedAt) }}</td>
+            </tr>
+            <tr *ngIf="!loadingDocuments() && documents().length === 0">
+              <td colspan="5" class="empty-row">
+                <i class="pi pi-inbox"></i>
+                <div>{{ selectedNode() ? 'Chưa có tài liệu nào.' : 'Chọn 1 Trạm/Đường dây/Thiết bị bên trái.' }}</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-footer" *ngIf="totalDocuments() > 0">
+        <span class="record-count">Đã chọn: <b>{{ selectedCount() }}</b></span>
+        <div class="pagination">
+          <button class="page-btn" (click)="prevPage()" [disabled]="page() === 1">
+            <i class="pi pi-chevron-left"></i>
+          </button>
+          <span class="page-current">Trang {{ page() }} / {{ totalPages() || 1 }}</span>
+          <button class="page-btn" (click)="nextPage()" [disabled]="page() >= totalPages()">
+            <i class="pi pi-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <ng-template #configureTpl>
+    <div class="configure-steps">
+      <section class="configure-step">
+        <h4 class="step-title">Loại văn bản <span class="required">*</span></h4>
+        <select
+          class="wf-select w-full"
+          [ngModel]="selectedDocumentTypeId()"
+          (ngModelChange)="selectedDocumentTypeId.set($event)"
+          [disabled]="loadingDocTypes() || copying()"
+        >
+          <option value="">-- Chọn loại văn bản --</option>
+          <option *ngFor="let dt of documentTypes()" [value]="dt.id">
+            {{ dt.name }}<ng-container *ngIf="dt.code"> ({{ dt.code }})</ng-container>
+          </option>
+        </select>
+        <p class="step-note" *ngIf="loadingDocTypes()"><i class="pi pi-spin pi-spinner"></i> Đang tải danh mục...</p>
+        <p class="step-note">Sẽ thêm {{ selectedCount() }} tài liệu đã chọn từ kho PMIS vào hồ sơ (tài liệu gốc trong kho PMIS vẫn giữ nguyên).</p>
+      </section>
+    </div>
+  </ng-template>
+
+  <ng-template #footer>
+    <ng-container *ngIf="phase() === 'pick'; else configureFooter">
+      <p-button label="Hủy" severity="secondary" size="small" (onClick)="close()" [disabled]="copying()"></p-button>
+      <p-button
+        [label]="selectedCount() > 0 ? 'Tiếp tục (' + selectedCount() + ')' : 'Tiếp tục'"
+        size="small"
+        icon="pi pi-arrow-right"
+        iconPos="right"
+        (onClick)="goToConfigure()"
+        [disabled]="copying() || selectedCount() === 0"
+      ></p-button>
+    </ng-container>
+    <ng-template #configureFooter>
+      <p-button label="Quay lại" severity="secondary" size="small" (onClick)="backToPick()" [disabled]="copying()"></p-button>
+      <p-button
+        label="Thêm vào hồ sơ"
+        size="small"
+        icon="pi pi-check"
+        (onClick)="confirmCopy()"
+        [disabled]="copying() || !selectedDocumentTypeId()"
+        [loading]="copying()"
+      ></p-button>
+    </ng-template>
+  </ng-template>
+</p-dialog>

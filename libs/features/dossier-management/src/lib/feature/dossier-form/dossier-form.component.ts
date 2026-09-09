@@ -494,6 +494,8 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
       <div *ngIf="isEditMode() && activeTab() === 'documents'">
         <app-dossier-documents-tab
           [dossierId]="dossierId!"
+          [infrastructureIds]="dossier.infrastructureIds || []"
+          [equipmentIds]="pmisPickerEquipmentIds()"
           [canEdit]="true"
           [kindId]="kindIdSignal()"
           [menuScope]="'creator'"
@@ -873,6 +875,12 @@ export class DossierFormComponent implements OnInit {
   };
 
   selectedEquipments = signal<any[]>([]);
+  /** Dùng để lọc "Chọn từ kho PMIS" — chỉ hiện đúng tài liệu của Thiết bị hồ sơ này đã gắn. */
+  pmisPickerEquipmentIds = computed(() =>
+    this.selectedEquipments()
+      .map((e: any) => e.equipmentId ?? e.EquipmentId)
+      .filter((id: unknown): id is string => !!id)
+  );
   formGridTypeId = signal<number | null>(null);
   /** Signal để computed nhóm hồ sơ / IsEquipmentDossier cập nhật khi đổi select. */
   dossierGroupIdSignal = signal<number | null>(null);

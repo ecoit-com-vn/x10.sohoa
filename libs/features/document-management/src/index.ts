@@ -3,3 +3,7 @@ export * from './lib/models/document.models';
 export * from './lib/utils/folder-tree.util';
 export * from './lib/feature/document-management.component';
 export * from './lib/document-management.routes';
+export * from './lib/data-access/pmis-document-catalog.service';
+export * from './lib/models/pmis-catalog.models';
+export * from './lib/utils/pmis-catalog-tree.util';
+export * from './lib/feature/pmis-document-warehouse.component';

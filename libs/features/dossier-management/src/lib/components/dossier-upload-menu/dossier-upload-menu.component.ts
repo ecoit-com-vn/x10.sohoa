@@ -2,7 +2,7 @@ import { Component, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ButtonModule } from 'primeng/button';
 
-export type DossierUploadAction = 'folder' | 'direct' | 'scan';
+export type DossierUploadAction = 'folder' | 'direct' | 'scan' | 'pmis';
 
 @Component({
   selector: 'app-dossier-upload-menu',
