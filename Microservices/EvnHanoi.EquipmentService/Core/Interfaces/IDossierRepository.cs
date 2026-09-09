@@ -6,7 +6,7 @@ namespace EvnHanoi.EquipmentService.Core.Interfaces;
 
 public interface IDossierRepository
 {
-    Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync(IEnumerable<long>? authorizedUnitIds = null);
+    Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync(IEnumerable<long>? authorizedUnitIds = null, string? keyword = null);
     Task<IEnumerable<GridType>> GetGridTypesLookupAsync();
     Task<IEnumerable<DossierType>> GetDossierTypesLookupAsync();
     Task<IEnumerable<DossierGroup>> GetDossierGroupsLookupAsync();

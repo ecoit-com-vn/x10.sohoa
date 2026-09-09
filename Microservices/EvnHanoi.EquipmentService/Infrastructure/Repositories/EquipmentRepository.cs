@@ -1474,13 +1474,15 @@ StatusTransition,
         }
     }
 
-    public async Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync(IEnumerable<long>? authorizedUnitIds = null)
+    public async Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync(
+        IEnumerable<long>? authorizedUnitIds = null,
+        string? keyword = null)
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
-        var sql = @"SELECT ID, CODE, NAME, INFRA_TYPE_ID as InfraTypeId, UNIT_ID as UnitId, GRIDTYPEID as GridTypeId, IS_ACTIVE as IsActive 
-                    FROM INFRASTRUCTURE 
+        var sql = @"SELECT ID, CODE, NAME, INFRA_TYPE_ID as InfraTypeId, UNIT_ID as UnitId, GRIDTYPEID as GridTypeId, IS_ACTIVE as IsActive
+                    FROM INFRASTRUCTURE
                     WHERE IsDeleted = 0";
 
         var parameters = new DynamicParameters();
@@ -1490,7 +1492,21 @@ StatusTransition,
             parameters.Add("AuthorizedUnitIds", authorizedUnitIds.ToArray());
         }
 
+        // Tìm kiếm phía server: chỉ áp dụng + giới hạn số dòng khi có keyword, để không đổi hành vi
+        // (trả về toàn bộ danh sách) của các nơi khác đang gọi API này mà không truyền keyword.
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            sql += " AND (UPPER(NAME) LIKE UPPER(:Keyword) OR UPPER(CODE) LIKE UPPER(:Keyword))";
+            parameters.Add("Keyword", $"%{keyword.Trim()}%");
+        }
+
         sql += " ORDER BY NAME ASC";
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            sql += " FETCH FIRST 100 ROWS ONLY";
+        }
+
         return await _connection.QueryAsync<InfrastructureEntity>(sql, parameters);
     }
 

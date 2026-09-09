@@ -66,7 +66,8 @@ public class DossierService : IDossierService
     public async Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync(
         bool isAdmin,
         long? userUnitId,
-        IReadOnlyList<long>? fallbackUnitIds)
+        IReadOnlyList<long>? fallbackUnitIds,
+        string? keyword = null)
     {
         List<long>? allowedUnitIds = null;
         if (!isAdmin)
@@ -92,7 +93,7 @@ public class DossierService : IDossierService
             }
         }
 
-        return await _dossierRepository.GetInfrastructuresLookupAsync(allowedUnitIds);
+        return await _dossierRepository.GetInfrastructuresLookupAsync(allowedUnitIds, keyword);
     }
 
     /// <summary>

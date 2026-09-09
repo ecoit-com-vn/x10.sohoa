@@ -41,7 +41,7 @@ public interface IEquipmentRepository
     
     // Lookups
     Task<IEnumerable<OrganizationDto>> GetOrganizationUnitsHierarchicalAsync(long? startUnitId);
-    Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync(IEnumerable<long>? authorizedUnitIds = null);
+    Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync(IEnumerable<long>? authorizedUnitIds = null, string? keyword = null);
     Task<IEnumerable<EquipmentTypeDto>> GetEquipmentTypesLookupAsync();
     Task<(IEnumerable<EquipmentLookupItemDto> Items, int TotalCount)> GetLookupPagedAsync(
         EquipmentLookupFilterDto filter,
