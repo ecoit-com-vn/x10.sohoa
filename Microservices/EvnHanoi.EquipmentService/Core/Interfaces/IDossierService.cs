@@ -13,7 +13,8 @@ public interface IDossierService
     Task<IEnumerable<InfrastructureEntity>> GetInfrastructuresLookupAsync(
         bool isAdmin,
         long? userUnitId,
-        IReadOnlyList<long>? fallbackUnitIds);
+        IReadOnlyList<long>? fallbackUnitIds,
+        string? keyword = null);
     Task<IReadOnlyList<PhysicalStorageTreeShelfDto>> GetPhysicalStorageTreeAsync(long? currentUnitId);
     Task<IEnumerable<DossierType>> GetDossierTypesLookupAsync();
     Task<IEnumerable<DossierGroupDto>> GetDossierGroupsLookupAsync();
