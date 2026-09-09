@@ -626,10 +626,10 @@ public partial class EquipmentController : ControllerBase
 
     [HttpGet("get-infrastructures")]
     [BypassDynamicPermission]
-    public async Task<IActionResult> GetInfrastructures()
+    public async Task<IActionResult> GetInfrastructures([FromQuery] string? keyword = null)
     {
         var allowedUnitIds = await GetAllowedUnitIdsAsync();
-        var data = await _equipmentRepository.GetInfrastructuresLookupAsync(allowedUnitIds);
+        var data = await _equipmentRepository.GetInfrastructuresLookupAsync(allowedUnitIds, keyword);
         return Ok(data);
     }
 
@@ -639,9 +639,9 @@ public partial class EquipmentController : ControllerBase
     /// </summary>
     [HttpGet("get-infrastructures-all")]
     [BypassDynamicPermission]
-    public async Task<IActionResult> GetAllInfrastructures()
+    public async Task<IActionResult> GetAllInfrastructures([FromQuery] string? keyword = null)
     {
-        var data = await _equipmentRepository.GetInfrastructuresLookupAsync(null);
+        var data = await _equipmentRepository.GetInfrastructuresLookupAsync(null, keyword);
         return Ok(data);
     }
 

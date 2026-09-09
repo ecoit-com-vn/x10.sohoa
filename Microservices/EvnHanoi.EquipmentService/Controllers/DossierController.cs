@@ -138,7 +138,7 @@ public abstract partial class DossierControllerBase : ControllerBase
 
     [HttpGet("infrastructures/lookup")]
     [BypassDynamicPermission]
-    public async Task<IActionResult> GetInfrastructuresLookup()
+    public async Task<IActionResult> GetInfrastructuresLookup([FromQuery] string? keyword = null)
     {
         var isAdmin = User.IsInRole("ADMIN") || User.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "ADMIN");
         long? userUnitId = null;
@@ -154,7 +154,8 @@ public abstract partial class DossierControllerBase : ControllerBase
         var items = await _dossierService.GetInfrastructuresLookupAsync(
             isAdmin,
             userUnitId,
-            GetAuthorizedUnitIds());
+            GetAuthorizedUnitIds(),
+            keyword);
         return Ok(items);
     }
 
