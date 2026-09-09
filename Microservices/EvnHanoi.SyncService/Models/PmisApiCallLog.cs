@@ -14,4 +14,8 @@ public class PmisApiCallLog
     public long DurationMs { get; set; }
     public string? HttpClientName { get; set; }
     public DateTime CalledAt { get; set; }
+
+    /// <summary>Số bản ghi (Items.Count) trả về — chỉ có ở API dạng danh sách gọi thành công, null với
+    /// API không phải danh sách (ChiTietThietBi, AnhQRCode) hoặc khi gọi lỗi.</summary>
+    public int? RecordCount { get; set; }
 }

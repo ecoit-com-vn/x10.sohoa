@@ -255,7 +255,23 @@ public class InternalPmisSyncController : ControllerBase
                     continue;
                 }
 
-                var ownerId = await _pmisDocumentRepository.ResolveOwnerIdAsync(item.OwnerType, item.OwnerPmisCode);
+                // Ưu tiên gán theo ĐÚNG thiết bị nếu tài liệu có kèm mã thiết bị (DeviceCode) — kể cả khi
+                // gọi từ lượt đồng bộ cấp Trạm/Đường dây (item.OwnerType="INFRASTRUCTURE" ở đây chỉ là
+                // giá trị mặc định/dự phòng). Thiết bị chưa tồn tại (chưa đồng bộ tới) thì rơi về đúng
+                // OwnerType/OwnerPmisCode ban đầu — KHÔNG bỏ qua tài liệu, tránh mất dữ liệu.
+                var ownerType = item.OwnerType;
+                var ownerId = string.IsNullOrWhiteSpace(item.DeviceCode)
+                    ? null
+                    : await _pmisDocumentRepository.ResolveOwnerIdAsync("EQUIPMENT", item.DeviceCode);
+                if (ownerId != null)
+                {
+                    ownerType = "EQUIPMENT";
+                }
+                else
+                {
+                    ownerId = await _pmisDocumentRepository.ResolveOwnerIdAsync(item.OwnerType, item.OwnerPmisCode);
+                }
+
                 if (ownerId == null)
                 {
                     results.Add(new UpsertPmisDocumentResult
@@ -298,6 +314,7 @@ public class InternalPmisSyncController : ControllerBase
                     continue;
                 }
 
+                item.OwnerType = ownerType; // ghi đúng OwnerType đã phân giải (có thể khác giá trị gửi lên nếu resolve theo DeviceCode thành công)
                 await _pmisDocumentRepository.InsertAsync(item, ownerId.Value, objectKey, fileSize);
                 results.Add(new UpsertPmisDocumentResult
                 {

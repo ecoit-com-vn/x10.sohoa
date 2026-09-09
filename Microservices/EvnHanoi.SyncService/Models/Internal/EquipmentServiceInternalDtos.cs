@@ -61,6 +61,10 @@ public class UpsertPmisDocumentRequest
     public string? FileName { get; set; }
     public string? FileBase64 { get; set; }                     // null nếu SyncService tải file thất bại
     public string? SyncHistoryId { get; set; }
+
+    /// <summary>Mã thiết bị PMIS (maTB) đính kèm trên chính dòng tài liệu này, nếu có — server ưu tiên
+    /// gán OwnerType=EQUIPMENT theo mã này khi thiết bị đã tồn tại (xem EquipmentService.InternalPmisSyncController).</summary>
+    public string? DeviceCode { get; set; }
 }
 
 public class UpsertPmisDocumentResult

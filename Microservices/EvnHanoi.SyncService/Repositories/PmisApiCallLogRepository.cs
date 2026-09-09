@@ -21,10 +21,10 @@ public class PmisApiCallLogRepository : IPmisApiCallLogRepository
         const string sql = @"
             INSERT INTO PMIS_API_CALL_LOG (
                 Id, ApiCode, HttpMethod, Url, RequestPayload, StatusCode, IsSuccess, ErrorMessage,
-                DurationMs, HttpClientName
+                DurationMs, HttpClientName, RecordCount
             ) VALUES (
                 :Id, :ApiCode, :HttpMethod, :Url, :RequestPayload, :StatusCode, :IsSuccess, :ErrorMessage,
-                :DurationMs, :HttpClientName
+                :DurationMs, :HttpClientName, :RecordCount
             )";
 
         await _connection.ExecuteAsync(sql, new
@@ -38,7 +38,8 @@ public class PmisApiCallLogRepository : IPmisApiCallLogRepository
             IsSuccess = log.IsSuccess ? 1 : 0,
             log.ErrorMessage,
             log.DurationMs,
-            log.HttpClientName
+            log.HttpClientName,
+            log.RecordCount
         });
     }
 
@@ -55,7 +56,7 @@ public class PmisApiCallLogRepository : IPmisApiCallLogRepository
 
         var items = await _connection.QueryAsync<PmisApiCallLog>(@"
             SELECT Id, ApiCode, HttpMethod, Url, RequestPayload, StatusCode, IsSuccess, ErrorMessage,
-                   DurationMs, HttpClientName, CalledAt
+                   DurationMs, HttpClientName, CalledAt, RecordCount
             FROM PMIS_API_CALL_LOG
             WHERE ApiCode = :ApiCode
             ORDER BY CalledAt DESC

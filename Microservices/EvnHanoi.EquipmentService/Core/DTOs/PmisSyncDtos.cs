@@ -103,6 +103,13 @@ public class UpsertPmisDocumentRequest
     public string? FileName { get; set; }
     public string? FileBase64 { get; set; }                     // null nếu SyncService tải file thất bại
     public string? SyncHistoryId { get; set; }
+
+    /// <summary>Mã thiết bị PMIS (maTB) đính kèm trên CHÍNH dòng tài liệu này, nếu có — luôn gửi kèm dù
+    /// gọi ở lượt đồng bộ Trạm/Đường dây hay Thiết bị. Khi có giá trị, server ưu tiên gán OwnerType=
+    /// EQUIPMENT theo mã này (nếu thiết bị đã tồn tại) thay vì dùng OwnerType/OwnerPmisCode ở trên —
+    /// tránh tài liệu vốn thuộc 1 thiết bị cụ thể bị gán nhầm cho Trạm/Đường dây cha khi lượt đồng bộ
+    /// cấp Trạm/Đường dây (không lọc theo thiết bị) chạy trước lượt đồng bộ Thiết bị.</summary>
+    public string? DeviceCode { get; set; }
 }
 
 public class UpsertPmisDocumentResult
@@ -119,4 +126,36 @@ public class PmisDocumentLookup
 {
     public string Id { get; set; } = string.Empty;
     public string? ObjectKey { get; set; }
+}
+
+/// <summary>1 dòng PMIS_DOCUMENT đầy đủ — dùng cho màn "Kho tài liệu PMIS" (đọc) và "Chọn từ kho PMIS"
+/// (kiểm tra quyền/copy vào hồ sơ), khác PmisDocumentLookup (chỉ Id/ObjectKey, dùng lúc ghi/đồng bộ).</summary>
+public class PmisDocumentDetail
+{
+    public Guid Id { get; set; }
+    public string PmisDocumentCode { get; set; } = string.Empty;
+    public string OwnerType { get; set; } = string.Empty; // INFRASTRUCTURE | EQUIPMENT
+    public Guid OwnerId { get; set; }
+    public string? DocumentName { get; set; }
+    public string? DocumentType { get; set; }
+    public string? ObjectKey { get; set; }
+    public long? FileSize { get; set; }
+    public DateTime SyncedAt { get; set; }
+}
+
+/// <summary>1 node cây "Kho tài liệu PMIS" (Đơn vị/Trạm biến áp/Đường dây/Thiết bị) — tổng hợp từ dữ
+/// liệu thật (ORGANIZATION_UNIT/INFRASTRUCTURE/EQUIPMENTS + PMIS_DOCUMENT), KHÔNG có bảng folder riêng —
+/// cùng khuôn với FolderCatalogNodeDto (DossierCatalogController) nhưng đơn giản hơn (3 cấp cố định,
+/// không có cấp lưới điện cao/trung áp).</summary>
+public class PmisDocumentCatalogNodeDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? ParentId { get; set; }
+
+    /// <summary>unit | substation | line | equipment — FE dùng để chọn icon và biết cấp nào cho phép bấm xem tài liệu trực tiếp.</summary>
+    public string NodeType { get; set; } = string.Empty;
+
+    /// <summary>Số tài liệu PMIS gắn TRỰC TIẾP vào node này (chỉ có ý nghĩa với substation/line/equipment — unit luôn 0).</summary>
+    public int DocumentCount { get; set; }
 }
