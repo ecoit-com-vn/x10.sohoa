@@ -24,6 +24,15 @@ export class PmisDocumentCatalogService {
     return this.api.get<PmisCatalogDocumentsResponse>(`${this.base}/catalog/documents`, { params });
   }
 
+  /** Nút "Upload tài liệu" thủ công — dùng khi đồng bộ tự động từ PMIS lỗi. */
+  uploadDocument(folderId: string, file: File, documentName?: string, documentType?: string): Observable<{ id: string; documentName: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (documentName) formData.append('documentName', documentName);
+    if (documentType) formData.append('documentType', documentType);
+    return this.api.post<{ id: string; documentName: string }>(`${this.base}/catalog/${folderId}/upload`, formData);
+  }
+
   private getDownloadToken(documentId: string): Observable<DownloadTokenResponse> {
     return this.api.get<DownloadTokenResponse>(`${this.base}/${documentId}/download-url`);
   }
