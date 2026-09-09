@@ -430,6 +430,15 @@
   (digitizationStarted)="onDigitizationStarted()"
 ></app-dossier-folder-picker-dialog>
 
+<app-dossier-pmis-picker-dialog
+  [dossierId]="dossierId"
+  [infrastructureIds]="infrastructureIds"
+  [equipmentIds]="equipmentIds"
+  [visible]="showPmisPicker()"
+  (visibleChange)="showPmisPicker.set($event)"
+  (documentsAdded)="onDocumentsAdded()"
+></app-dossier-pmis-picker-dialog>
+
 <app-dossier-direct-upload-dialog
   [dossierId]="dossierId"
   [uploadSource]="uploadSource()"

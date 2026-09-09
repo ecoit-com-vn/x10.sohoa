@@ -223,6 +223,23 @@ export class DossierDocumentService {
     );
   }
 
+  /** "Chọn từ kho PMIS" — COPY (giữ nguyên tài liệu gốc trong kho PMIS), khác moveFromFolder (MOVE). */
+  copyFromPmis(
+    dossierId: string,
+    pmisDocumentIds: string[],
+    documentTypeId: string
+  ): Observable<MoveFromFolderResponse> {
+    return this.http.post<MoveFromFolderResponse>(`${this.dossierBase(dossierId)}/copy-from-pmis`, {
+      pmisDocumentIds,
+      documentTypeId,
+    }).pipe(
+      map((res) => ({
+        ...res,
+        movedDocuments: normalizeMovedDocuments(res.movedDocuments ?? res),
+      }))
+    );
+  }
+
   /**
    * Loại văn bản gắn loại hồ sơ — API dossier (DOSSIER_VIEW / DOSSIER_DIGITIZATION_VIEW).
    * Không gọi catalog/dossier-type (sai phạm vi phân quyền).
