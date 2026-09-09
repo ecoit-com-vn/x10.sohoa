@@ -73,6 +73,14 @@ public interface IDossierDocumentService
         long userUnitId,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<MovedDossierDocumentDto>> CopyFromPmisAsync(
+        Guid dossierId,
+        CopyDocumentsFromPmisRequest request,
+        string userId,
+        long userUnitId,
+        string? creatorName,
+        CancellationToken cancellationToken);
+
     Task<bool> DeleteDocumentAsync(
         Guid dossierId,
         Guid documentId,
@@ -132,6 +140,7 @@ public class DossierDocumentService : IDossierDocumentService
     private readonly IDocumentTextIndexNotifier _documentTextIndexNotifier;
     private readonly IKySoClient _kySoClient;
     private readonly IIdentityServiceClient _identityServiceClient;
+    private readonly IPmisDocumentRepository _pmisDocumentRepository;
     private readonly IConfiguration _configuration;
     private readonly ILogger<DossierDocumentService> _logger;
 
@@ -146,6 +155,7 @@ public class DossierDocumentService : IDossierDocumentService
         IDocumentTextIndexNotifier documentTextIndexNotifier,
         IKySoClient kySoClient,
         IIdentityServiceClient identityServiceClient,
+        IPmisDocumentRepository pmisDocumentRepository,
         IConfiguration configuration,
         ILogger<DossierDocumentService> logger)
     {
@@ -159,6 +169,7 @@ public class DossierDocumentService : IDossierDocumentService
         _documentTextIndexNotifier = documentTextIndexNotifier ?? throw new ArgumentNullException(nameof(documentTextIndexNotifier));
         _kySoClient = kySoClient ?? throw new ArgumentNullException(nameof(kySoClient));
         _identityServiceClient = identityServiceClient ?? throw new ArgumentNullException(nameof(identityServiceClient));
+        _pmisDocumentRepository = pmisDocumentRepository ?? throw new ArgumentNullException(nameof(pmisDocumentRepository));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -450,6 +461,117 @@ public class DossierDocumentService : IDossierDocumentService
             userId);
 
         return movedItems;
+    }
+
+    /// <summary>
+    /// "Chọn từ kho PMIS" — COPY tài liệu đã đồng bộ từ PMIS (PMIS_DOCUMENT) vào hồ sơ, tái dùng nguyên
+    /// pipeline UploadFileToDossierDirectAsync (kiểm virus, nén, đếm trang, tạo Document/DocumentVersion
+    /// mới) như "Upload trực tiếp" — chỉ khác nguồn Stream lấy từ MinIO của kho PMIS thay vì từ request.
+    /// KHÁC HẲN MoveFromFolderAsync: KHÔNG xoá/động vào PMIS_DOCUMENT.ObjectKey gốc, để dùng lại được
+    /// cho hồ sơ khác sau này.
+    /// </summary>
+    public async Task<IReadOnlyList<MovedDossierDocumentDto>> CopyFromPmisAsync(
+        Guid dossierId,
+        CopyDocumentsFromPmisRequest request,
+        string userId,
+        long userUnitId,
+        string? creatorName,
+        CancellationToken cancellationToken)
+    {
+        await _dossierService.EnsureCanEditFormDataAsync(dossierId);
+
+        if (request.PmisDocumentIds == null || request.PmisDocumentIds.Count == 0)
+            throw new ArgumentException("Danh sách tài liệu không được để trống");
+        if (request.DocumentTypeId == Guid.Empty)
+            throw new ArgumentException("Loại văn bản (DocumentType) là bắt buộc.");
+
+        await EnsureActiveDocumentTypeAsync(request.DocumentTypeId);
+
+        var dossier = await _dossierService.GetDetailByIdAsync(dossierId)
+            ?? throw new KeyNotFoundException("Không tìm thấy hồ sơ.");
+        var allowedInfrastructureIds = new HashSet<Guid>(dossier.InfrastructureIds);
+        var allowedEquipmentIds = new HashSet<Guid>(dossier.Equipments.Select(e => e.EquipmentId));
+
+        var copiedItems = new List<MovedDossierDocumentDto>();
+        foreach (var pmisDocumentId in request.PmisDocumentIds.Distinct())
+        {
+            var pmisDoc = await _pmisDocumentRepository.GetByIdAsync(pmisDocumentId)
+                ?? throw new KeyNotFoundException($"Không tìm thấy tài liệu PMIS {pmisDocumentId}");
+
+            if (string.IsNullOrEmpty(pmisDoc.ObjectKey))
+                throw new InvalidOperationException($"Tài liệu '{pmisDoc.DocumentName}' chưa có file.");
+
+            // Kiểm tra bắt buộc phía server — KHÔNG chỉ dựa vào việc FE ẩn sẵn các nhánh không khớp:
+            // tài liệu PMIS chỉ được chọn nếu thuộc đúng Trạm/Đường dây/Thiết bị đã gắn với hồ sơ này.
+            var isAllowed = pmisDoc.OwnerType == "INFRASTRUCTURE"
+                ? allowedInfrastructureIds.Contains(pmisDoc.OwnerId)
+                : pmisDoc.OwnerType == "EQUIPMENT" && allowedEquipmentIds.Contains(pmisDoc.OwnerId);
+            if (!isAllowed)
+                throw new UnauthorizedAccessException(
+                    $"Tài liệu '{pmisDoc.DocumentName}' không thuộc Trạm/Đường dây/Thiết bị đã gắn với hồ sơ này.");
+
+            var fileName = string.IsNullOrWhiteSpace(pmisDoc.DocumentName) ? $"tai-lieu-pmis-{pmisDocumentId}" : pmisDoc.DocumentName;
+
+            await using var stream = await _fileStorageService.DownloadFileAsync(
+                pmisDoc.ObjectKey, _fileStorageService.DocumentBucketName, cancellationToken: cancellationToken);
+
+            // Tên tài liệu PMIS thường là tiêu đề thuần (vd. "Biên bản nghiệm thu"), KHÔNG có phần mở
+            // rộng — nếu chỉ đoán mimeType theo đuôi file như ResolvePmisMimeType cũ thì luôn ra
+            // application/octet-stream (không nằm trong whitelist của UploadFileToDossierDirectAsync),
+            // khiến MỌI tài liệu PMIS thiếu đuôi file đều bị từ chối. Đọc vài byte đầu (magic bytes) để
+            // nhận diện đúng định dạng thật trước, chỉ dùng đuôi file làm phương án dự phòng.
+            var (mimeType, extension) = await ResolvePmisFileFormatAsync(stream, fileName, cancellationToken);
+            if (!fileName.Contains('.') && extension != null)
+                fileName = $"{fileName}{extension}";
+
+            var result = await _fileUploadService.UploadFileToDossierDirectAsync(
+                stream, fileName, mimeType, pmisDoc.FileSize ?? 0, dossierId, request.DocumentTypeId,
+                uploadSource: 6, // 6 = Kho PMIS
+                userId, userUnitId, creatorName, cancellationToken);
+
+            copiedItems.Add(new MovedDossierDocumentDto
+            {
+                DocumentId = result.DocumentId,
+                VersionId = result.DocumentVersionId,
+                Name = fileName
+            });
+        }
+
+        await _dossierService.RecordDocumentListChangeAsync(
+            dossierId,
+            $"Thêm từ kho PMIS: {string.Join(", ", copiedItems.Select(m => m.Name))}",
+            userId);
+
+        return copiedItems;
+    }
+
+    /// <summary>Nhận diện mimeType thật của file PMIS bằng magic bytes (tên tài liệu PMIS thường không
+    /// có đuôi file) — chỉ dùng đuôi file làm phương án dự phòng nếu tên có sẵn đuôi hợp lệ, và cuối
+    /// cùng mặc định "application/pdf" (loại phổ biến nhất với tài liệu kỹ thuật, có trong whitelist của
+    /// MimeTypeValidationService) thay vì "application/octet-stream" (chắc chắn bị từ chối).</summary>
+    private static async Task<(string MimeType, string? Extension)> ResolvePmisFileFormatAsync(
+        Stream stream, string fileName, CancellationToken cancellationToken)
+    {
+        var header = new byte[8];
+        var read = await stream.ReadAsync(header.AsMemory(0, header.Length), cancellationToken);
+        stream.Seek(0, SeekOrigin.Begin);
+
+        if (read >= 4 && header[0] == 0x25 && header[1] == 0x50 && header[2] == 0x44 && header[3] == 0x46)
+            return ("application/pdf", ".pdf");
+        if (read >= 3 && header[0] == 0xFF && header[1] == 0xD8 && header[2] == 0xFF)
+            return ("image/jpeg", ".jpg");
+        if (read >= 8 && header[0] == 0x89 && header[1] == 0x50 && header[2] == 0x4E && header[3] == 0x47)
+            return ("image/png", ".png");
+        if (read >= 4 && ((header[0] == 0x49 && header[1] == 0x49 && header[2] == 0x2A && header[3] == 0x00)
+                       || (header[0] == 0x4D && header[1] == 0x4D && header[2] == 0x00 && header[3] == 0x2A)))
+            return ("image/tiff", ".tiff");
+
+        // Không nhận ra magic bytes — thử đuôi file (phòng khi DocumentName hiếm hoi có sẵn đuôi hợp lệ).
+        var provider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+        if (provider.TryGetContentType(fileName, out var contentType))
+            return (contentType, null);
+
+        return ("application/pdf", ".pdf");
     }
 
     public async Task<bool> DeleteDocumentAsync(
