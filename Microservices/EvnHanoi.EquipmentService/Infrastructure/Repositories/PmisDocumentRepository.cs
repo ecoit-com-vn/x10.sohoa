@@ -94,10 +94,42 @@ public class PmisDocumentRepository : IPmisDocumentRepository
     {
         EnsureOpen();
         var row = await _connection.QuerySingleOrDefaultAsync<PmisDocumentRow>(
-            @"SELECT Id, PmisDocumentCode, OwnerType, OwnerId, DocumentName, DocumentType, ObjectKey, FileSize, SyncedAt
+            @"SELECT Id, PmisDocumentCode, OwnerType, OwnerId, DocumentName, DocumentType, ObjectKey, FileSize, SyncedAt, CreatedBy
               FROM PMIS_DOCUMENT WHERE Id = :Id AND IsDeleted = 0",
             new { Id = id.ToString() });
         return row == null ? null : ToDetail(row);
+    }
+
+    public async Task<Guid> InsertManualAsync(
+        string ownerType, Guid ownerId, string documentName, string? documentType, string objectKey, long fileSize, string uploadedBy)
+    {
+        EnsureOpen();
+
+        var id = Guid.NewGuid();
+        // Mã tự sinh, KHÔNG trùng mã PMIS thật (chỉ toàn số/chữ theo quy ước PMIS) — vẫn thoả
+        // UQ_PMIS_DOCUMENT_CODE, và tiền tố "MANUAL_" cho phép nhận ra ngay khi cần tra cứu thủ công.
+        var pmisDocumentCode = $"MANUAL_{id:N}";
+
+        await _connection.ExecuteAsync(@"
+            INSERT INTO PMIS_DOCUMENT (
+                Id, PmisDocumentCode, OwnerType, OwnerId, DocumentName, DocumentType, ObjectKey, FileSize, CreatedBy
+            ) VALUES (
+                :Id, :PmisDocumentCode, :OwnerType, :OwnerId, :DocumentName, :DocumentType, :ObjectKey, :FileSize, :CreatedBy
+            )",
+            new
+            {
+                Id = id.ToString(),
+                PmisDocumentCode = pmisDocumentCode,
+                OwnerType = ownerType,
+                OwnerId = ownerId.ToString(),
+                DocumentName = documentName,
+                DocumentType = documentType,
+                ObjectKey = objectKey,
+                FileSize = fileSize,
+                CreatedBy = uploadedBy
+            });
+
+        return id;
     }
 
     public async Task<IReadOnlyList<PmisDocumentCatalogNodeDto>> GetCatalogTreeAsync()
@@ -206,7 +238,7 @@ public class PmisDocumentRepository : IPmisDocumentRepository
             $"SELECT COUNT(1) FROM PMIS_DOCUMENT {whereSql}", parameters);
 
         var rows = await _connection.QueryAsync<PmisDocumentRow>(
-            $@"SELECT Id, PmisDocumentCode, OwnerType, OwnerId, DocumentName, DocumentType, ObjectKey, FileSize, SyncedAt
+            $@"SELECT Id, PmisDocumentCode, OwnerType, OwnerId, DocumentName, DocumentType, ObjectKey, FileSize, SyncedAt, CreatedBy
                FROM PMIS_DOCUMENT
                {whereSql}
                ORDER BY SyncedAt DESC
@@ -225,7 +257,8 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         DocumentType = row.DocumentType,
         ObjectKey = row.ObjectKey,
         FileSize = row.FileSize,
-        SyncedAt = row.SyncedAt
+        SyncedAt = row.SyncedAt,
+        IsManual = !string.Equals(row.CreatedBy, "PMIS_SYNC", StringComparison.OrdinalIgnoreCase)
     };
 
     private class PmisDocumentRow
@@ -239,6 +272,7 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         public string? ObjectKey { get; set; }
         public long? FileSize { get; set; }
         public DateTime SyncedAt { get; set; }
+        public string? CreatedBy { get; set; }
     }
 
     private class InfraCatalogRow

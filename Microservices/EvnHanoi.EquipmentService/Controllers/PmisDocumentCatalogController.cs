@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using EvnHanoi.EquipmentService.Core.Interfaces;
 using EvnHanoi.EquipmentService.Core.Services;
 using EvnHanoi.Infrastructure.Security;
@@ -21,16 +22,25 @@ public class PmisDocumentCatalogController : ControllerBase
     private readonly IPmisDocumentRepository _pmisDocumentRepository;
     private readonly IFileDownloadTokenService _downloadTokenService;
     private readonly IFileStorageService _fileStorageService;
+    private readonly IMimeTypeValidationService _mimeTypeValidationService;
+    private readonly IClamAvService _antivirusService;
 
     public PmisDocumentCatalogController(
         IPmisDocumentRepository pmisDocumentRepository,
         IFileDownloadTokenService downloadTokenService,
-        IFileStorageService fileStorageService)
+        IFileStorageService fileStorageService,
+        IMimeTypeValidationService mimeTypeValidationService,
+        IClamAvService antivirusService)
     {
         _pmisDocumentRepository = pmisDocumentRepository;
         _downloadTokenService = downloadTokenService;
         _fileStorageService = fileStorageService;
+        _mimeTypeValidationService = mimeTypeValidationService;
+        _antivirusService = antivirusService;
     }
+
+    private string UserId => User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value ?? "system";
+    private string? UserFullName => User.FindFirst("full_name")?.Value ?? User.FindFirst(ClaimTypes.Name)?.Value;
 
     [HttpGet("catalog/tree")]
     [BypassDynamicPermission]
@@ -60,6 +70,48 @@ public class PmisDocumentCatalogController : ControllerBase
 
         var (items, totalCount) = await _pmisDocumentRepository.GetByOwnerAsync(ownerType, ownerId.Value, keyword, page, pageSize);
         return Ok(new { items, totalCount, page, pageSize });
+    }
+
+    /// <summary>Nút "Upload tài liệu" thủ công trên "Kho tài liệu PMIS" — dùng khi đồng bộ tự động từ
+    /// PMIS lỗi (mạng, timeout, PMIS không có sẵn tài liệu...), cho phép người dùng tự bổ sung tài liệu
+    /// trực tiếp vào đúng Trạm/Đường dây/Thiết bị. Kiểm tra mimeType + virus giống hệt luồng upload tài
+    /// liệu hồ sơ (UploadFileToDossierDirectAsync) — tài liệu PMIS không có lý do gì được lỏng hơn.</summary>
+    [HttpPost("catalog/{folderId}/upload")]
+    [RequestSizeLimit(10_485_760)]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> UploadDocument(
+        string folderId,
+        [FromForm] IFormFile file,
+        [FromForm] string? documentName,
+        [FromForm] string? documentType,
+        CancellationToken cancellationToken)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { message = "File không được để trống." });
+
+        var (ownerType, ownerId) = ResolveOwner(folderId);
+        if (ownerType == null || ownerId == null)
+            return BadRequest(new { message = "Chỉ upload được vào đúng 1 Trạm biến áp, Đường dây hoặc Thiết bị cụ thể." });
+
+        if (!await _mimeTypeValidationService.IsAllowedMimeTypeAsync(file.ContentType))
+            return BadRequest(new { message = $"Loại file không được hỗ trợ: {file.ContentType}" });
+
+        var finalName = string.IsNullOrWhiteSpace(documentName) ? file.FileName : documentName;
+
+        await using var stream = file.OpenReadStream();
+
+        var scanResult = await _antivirusService.ScanFileAsync(stream, file.FileName, cancellationToken);
+        if (!scanResult.IsClean)
+            return BadRequest(new { message = $"File bị phát hiện chứa mã độc: {scanResult.Threat}" });
+
+        stream.Seek(0, SeekOrigin.Begin);
+        var (objectKey, _) = await _fileStorageService.UploadPmisDocumentAsync(
+            stream, finalName, file.ContentType, file.Length, ownerType, ownerId.Value, cancellationToken);
+
+        var id = await _pmisDocumentRepository.InsertManualAsync(
+            ownerType, ownerId.Value, finalName, documentType, objectKey, file.Length, UserFullName ?? UserId);
+
+        return Ok(new { id, documentName = finalName });
     }
 
     /// <summary>Tạo download token 1 lần (giống hệt cơ chế FileDownloadTokenController dùng cho "Kho tài

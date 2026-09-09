@@ -36,6 +36,8 @@ DECLARE
     v_exists_count  NUMBER;
     v_new_id        VARCHAR2(36);
     v_raw           VARCHAR2(32);
+    v_pmis_clob     CLOB; -- KHÔNG được gọi v_pmis.to_clob() trực tiếp trong câu SQL (ORA-40573) — phải
+                          -- gán ra biến CLOB thuần bằng 1 câu lệnh PL/SQL riêng trước.
 
     -- Ưu tiên name -> key -> id -> fieldName, đúng logic ResolveSchemaFieldName phía backend
     -- (EavSchemaHelper) — field tự sinh (auto-form) có name rỗng nên khoá thật là "id" ngẫu nhiên.
@@ -148,11 +150,14 @@ BEGIN
 
     -- 4) Ghi vào EQUIPMENT_PMIS_SPEC (giống hệt cách PmisEquipmentSpecRepository.UpsertAsync ghi khi
     -- đồng bộ thật — 1 dòng/thiết bị, ghi đè mỗi lần).
+    v_pmis_clob := v_pmis.to_clob(); -- gán ra CLOB thuần TRƯỚC (câu lệnh PL/SQL riêng), không gọi trực
+                                     -- tiếp trong SQL bên dưới vì Oracle chặn (ORA-40573).
+
     SELECT COUNT(*) INTO v_exists_count FROM EQUIPMENT_PMIS_SPEC WHERE EquipmentId = v_equipment_id;
 
     IF v_exists_count > 0 THEN
         UPDATE EQUIPMENT_PMIS_SPEC
-           SET FormValues = v_pmis.to_clob(),
+           SET FormValues = v_pmis_clob,
                SyncedAt = SYSTIMESTAMP,
                SyncHistoryId = NULL,
                RowVersion = RowVersion + 1,
@@ -164,7 +169,7 @@ BEGIN
         v_new_id := LOWER(SUBSTR(v_raw,1,8)||'-'||SUBSTR(v_raw,9,4)||'-'||SUBSTR(v_raw,13,4)||'-'||SUBSTR(v_raw,17,4)||'-'||SUBSTR(v_raw,21,12));
 
         INSERT INTO EQUIPMENT_PMIS_SPEC (Id, EquipmentId, FormValues, SyncedAt, CreatedBy)
-        VALUES (v_new_id, v_equipment_id, v_pmis.to_clob(), SYSTIMESTAMP, 'TEST_SCRIPT');
+        VALUES (v_new_id, v_equipment_id, v_pmis_clob, SYSTIMESTAMP, 'TEST_SCRIPT');
     END IF;
 
     COMMIT;
