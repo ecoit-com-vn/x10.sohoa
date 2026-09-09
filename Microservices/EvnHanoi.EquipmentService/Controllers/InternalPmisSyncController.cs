@@ -3,6 +3,7 @@ using System.Text.Json;
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Interfaces;
 using EvnHanoi.EquipmentService.Core.Services;
+using EvnHanoi.Infrastructure.Messaging;
 using EvnHanoi.Infrastructure.Security;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
@@ -30,6 +31,7 @@ public class InternalPmisSyncController : ControllerBase
     private readonly IPmisDocumentRepository _pmisDocumentRepository;
     private readonly IFileStorageService _fileStorageService;
     private readonly IConfiguration _configuration;
+    private readonly IMessageProducer _messageProducer;
 
     public InternalPmisSyncController(
         IInfrastructureRepository infrastructureRepository,
@@ -40,7 +42,8 @@ public class InternalPmisSyncController : ControllerBase
         IEavFormTemplateService eavFormTemplateService,
         IPmisDocumentRepository pmisDocumentRepository,
         IFileStorageService fileStorageService,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IMessageProducer messageProducer)
     {
         _infrastructureRepository = infrastructureRepository;
         _equipmentRepository = equipmentRepository;
@@ -51,6 +54,7 @@ public class InternalPmisSyncController : ControllerBase
         _pmisDocumentRepository = pmisDocumentRepository;
         _fileStorageService = fileStorageService;
         _configuration = configuration;
+        _messageProducer = messageProducer;
     }
 
     [HttpGet("infrastructure/synced-pmis-codes")]
@@ -129,6 +133,47 @@ public class InternalPmisSyncController : ControllerBase
                     continue;
                 }
 
+                if (upsertResult.WasTransferred)
+                {
+                    // Tái nạp đầy đủ dữ liệu bản ghi cũ/mới (thay vì tự dựng object rút gọn) — worker
+                    // EquipmentIndexWorker REPLACE nguyên document Elasticsearch theo đúng payload gửi lên,
+                    // gửi thiếu trường sẽ làm mất dữ liệu đã index trước đó, không phải update từng phần.
+                    try
+                    {
+                        var oldEquipment = await _equipmentRepository.GetByIdAsync(upsertResult.OldEquipmentId!.Value);
+                        if (oldEquipment != null)
+                            await _messageProducer.SendMessageAsync(oldEquipment, "equipment_sync_queue");
+
+                        var newEquipment = await _equipmentRepository.GetByIdAsync(upsertResult.EquipmentId!.Value);
+                        if (newEquipment != null)
+                            await _messageProducer.SendMessageAsync(newEquipment, "equipment_sync_queue");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "InternalPmisSyncController: lỗi khi gửi message đồng bộ index cho thiết bị {PmisCode} sau khi chuyển TBA tự động.", item.PmisCode);
+                    }
+
+                    try
+                    {
+                        await _messageProducer.PublishToExchangeAsync(
+                            new EquipmentTbaTransferredEvent
+                            {
+                                EquipmentId = upsertResult.EquipmentId!.Value,
+                                EquipmentCode = item.Code,
+                                OldUnitId = upsertResult.OldUnitId,
+                                NewUnitId = upsertResult.NewUnitId,
+                                ActorUserId = "PMIS_SYNC",
+                                Timestamp = DateTime.UtcNow
+                            },
+                            NotificationTopicTopology.ExchangeName,
+                            NotificationTopicTopology.EquipmentTbaTransferredRoutingKey);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "InternalPmisSyncController: lỗi khi phát sự kiện chuyển TBA tự động cho thiết bị {PmisCode}.", item.PmisCode);
+                    }
+                }
+
                 // Thông số kỹ thuật lưu riêng — KHÔNG ghi đè EQUIPMENTS.FormValues (dữ liệu người dùng chỉnh sửa nội bộ).
                 if (!string.IsNullOrWhiteSpace(item.ThongSoKyThuat))
                 {
@@ -140,6 +185,23 @@ public class InternalPmisSyncController : ControllerBase
                 if (upsertResult.EquipmentTypeId is Guid equipmentTypeId && !string.IsNullOrWhiteSpace(item.ThongSoKyThuat))
                 {
                     await EnsureAutoFormTemplateAsync(equipmentTypeId, item.ThongSoKyThuat);
+                }
+
+                // Thiết bị chưa có thông số nào (FORM_VALUES NULL — mới tạo, hoặc chưa ai nhập tay) thì lấy
+                // luôn dữ liệu PMIS làm giá trị mặc định, khớp đúng field theo FormSchema hiện hành (đến
+                // đây template chắc chắn đã tồn tại, kể cả vừa mới tự tạo ở bước trên). KHÔNG bao giờ ghi
+                // đè nếu đã có dữ liệu — SetFormValuesIfEmptyAsync tự bảo đảm điều đó ở tầng SQL.
+                if (!string.IsNullOrWhiteSpace(item.ThongSoKyThuat) && upsertResult.EquipmentId is Guid equipmentIdForDefaults)
+                {
+                    var equipmentDto = await _equipmentRepository.GetDtoByIdAsync(equipmentIdForDefaults);
+                    if (equipmentDto != null && string.IsNullOrWhiteSpace(equipmentDto.FormValues) && !string.IsNullOrWhiteSpace(equipmentDto.FormSchema))
+                    {
+                        var defaultFormValues = BuildDefaultFormValuesFromPmisSpec(equipmentDto.FormSchema!, item.ThongSoKyThuat);
+                        if (defaultFormValues != null)
+                        {
+                            await _equipmentRepository.SetFormValuesIfEmptyAsync(equipmentIdForDefaults, defaultFormValues);
+                        }
+                    }
                 }
 
                 results.Add(new UpsertEquipmentFromPmisResult
@@ -329,6 +391,41 @@ public class InternalPmisSyncController : ControllerBase
             }
 
             return fields.Count > 0 ? JsonSerializer.Serialize(fields) : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Dựng EQUIPMENTS.FormValues mặc định từ thongSoKyThuat PMIS, khớp đúng từng field trong formSchema
+    /// theo CÙNG logic khoá đang dùng để đọc lại giá trị (EavSchemaHelper.ResolveSchemaFieldName —
+    /// name → key → id → fieldName) — field tự sinh bởi BuildAutoFormFieldsFromPmisSpec có name rỗng nên
+    /// khoá thật là "id" ngẫu nhiên, không phải mã PMIS; nếu tự đoán sai khoá thì FE sẽ không hiển thị
+    /// được giá trị vừa ghi. Tra giá trị PMIS theo pmisFieldName (ưu tiên) hoặc khoá đã resolve (fallback).
+    /// </summary>
+    private static string? BuildDefaultFormValuesFromPmisSpec(string formSchemaJson, string thongSoKyThuatJson)
+    {
+        try
+        {
+            using var pmisDoc = JsonDocument.Parse(thongSoKyThuatJson);
+            if (pmisDoc.RootElement.ValueKind != JsonValueKind.Object) return null;
+
+            var formValues = new Dictionary<string, object?>();
+            foreach (var field in EavSchemaHelper.EnumerateSchemaFields(formSchemaJson))
+            {
+                var localKey = EavSchemaHelper.ResolveSchemaFieldName(field);
+                if (string.IsNullOrWhiteSpace(localKey)) continue;
+
+                var pmisKey = EavSchemaHelper.ReadSchemaString(field, "pmisFieldName", "PmisFieldName") ?? localKey;
+                if (!EavSchemaHelper.TryGetPropertyIgnoreCase(pmisDoc.RootElement, pmisKey, out var pmisValue)) continue;
+                if (pmisValue.ValueKind == JsonValueKind.Null) continue;
+
+                formValues[localKey] = pmisValue.ValueKind == JsonValueKind.String ? pmisValue.GetString() : pmisValue.ToString();
+            }
+
+            return formValues.Count > 0 ? JsonSerializer.Serialize(formValues) : null;
         }
         catch (JsonException)
         {

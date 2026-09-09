@@ -15,8 +15,23 @@ public class EquipmentPmisUpsertResult
     /// — dùng ở tầng controller để tự tạo biểu mẫu thông số kỹ thuật nếu loại thiết bị chưa có.</summary>
     public Guid? EquipmentTypeId { get; set; }
 
+    /// <summary>true nếu PMIS báo thiết bị đã đổi Trạm/Đường dây — <see cref="EquipmentId"/> ở trên là bản
+    /// ghi MỚI vừa tạo (không phải bản ghi đang đồng bộ), bản ghi cũ (<see cref="OldEquipmentId"/>) đã bị
+    /// đánh dấu StatusTransition=0 "Đã chuyển TBA". Dùng ở tầng controller để phát sự kiện thông báo.</summary>
+    public bool WasTransferred { get; set; }
+    public Guid? OldEquipmentId { get; set; }
+    public long? OldUnitId { get; set; }
+    public long? NewUnitId { get; set; }
+
     public static EquipmentPmisUpsertResult Ok(Guid id, bool wasCreated, bool hasChanged, Guid equipmentTypeId) =>
         new() { Success = true, EquipmentId = id, WasCreated = wasCreated, HasChanged = hasChanged, EquipmentTypeId = equipmentTypeId };
+
+    public static EquipmentPmisUpsertResult Transferred(Guid newId, Guid equipmentTypeId, Guid oldEquipmentId, long? oldUnitId, long? newUnitId) =>
+        new()
+        {
+            Success = true, EquipmentId = newId, WasCreated = true, HasChanged = true, EquipmentTypeId = equipmentTypeId,
+            WasTransferred = true, OldEquipmentId = oldEquipmentId, OldUnitId = oldUnitId, NewUnitId = newUnitId
+        };
 
     public static EquipmentPmisUpsertResult Fail(string message) =>
         new() { Success = false, ErrorMessage = message };

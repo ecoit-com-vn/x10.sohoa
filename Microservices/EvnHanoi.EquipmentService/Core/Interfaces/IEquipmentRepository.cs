@@ -65,4 +65,8 @@ public interface IEquipmentRepository
         string pmisCode, string code, string name, string? serialNumber,
         string equipmentTypeCode, string? parentPmisCode, string? unitCode,
         int? manufactureYear, string? qrCodeBase64, int? gridTypeId = null, string? equipmentTypeName = null);
+
+    /// <summary>Ghi FormValues mặc định từ PMIS — CHỈ áp dụng khi thiết bị chưa từng có thông số nào
+    /// (FORM_VALUES đang NULL), không bao giờ ghi đè dữ liệu người dùng đã tự nhập/sửa.</summary>
+    Task<bool> SetFormValuesIfEmptyAsync(Guid equipmentId, string formValuesJson);
 }
