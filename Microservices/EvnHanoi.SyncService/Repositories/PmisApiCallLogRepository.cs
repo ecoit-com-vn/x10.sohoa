@@ -18,10 +18,13 @@ public class PmisApiCallLogRepository : IPmisApiCallLogRepository
         EnsureOpen();
         var id = string.IsNullOrWhiteSpace(log.Id) ? Guid.CreateVersion7().ToString() : log.Id;
 
+        // RECORD_COUNT (có gạch dưới) — khác quy ước không gạch dưới của các cột còn lại trong bảng này,
+        // vì cột được thêm sau bằng ALTER TABLE (Migration0009) lỡ đặt tên khác — không đổi lại tên cột
+        // thật (đã chạy thật trên môi trường), chỉ khớp đúng tên trong code.
         const string sql = @"
             INSERT INTO PMIS_API_CALL_LOG (
                 Id, ApiCode, HttpMethod, Url, RequestPayload, StatusCode, IsSuccess, ErrorMessage,
-                DurationMs, HttpClientName, RecordCount
+                DurationMs, HttpClientName, RECORD_COUNT
             ) VALUES (
                 :Id, :ApiCode, :HttpMethod, :Url, :RequestPayload, :StatusCode, :IsSuccess, :ErrorMessage,
                 :DurationMs, :HttpClientName, :RecordCount
@@ -56,7 +59,7 @@ public class PmisApiCallLogRepository : IPmisApiCallLogRepository
 
         var items = await _connection.QueryAsync<PmisApiCallLog>(@"
             SELECT Id, ApiCode, HttpMethod, Url, RequestPayload, StatusCode, IsSuccess, ErrorMessage,
-                   DurationMs, HttpClientName, CalledAt, RecordCount
+                   DurationMs, HttpClientName, CalledAt, RECORD_COUNT AS RecordCount
             FROM PMIS_API_CALL_LOG
             WHERE ApiCode = :ApiCode
             ORDER BY CalledAt DESC
