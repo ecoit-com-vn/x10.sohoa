@@ -51,3 +51,27 @@ public class PmisManualSaveResponse
     public int FailedCount { get; set; }
     public List<string> Errors { get; set; } = [];
 }
+
+/// <summary>Payload nút "Cập nhật từ PMIS" trên trang chi tiết 1 thiết bị — 2 mã này FE đã có sẵn từ
+/// EquipmentDto (PmisCode/ParentPmisCode), không cần SyncService tự tra lại qua EquipmentService.</summary>
+public class PmisRefreshEquipmentRequest
+{
+    public string PmisCode { get; set; } = string.Empty;
+    public string? ParentPmisCode { get; set; }
+
+    /// <summary>true nếu thiết bị thuộc Trạm biến áp, false nếu thuộc Đường dây — quyết định API tài liệu
+    /// đính kèm nào (SUBSTATION_DOCUMENT_LIST/LINE_DOCUMENT_LIST) và nhánh xử lý trong SyncEquipmentAsync.</summary>
+    public bool IsSubstationDevice { get; set; }
+}
+
+public class PmisRefreshEquipmentResponse
+{
+    public bool Success { get; set; }
+    public string? Message { get; set; }
+    public string SyncHistoryId { get; set; } = string.Empty;
+
+    /// <summary>Id thiết bị SAU khi cập nhật — có thể KHÁC id thiết bị đang xem nếu PMIS báo đổi trạm/đường
+    /// dây và hệ thống tự tạo bản ghi mới (xem UpsertFromPmisAsync). FE phải dùng id này để tải lại trang
+    /// chi tiết, không được giả định id không đổi.</summary>
+    public string? EquipmentId { get; set; }
+}
