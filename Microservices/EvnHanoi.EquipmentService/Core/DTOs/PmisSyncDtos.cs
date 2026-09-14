@@ -186,3 +186,44 @@ public class PmisDocumentCatalogNodeDto
     /// <summary>Số tài liệu PMIS gắn TRỰC TIẾP vào node này (chỉ có ý nghĩa với substation/line/equipment — unit luôn 0).</summary>
     public int DocumentCount { get; set; }
 }
+
+/// <summary>1 dòng PMIS_UNIT_CODE_MAPPING (ánh xạ mã đơn vị PMIS ↔ UnitId thật) — xem Migration0051 và
+/// PmisUnitCodeMappingController.</summary>
+public class PmisUnitCodeMappingDto
+{
+    public Guid Id { get; set; }
+    public string PmisUnitCode { get; set; } = string.Empty;
+    public long UnitId { get; set; }
+    public string? UnitName { get; set; }
+    public string? UnitCode { get; set; }
+    public string? Note { get; set; }
+    public DateTime CreatedDate { get; set; }
+}
+
+/// <summary>Payload POST api/v1/pmis-unit-code-mapping — thêm 1 đơn vị PMIS chưa có ánh xạ.</summary>
+public class CreatePmisUnitCodeMappingRequest
+{
+    public string PmisUnitCode { get; set; } = string.Empty;
+    public long UnitId { get; set; }
+    public string? Note { get; set; }
+}
+
+public enum PmisUnitCodeMappingCreateError
+{
+    None,
+
+    /// <summary>PmisUnitCode đã có ánh xạ khác (UQ_PMIS_UNIT_CODE_MAPPING_CODE).</summary>
+    DuplicateCode,
+
+    /// <summary>UnitId gửi lên không khớp đơn vị thật nào (tránh để lộ lỗi FK Oracle thô ra response).</summary>
+    UnitNotFound
+}
+
+public class CreatePmisUnitCodeMappingResult
+{
+    public Guid? Id { get; set; }
+    public PmisUnitCodeMappingCreateError Error { get; set; } = PmisUnitCodeMappingCreateError.None;
+
+    public static CreatePmisUnitCodeMappingResult Ok(Guid id) => new() { Id = id };
+    public static CreatePmisUnitCodeMappingResult Fail(PmisUnitCodeMappingCreateError error) => new() { Error = error };
+}
