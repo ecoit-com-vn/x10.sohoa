@@ -72,6 +72,21 @@ public class TransmissionLineController : ControllerBase
         // Force Transmission Line type
         infrastructure.InfraTypeId = INFRA_TYPE_ID;
 
+        // Kiểm tra phân cấp tối đa 2 cấp
+        if (infrastructure.ParentId.HasValue && infrastructure.ParentId.Value != Guid.Empty)
+        {
+            var parent = await _infrastructureRepository.GetByIdAsync(infrastructure.ParentId.Value);
+            if (parent == null || parent.InfraTypeId != INFRA_TYPE_ID)
+                return BadRequest(new { message = "Đường dây cấp cha không tồn tại hoặc không hợp lệ." });
+
+            if (parent.ParentId.HasValue && parent.ParentId.Value != Guid.Empty)
+                return BadRequest(new { message = "Đường dây được chọn làm cấp cha đã là đường dây con. Hệ thống chỉ cho phép tối đa 2 cấp đường dây." });
+        }
+        else
+        {
+            infrastructure.ParentId = null;
+        }
+
         // Verify code uniqueness
         var existing = await _infrastructureRepository.GetByCodeAsync(infrastructure.Code);
         if (existing != null)
@@ -100,6 +115,24 @@ public class TransmissionLineController : ControllerBase
 
         // Force Transmission Line type
         infrastructure.InfraTypeId = INFRA_TYPE_ID;
+
+        // Kiểm tra phân cấp tối đa 2 cấp
+        if (infrastructure.ParentId.HasValue && infrastructure.ParentId.Value != Guid.Empty)
+        {
+            if (infrastructure.ParentId.Value == id)
+                return BadRequest(new { message = "Đường dây không thể chọn chính nó làm cấp cha." });
+
+            var parent = await _infrastructureRepository.GetByIdAsync(infrastructure.ParentId.Value);
+            if (parent == null || parent.InfraTypeId != INFRA_TYPE_ID)
+                return BadRequest(new { message = "Đường dây cấp cha không tồn tại hoặc không hợp lệ." });
+
+            if (parent.ParentId.HasValue && parent.ParentId.Value != Guid.Empty)
+                return BadRequest(new { message = "Đường dây được chọn làm cấp cha đã là đường dây con. Hệ thống chỉ cho phép tối đa 2 cấp đường dây." });
+        }
+        else
+        {
+            infrastructure.ParentId = null;
+        }
 
         var existing = await _infrastructureRepository.GetByCodeAsync(infrastructure.Code);
         if (existing != null && existing.Id != id)

@@ -42,4 +42,5 @@ public static class AuditLogGroups
 {
     public const string Operation = "THAO_TAC";
     public const string Business = "NGHIEP_VU";
+    public const string Sso = "DANG_NHAP";
 }
