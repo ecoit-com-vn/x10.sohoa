@@ -303,7 +303,6 @@
             </td>
             <td>
               <div [class.child-code-prefix]="level > 0">
-                <i *ngIf="level > 0" class="pi pi-minus" style="font-size: 0.65rem; color: #94a3b8; margin-right: 4px;"></i>
                 <a
                   class="wf-link"
                   style="
@@ -333,8 +332,7 @@
                 ></span>
                 <i
                   *ngIf="!(node.children?.length > 0)"
-                  [class]="level === 0 ? 'pi pi-bolt' : 'pi pi-minus'"
-                  class="line-item-icon"
+                  class="pi pi-bolt line-item-icon"
                   [class.child-icon]="level > 0"
                 ></i>
                 <i
