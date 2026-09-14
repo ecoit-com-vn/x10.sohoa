@@ -789,3 +789,85 @@
     flex-direction: column;
   }
 }
+
+/* ── Transmission Line Tree Table Styles (like Menu Management) ── */
+.line-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.line-item-icon {
+  color: #002D72;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+
+  &.child-icon {
+    color: #64748b;
+    font-size: 0.85rem;
+  }
+}
+
+.chevron-icon {
+  color: #64748b;
+  font-size: 0.85rem;
+  width: 14px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.15s ease-in-out;
+
+  &:hover {
+    color: #002D72;
+  }
+}
+
+.chevron-placeholder {
+  display: inline-block;
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.line-row-parent {
+  background: #ffffff;
+
+  &.line-row-expandable {
+    cursor: pointer;
+
+    &:hover {
+      background: #f8fafc;
+    }
+  }
+}
+
+.line-row-child {
+  background: #fbfdff;
+
+  td {
+    border-top: 1px dashed #e2e8f0;
+  }
+
+  &:hover {
+    background: #f1f5f9;
+  }
+}
+
+.child-count-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  font-size: 0.72rem;
+  font-weight: 500;
+  margin-left: 4px;
+  white-space: nowrap;
+}
+
+.child-code-prefix {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 8px;
+}

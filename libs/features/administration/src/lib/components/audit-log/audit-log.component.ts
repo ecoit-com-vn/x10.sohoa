@@ -19,6 +19,7 @@ import { environment } from '@env/environment';
 
 const LOG_GROUP_OPERATION = 'THAO_TAC';
 const LOG_GROUP_BUSINESS = 'NGHIEP_VU';
+const LOG_GROUP_SSO = 'DANG_NHAP';
 
 interface AuditLogView {
   id: string;
@@ -53,7 +54,7 @@ interface AuditLogView {
   styleUrl: './audit-log.component.scss'
 })
 export class AuditLogComponent implements OnInit {
-  activeTab = signal<'0' | '1'>('0');
+  activeTab = signal<'0' | '1' | '2'>('0');
   appliedLogGroup = signal(LOG_GROUP_OPERATION);
 
   searchTerm = signal('');
@@ -215,8 +216,12 @@ export class AuditLogComponent implements OnInit {
   }
 
   onTabChange(value: string | number | undefined) {
-    const tab = String(value) === '1' ? '1' : '0';
-    const logGroup = tab === '1' ? LOG_GROUP_BUSINESS : LOG_GROUP_OPERATION;
+    const tabStr = String(value);
+    const tab: '0' | '1' | '2' = tabStr === '1' ? '1' : (tabStr === '2' ? '2' : '0');
+    let logGroup = LOG_GROUP_OPERATION;
+    if (tab === '1') logGroup = LOG_GROUP_BUSINESS;
+    else if (tab === '2') logGroup = LOG_GROUP_SSO;
+
     this.activeTab.set(tab);
     this.appliedLogGroup.set(logGroup);
     this.currentPage.set(1);

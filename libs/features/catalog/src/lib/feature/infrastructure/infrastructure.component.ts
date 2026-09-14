@@ -99,9 +99,109 @@ export class InfrastructureComponent implements OnInit {
   currentItem = signal<any>({});
   isSaving = signal<boolean>(false);
 
+  // Danh sách các đường dây cấp 1 (làm cha)
+  parentLineOptions = signal<any[]>([]);
+
+  // Lọc chỉ những đường dây cấp 1, và khi sửa thì loại bỏ chính bản thân nó
+  eligibleParentLines = computed(() => {
+    const currentId = this.currentItem()?.id;
+    return this.parentLineOptions().filter(line => {
+      // Chỉ lấy đường dây cấp 1 (chưa có parentId)
+      const isLevel1 = !line.parentId;
+      // Không cho phép tự chọn chính mình
+      const notSelf = !currentId || line.id !== currentId;
+      return isLevel1 && notSelf;
+    });
+  });
+
   // Pagination
   currentPage = signal<number>(1);
   pageSize = signal<number>(10);
+
+  // Transmission Line Tree Table Signals
+  expandedLineIds = signal<Set<string>>(new Set<string>());
+
+  transmissionLineTree = computed(() => {
+    const list = this.items() || [];
+    if (!list.length) return [];
+
+    const map = new Map<string, any>();
+    list.forEach(item => {
+      map.set(item.id, { ...item, children: [] });
+    });
+
+    const roots: any[] = [];
+    map.forEach(node => {
+      if (node.parentId && map.has(node.parentId)) {
+        map.get(node.parentId).children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+
+    return roots;
+  });
+
+  toggleLineGroup(lineId: string, event?: Event) {
+    if (event) event.stopPropagation();
+    this.expandedLineIds.update((prev) => {
+      const next = new Set(prev);
+      if (next.has(lineId)) {
+        next.delete(lineId);
+      } else {
+        next.add(lineId);
+      }
+      return next;
+    });
+  }
+
+  isLineExpanded(lineId: string): boolean {
+    return this.expandedLineIds().has(lineId);
+  }
+
+  onParentLineRowClick(node: any) {
+    if (node.children && node.children.length > 0) {
+      this.toggleLineGroup(node.id);
+    }
+  }
+
+  getLineSTT(node: any, level: number, rootIndex?: number, childIndex?: number): string {
+    const base = (this.currentPage() - 1) * this.pageSize() + (rootIndex ?? 0) + 1;
+    if (level === 0) {
+      return `${base}`;
+    }
+    return `${base}.${(childIndex ?? 0) + 1}`;
+  }
+
+  syncExpandedLines() {
+    const kw = this.searchKeyword().trim();
+    if (!kw) return;
+
+    const ids = new Set<string>();
+    const collect = (nodes: any[]) => {
+      nodes.forEach((node) => {
+        if (node.children && node.children.length > 0) {
+          ids.add(node.id);
+        }
+        collect(node.children || []);
+      });
+    };
+    collect(this.transmissionLineTree());
+    this.expandedLineIds.set(ids);
+  }
+
+  onAddNewChild(parentItem: any) {
+    this.loadParentLineOptions();
+    this.currentItem.set({
+      isActive: true,
+      parentId: parentItem.id,
+      gridTypeId: parentItem.gridTypeId,
+      unitId: parentItem.unitId
+    });
+    this.formSubmitted.set(false);
+    this.serverErrors.set({});
+    this.currentView.set('add');
+  }
 
   // Form Validation
   formSubmitted = signal<boolean>(false);
@@ -384,6 +484,12 @@ export class InfrastructureComponent implements OnInit {
     event.stopPropagation();
     this.actionMenuItems = [
       { label: 'Xem chi tiết', title: 'Xem chi tiết', icon: 'pi pi-eye color-teal', command: () => this.onViewDetail(item) },
+      ...(this.infraTypeId() === 2 && !item.parentId && this.canCreate() ? [{
+        label: 'Thêm nhánh con',
+        title: 'Thêm nhánh con',
+        icon: 'pi pi-plus color-teal',
+        command: () => this.onAddNewChild(item)
+      }] : []),
       ...(this.canEdit() ? [{ label: 'Chỉnh sửa', title: 'Chỉnh sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
       ...(this.canManage() 
       ? [{ label: (item.isActive === 1 || item.isActive === true) 
@@ -480,6 +586,7 @@ export class InfrastructureComponent implements OnInit {
         this.searchStatus.set('');
         this.searchUnitId.set(null);
         this.searchOrgSearchKeyword.set('');
+        this.loadParentLineOptions();
       }
     });
 
@@ -552,6 +659,20 @@ export class InfrastructureComponent implements OnInit {
       },
       error: () => {
         console.error('Không thể tải danh sách loại thiết bị');
+      }
+    });
+  }
+
+  loadParentLineOptions() {
+    // Chỉ tải khi đang ở màn hình đường dây (infraTypeId === 2)
+    if (this.infraTypeId() !== 2) return;
+    this.infraService.getLookup(2).subscribe({
+      next: (data) => {
+        const list = Array.isArray(data) ? data : (data as any)?.items || [];
+        this.parentLineOptions.set(list);
+      },
+      error: () => {
+        console.error('Không thể tải danh sách đường dây cấp cha');
       }
     });
   }
@@ -713,6 +834,9 @@ export class InfrastructureComponent implements OnInit {
         if (res) {
           this.items.set(res.items || []);
           this.totalCount.set(res.totalCount || 0);
+          if (this.infraTypeId() === 2) {
+            this.syncExpandedLines();
+          }
         }
       },
       error: () => {
@@ -785,9 +909,11 @@ export class InfrastructureComponent implements OnInit {
   }
 
   onAddNew() {
+    this.loadParentLineOptions();
     this.currentItem.set({
       isActive: true,
       infraTypeId: this.infraTypeId(),
+      parentId: null,
       unitId: null,
       gridTypeId: null,
       address: '',
@@ -802,8 +928,10 @@ export class InfrastructureComponent implements OnInit {
   }
 
   onEdit(item: any) {
+    this.loadParentLineOptions();
     this.currentItem.set({
       ...item,
+      parentId: item.parentId || null,
       operationDate: item.operationDate ? new Date(item.operationDate) : null
     });
     this.orgTreePickerOpen.set(false);
@@ -862,6 +990,7 @@ export class InfrastructureComponent implements OnInit {
       id: item.id,
       code: item.code.trim(),
       name: item.name.trim(),
+      parentId: this.infraTypeId() === 2 ? (item.parentId || null) : null,
       address: item.address ? item.address.trim() : null,
       infraTypeId: this.infraTypeId(),
       unitId: item.unitId || null,
@@ -885,6 +1014,7 @@ export class InfrastructureComponent implements OnInit {
         });
         this.currentView.set('list');
         this.loadItems();
+        this.loadParentLineOptions();
       },
       error: (err) => {
         let errorsObj = {};

@@ -80,4 +80,12 @@ export class InfrastructureService {
   getEquipmentTypes(): Observable<any[]> {
     return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/equipment/get-equipment-types`);
   }
+
+  getLookup(infraTypeId: number, keyword?: string): Observable<any[]> {
+    let params = new HttpParams();
+    if (keyword && keyword.trim()) {
+      params = params.set('keyword', keyword.trim());
+    }
+    return this.http.get<any[]>(`${this.getBaseUrl(infraTypeId)}/lookup`, { params });
+  }
 }
