@@ -755,13 +755,23 @@ export class DocumentManagementComponent implements OnInit {
         this.showDeleteFolderConfirm.set(false);
         this.deleteTargetFolder.set(null);
 
-        if (this.selectedFolder()?.id === folder.id) {
+        const currentSelected = this.selectedFolder();
+        const isCurrentOrDescendant = currentSelected && (
+          currentSelected.id === folder.id ||
+          findBreadcrumbPath(currentSelected.id, this.flatFolderList()).some(f => f.id === folder.id)
+        );
+
+        if (isCurrentOrDescendant) {
           const parent = folder.parentId
             ? this.flatFolderList().find(f => f.id === folder.parentId) ?? null
             : null;
           this.selectedFolder.set(parent);
           this.first.set(0);
         }
+
+        const expanded = new Set(this.expandedFolders());
+        expanded.delete(folder.id);
+        this.expandedFolders.set(expanded);
 
         this.loadFolderTree();
       },
