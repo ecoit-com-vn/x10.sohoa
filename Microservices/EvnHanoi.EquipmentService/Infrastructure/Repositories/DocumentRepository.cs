@@ -272,23 +272,83 @@ public class DocumentRepository : IDocumentRepository
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
-        var sql = @"
-            UPDATE FOLDERS
-            SET 
-                IS_DELETED = 1,
-                ROW_VERSION = ROW_VERSION + 1,
-                MODIFIED_BY = :ModifiedBy,
-                MODIFIED_DATE = SYSTIMESTAMP
-            WHERE ID = :Id 
-              AND IS_DELETED = 0";
-
-        var rowsAffected = await _connection.ExecuteAsync(sql, new
+        using var transaction = _connection.BeginTransaction();
+        try
         {
-            Id = id.ToString(),
-            ModifiedBy = modifiedBy
-        });
+            // 1. Soft delete tất cả tài liệu nằm trong thư mục này và mọi cấp thư mục con cháu
+            var updateDocsSql = @"
+                UPDATE DOCUMENTS
+                SET 
+                    IS_DELETED = 1,
+                    ROW_VERSION = ROW_VERSION + 1,
+                    MODIFIED_BY = :ModifiedBy,
+                    MODIFIED_DATE = SYSTIMESTAMP
+                WHERE FOLDER_ID IN (
+                    SELECT ID
+                    FROM FOLDERS
+                    START WITH ID = :Id
+                    CONNECT BY NOCYCLE PRIOR ID = PARENT_ID
+                )
+                AND IS_DELETED = 0";
 
-        return rowsAffected > 0;
+            await _connection.ExecuteAsync(updateDocsSql, new
+            {
+                Id = id.ToString(),
+                ModifiedBy = modifiedBy
+            }, transaction);
+
+            // 2. Soft delete phân quyền gán thư mục (nếu có) của thư mục này và mọi cấp thư mục con cháu
+            var updateAllocationsSql = @"
+                UPDATE FOLDER_USER_ALLOCATIONS
+                SET 
+                    IS_DELETED = 1,
+                    ROW_VERSION = ROW_VERSION + 1,
+                    MODIFIED_BY = :ModifiedBy,
+                    MODIFIED_DATE = SYSTIMESTAMP
+                WHERE FOLDER_ID IN (
+                    SELECT ID
+                    FROM FOLDERS
+                    START WITH ID = :Id
+                    CONNECT BY NOCYCLE PRIOR ID = PARENT_ID
+                )
+                AND IS_DELETED = 0";
+
+            await _connection.ExecuteAsync(updateAllocationsSql, new
+            {
+                Id = id.ToString(),
+                ModifiedBy = modifiedBy
+            }, transaction);
+
+            // 3. Soft delete thư mục cha và tất cả các cấp thư mục con cháu
+            var updateFoldersSql = @"
+                UPDATE FOLDERS
+                SET 
+                    IS_DELETED = 1,
+                    ROW_VERSION = ROW_VERSION + 1,
+                    MODIFIED_BY = :ModifiedBy,
+                    MODIFIED_DATE = SYSTIMESTAMP
+                WHERE ID IN (
+                    SELECT ID
+                    FROM FOLDERS
+                    START WITH ID = :Id
+                    CONNECT BY NOCYCLE PRIOR ID = PARENT_ID
+                )
+                AND IS_DELETED = 0";
+
+            var rowsAffected = await _connection.ExecuteAsync(updateFoldersSql, new
+            {
+                Id = id.ToString(),
+                ModifiedBy = modifiedBy
+            }, transaction);
+
+            transaction.Commit();
+            return rowsAffected > 0;
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
     }
 
     public async Task<bool> FolderExistsAsync(Guid id)
