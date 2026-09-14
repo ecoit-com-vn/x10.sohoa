@@ -169,9 +169,9 @@
             </ng-container>
             <ng-container *ngIf="infraTypeId() === 2">
               <tr>
-                <th class="col-stt">STT</th>
-                <th>Mã</th>
-                <th>Tên</th>
+                <th class="col-stt" style="width: 70px; text-align: center;">STT</th>
+                <th>Mã đường dây</th>
+                <th>Tên đường dây</th>
                 <th>Địa chỉ</th>
                 <th>Loại lưới điện</th>
                 <th>Đơn vị quản lý</th>
@@ -271,132 +271,13 @@
               </tr>
             </ng-container>
             <ng-container *ngIf="infraTypeId() === 2">
-              <tr *ngFor="let item of paginatedItems(); let i = index">
-                <td class="col-stt text-muted">
-                  {{ (currentPage() - 1) * pageSize() + i + 1 }}
-                </td>
-                <td>
-                  <a
-                    class="wf-link"
-                    style="
-                      color: #2563eb;
-                      cursor: pointer;
-                      font-weight: 600;
-                      text-decoration: none;
-                    "
-                    (click)="onViewDetail(item)"
-                    >{{ item.code }}</a
-                  >
-                </td>
-                <td>
-                  <span *ngIf="canEdit(); else viewOnlyName">
-                    <b
-                      class="wf-name-link"
-                      style="color: #374151"
-                      (click)="onEdit(item)"
-                      >{{ item.name }}</b
-                    >
-                  </span>
-                  <ng-template #viewOnlyName>
-                    <b>{{ item.name }}</b>
-                  </ng-template>
-                </td>
-                <td>{{ item.address || '-' }}</td>
-                <td>
-                  <span
-                    class="status-pill"
-                    [style.background-color]="
-                      item.gridTypeId === 1
-                        ? '#eff6ff'
-                        : item.gridTypeId === 2
-                          ? '#f5f3ff'
-                          : item.gridTypeId === 3
-                            ? '#ecfdf5'
-                            : '#f9fafb'
-                    "
-                    [style.color]="
-                      item.gridTypeId === 1
-                        ? '#1e40af'
-                        : item.gridTypeId === 2
-                          ? '#5b21b6'
-                          : item.gridTypeId === 3
-                            ? '#065f46'
-                            : '#6b7280'
-                    "
-                    [style.border-color]="
-                      item.gridTypeId === 1
-                        ? '#bfdbfe'
-                        : item.gridTypeId === 2
-                          ? '#ddd6fe'
-                          : item.gridTypeId === 3
-                            ? '#a7f3d0'
-                            : '#e5e7eb'
-                    "
-                  >
-                    {{
-                      item.gridTypeId === 1
-                        ? 'Cao áp'
-                        : item.gridTypeId === 2
-                          ? 'Trung áp'
-                          : item.gridTypeId === 3
-                            ? 'Hạ áp'
-                            : '-'
-                    }}
-                  </span>
-                </td>
-                <td>
-                  <span *ngIf="item.organization">
-                    {{ item.organization.name }}
-                  </span>
-                  <span class="text-muted italic" *ngIf="!item.organization"
-                    >Chưa phân bổ</span
-                  >
-                </td>
-                <td>
-                  <span
-                    *ngIf="item.isActive === 1 || item.isActive === true"
-                    class="status-pill status-active"
-                    style="
-                      background-color: #ecfdf5;
-                      color: #065f46;
-                      border-color: #a7f3d0;
-                    "
-                  >
-                    Hoạt động
-                  </span>
-                  <span
-                    *ngIf="item.isActive === 0 || item.isActive === false"
-                    class="status-pill status-locked"
-                    style="
-                      background-color: #fef2f2;
-                      color: #991b1b;
-                      border-color: #fee2e2;
-                    "
-                  >
-                    Ngừng hoạt động
-                  </span>
-                </td>
-                <td class="col-hd">
-                  <div class="action-buttons-group">
-                    <div
-                      class="dropdown-actions-container"
-                      (click)="$event.stopPropagation()"
-                    >
-                      <button
-                        class="act-btn act-more"
-                        title="Thao tác khác"
-                        (click)="openActionMenu(item, $event, actionMenu)"
-                      >
-                        <i class="pi pi-ellipsis-h"></i>
-                      </button>
-                    </div>
-                  </div>
-                </td>
-              </tr>
+              <ng-container
+                *ngTemplateOutlet="lineRowsTpl; context: { $implicit: transmissionLineTree(), level: 0 }"
+              ></ng-container>
             </ng-container>
             <tr *ngIf="items().length === 0">
               <td
-                [attr.colspan]="infraTypeId() === 1 ? 8 : 7"
+                colspan="8"
                 class="empty-row"
               >
                 <i class="pi pi-inbox"></i>
@@ -406,6 +287,182 @@
           </tbody>
         </table>
       </div>
+
+      <ng-template #lineRowsTpl let-nodes let-level="level" let-parentIdx="parentIdx">
+        <ng-container *ngFor="let node of nodes; let i = index">
+          <tr
+            class="line-row"
+            [class.line-row-parent]="level === 0"
+            [class.line-row-child]="level > 0"
+            [class.line-row-expandable]="node.children?.length > 0"
+            (click)="level === 0 && onParentLineRowClick(node)"
+          >
+            <td class="col-stt text-muted" style="text-align: center;">
+              {{ getLineSTT(node, level, level === 0 ? i : parentIdx, i) }}
+            </td>
+            <td>
+              <div [class.child-code-prefix]="level > 0">
+                <i *ngIf="level > 0" class="pi pi-minus" style="font-size: 0.65rem; color: #94a3b8; margin-right: 4px;"></i>
+                <a
+                  class="wf-link"
+                  style="
+                    color: #2563eb;
+                    cursor: pointer;
+                    font-weight: 600;
+                    text-decoration: none;
+                  "
+                  (click)="onViewDetail(node); $event.stopPropagation()"
+                >
+                  {{ node.code }}
+                </a>
+              </div>
+            </td>
+            <td>
+              <div class="line-name-cell" [style.padding-left.px]="level * 24">
+                <i
+                  *ngIf="level === 0 && node.children?.length > 0"
+                  class="pi chevron-icon"
+                  [class.pi-angle-down]="!isLineExpanded(node.id)"
+                  [class.pi-angle-up]="isLineExpanded(node.id)"
+                  (click)="toggleLineGroup(node.id, $event)"
+                ></i>
+                <span
+                  *ngIf="level === 0 && (!node.children || node.children.length === 0)"
+                  class="chevron-placeholder"
+                ></span>
+                <i
+                  [class]="level === 0 ? 'pi pi-bolt' : 'pi pi-angle-right'"
+                  class="line-item-icon"
+                  [class.child-icon]="level > 0"
+                ></i>
+                <span *ngIf="canEdit(); else viewOnlyLineName">
+                  <b
+                    class="wf-name-link"
+                    [style.color]="level === 0 ? '#1e293b' : '#334155'"
+                    [style.font-weight]="level === 0 ? '600' : '500'"
+                    (click)="onEdit(node); $event.stopPropagation()"
+                  >
+                    {{ node.name }}
+                  </b>
+                </span>
+                <ng-template #viewOnlyLineName>
+                  <b
+                    [style.color]="level === 0 ? '#1e293b' : '#334155'"
+                    [style.font-weight]="level === 0 ? '600' : '500'"
+                  >
+                    {{ node.name }}
+                  </b>
+                </ng-template>
+                <span
+                  *ngIf="level === 0 && node.children?.length > 0"
+                  class="child-count-badge"
+                  [title]="node.children.length + ' đường dây nhánh con'"
+                >
+                  {{ node.children.length }} nhánh
+                </span>
+              </div>
+            </td>
+            <td>{{ node.address || '-' }}</td>
+            <td>
+              <span
+                class="status-pill"
+                [style.background-color]="
+                  node.gridTypeId === 1
+                    ? '#eff6ff'
+                    : node.gridTypeId === 2
+                      ? '#f5f3ff'
+                      : node.gridTypeId === 3
+                        ? '#ecfdf5'
+                        : '#f9fafb'
+                "
+                [style.color]="
+                  node.gridTypeId === 1
+                    ? '#1e40af'
+                    : node.gridTypeId === 2
+                      ? '#5b21b6'
+                      : node.gridTypeId === 3
+                        ? '#065f46'
+                        : '#6b7280'
+                "
+                [style.border-color]="
+                  node.gridTypeId === 1
+                    ? '#bfdbfe'
+                    : node.gridTypeId === 2
+                      ? '#ddd6fe'
+                      : node.gridTypeId === 3
+                        ? '#a7f3d0'
+                        : '#e5e7eb'
+                "
+              >
+                {{
+                  node.gridTypeId === 1
+                    ? 'Cao áp'
+                    : node.gridTypeId === 2
+                      ? 'Trung áp'
+                      : node.gridTypeId === 3
+                        ? 'Hạ áp'
+                        : '-'
+                }}
+              </span>
+            </td>
+            <td>
+              <span *ngIf="node.organization">
+                {{ node.organization.name }}
+              </span>
+              <span class="text-muted italic" *ngIf="!node.organization">
+                Chưa phân bổ
+              </span>
+            </td>
+            <td>
+              <span
+                *ngIf="node.isActive === 1 || node.isActive === true"
+                class="status-pill status-active"
+                style="
+                  background-color: #ecfdf5;
+                  color: #065f46;
+                  border-color: #a7f3d0;
+                "
+              >
+                Hoạt động
+              </span>
+              <span
+                *ngIf="node.isActive === 0 || node.isActive === false"
+                class="status-pill status-locked"
+                style="
+                  background-color: #fef2f2;
+                  color: #991b1b;
+                  border-color: #fee2e2;
+                "
+              >
+                Ngừng hoạt động
+              </span>
+            </td>
+            <td class="col-hd" (click)="$event.stopPropagation()">
+              <div class="action-buttons-group">
+                <div
+                  class="dropdown-actions-container"
+                  (click)="$event.stopPropagation()"
+                >
+                  <button
+                    class="act-btn act-more"
+                    title="Thao tác khác"
+                    (click)="openActionMenu(node, $event, actionMenu)"
+                  >
+                    <i class="pi pi-ellipsis-h"></i>
+                  </button>
+                </div>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Child rows when expanded -->
+          <ng-container *ngIf="level === 0 && node.children?.length > 0 && isLineExpanded(node.id)">
+            <ng-container
+              *ngTemplateOutlet="lineRowsTpl; context: { $implicit: node.children, level: 1, parentIdx: i }"
+            ></ng-container>
+          </ng-container>
+        </ng-container>
+      </ng-template>
 
       <!-- Footer with Pagination -->
       <div class="table-footer-paginator" *ngIf="totalCount() > 0">
@@ -474,6 +531,34 @@
           [disabled]="isSaving()"
         />
         <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
+      </div>
+
+      <!-- Cấp cha (chỉ áp dụng cho Đường dây và giới hạn 2 cấp) -->
+      <div class="form-group" *ngIf="infraTypeId() === 2">
+        <label class="form-label">Đường dây cấp cha</label>
+        <p-select
+          [options]="eligibleParentLines()"
+          [(ngModel)]="currentItem().parentId"
+          optionLabel="name"
+          optionValue="id"
+          [filter]="true"
+          filterBy="name,code"
+          [showClear]="true"
+          placeholder="-- Không chọn (Là đường dây cấp 1) --"
+          styleClass="w-full"
+          [disabled]="isSaving()"
+          appendTo="body"
+        >
+          <ng-template let-item #item>
+            <div style="display: flex; flex-direction: column; gap: 2px">
+              <span style="font-weight: 600">{{ item.name }}</span>
+              <span style="font-size: 0.8rem; color: #6b7280">Mã: {{ item.code }}</span>
+            </div>
+          </ng-template>
+        </p-select>
+        <span style="display: block; margin-top: 4px; font-size: 0.78rem; color: #64748b">
+          Lưu ý: Hệ thống chỉ hỗ trợ tối đa 2 cấp (chỉ có thể chọn các đường dây cấp 1 làm cha).
+        </span>
       </div>
 
       <div class="form-group">
