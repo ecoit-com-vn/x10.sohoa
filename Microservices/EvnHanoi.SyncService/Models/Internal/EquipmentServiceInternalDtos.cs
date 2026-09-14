@@ -13,6 +13,24 @@ public class UpsertInfrastructureFromPmisRequest
     public string? UnitCode { get; set; }
     public DateTime? OperationDate { get; set; }
     public int? GridTypeId { get; set; }
+
+    /// <summary>Chỉ có ý nghĩa với Đường dây (InfraTypeId=2): true nếu tên KHÔNG có "/" (đường trục gốc,
+    /// chắc chắn không có cha). Trạm biến áp luôn để false.</summary>
+    public bool IsRootLine { get; set; }
+
+    /// <summary>Id đường dây CHA đã tự tra sẵn qua danh mục tải 1 lần/lượt đồng bộ (xem
+    /// PmisSyncExecutionService.ResolveParentLineIdAsync) — null nếu IsRootLine=true, hoặc có "/" nhưng
+    /// chưa/không xác định được cha (giữ nguyên PARENT_ID cũ phía EquipmentService, không xoá).</summary>
+    public Guid? ParentInfrastructureId { get; set; }
+}
+
+/// <summary>Mirror của LineNameIndexEntry (EquipmentService) — 1 dòng danh mục Đường dây hiện có, tải 1
+/// lần/lượt đồng bộ để tự tìm cha theo tên trong bộ nhớ (xem PmisSyncExecutionService).</summary>
+public class LineNameIndexEntry
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? PmisUnitCode { get; set; }
 }
 
 public class UpsertInfrastructureFromPmisResult
