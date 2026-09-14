@@ -26,7 +26,8 @@ export class InfrastructureService {
     keyword?: string,
     status?: string,
     unitId?: number | null,
-    personalOnly?: boolean
+    personalOnly?: boolean,
+    rootOnly?: boolean
   ): Observable<any> {
     let params = new HttpParams()
       .set('page', page.toString())
@@ -44,8 +45,17 @@ export class InfrastructureService {
     if (personalOnly) {
       params = params.set('personalOnly', 'true');
     }
+    if (rootOnly) {
+      params = params.set('rootOnly', 'true');
+    }
 
     return this.http.get<any>(this.getBaseUrl(infraTypeId), { params });
+  }
+
+  /// Chỉ Đường dây (infraTypeId=2): tải lười các nhánh con trực tiếp của 1 đường trục khi người dùng
+  /// bấm mở rộng dòng — xem TransmissionLineController.GetChildren.
+  getChildLines(infraTypeId: number, parentId: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.getBaseUrl(infraTypeId)}/${parentId}/children`);
   }
 
   getInfrastructureById(infraTypeId: number, id: string): Observable<any> {
