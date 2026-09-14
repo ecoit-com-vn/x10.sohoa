@@ -136,16 +136,31 @@ public class PmisDocumentRepository : IPmisDocumentRepository
     {
         EnsureOpen();
 
+        // Đếm tài liệu bằng GROUP BY 1 lần trên PMIS_DOCUMENT/EQUIPMENTS rồi LEFT/INNER JOIN vào, thay vì
+        // 1 subquery tương quan chạy lại cho từng dòng INFRASTRUCTURE — tránh full-scan lặp lại theo kiểu
+        // O(N Trạm/Đường dây × M Thiết bị) khi 2 bảng đủ lớn (đã từng gây 504 timeout ở API này). Cần
+        // IDX_EQUIPMENTS_INFRASTRUCTURE_ID (Migration0059) để nhánh JOIN theo INFRASTRUCTURE_ID không bị
+        // full-scan EQUIPMENTS.
         var infraRows = (await _connection.QueryAsync<InfraCatalogRow>(@"
             SELECT i.Id, i.Name, i.Code, i.INFRA_TYPE_ID AS InfraTypeId, i.UNIT_ID AS UnitId,
-                   (SELECT COUNT(1) FROM PMIS_DOCUMENT pd
-                      WHERE pd.OwnerType = 'INFRASTRUCTURE' AND pd.OwnerId = i.Id AND pd.IsDeleted = 0) AS DirectDocumentCount,
-                   (SELECT COUNT(1) FROM EQUIPMENTS e
-                      INNER JOIN PMIS_DOCUMENT pd2 ON pd2.OwnerType = 'EQUIPMENT' AND pd2.OwnerId = e.Id AND pd2.IsDeleted = 0
-                    WHERE e.INFRASTRUCTURE_ID = i.Id AND e.IsDeleted = 0) AS ChildEquipmentDocumentCount
+                   NVL(direct_doc.DocCount, 0) AS DirectDocumentCount,
+                   NVL(child_doc.DocCount, 0) AS ChildEquipmentDocumentCount
             FROM INFRASTRUCTURE i
-            WHERE i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0"))
-            .Where(r => r.DirectDocumentCount > 0 || r.ChildEquipmentDocumentCount > 0)
+            LEFT JOIN (
+                SELECT OwnerId, COUNT(1) AS DocCount
+                FROM PMIS_DOCUMENT
+                WHERE OwnerType = 'INFRASTRUCTURE' AND IsDeleted = 0
+                GROUP BY OwnerId
+            ) direct_doc ON direct_doc.OwnerId = i.Id
+            LEFT JOIN (
+                SELECT e.INFRASTRUCTURE_ID AS InfrastructureId, COUNT(1) AS DocCount
+                FROM EQUIPMENTS e
+                INNER JOIN PMIS_DOCUMENT pd ON pd.OwnerType = 'EQUIPMENT' AND pd.OwnerId = e.Id AND pd.IsDeleted = 0
+                WHERE e.IsDeleted = 0
+                GROUP BY e.INFRASTRUCTURE_ID
+            ) child_doc ON child_doc.InfrastructureId = i.Id
+            WHERE i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0
+              AND (direct_doc.DocCount IS NOT NULL OR child_doc.DocCount IS NOT NULL)"))
             .ToList();
 
         var nodes = new List<PmisDocumentCatalogNodeDto>();
@@ -153,13 +168,15 @@ public class PmisDocumentRepository : IPmisDocumentRepository
 
         var infraIds = infraRows.Select(r => r.Id).ToHashSet();
         var equipmentRows = (await _connection.QueryAsync<EquipmentCatalogRow>(@"
-            SELECT e.Id, e.Name, e.Code, e.INFRASTRUCTURE_ID AS InfrastructureId,
-                   (SELECT COUNT(1) FROM PMIS_DOCUMENT pd
-                      WHERE pd.OwnerType = 'EQUIPMENT' AND pd.OwnerId = e.Id AND pd.IsDeleted = 0) AS DocumentCount
+            SELECT e.Id, e.Name, e.Code, e.INFRASTRUCTURE_ID AS InfrastructureId, doc.DocCount AS DocumentCount
             FROM EQUIPMENTS e
-            WHERE e.PMIS_CODE IS NOT NULL AND e.IsDeleted = 0
-              AND EXISTS (SELECT 1 FROM PMIS_DOCUMENT pd
-                          WHERE pd.OwnerType = 'EQUIPMENT' AND pd.OwnerId = e.Id AND pd.IsDeleted = 0)"))
+            INNER JOIN (
+                SELECT OwnerId, COUNT(1) AS DocCount
+                FROM PMIS_DOCUMENT
+                WHERE OwnerType = 'EQUIPMENT' AND IsDeleted = 0
+                GROUP BY OwnerId
+            ) doc ON doc.OwnerId = e.Id
+            WHERE e.PMIS_CODE IS NOT NULL AND e.IsDeleted = 0"))
             .Where(r => r.InfrastructureId != null && infraIds.Contains(r.InfrastructureId!))
             .ToList();
 
