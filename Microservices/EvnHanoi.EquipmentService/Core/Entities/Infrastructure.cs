@@ -44,6 +44,10 @@ public class Infrastructure
     // Query helper: số thiết bị gắn với trạm/đường dây
     public int EquipmentCount { get; set; }
 
+    // Chỉ Đường dây (InfraTypeId=2): số đường dây NHÁNH CON trực tiếp — dùng để FE quyết định hiện chevron
+    // mở rộng ở màn Danh mục đường dây MÀ KHÔNG CẦN tải trước danh sách con (xem GetChildLinesAsync).
+    public int ChildLineCount { get; set; }
+
     // Audit fields
     public string? CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;

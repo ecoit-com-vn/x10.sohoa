@@ -42,14 +42,34 @@ public class TransmissionLineController : ControllerBase
         [FromQuery] int pageSize = 10,
         [FromQuery] string? keyword = null,
         [FromQuery] int? status = null,
-        [FromQuery] long? unitId = null)
+        [FromQuery] long? unitId = null,
+        [FromQuery] bool rootOnly = false)
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 10;
 
         var allowedUnitIds = await GetAllowedUnitIdsAsync();
-        var (items, totalCount) = await _infrastructureRepository.GetPagedAsync(page, pageSize, INFRA_TYPE_ID, keyword, status, allowedUnitIds, unitId);
+        var (items, totalCount) = await _infrastructureRepository.GetPagedAsync(
+            page, pageSize, INFRA_TYPE_ID, keyword, status, allowedUnitIds, unitId, rootOnly: rootOnly);
         return Ok(new { items, totalCount, page, pageSize });
+    }
+
+    /// <summary>Các đường dây nhánh con trực tiếp của 1 đường trục — tải lười khi người dùng bấm mở rộng
+    /// dòng trên màn Danh mục đường dây (xem GetChildLinesAsync, và GetAll?rootOnly=true ở trên).</summary>
+    [HttpGet("{id:guid}/children")]
+    public async Task<IActionResult> GetChildren(Guid id)
+    {
+        var children = await _infrastructureRepository.GetChildLinesAsync(id);
+
+        // Áp cùng giới hạn theo đơn vị như GetAll/Lookup — không có bước này, người dùng bị giới hạn
+        // đơn vị vẫn có thể xem nhánh con thuộc đơn vị khác chỉ cần biết/đoán được Id đường trục cha.
+        var allowedUnitIds = await GetAllowedUnitIdsAsync();
+        if (allowedUnitIds != null)
+        {
+            children = children.Where(c => c.UnitId.HasValue && allowedUnitIds.Contains(c.UnitId.Value));
+        }
+
+        return Ok(children);
     }
 
     [HttpGet("{id:guid}")]

@@ -20,10 +20,17 @@ public interface IInfrastructureRepository
         long? unitId = null,
         int? gridTypeId = null,
         DateTime? fromOperationDate = null,
-        DateTime? toOperationDate = null);
+        DateTime? toOperationDate = null,
+        bool rootOnly = false);
     Task<Guid> CreateAsync(Infrastructure infrastructure);
     Task<bool> UpdateAsync(Infrastructure infrastructure);
     Task<bool> DeleteAsync(Guid id);
+
+    /// <summary>Chỉ Đường dây (InfraTypeId=2): các đường dây NHÁNH CON trực tiếp (PARENT_ID = parentId) —
+    /// tải "lười" khi người dùng bấm mở rộng 1 dòng trên màn hình Danh mục đường dây, vì trang dữ liệu
+    /// phân trang (GetPagedAsync) không đảm bảo cha/con luôn rơi vào cùng 1 trang (14000+ đường dây,
+    /// PARENT_ID rải rác khắp các trang) — xem TransmissionLineController.GetChildren.</summary>
+    Task<IEnumerable<Infrastructure>> GetChildLinesAsync(Guid parentId);
 
     /// <summary>
     /// Đồng bộ PMIS: tìm theo PmisCode, có thì cập nhật, chưa có thì tạo mới. Trả về Id + đã tạo mới hay
