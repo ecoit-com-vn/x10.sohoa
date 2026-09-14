@@ -171,9 +171,10 @@ public class InfrastructureRepository : IInfrastructureRepository
         long? unitId = null,
         int? gridTypeId = null,
         DateTime? fromOperationDate = null,
-        DateTime? toOperationDate = null)
+        DateTime? toOperationDate = null,
+        bool rootOnly = false)
     {
-        if (_connection.State != ConnectionState.Open) 
+        if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
         var sqlBase = $@"FROM INFRASTRUCTURE i
@@ -184,6 +185,15 @@ public class InfrastructureRepository : IInfrastructureRepository
 
         var parameters = new DynamicParameters();
         parameters.Add("InfraTypeId", infraTypeId);
+
+        // Chỉ lấy đường dây CẤP 1 (đường trục, không có cha) — dùng cho màn Danh mục đường dây: phân
+        // trang toàn bộ 14000+ dòng (cha lẫn con lẫn lộn) không đảm bảo 1 cha và các con của nó luôn rơi
+        // cùng 1 trang, nên FE không thể tự gom cây từ 1 trang riêng lẻ. Cha hiển thị trước, nhánh con
+        // tải lười riêng qua GetChildLinesAsync khi người dùng bấm mở rộng.
+        if (rootOnly)
+        {
+            sqlBase += " AND i.PARENT_ID IS NULL";
+        }
 
         if (!string.IsNullOrEmpty(keyword))
         {
@@ -256,7 +266,11 @@ public class InfrastructureRepository : IInfrastructureRepository
                            (SELECT COUNT(1)
                               FROM EQUIPMENTS eq
                              WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)}
-                               AND eq.IsDeleted = 0) AS {nameof(Infrastructure.EquipmentCount)}
+                               AND eq.IsDeleted = 0) AS {nameof(Infrastructure.EquipmentCount)},
+                           (SELECT COUNT(1)
+                              FROM INFRASTRUCTURE c
+                             WHERE c.PARENT_ID = i.{nameof(Infrastructure.Id)}
+                               AND c.{nameof(Infrastructure.IsDeleted)} = 0) AS {nameof(Infrastructure.ChildLineCount)}
                    {sqlBase}
                     ORDER BY i.IS_ACTIVE DESC,
                              COALESCE(p.CODE, i.{nameof(Infrastructure.Code)}) ASC,
@@ -282,6 +296,47 @@ public class InfrastructureRepository : IInfrastructureRepository
         );
 
         return (items, totalCount);
+    }
+
+    public async Task<IEnumerable<Infrastructure>> GetChildLinesAsync(Guid parentId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var sql = $@"SELECT i.{nameof(Infrastructure.Id)},
+                            i.{nameof(Infrastructure.Code)},
+                            i.{nameof(Infrastructure.Name)},
+                            i.{nameof(Infrastructure.Address)},
+                            i.INFRA_TYPE_ID AS {nameof(Infrastructure.InfraTypeId)},
+                            i.UNIT_ID AS {nameof(Infrastructure.UnitId)},
+                            i.GRIDTYPEID AS {nameof(Infrastructure.GridTypeId)},
+                            i.OPERATION_DATE AS {nameof(Infrastructure.OperationDate)},
+                            i.IS_ACTIVE AS {nameof(Infrastructure.IsActive)},
+                            i.PARENT_ID AS {nameof(Infrastructure.ParentId)},
+                            u.NAME AS {nameof(Infrastructure.UnitName)},
+                            u.Id AS OrgId,
+                            u.Code AS OrgCode,
+                            u.Name AS OrgName,
+                            (SELECT COUNT(1)
+                               FROM EQUIPMENTS eq
+                              WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)}
+                                AND eq.IsDeleted = 0) AS {nameof(Infrastructure.EquipmentCount)}
+                     FROM INFRASTRUCTURE i
+                     LEFT JOIN ORGANIZATION_UNIT u ON i.UNIT_ID = u.Id
+                     WHERE i.PARENT_ID = :ParentId AND i.{nameof(Infrastructure.IsDeleted)} = 0
+                     ORDER BY i.{nameof(Infrastructure.Code)} ASC";
+
+        return await _connection.QueryAsync<Infrastructure, OrganizationDto, Infrastructure>(
+            sql,
+            (infra, org) => {
+                if (org != null && org.Id > 0) {
+                    infra.Organization = org;
+                }
+                return infra;
+            },
+            new { ParentId = parentId.ToString() },
+            splitOn: "OrgId"
+        );
     }
 
     public async Task<Guid> CreateAsync(Infrastructure infrastructure)
