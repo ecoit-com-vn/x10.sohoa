@@ -142,6 +142,8 @@ public sealed class AuditActionFilter : IAsyncActionFilter
         var details = auditContext?.Details ?? BuildDefaultDetails(actionCategory, resourceType, resourceName, resourceId);
         var logGroup = auditContext?.LogGroup ?? ResolveLogGroup(resourceType);
 
+        var isSsoLogin = isLogin && (actionLower.Contains("sso") || path.Contains("sso", StringComparison.OrdinalIgnoreCase));
+
         string actorUserId;
         string actorUserName;
 
@@ -151,10 +153,25 @@ public sealed class AuditActionFilter : IAsyncActionFilter
             actorUserId = isAuthenticated
                 ? user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? actorUserName
                 : actorUserName;
-            actionCategory = AuditActions.Login;
-            details = statusCode is >= 200 and < 300
-                ? $"Đăng nhập thành công: {actorUserName}"
-                : $"Đăng nhập thất bại: {actorUserName}";
+
+            if (isSsoLogin)
+            {
+                actionCategory = "SSO_LOGIN";
+                resourceType = "SSO";
+                logGroup = AuditLogGroups.Sso;
+                details = statusCode is >= 200 and < 300
+                    ? $"Đăng nhập SSO thành công: {actorUserName}"
+                    : $"Đăng nhập SSO thất bại: {actorUserName}";
+            }
+            else
+            {
+                actionCategory = AuditActions.Login;
+                resourceType = "AUTH";
+                logGroup = AuditLogGroups.Operation;
+                details = statusCode is >= 200 and < 300
+                    ? $"Đăng nhập thành công: {actorUserName}"
+                    : $"Đăng nhập thất bại: {actorUserName}";
+            }
         }
         else
         {

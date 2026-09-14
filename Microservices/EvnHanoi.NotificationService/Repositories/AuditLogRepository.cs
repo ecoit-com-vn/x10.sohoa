@@ -522,7 +522,24 @@ namespace EvnHanoi.NotificationService.Repositories
                         mustQueries.Add(BuildContainsFieldQuery("userName", userName));
 
                     if (!string.IsNullOrWhiteSpace(logGroup))
-                        mustQueries.Add(BuildExactFieldQuery("logGroup", logGroup));
+                    {
+                        if (string.Equals(logGroup, AuditLogGroups.Sso, StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(logGroup, "SSO", StringComparison.OrdinalIgnoreCase))
+                        {
+                            mustQueries.Add(new QueryDescriptor<AuditLogDocument>().Bool(bSso => bSso
+                                .Should(
+                                    BuildExactFieldQuery("logGroup", AuditLogGroups.Sso),
+                                    BuildExactFieldQuery("logGroup", "SSO"),
+                                    BuildExactFieldQuery("action", "SSO_LOGIN"),
+                                    BuildContainsFieldQuery("resourceType", "SSO"),
+                                    BuildContainsFieldQuery("requestPath", "sso-login")
+                                )));
+                        }
+                        else
+                        {
+                            mustQueries.Add(BuildExactFieldQuery("logGroup", logGroup));
+                        }
+                    }
 
                     var unitIdList = unitIds?.Where(id => !string.IsNullOrWhiteSpace(id)).ToList();
                     if (unitIdList is { Count: > 0 })

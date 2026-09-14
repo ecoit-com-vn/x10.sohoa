@@ -19,6 +19,7 @@ public static class AuditVietnameseLabels
         [AuditActions.Release] = "Phát hành",
         [AuditActions.Login] = "Đăng nhập",
         [AuditActions.Logout] = "Đăng xuất",
+        ["SSO_LOGIN"] = "Đăng nhập SSO",
         ["APPROVE"] = "Phê duyệt",
         ["SUBMIT"] = "Gửi phê duyệt",
         ["REJECT"] = "Từ chối",
@@ -88,6 +89,7 @@ public static class AuditVietnameseLabels
         ["NOTIFICATIONS"] = "Thông báo",
         ["AUDIT_LOG"] = "Nhật ký hệ thống",
         ["AUTH"] = "Xác thực",
+        ["SSO"] = "Xác thực SSO",
 
         // Workflow / mượn trả
         ["WORKFLOW"] = "Quy trình",

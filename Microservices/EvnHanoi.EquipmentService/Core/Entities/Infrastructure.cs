@@ -29,6 +29,11 @@ public class Infrastructure
     public DateTime? OperationDate { get; set; }
     public bool IsActive { get; set; } = true;
 
+    // Quan hệ cha - con (cấp 1 - cấp 2)
+    public Guid? ParentId { get; set; }
+    public string? ParentName { get; set; }
+    public string? ParentCode { get; set; }
+
     // Join helper fields
     public string? InfraTypeName { get; set; }
     public string? UnitName { get; set; }
