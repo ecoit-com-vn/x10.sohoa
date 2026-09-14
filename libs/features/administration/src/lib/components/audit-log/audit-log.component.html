@@ -93,6 +93,7 @@
       <p-tablist class="tab-bar-custom">
         <p-tab value="0" class="tab-item-custom"><i class="pi pi-history mr-1"></i>Nhật ký thao tác</p-tab>
         <p-tab value="1" class="tab-item-custom"><i class="pi pi-folder-open mr-1"></i>Nhật ký nghiệp vụ</p-tab>
+        <p-tab value="2" class="tab-item-custom"><i class="pi pi-user-check mr-1"></i>Lịch sử SSO</p-tab>
       </p-tablist>
     </p-tabs>
 
@@ -109,10 +110,10 @@
             <th class="col-stt">STT</th>
             <th>Tên đăng nhập</th>
             <th>Họ và tên</th>
-            <th>Loại hành động</th>
+            <th>{{ activeTab() === '2' ? 'Hành động' : 'Loại hành động' }}</th>
             <th>Đối tượng</th>
-            <th>Thời gian</th>
-            <th>Chi tiết hành động</th>
+            <th>{{ activeTab() === '2' ? 'Thời gian đăng nhập' : 'Thời gian' }}</th>
+            <th>{{ activeTab() === '2' ? 'Chi tiết đăng nhập' : 'Chi tiết hành động' }}</th>
             <th class="col-actions">Thao tác</th>
           </tr>
         </thead>
@@ -157,7 +158,7 @@
             <tr *ngIf="filteredLogs().length === 0">
               <td [attr.colspan]="canDelete() ? 9 : 8" class="empty-row">
                 <i class="pi pi-inbox"></i>
-                <div>Không tìm thấy lịch sử thao tác nào.</div>
+                <div>{{ activeTab() === '2' ? 'Không tìm thấy lịch sử đăng nhập SSO nào.' : 'Không tìm thấy lịch sử thao tác nào.' }}</div>
               </td>
             </tr>
           </ng-container>

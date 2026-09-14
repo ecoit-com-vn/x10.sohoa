@@ -190,12 +190,19 @@
 
                 <div class="form-group">
                     <label class="form-label">Quyền hạn yêu cầu (VIEW)</label>
-                    <select class="wf-select w-full" [(ngModel)]="currentMenu().permissionCode" [disabled]="saving()">
-                        <option [ngValue]="null">-- Không yêu cầu (Cho phép tất cả) --</option>
-                        <option *ngFor="let p of menuViewPermissions()" [ngValue]="p.code || p.Code">
-                            {{ p.name || p.Name }} ({{ p.code || p.Code }})
-                        </option>
-                    </select>
+                    <p-select [options]="permissionOptions()" [(ngModel)]="currentMenu().permissionCode"
+                        optionLabel="label" optionValue="value" [filter]="true" filterBy="label,name,code"
+                        filterPlaceholder="Tìm kiếm theo mã hoặc tên quyền..." [showClear]="true"
+                        placeholder="-- Không yêu cầu (Cho phép tất cả) --"
+                        [style]="{'width':'100%', 'height':'38px', 'line-height':'24px', 'border':'1px solid #cbd5e1', 'border-radius':'6px'}"
+                        appendTo="body" [disabled]="saving()">
+                        <ng-template let-item pTemplate="item">
+                            <div style="display: flex; flex-direction: column; gap: 2px;">
+                                <span style="font-weight: 500;">{{ item.name }}</span>
+                                <span style="font-size: 0.8rem; color: #64748b;"><code>{{ item.code }}</code></span>
+                            </div>
+                        </ng-template>
+                    </p-select>
                     <small class="field-hint">Chọn quyền VIEW khớp module (vd. EQUIPMENT_VIEW, EQUIPMENT_TYPE_VIEW,
                         EAV_FORM_TEMPLATE_VIEW).</small>
                 </div>

@@ -8,6 +8,7 @@ import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
 import { Menu, MenuModule } from 'primeng/menu';
+import { SelectModule } from 'primeng/select';
 import { MenuItem, MessageService } from 'primeng/api';
 import { finalize } from 'rxjs';
 import { AuthService, MenuService } from '@sohoa.frontend/shared/core';
@@ -26,6 +27,7 @@ import {
     FormsModule,
     DialogModule,
     ToastModule,
+    SelectModule,
     MenuModule,
     WfBreadcrumbComponent,
     DeleteConfirmDialogComponent
@@ -83,6 +85,19 @@ export class MenuManagement implements OnInit {
     }
 
     return viewPermissions;
+  });
+
+  permissionOptions = computed(() => {
+    return this.menuViewPermissions().map((p) => {
+      const code = p.code || p.Code || '';
+      const name = p.name || p.Name || '';
+      return {
+        code,
+        name,
+        label: `${name} (${code})`,
+        value: code
+      };
+    });
   });
 
   menuTree = computed(
