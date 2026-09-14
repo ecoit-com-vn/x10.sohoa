@@ -27,6 +27,18 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
     private Dictionary<string, string>? _substationDeviceTypeNames;
     private Dictionary<string, string>? _lineDeviceTypeNames;
 
+    // Danh mục Đường dây hiện có (tên đã chuẩn hoá -> danh sách ứng viên [mã đơn vị PMIS, Id]) — tải 1
+    // lần/lượt đồng bộ Đường dây, KHÔNG tải lại theo từng dòng — dùng để tự tìm cha theo tên trong bộ nhớ
+    // thay vì mỗi dòng tự query DB riêng (xem ResolveParentLineIdAsync). Khoá bằng tên đã chuẩn hoá
+    // (NormalizeLineName) để không nhạy khoảng trắng thừa/khoảng trắng kép giữa dòng trục và dòng nhánh.
+    private Dictionary<string, List<(string? PmisUnitCode, Guid Id)>>? _lineNameIndex;
+
+    // Chỉ cảnh báo LOG 1 lần cho mỗi tên trục bị trùng thật sự (không phân biệt được bằng mã đơn vị) —
+    // tránh spam log khi 1 trục có nhiều nhánh con cùng gặp phải tình huống trùng tên đó. Đây là dấu hiệu
+    // dữ liệu PMIS có vấn đề thật (2 trục khác nhau trùng tên), khác với "chưa tìm thấy vì trục chưa đồng
+    // bộ tới trong lượt này" (tình huống tạm thời, tự hết sau 1-2 lượt, không cần log riêng mỗi tên).
+    private readonly HashSet<string> _warnedAmbiguousParentNames = new(StringComparer.OrdinalIgnoreCase);
+
     public PmisSyncExecutionService(
         IEquipmentServiceClient equipmentServiceClient, ISyncHistoryRepository syncHistoryRepository, IPmisClient pmisClient)
     {
@@ -73,9 +85,84 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         }
     }
 
+    /// <summary>Luôn trả về Dictionary (rỗng nếu EquipmentService lỗi) — cùng lý do với LoadDeviceTypeNamesAsync:
+    /// rỗng thì chỉ thử tải đúng 1 lần/lượt, không lặp lại vô ích cho từng dòng đường dây tiếp theo.</summary>
+    private async Task<Dictionary<string, List<(string? PmisUnitCode, Guid Id)>>> LoadLineNameIndexAsync()
+    {
+        try
+        {
+            var entries = await _equipmentServiceClient.GetLineNameIndexAsync();
+            var index = new Dictionary<string, List<(string?, Guid)>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in entries)
+            {
+                var key = NormalizeLineName(entry.Name);
+                if (key == null) continue;
+                if (!index.TryGetValue(key, out var candidates))
+                    index[key] = candidates = [];
+                candidates.Add((entry.PmisUnitCode, entry.Id));
+            }
+            return index;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "PmisSyncExecutionService: lỗi khi tải danh mục Đường dây hiện có, bỏ qua việc gán cha-con đường dây cho cả lượt chạy này.");
+            return new Dictionary<string, List<(string?, Guid)>>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    /// <summary>Chuẩn hoá tên đường dây để so khớp: cắt khoảng trắng đầu/cuối và gộp khoảng trắng liên
+    /// tiếp ở giữa thành 1 dấu cách — tránh lệch do lỗi nhập liệu thường gặp (thừa dấu cách) giữa dòng
+    /// trục và phần tên nhánh tách ra từ chính nó. Null/rỗng trả về null.</summary>
+    private static string? NormalizeLineName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        var collapsed = System.Text.RegularExpressions.Regex.Replace(name.Trim(), @"\s+", " ");
+        return collapsed.Length > 0 ? collapsed : null;
+    }
+
+    /// <summary>
+    /// Tự tìm Id đường dây CHA theo tên (đã tách sẵn bởi ResolveParentLineName), tra qua danh mục tải 1
+    /// lần/lượt đồng bộ (KHÔNG tự query DB — xem LoadLineNameIndexAsync). Trả về (IsRoot, ParentId):
+    /// - Tên không có "/" → (true, null) — chắc chắn là đường trục gốc, không có cha.
+    /// - Có "/" nhưng danh mục không có tên trục đó (trục chưa đồng bộ tới trong lượt này, hoặc lệch tên
+    ///   dù đã chuẩn hoá) → (false, null) — caller giữ nguyên PARENT_ID cũ, không xoá.
+    /// - Có "/" và khớp đúng 1 ứng viên (theo tên, hoặc theo tên + mã đơn vị nếu trùng tên nhiều nơi) →
+    ///   (false, Id đó).
+    /// - Có "/" nhưng trùng tên ở ≥2 nơi KHÔNG phân biệt được bằng mã đơn vị (dữ liệu PMIS thật sự có tên
+    ///   trục trùng nhau) → (false, null) + cảnh báo 1 lần/tên trục, không đoán đại 1 trong số đó.
+    /// </summary>
+    private (bool IsRoot, Guid? ParentId) ResolveParentLineId(string? tenDuongDay, string? maDonVi)
+    {
+        var parentNameRaw = ResolveParentLineName(tenDuongDay);
+        if (parentNameRaw == null) return (true, null); // không có "/" -> chắc chắn là gốc
+
+        var normalized = NormalizeLineName(parentNameRaw);
+        if (normalized == null || _lineNameIndex == null || !_lineNameIndex.TryGetValue(normalized, out var candidates))
+            return (false, null); // trục chưa có trong danh mục lượt này — giữ nguyên PARENT_ID cũ, tự khớp đúng ở lượt sau
+
+        if (candidates.Count == 1) return (false, candidates[0].Id);
+
+        // Trùng tên ở nhiều nơi — thử phân biệt bằng mã đơn vị PMIS của chính dòng đang xử lý.
+        var sameUnit = candidates.Where(c => string.Equals(c.PmisUnitCode, maDonVi, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (sameUnit.Count == 1) return (false, sameUnit[0].Id);
+
+        if (_warnedAmbiguousParentNames.Add(normalized))
+        {
+            Log.Warning("PmisSyncExecutionService: tên đường trục '{ParentName}' trùng ở {Count} đường dây khác nhau, không phân biệt được bằng mã đơn vị — bỏ qua gán cha cho các nhánh tham chiếu tới tên này.",
+                normalized, candidates.Count);
+        }
+        return (false, null);
+    }
+
     public async Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncInfrastructureAsync(
         int infraTypeId, string syncHistoryId, IReadOnlyList<JsonElement> rawItems)
     {
+        // Chỉ tải danh mục Đường dây khi thật sự đồng bộ Đường dây, 1 lần/lượt (Scoped: xuyên suốt các
+        // trang PMIS trong cùng 1 lần chạy tự động/thủ công) — xem LoadLineNameIndexAsync.
+        if (infraTypeId == 2)
+            _lineNameIndex ??= await LoadLineNameIndexAsync();
+
+        var unresolvedParentRefCount = 0;
         var upsertRequests = new List<UpsertInfrastructureFromPmisRequest>();
         foreach (var raw in rawItems)
         {
@@ -97,6 +184,9 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             else
             {
                 var item = raw.Deserialize<PmisLineDto>(JsonOptions)!;
+                var (isRoot, parentId) = ResolveParentLineId(item.TenDuongDay, item.MaDonVi);
+                if (!isRoot && parentId == null) unresolvedParentRefCount++;
+
                 upsertRequests.Add(new UpsertInfrastructureFromPmisRequest
                 {
                     InfraTypeId = 2,
@@ -105,7 +195,9 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                     Name = item.TenDuongDay,
                     UnitCode = item.MaDonVi,
                     OperationDate = item.NgayVanHanh,
-                    GridTypeId = ResolveGridTypeId(item.CapDienAp)
+                    GridTypeId = ResolveGridTypeId(item.CapDienAp),
+                    IsRootLine = isRoot,
+                    ParentInfrastructureId = parentId
                 });
             }
         }
@@ -141,7 +233,9 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
 
         // Đồng bộ tài liệu đính kèm (API 8/9) cho từng Trạm/Đường dây vừa lưu thành công — lỗi ở bước này
         // CHỈ ghi cảnh báo, không ảnh hưởng successCount/errors ở trên (xem SyncDocumentsForOwnerAsync).
-        var warnings = 0;
+        // Cộng thêm số đường dây có "/" nhưng chưa xác định được cha (xem ResolveParentLineId) — để lộ ra
+        // qua Lịch sử đồng bộ thay vì âm thầm, dù đây thường chỉ là tình huống tạm thời tự hết sau 1-2 lượt.
+        var warnings = unresolvedParentRefCount;
         var docDetails = new List<SyncHistoryDetail>();
         for (var i = 0; i < results.Count; i++)
         {
@@ -483,6 +577,21 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             >= 1 => 2,
             _ => 3
         };
+    }
+
+    /// <summary>
+    /// Tách tên đường dây CHA từ tên đầy đủ, theo đúng quy ước đặt tên PMIS đang dùng thật:
+    /// "&lt;đường trục&gt;/Nhánh A/Nhánh B/Nhánh C" — mỗi cấp phân cách bởi ký tự "/", cha của 1 dòng là
+    /// phần tên đứng trước dấu "/" CUỐI CÙNG (không phải dấu "/" đầu tiên, để xử lý đúng nhiều cấp lồng
+    /// nhau: cha của "A/B/C" là "A/B", không phải "A"). Không có "/" → null (đường trục gốc, không có cha).
+    /// </summary>
+    internal static string? ResolveParentLineName(string? tenDuongDay)
+    {
+        if (string.IsNullOrWhiteSpace(tenDuongDay)) return null;
+        var lastSlash = tenDuongDay.LastIndexOf('/');
+        if (lastSlash <= 0) return null;
+        var parentName = tenDuongDay[..lastSlash].Trim();
+        return parentName.Length > 0 ? parentName : null;
     }
 
     /// <summary>

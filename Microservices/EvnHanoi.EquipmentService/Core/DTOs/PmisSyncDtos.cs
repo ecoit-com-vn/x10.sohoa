@@ -48,6 +48,29 @@ public class UpsertInfrastructureFromPmisRequest
     public string? UnitCode { get; set; } // maDonVi
     public DateTime? OperationDate { get; set; }
     public int? GridTypeId { get; set; } // Suy ra từ capDienAp (1 = Cao áp, 2 = Trung áp, 3 = Hạ áp) — xem PmisSyncExecutionService.ResolveGridTypeId
+
+    /// <summary>Chỉ có ý nghĩa với Đường dây (InfraTypeId=2): true nếu tên KHÔNG có dấu "/" (đường trục gốc,
+    /// chắc chắn không có cha — PARENT_ID phải xoá hẳn nếu trước đó có). Trạm biến áp luôn để false (không
+    /// đụng PARENT_ID, xem InfrastructureRepository.UpsertFromPmisAsync).</summary>
+    public bool IsRootLine { get; set; }
+
+    /// <summary>Id đường dây CHA đã được SyncService tự tra sẵn (so khớp tên đã chuẩn hoá + mã đơn vị PMIS
+    /// qua danh mục tải 1 lần/lượt đồng bộ — xem PmisSyncExecutionService.ResolveParentLineIdAsync) — null
+    /// nếu IsRootLine=true, hoặc có "/" nhưng chưa/không xác định được cha (đường trục chưa đồng bộ tới
+    /// trong lượt này, hoặc tên trục bị trùng ở nhiều nơi không phân biệt được) — trường hợp này giữ
+    /// nguyên PARENT_ID cũ, không xoá, tự khớp đúng ở lượt đồng bộ kế tiếp.</summary>
+    public Guid? ParentInfrastructureId { get; set; }
+}
+
+/// <summary>1 dòng danh mục Đường dây hiện có (Id + Tên gốc + mã đơn vị PMIS, nếu tra được) — SyncService
+/// tải 1 lần/lượt đồng bộ Đường dây (thay vì mỗi dòng tự query riêng) để tự tìm cha theo tên trong bộ nhớ.
+/// PmisUnitCode lấy ngược từ PMIS_UNIT_CODE_MAPPING (UnitId -> mã PMIS) — chỉ dùng để phân biệt khi trùng
+/// tên giữa nhiều đơn vị, không phải nguồn sự thật của UnitId (đã có UNIT_ID thật trên chính dòng đó).</summary>
+public class LineNameIndexEntry
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? PmisUnitCode { get; set; }
 }
 
 public class UpsertInfrastructureFromPmisResult
@@ -162,4 +185,45 @@ public class PmisDocumentCatalogNodeDto
 
     /// <summary>Số tài liệu PMIS gắn TRỰC TIẾP vào node này (chỉ có ý nghĩa với substation/line/equipment — unit luôn 0).</summary>
     public int DocumentCount { get; set; }
+}
+
+/// <summary>1 dòng PMIS_UNIT_CODE_MAPPING (ánh xạ mã đơn vị PMIS ↔ UnitId thật) — xem Migration0051 và
+/// PmisUnitCodeMappingController.</summary>
+public class PmisUnitCodeMappingDto
+{
+    public Guid Id { get; set; }
+    public string PmisUnitCode { get; set; } = string.Empty;
+    public long UnitId { get; set; }
+    public string? UnitName { get; set; }
+    public string? UnitCode { get; set; }
+    public string? Note { get; set; }
+    public DateTime CreatedDate { get; set; }
+}
+
+/// <summary>Payload POST api/v1/pmis-unit-code-mapping — thêm 1 đơn vị PMIS chưa có ánh xạ.</summary>
+public class CreatePmisUnitCodeMappingRequest
+{
+    public string PmisUnitCode { get; set; } = string.Empty;
+    public long UnitId { get; set; }
+    public string? Note { get; set; }
+}
+
+public enum PmisUnitCodeMappingCreateError
+{
+    None,
+
+    /// <summary>PmisUnitCode đã có ánh xạ khác (UQ_PMIS_UNIT_CODE_MAPPING_CODE).</summary>
+    DuplicateCode,
+
+    /// <summary>UnitId gửi lên không khớp đơn vị thật nào (tránh để lộ lỗi FK Oracle thô ra response).</summary>
+    UnitNotFound
+}
+
+public class CreatePmisUnitCodeMappingResult
+{
+    public Guid? Id { get; set; }
+    public PmisUnitCodeMappingCreateError Error { get; set; } = PmisUnitCodeMappingCreateError.None;
+
+    public static CreatePmisUnitCodeMappingResult Ok(Guid id) => new() { Id = id };
+    public static CreatePmisUnitCodeMappingResult Fail(PmisUnitCodeMappingCreateError error) => new() { Error = error };
 }

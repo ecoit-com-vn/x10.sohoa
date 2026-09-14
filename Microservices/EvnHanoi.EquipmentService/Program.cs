@@ -110,6 +110,8 @@ builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDocumentTy
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IInfrastructureRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.InfrastructureRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEquipmentPmisSpecRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.EquipmentPmisSpecRepository>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IPmisDocumentRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.PmisDocumentRepository>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IPmisUnitCodeMappingRepository, EvnHanoi.EquipmentService.Infrastructure.Repositories.PmisUnitCodeMappingRepository>();
+builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.ISyncServiceClient, EvnHanoi.EquipmentService.Infrastructure.Services.SyncServiceClient>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IEavFormTemplateService, EvnHanoi.EquipmentService.Core.Services.EavFormTemplateService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IDossierTypeService, EvnHanoi.EquipmentService.Core.Services.DossierTypeService>();
 builder.Services.AddScoped<EvnHanoi.EquipmentService.Core.Interfaces.IElasticsearchService, EvnHanoi.EquipmentService.Infrastructure.Services.ElasticsearchService>();
@@ -163,6 +165,17 @@ builder.Services.AddHttpClient("NotificationService", client =>
     client.BaseAddress = new Uri(builder.Configuration["Services:NotificationService"] ?? "http://notificationservice");
     client.Timeout = TimeSpan.FromSeconds(30);
 }).AddHttpMessageHandler<EvnHanoi.Infrastructure.Security.TokenRelayHandler>();
+
+// Gọi API nội bộ (internal/v1/...) của SyncService — không relay JWT người dùng (xác thực bằng shared
+// secret "X-Internal-Token", giống chiều gọi ngược lại SyncService -> EquipmentService).
+builder.Services.AddHttpClient("SyncServiceInternal", client =>
+{
+    var baseUrl = builder.Configuration["Services:SyncService"] ?? "http://syncservice";
+    client.BaseAddress = new Uri(baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/");
+    // Chỉ để "nhắc" job đồng bộ chạy sớm — không đáng để chặn response tạo ánh xạ lâu nếu SyncService
+    // tạm gián đoạn (SyncServiceClient đã tự bắt lỗi/log cảnh báo, không throw ra ngoài).
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
 
 builder.Services.AddScoped<IDocumentFulltextSearchNotificationClient, DocumentFulltextSearchNotificationClient>();
 

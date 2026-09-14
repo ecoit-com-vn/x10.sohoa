@@ -82,6 +82,25 @@ public class SyncConfigRepository : ISyncConfigRepository
         });
     }
 
+    public async Task MarkDueNowAsync(IEnumerable<string> objectTypes)
+    {
+        EnsureOpen();
+        // Bind DateTime.UtcNow qua tham số (KHÔNG dùng SYSTIMESTAMP) — giống hệt cách UpdateRunResultAsync
+        // ở trên ghi NEXT_SYNC_AT, vì PmisScheduledSyncJob so sánh cột này với DateTime.UtcNow phía .NET
+        // (xem RunIfDueAsync: "config.NextSyncAt <= now"); dùng SYSTIMESTAMP sẽ lệch múi giờ nếu server
+        // Oracle không chạy UTC, khiến NEXT_SYNC_AT bị ghi thành 1 mốc trong tương lai so với UtcNow và
+        // job không bao giờ nhận là "đã tới hạn".
+        const string sql = @"
+            UPDATE SYNC_CONFIG
+            SET NEXT_SYNC_AT = :NextSyncAt, ROW_VERSION = ROW_VERSION + 1
+            WHERE OBJECT_TYPE = :ObjectType AND IS_ENABLED = 1 AND IS_DELETED = 0";
+        var now = DateTime.UtcNow;
+        foreach (var objectType in objectTypes)
+        {
+            await _connection.ExecuteAsync(sql, new { ObjectType = objectType, NextSyncAt = now });
+        }
+    }
+
     private void EnsureOpen()
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();

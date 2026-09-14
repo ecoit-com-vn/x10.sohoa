@@ -66,6 +66,18 @@ public class InternalPmisSyncController : ControllerBase
         return Ok(rows.Select(r => new { pmisCode = r.PmisCode, infraTypeId = r.InfraTypeId }));
     }
 
+    /// <summary>Danh mục toàn bộ Đường dây hiện có (Id/Name/mã đơn vị PMIS) — SyncService tải 1 lần/lượt
+    /// đồng bộ Đường dây để tự tìm cha theo tên trong bộ nhớ (xem PmisSyncExecutionService), tránh mỗi
+    /// dòng đường dây tự query riêng (~14000 round-trip DB cho 1 lượt đồng bộ đầy đủ toàn hệ thống).</summary>
+    [HttpGet("infrastructure/line-name-index")]
+    public async Task<IActionResult> GetLineNameIndex([FromHeader(Name = "X-Internal-Token")] string? internalToken)
+    {
+        if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
+
+        var rows = await _infrastructureRepository.GetLineNameIndexAsync();
+        return Ok(rows);
+    }
+
     [HttpPost("infrastructure/upsert-from-pmis")]
     public async Task<IActionResult> UpsertInfrastructureFromPmis(
         [FromHeader(Name = "X-Internal-Token")] string? internalToken,
@@ -80,7 +92,8 @@ public class InternalPmisSyncController : ControllerBase
             try
             {
                 var (id, wasCreated, hasChanged) = await _infrastructureRepository.UpsertFromPmisAsync(
-                    item.InfraTypeId, item.PmisCode, item.Code, item.Name, item.Address, item.UnitCode, item.OperationDate, item.GridTypeId);
+                    item.InfraTypeId, item.PmisCode, item.Code, item.Name, item.Address, item.UnitCode, item.OperationDate,
+                    item.GridTypeId, item.IsRootLine, item.ParentInfrastructureId);
                 results.Add(new UpsertInfrastructureFromPmisResult
                 {
                     PmisCode = item.PmisCode,

@@ -33,8 +33,13 @@ public interface IInfrastructureRepository
     /// resync khi PMIS không có gì mới.
     /// </summary>
     Task<(Guid Id, bool WasCreated, bool HasChanged)> UpsertFromPmisAsync(
-        int infraTypeId, string pmisCode, string code, string name, string? address, string? unitCode, DateTime? operationDate, int? gridTypeId = null);
+        int infraTypeId, string pmisCode, string code, string name, string? address, string? unitCode, DateTime? operationDate,
+        int? gridTypeId = null, bool isRootLine = false, Guid? parentInfrastructureId = null);
 
     /// <summary>Danh sách PmisCode đã đồng bộ (dùng cho auto-sync Thiết bị — lặp qua từng Trạm/Đường dây đã có để lấy thiết bị con).</summary>
     Task<IEnumerable<(string PmisCode, int InfraTypeId)>> GetSyncedPmisCodesAsync();
+
+    /// <summary>Toàn bộ Đường dây hiện có (Id + Name + mã đơn vị PMIS nếu tra được) — SyncService tải 1
+    /// lần/lượt đồng bộ Đường dây để tự tìm cha theo tên trong bộ nhớ, thay vì mỗi dòng tự query riêng.</summary>
+    Task<IEnumerable<EvnHanoi.EquipmentService.Core.DTOs.LineNameIndexEntry>> GetLineNameIndexAsync();
 }
