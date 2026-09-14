@@ -87,14 +87,28 @@ namespace EvnHanoi.NotificationService.Services
                     kv.Key.StartsWith("DOSSIER", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(kv.Key, "DOCUMENT", StringComparison.OrdinalIgnoreCase));
             }
+            else if (string.Equals(logGroup, AuditLogGroups.Sso, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(logGroup, "SSO", StringComparison.OrdinalIgnoreCase))
+            {
+                resourceTypeQuery = resourceTypeQuery.Where(kv =>
+                    string.Equals(kv.Key, "SSO", StringComparison.OrdinalIgnoreCase));
+            }
             else if (string.Equals(logGroup, AuditLogGroups.Operation, StringComparison.OrdinalIgnoreCase))
             {
                 resourceTypeQuery = resourceTypeQuery.Where(kv => !kv.Key.StartsWith("DOSSIER", StringComparison.OrdinalIgnoreCase));
             }
 
+            var actionsQuery = AuditVietnameseLabels.ActionLabels.AsEnumerable();
+            if (string.Equals(logGroup, AuditLogGroups.Sso, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(logGroup, "SSO", StringComparison.OrdinalIgnoreCase))
+            {
+                actionsQuery = actionsQuery.Where(kv =>
+                    string.Equals(kv.Key, "SSO_LOGIN", StringComparison.OrdinalIgnoreCase));
+            }
+
             return new AuditLogLookupsDto
             {
-                Actions = AuditVietnameseLabels.ActionLabels
+                Actions = actionsQuery
                     .Select(kv => new AuditLogLookupItem { Code = kv.Key, Label = kv.Value })
                     .ToList(),
                 ResourceTypes = resourceTypeQuery
@@ -104,7 +118,8 @@ namespace EvnHanoi.NotificationService.Services
                 LogGroups = new List<AuditLogLookupItem>
                 {
                     new() { Code = AuditLogGroups.Operation, Label = "Nhật ký thao tác" },
-                    new() { Code = AuditLogGroups.Business, Label = "Nhật ký nghiệp vụ" }
+                    new() { Code = AuditLogGroups.Business, Label = "Nhật ký nghiệp vụ" },
+                    new() { Code = AuditLogGroups.Sso, Label = "Lịch sử SSO" }
                 }
             };
         }

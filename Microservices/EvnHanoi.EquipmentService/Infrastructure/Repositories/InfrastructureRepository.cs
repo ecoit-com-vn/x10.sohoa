@@ -85,7 +85,9 @@ public class InfrastructureRepository : IInfrastructureRepository
                             i.{nameof(Infrastructure.CreatedDate)},
                             i.{nameof(Infrastructure.ModifiedBy)},
                             i.{nameof(Infrastructure.ModifiedDate)},
-                            i.{nameof(Infrastructure.IsDeleted)},
+                            i.PARENT_ID as {nameof(Infrastructure.ParentId)},
+                            p.NAME as {nameof(Infrastructure.ParentName)},
+                            p.CODE as {nameof(Infrastructure.ParentCode)},
                             it.NAME as {nameof(Infrastructure.InfraTypeName)},
                             u.NAME as {nameof(Infrastructure.UnitName)},
                             u.Id as OrgId,
@@ -93,6 +95,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                             u.Name as OrgName,
                             (SELECT COUNT(1) FROM EQUIPMENTS eq WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)} AND eq.IsDeleted = 0) AS {nameof(Infrastructure.EquipmentCount)}
                      FROM INFRASTRUCTURE i
+                     LEFT JOIN INFRASTRUCTURE p ON i.PARENT_ID = p.ID
                      LEFT JOIN INFRASTRUCTURE_TYPE it ON i.INFRA_TYPE_ID = it.ID
                      LEFT JOIN ORGANIZATION_UNIT u ON i.UNIT_ID = u.Id
                      WHERE i.{nameof(Infrastructure.Id)} = :Id AND i.{nameof(Infrastructure.IsDeleted)} = 0";
@@ -129,7 +132,9 @@ public class InfrastructureRepository : IInfrastructureRepository
                             i.{nameof(Infrastructure.CreatedDate)},
                             i.{nameof(Infrastructure.ModifiedBy)},
                             i.{nameof(Infrastructure.ModifiedDate)},
-                            i.{nameof(Infrastructure.IsDeleted)},
+                            i.PARENT_ID as {nameof(Infrastructure.ParentId)},
+                            p.NAME as {nameof(Infrastructure.ParentName)},
+                            p.CODE as {nameof(Infrastructure.ParentCode)},
                             it.NAME as {nameof(Infrastructure.InfraTypeName)},
                             u.NAME as {nameof(Infrastructure.UnitName)},
                             u.Id as OrgId,
@@ -137,6 +142,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                             u.Name as OrgName,
                             (SELECT COUNT(1) FROM EQUIPMENTS eq WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)} AND eq.IsDeleted = 0) AS {nameof(Infrastructure.EquipmentCount)}
                      FROM INFRASTRUCTURE i
+                     LEFT JOIN INFRASTRUCTURE p ON i.PARENT_ID = p.ID
                      LEFT JOIN INFRASTRUCTURE_TYPE it ON i.INFRA_TYPE_ID = it.ID
                      LEFT JOIN ORGANIZATION_UNIT u ON i.UNIT_ID = u.Id
                      WHERE LOWER(i.{nameof(Infrastructure.Code)}) = :Code AND i.{nameof(Infrastructure.IsDeleted)} = 0";
@@ -171,6 +177,7 @@ public class InfrastructureRepository : IInfrastructureRepository
             _connection.Open();
 
         var sqlBase = $@"FROM INFRASTRUCTURE i
+                          LEFT JOIN INFRASTRUCTURE p ON i.PARENT_ID = p.ID
                           LEFT JOIN INFRASTRUCTURE_TYPE it ON i.INFRA_TYPE_ID = it.ID
                           LEFT JOIN ORGANIZATION_UNIT u ON i.UNIT_ID = u.Id
                           WHERE i.{nameof(Infrastructure.IsDeleted)} = 0 AND i.INFRA_TYPE_ID = :InfraTypeId";
@@ -238,6 +245,9 @@ public class InfrastructureRepository : IInfrastructureRepository
                            i.{nameof(Infrastructure.ModifiedBy)},
                            i.{nameof(Infrastructure.ModifiedDate)},
                            i.{nameof(Infrastructure.IsDeleted)},
+                           i.PARENT_ID AS {nameof(Infrastructure.ParentId)},
+                           p.NAME AS {nameof(Infrastructure.ParentName)},
+                           p.CODE AS {nameof(Infrastructure.ParentCode)},
                            it.NAME AS {nameof(Infrastructure.InfraTypeName)},
                            u.NAME AS {nameof(Infrastructure.UnitName)},
                            u.Id AS OrgId,
@@ -248,11 +258,13 @@ public class InfrastructureRepository : IInfrastructureRepository
                              WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)}
                                AND eq.IsDeleted = 0) AS {nameof(Infrastructure.EquipmentCount)}
                    {sqlBase}
-                   ORDER BY i.IS_ACTIVE DESC,
-                            i.{nameof(Infrastructure.Code)} ASC,
-                            i.{nameof(Infrastructure.CreatedDate)} DESC
-                   OFFSET :Offset ROWS
-                   FETCH NEXT :PageSize ROWS ONLY";
+                    ORDER BY i.IS_ACTIVE DESC,
+                             COALESCE(p.CODE, i.{nameof(Infrastructure.Code)}) ASC,
+                             CASE WHEN i.PARENT_ID IS NULL THEN 0 ELSE 1 END ASC,
+                             i.{nameof(Infrastructure.Code)} ASC,
+                             i.{nameof(Infrastructure.CreatedDate)} DESC
+                    OFFSET :Offset ROWS
+                    FETCH NEXT :PageSize ROWS ONLY";
 
         parameters.Add("Offset", (page - 1) * pageSize);
         parameters.Add("PageSize", pageSize);
@@ -287,6 +299,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                         {nameof(Infrastructure.Code)},
                         {nameof(Infrastructure.Name)},
                         {nameof(Infrastructure.Address)},
+                        PARENT_ID,
                         INFRA_TYPE_ID,
                         UNIT_ID,
                         GRIDTYPEID,
@@ -296,7 +309,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                         {nameof(Infrastructure.CreatedDate)},
                         {nameof(Infrastructure.IsDeleted)}
                     )
-                    VALUES (:Id, :Code, :Name, :Address, :InfraTypeId, :UnitId, :GridTypeId, :OperationDate, :IsActive, :CreatedBy, :CreatedDate, :IsDeleted)";
+                    VALUES (:Id, :Code, :Name, :Address, :ParentId, :InfraTypeId, :UnitId, :GridTypeId, :OperationDate, :IsActive, :CreatedBy, :CreatedDate, :IsDeleted)";
 
         var param = new
         {
@@ -304,6 +317,7 @@ public class InfrastructureRepository : IInfrastructureRepository
             infrastructure.Code,
             infrastructure.Name,
             infrastructure.Address,
+            ParentId = infrastructure.ParentId.HasValue ? infrastructure.ParentId.Value.ToString() : null,
             infrastructure.InfraTypeId,
             infrastructure.UnitId,
             infrastructure.GridTypeId,
@@ -327,6 +341,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                     SET {nameof(Infrastructure.Code)} = :Code,
                         {nameof(Infrastructure.Name)} = :Name,
                         {nameof(Infrastructure.Address)} = :Address,
+                        PARENT_ID = :ParentId,
                         INFRA_TYPE_ID = :InfraTypeId,
                         UNIT_ID = :UnitId,
                         GRIDTYPEID = :GridTypeId,
@@ -342,6 +357,7 @@ public class InfrastructureRepository : IInfrastructureRepository
             infrastructure.Code,
             infrastructure.Name,
             infrastructure.Address,
+            ParentId = infrastructure.ParentId.HasValue ? infrastructure.ParentId.Value.ToString() : null,
             infrastructure.InfraTypeId,
             infrastructure.UnitId,
             infrastructure.GridTypeId,
