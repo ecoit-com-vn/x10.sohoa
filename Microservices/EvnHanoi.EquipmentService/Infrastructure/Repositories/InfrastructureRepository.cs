@@ -393,10 +393,12 @@ public class InfrastructureRepository : IInfrastructureRepository
         public long? UnitId { get; set; }
         public DateTime? OperationDate { get; set; }
         public int? GridTypeId { get; set; }
+        public string? ParentId { get; set; }
     }
 
     public async Task<(Guid Id, bool WasCreated, bool HasChanged)> UpsertFromPmisAsync(
-        int infraTypeId, string pmisCode, string code, string name, string? address, string? unitCode, DateTime? operationDate, int? gridTypeId = null)
+        int infraTypeId, string pmisCode, string code, string name, string? address, string? unitCode, DateTime? operationDate,
+        int? gridTypeId = null, bool isRootLine = false, Guid? parentInfrastructureId = null)
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
@@ -411,15 +413,31 @@ public class InfrastructureRepository : IInfrastructureRepository
                 "SELECT UnitId FROM PMIS_UNIT_CODE_MAPPING WHERE PmisUnitCode = :Code AND IsDeleted = 0", new { Code = unitCode });
         }
 
+        // Quan hệ cha-con giữa các Đường dây: cha đã được SyncService tự tra sẵn theo tên (qua danh mục
+        // tải 1 lần/lượt đồng bộ, xem PmisSyncExecutionService.ResolveParentLineIdAsync) — ở đây chỉ còn
+        // việc ÁP DỤNG giá trị đã tra, không tự query gì thêm (trước đây mỗi dòng tự SELECT tìm cha, tốn
+        // ~14000 round-trip DB cho 1 lượt đồng bộ đầy đủ — đã chuyển hẳn việc tra cứu sang tải 1 lần).
+        // Chỉ áp dụng cho Đường dây (infraTypeId = 2) — Trạm biến áp không có khái niệm này, không đụng PARENT_ID.
+        var isLine = infraTypeId == 2;
+
         var existing = await _connection.QuerySingleOrDefaultAsync<InfraCompareRow>(
             $@"SELECT {nameof(Infrastructure.Id)} AS Id, {nameof(Infrastructure.Code)} AS Code, {nameof(Infrastructure.Name)} AS Name,
-                      {nameof(Infrastructure.Address)} AS Address, UNIT_ID AS UnitId, OPERATION_DATE AS OperationDate, GRIDTYPEID AS GridTypeId
+                      {nameof(Infrastructure.Address)} AS Address, UNIT_ID AS UnitId, OPERATION_DATE AS OperationDate, GRIDTYPEID AS GridTypeId,
+                      PARENT_ID AS ParentId
                FROM INFRASTRUCTURE WHERE PMIS_CODE = :PmisCode AND {nameof(Infrastructure.IsDeleted)} = 0",
             new { PmisCode = pmisCode });
 
         if (existing != null)
         {
             var effectiveGridTypeId = gridTypeId ?? existing.GridTypeId; // giữ đúng ngữ nghĩa COALESCE của câu UPDATE cũ
+
+            // Với Đường dây: IsRootLine=true (tên hết dấu "/") nghĩa là PMIS đổi thành đường gốc thật sự
+            // → xoá hẳn PARENT_ID. Còn có "/" nhưng SyncService CHƯA tra được cha (ParentInfrastructureId
+            // null) là tình huống tạm thời — đường cha có thể chưa được đồng bộ tới trong lượt này — giữ
+            // nguyên PARENT_ID cũ, tự sửa đúng ở lượt kế tiếp. Trạm biến áp không có khái niệm này, giữ nguyên.
+            string? effectiveParentId = !isLine
+                ? existing.ParentId
+                : isRootLine ? null : parentInfrastructureId?.ToString() ?? existing.ParentId;
 
             // Chỉ update khi có ít nhất 1 trường thay đổi thật — tránh ghi đè/tăng ModifiedDate vô ích
             // mỗi lần resync khi PMIS trả về y hệt dữ liệu đã lưu.
@@ -429,7 +447,8 @@ public class InfrastructureRepository : IInfrastructureRepository
                 existing.Address != address ||
                 existing.UnitId != unitId ||
                 existing.OperationDate != operationDate ||
-                existing.GridTypeId != effectiveGridTypeId;
+                existing.GridTypeId != effectiveGridTypeId ||
+                existing.ParentId != effectiveParentId;
 
             if (!hasChanged)
                 return (Guid.Parse(existing.Id), false, false);
@@ -441,6 +460,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                             UNIT_ID = :UnitId,
                             OPERATION_DATE = :OperationDate,
                             GRIDTYPEID = COALESCE(:GridTypeId, GRIDTYPEID),
+                            PARENT_ID = :EffectiveParentId,
                             LAST_SYNCED_FROM_PMIS_AT = SYSTIMESTAMP,
                             {nameof(Infrastructure.ModifiedBy)} = :ModifiedBy,
                             {nameof(Infrastructure.ModifiedDate)} = SYSTIMESTAMP
@@ -455,6 +475,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                 UnitId = unitId,
                 OperationDate = operationDate,
                 GridTypeId = gridTypeId,
+                EffectiveParentId = effectiveParentId,
                 ModifiedBy = "PMIS_SYNC"
             });
             return (Guid.Parse(existing.Id), false, true);
@@ -463,11 +484,11 @@ public class InfrastructureRepository : IInfrastructureRepository
         var newId = Guid.Parse(EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid());
         var insertSql = $@"INSERT INTO INFRASTRUCTURE (
                         {nameof(Infrastructure.Id)}, {nameof(Infrastructure.Code)}, {nameof(Infrastructure.Name)},
-                        {nameof(Infrastructure.Address)}, INFRA_TYPE_ID, UNIT_ID, OPERATION_DATE, GRIDTYPEID, IS_ACTIVE,
+                        {nameof(Infrastructure.Address)}, INFRA_TYPE_ID, UNIT_ID, OPERATION_DATE, GRIDTYPEID, PARENT_ID, IS_ACTIVE,
                         PMIS_CODE, LAST_SYNCED_FROM_PMIS_AT,
                         {nameof(Infrastructure.CreatedBy)}, {nameof(Infrastructure.CreatedDate)}, {nameof(Infrastructure.IsDeleted)}
                     ) VALUES (
-                        :Id, :Code, :Name, :Address, :InfraTypeId, :UnitId, :OperationDate, :GridTypeId, 1,
+                        :Id, :Code, :Name, :Address, :InfraTypeId, :UnitId, :OperationDate, :GridTypeId, :ParentId, 1,
                         :PmisCode, SYSTIMESTAMP, :CreatedBy, SYSTIMESTAMP, 0
                     )";
 
@@ -481,6 +502,7 @@ public class InfrastructureRepository : IInfrastructureRepository
             UnitId = unitId,
             OperationDate = operationDate,
             GridTypeId = gridTypeId,
+            ParentId = isLine ? parentInfrastructureId?.ToString() : null,
             PmisCode = pmisCode,
             CreatedBy = "PMIS_SYNC"
         });
@@ -501,5 +523,36 @@ public class InfrastructureRepository : IInfrastructureRepository
         var rows = await _connection.QueryAsync<SyncedPmisCodeRow>(
             $"SELECT PMIS_CODE AS PmisCode, INFRA_TYPE_ID AS InfraTypeId FROM INFRASTRUCTURE WHERE PMIS_CODE IS NOT NULL AND {nameof(Infrastructure.IsDeleted)} = 0");
         return rows.Select(r => (r.PmisCode, r.InfraTypeId));
+    }
+
+    private class LineNameIndexRow
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? PmisUnitCode { get; set; }
+    }
+
+    public async Task<IEnumerable<EvnHanoi.EquipmentService.Core.DTOs.LineNameIndexEntry>> GetLineNameIndexAsync()
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        // Lấy ngược mã đơn vị PMIS từ PMIS_UNIT_CODE_MAPPING (UnitId -> PmisUnitCode) chỉ để phân biệt khi
+        // trùng tên giữa nhiều đơn vị (xem PmisSyncExecutionService.ResolveParentLineIdAsync) — 1 UnitId có
+        // thể map từ nhiều mã PMIS khác nhau về lý thuyết, lấy tạm 1 mã bất kỳ (FETCH FIRST 1 ROW ONLY) là
+        // đủ dùng vì chỉ để gợi ý phân biệt, không phải nguồn sự thật.
+        var rows = await _connection.QueryAsync<LineNameIndexRow>(
+            @"SELECT i.ID AS Id, i.NAME AS Name,
+                     (SELECT m.PmisUnitCode FROM PMIS_UNIT_CODE_MAPPING m
+                      WHERE m.UnitId = i.UNIT_ID AND m.IsDeleted = 0 FETCH FIRST 1 ROW ONLY) AS PmisUnitCode
+              FROM INFRASTRUCTURE i
+              WHERE i.INFRA_TYPE_ID = 2 AND i.ISDELETED = 0");
+
+        return rows.Select(r => new EvnHanoi.EquipmentService.Core.DTOs.LineNameIndexEntry
+        {
+            Id = Guid.Parse(r.Id),
+            Name = r.Name,
+            PmisUnitCode = r.PmisUnitCode
+        });
     }
 }

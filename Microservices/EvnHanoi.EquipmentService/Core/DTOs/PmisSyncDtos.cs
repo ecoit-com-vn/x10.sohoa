@@ -48,6 +48,29 @@ public class UpsertInfrastructureFromPmisRequest
     public string? UnitCode { get; set; } // maDonVi
     public DateTime? OperationDate { get; set; }
     public int? GridTypeId { get; set; } // Suy ra từ capDienAp (1 = Cao áp, 2 = Trung áp, 3 = Hạ áp) — xem PmisSyncExecutionService.ResolveGridTypeId
+
+    /// <summary>Chỉ có ý nghĩa với Đường dây (InfraTypeId=2): true nếu tên KHÔNG có dấu "/" (đường trục gốc,
+    /// chắc chắn không có cha — PARENT_ID phải xoá hẳn nếu trước đó có). Trạm biến áp luôn để false (không
+    /// đụng PARENT_ID, xem InfrastructureRepository.UpsertFromPmisAsync).</summary>
+    public bool IsRootLine { get; set; }
+
+    /// <summary>Id đường dây CHA đã được SyncService tự tra sẵn (so khớp tên đã chuẩn hoá + mã đơn vị PMIS
+    /// qua danh mục tải 1 lần/lượt đồng bộ — xem PmisSyncExecutionService.ResolveParentLineIdAsync) — null
+    /// nếu IsRootLine=true, hoặc có "/" nhưng chưa/không xác định được cha (đường trục chưa đồng bộ tới
+    /// trong lượt này, hoặc tên trục bị trùng ở nhiều nơi không phân biệt được) — trường hợp này giữ
+    /// nguyên PARENT_ID cũ, không xoá, tự khớp đúng ở lượt đồng bộ kế tiếp.</summary>
+    public Guid? ParentInfrastructureId { get; set; }
+}
+
+/// <summary>1 dòng danh mục Đường dây hiện có (Id + Tên gốc + mã đơn vị PMIS, nếu tra được) — SyncService
+/// tải 1 lần/lượt đồng bộ Đường dây (thay vì mỗi dòng tự query riêng) để tự tìm cha theo tên trong bộ nhớ.
+/// PmisUnitCode lấy ngược từ PMIS_UNIT_CODE_MAPPING (UnitId -> mã PMIS) — chỉ dùng để phân biệt khi trùng
+/// tên giữa nhiều đơn vị, không phải nguồn sự thật của UnitId (đã có UNIT_ID thật trên chính dòng đó).</summary>
+public class LineNameIndexEntry
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? PmisUnitCode { get; set; }
 }
 
 public class UpsertInfrastructureFromPmisResult
