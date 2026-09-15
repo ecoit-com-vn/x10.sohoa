@@ -320,14 +320,18 @@
             <td>
               <div class="line-name-cell" [style.padding-left.px]="level * 24">
                 <i
-                  *ngIf="node.children?.length > 0"
+                  *ngIf="(node.childLineCount ?? 0) > 0 && !isLineChildrenLoading(node.id)"
                   class="pi chevron-icon"
                   [class.pi-angle-down]="!isLineExpanded(node.id)"
                   [class.pi-angle-up]="isLineExpanded(node.id)"
                   (click)="toggleLineGroup(node.id, $event)"
                 ></i>
+                <i
+                  *ngIf="isLineChildrenLoading(node.id)"
+                  class="pi pi-spin pi-spinner chevron-icon"
+                ></i>
                 <span
-                  *ngIf="!(node.children?.length > 0)"
+                  *ngIf="(node.childLineCount ?? 0) === 0"
                   class="chevron-placeholder"
                 ></span>
                 <i
@@ -347,7 +351,7 @@
                     [style.font-weight]="level === 0 ? '600' : '500'"
                     (click)="onEdit(node); $event.stopPropagation()"
                   >
-                    {{ node.name }}
+                    {{ getLineDisplayName(node, level) }}
                   </b>
                 </span>
                 <ng-template #viewOnlyLineName>
@@ -355,15 +359,15 @@
                     [style.color]="level === 0 ? '#1e293b' : '#334155'"
                     [style.font-weight]="level === 0 ? '600' : '500'"
                   >
-                    {{ node.name }}
+                    {{ getLineDisplayName(node, level) }}
                   </b>
                 </ng-template>
                 <span
-                  *ngIf="node.children?.length > 0"
+                  *ngIf="(node.childLineCount ?? 0) > 0"
                   class="child-count-badge"
-                  [title]="node.children.length + ' đường dây nhánh con'"
+                  [title]="node.childLineCount + ' đường dây nhánh con'"
                 >
-                  {{ node.children.length }} nhánh
+                  {{ node.childLineCount }} nhánh
                 </span>
               </div>
             </td>
