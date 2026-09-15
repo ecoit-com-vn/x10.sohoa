@@ -3,6 +3,7 @@ import {
   pmisEndpointConfigMenuGuard,
   pmisManualSyncMenuGuard,
   pmisScheduleMenuGuard,
+  pmisUnitMappingMenuGuard,
 } from '@sohoa.frontend/shared/core';
 
 export const PMIS_SYNC_ROUTES: Routes = [
@@ -29,5 +30,13 @@ export const PMIS_SYNC_ROUTES: Routes = [
         (m) => m.PmisScheduleComponent
       ),
     canActivate: [pmisScheduleMenuGuard],
+  },
+  {
+    path: 'unit-mapping',
+    loadComponent: () =>
+      import('./feature/pmis-unit-mapping/pmis-unit-mapping.component').then(
+        (m) => m.PmisUnitMappingComponent
+      ),
+    canActivate: [pmisUnitMappingMenuGuard],
   },
 ];

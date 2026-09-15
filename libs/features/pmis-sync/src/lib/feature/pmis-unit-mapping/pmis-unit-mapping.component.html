@@ -1,0 +1,119 @@
+<div class="wf-page">
+  <p-toast></p-toast>
+
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb [customItems]="[{ label: 'Đồng bộ PMIS' }, { label: 'Ánh xạ mã đơn vị PMIS', url: '/pmis-sync/unit-mapping' }]" />
+    </div>
+    <div class="toolbar-right">
+      <button type="button" class="btn-save btn-small" (click)="openCreate()">
+        <i class="pi pi-plus"></i> Thêm ánh xạ
+      </button>
+    </div>
+  </div>
+
+  <p class="hint-text">
+    Ánh xạ mã đơn vị PMIS (maDonVi, vd. "HN0200") với đơn vị trong hệ thống — bắt buộc phải có ánh xạ này
+    thì Trạm biến áp/Đường dây/Thiết bị của đơn vị đó mới đồng bộ đúng được đơn vị quản lý. Đơn vị mới
+    thêm ở màn "Đơn vị" chưa có ánh xạ ở đây sẽ khiến dữ liệu PMIS của đơn vị đó không xác định được đơn
+    vị quản lý dù đơn vị đã tồn tại trong hệ thống.
+  </p>
+
+  <div class="wf-card">
+    <div class="wf-table-wrap">
+      <table class="wf-table">
+        <thead>
+          <tr>
+            <th class="col-stt">STT</th>
+            <th>Mã đơn vị PMIS</th>
+            <th>Đơn vị hệ thống</th>
+            <th>Ghi chú</th>
+            <th>Ngày thêm</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading()">
+            <td colspan="5" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
+          </tr>
+          <ng-container *ngIf="!loading()">
+            <tr *ngFor="let item of mappings(); let index = index">
+              <td class="col-stt text-muted">{{ index + 1 }}</td>
+              <td><b>{{ item.pmisUnitCode }}</b></td>
+              <td>
+                <span *ngIf="item.unitName">{{ item.unitName }} ({{ item.unitCode }})</span>
+                <span class="text-muted italic" *ngIf="!item.unitName">Không tìm thấy đơn vị (Id: {{ item.unitId }})</span>
+              </td>
+              <td class="note-cell">{{ item.note || '-' }}</td>
+              <td>{{ formatDate(item.createdDate) }}</td>
+            </tr>
+            <tr *ngIf="mappings().length === 0">
+              <td colspan="5" class="empty-row"><i class="pi pi-inbox"></i><div>Chưa có ánh xạ nào.</div></td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<p-dialog
+  [visible]="dialogVisible()"
+  (visibleChange)="closeDialog()"
+  header="Thêm ánh xạ mã đơn vị PMIS"
+  [modal]="true"
+  [style]="{ width: '520px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!saving()"
+>
+  <div class="api-key-form">
+    <div class="form-group">
+      <label class="form-label">Mã đơn vị PMIS (maDonVi)</label>
+      <input
+        class="wf-input w-full"
+        type="text"
+        maxlength="50"
+        [ngModel]="form().pmisUnitCode"
+        (ngModelChange)="updateFormField('pmisUnitCode', $event)"
+        [disabled]="saving()"
+        placeholder="Vd: HN0700"
+      />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Đơn vị hệ thống</label>
+      <select
+        class="wf-select w-full"
+        [ngModel]="form().unitId"
+        (ngModelChange)="updateFormField('unitId', $event)"
+        [disabled]="saving()"
+      >
+        <option [ngValue]="null">-- Chọn đơn vị --</option>
+        <option *ngFor="let unit of units()" [ngValue]="unit.id">{{ unit.name }} ({{ unit.code }})</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Ghi chú</label>
+      <textarea
+        class="wf-input w-full"
+        rows="2"
+        maxlength="500"
+        [ngModel]="form().note"
+        (ngModelChange)="updateFormField('note', $event)"
+        [disabled]="saving()"
+        placeholder="Vd: xác nhận qua API PMIS thật ngày ..."
+      ></textarea>
+    </div>
+  </div>
+
+  <ng-template #footer>
+    <div class="dialog-footer">
+      <button type="button" class="btn-outlined btn-small" (click)="closeDialog()" [disabled]="saving()">Đóng</button>
+      <button type="button" class="btn-save btn-small" (click)="save()" [disabled]="saving()">
+        <i *ngIf="saving(); else saveIcon" class="pi pi-spin pi-spinner"></i>
+        <ng-template #saveIcon><i class="pi pi-save"></i></ng-template>
+        Lưu
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
