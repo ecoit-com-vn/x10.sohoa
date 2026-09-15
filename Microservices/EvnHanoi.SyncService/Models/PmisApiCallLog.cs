@@ -19,3 +19,13 @@ public class PmisApiCallLog
     /// API không phải danh sách (ChiTietThietBi, AnhQRCode) hoặc khi gọi lỗi.</summary>
     public int? RecordCount { get; set; }
 }
+
+/// <summary>Body cho nút "Xoá lịch sử" trong dialog Lịch sử gọi API — cùng 4 chế độ với
+/// CleanupSyncHistoryRequest (SyncHistoryController), xem PmisApiCallLogRepository.DeleteAsync.</summary>
+public class CleanupPmisApiCallLogRequest
+{
+    /// <summary>"DATE_RANGE" | "KEEP_LAST_1_DAY" | "KEEP_LAST_7_DAYS" | "ALL".</summary>
+    public string Mode { get; set; } = string.Empty;
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
+}

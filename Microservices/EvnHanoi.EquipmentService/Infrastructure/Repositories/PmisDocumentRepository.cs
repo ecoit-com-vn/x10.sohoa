@@ -138,24 +138,30 @@ public class PmisDocumentRepository : IPmisDocumentRepository
     {
         EnsureOpen();
 
-        // Chỉ kiểm tra sự tồn tại (EXISTS) thay vì tổng hợp/tải toàn bộ INFRASTRUCTURE + EQUIPMENTS như
-        // GetCatalogTreeAsync cũ — cấp gốc chỉ cần biết đơn vị nào có dữ liệu, chưa cần load Trạm/Đường
-        // dây/Thiết bị bên trong (sẽ load lười ở GetCatalogUnitChildrenAsync khi người dùng mở đơn vị đó).
+        // QUAN TRỌNG: KHÔNG dùng EXISTS tương quan (correlated subquery) chạy lại cho từng dòng
+        // ORGANIZATION_UNIT — INFRASTRUCTURE.UNIT_ID không có index (chỉ là FK, Oracle không tự tạo index
+        // cho FK) nên mỗi lần kiểm tra sẽ full-scan INFRASTRUCTURE 1 lần nữa, nhân với số dòng
+        // ORGANIZATION_UNIT (kể cả đơn vị không có dữ liệu) → chậm dù kết quả cuối chỉ vài chục đơn vị.
+        // Dùng đúng kỹ thuật GROUP BY 1 lần rồi JOIN như GetCatalogUnitChildrenAsync/GetCatalogTreeAsync
+        // cũ (xem lịch sử 504 timeout) — chỉ 1 lượt full-scan duy nhất trên mỗi bảng.
         var units = (await _connection.QueryAsync<UnitCatalogRow>(@"
-            SELECT ou.Id, ou.Name
+            SELECT DISTINCT ou.Id, ou.Name
             FROM ORGANIZATION_UNIT ou
-            WHERE EXISTS (
-                SELECT 1 FROM INFRASTRUCTURE i
-                WHERE i.UNIT_ID = ou.Id AND i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0
-                  AND (
-                    EXISTS (SELECT 1 FROM PMIS_DOCUMENT pd WHERE pd.OwnerType = 'INFRASTRUCTURE' AND pd.OwnerId = i.Id AND pd.IsDeleted = 0)
-                    OR EXISTS (
-                        SELECT 1 FROM EQUIPMENTS e
-                        INNER JOIN PMIS_DOCUMENT pd2 ON pd2.OwnerType = 'EQUIPMENT' AND pd2.OwnerId = e.Id AND pd2.IsDeleted = 0
-                        WHERE e.INFRASTRUCTURE_ID = i.Id AND e.IsDeleted = 0
-                    )
-                  )
-            )"))
+            INNER JOIN INFRASTRUCTURE i ON i.UNIT_ID = ou.Id AND i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0
+            LEFT JOIN (
+                SELECT OwnerId
+                FROM PMIS_DOCUMENT
+                WHERE OwnerType = 'INFRASTRUCTURE' AND IsDeleted = 0
+                GROUP BY OwnerId
+            ) direct_doc ON direct_doc.OwnerId = i.Id
+            LEFT JOIN (
+                SELECT e.INFRASTRUCTURE_ID AS InfrastructureId
+                FROM EQUIPMENTS e
+                INNER JOIN PMIS_DOCUMENT pd ON pd.OwnerType = 'EQUIPMENT' AND pd.OwnerId = e.Id AND pd.IsDeleted = 0
+                WHERE e.IsDeleted = 0
+                GROUP BY e.INFRASTRUCTURE_ID
+            ) child_doc ON child_doc.InfrastructureId = i.Id
+            WHERE direct_doc.OwnerId IS NOT NULL OR child_doc.InfrastructureId IS NOT NULL"))
             .ToList();
 
         var nodes = units
@@ -165,18 +171,26 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         // Trạm/Đường dây chưa xác định được đơn vị (PMIS_UNIT_CODE_MAPPING thiếu mã đơn vị) — KHÔNG bỏ
         // qua (sẽ làm mất luôn thiết bị/tài liệu con khỏi cây, không có cách nào khác để tìm thấy), gom
         // vào 1 node "đơn vị" tạm ở gốc cây để vẫn duyệt/xem/chọn được, kèm gợi ý cho admin đi sửa mapping.
+        // Cùng kỹ thuật GROUP BY + JOIN ở trên, chỉ đổi điều kiện UNIT_ID IS NULL — không phải correlated.
         var hasUnassigned = await _connection.ExecuteScalarAsync<int>(@"
             SELECT CASE WHEN EXISTS (
-                SELECT 1 FROM INFRASTRUCTURE i
+                SELECT 1
+                FROM INFRASTRUCTURE i
+                LEFT JOIN (
+                    SELECT OwnerId
+                    FROM PMIS_DOCUMENT
+                    WHERE OwnerType = 'INFRASTRUCTURE' AND IsDeleted = 0
+                    GROUP BY OwnerId
+                ) direct_doc ON direct_doc.OwnerId = i.Id
+                LEFT JOIN (
+                    SELECT e.INFRASTRUCTURE_ID AS InfrastructureId
+                    FROM EQUIPMENTS e
+                    INNER JOIN PMIS_DOCUMENT pd ON pd.OwnerType = 'EQUIPMENT' AND pd.OwnerId = e.Id AND pd.IsDeleted = 0
+                    WHERE e.IsDeleted = 0
+                    GROUP BY e.INFRASTRUCTURE_ID
+                ) child_doc ON child_doc.InfrastructureId = i.Id
                 WHERE i.UNIT_ID IS NULL AND i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0
-                  AND (
-                    EXISTS (SELECT 1 FROM PMIS_DOCUMENT pd WHERE pd.OwnerType = 'INFRASTRUCTURE' AND pd.OwnerId = i.Id AND pd.IsDeleted = 0)
-                    OR EXISTS (
-                        SELECT 1 FROM EQUIPMENTS e
-                        INNER JOIN PMIS_DOCUMENT pd2 ON pd2.OwnerType = 'EQUIPMENT' AND pd2.OwnerId = e.Id AND pd2.IsDeleted = 0
-                        WHERE e.INFRASTRUCTURE_ID = i.Id AND e.IsDeleted = 0
-                    )
-                  )
+                  AND (direct_doc.OwnerId IS NOT NULL OR child_doc.InfrastructureId IS NOT NULL)
             ) THEN 1 ELSE 0 END
             FROM DUAL") > 0;
 
