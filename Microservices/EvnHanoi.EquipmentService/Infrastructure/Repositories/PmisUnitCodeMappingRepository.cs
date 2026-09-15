@@ -82,4 +82,16 @@ public class PmisUnitCodeMappingRepository : IPmisUnitCodeMappingRepository
             return CreatePmisUnitCodeMappingResult.Fail(PmisUnitCodeMappingCreateError.DuplicateCode);
         }
     }
+
+    // Xoá mềm — an toàn để thêm lại đúng mã đơn vị PMIS này sau đó nhờ Migration0058 đã đổi
+    // UQ_PMIS_UNIT_CODE_MAPPING_CODE thành unique index chỉ tính dòng IsDeleted = 0.
+    public async Task<bool> DeleteAsync(Guid id)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        var affected = await _connection.ExecuteAsync(
+            "UPDATE PMIS_UNIT_CODE_MAPPING SET IsDeleted = 1, ModifiedDate = SYSTIMESTAMP WHERE Id = :Id AND IsDeleted = 0",
+            new { Id = id.ToString() });
+        return affected > 0;
+    }
 }

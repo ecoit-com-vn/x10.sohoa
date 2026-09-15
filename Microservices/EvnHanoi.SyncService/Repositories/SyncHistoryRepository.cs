@@ -169,6 +169,22 @@ public class SyncHistoryRepository : ISyncHistoryRepository
             new { RetentionDays = retentionDays });
     }
 
+    public async Task<int> FailStaleRunningAsync(TimeSpan staleAfter, string errorMessage)
+    {
+        EnsureOpen();
+        const string sql = @"
+            UPDATE SYNC_HISTORY
+            SET STATUS = :FailedStatus, END_TIME = SYSTIMESTAMP, ERROR_MESSAGE = :ErrorMessage
+            WHERE STATUS = :RunningStatus AND START_TIME < :Cutoff";
+        return await _connection.ExecuteAsync(sql, new
+        {
+            FailedStatus = SyncHistoryStatus.Failed,
+            RunningStatus = SyncHistoryStatus.Running,
+            ErrorMessage = errorMessage,
+            Cutoff = DateTime.UtcNow - staleAfter
+        });
+    }
+
     private void EnsureOpen()
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();

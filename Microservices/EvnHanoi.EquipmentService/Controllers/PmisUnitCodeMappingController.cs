@@ -69,6 +69,14 @@ public class PmisUnitCodeMappingController : ControllerBase
         return Ok(new { id = result.Id });
     }
 
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var deleted = await _repository.DeleteAsync(id);
+        if (!deleted) return NotFound(new { message = "Không tìm thấy ánh xạ." });
+        return NoContent();
+    }
+
     private string? CurrentUserName() =>
         User.FindFirst("full_name")?.Value ?? User.Identity?.Name;
 }
