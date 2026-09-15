@@ -11,7 +11,7 @@ import { DossierPublishService } from '../../data-access/dossier-publish.service
 import { DossierListTab } from '../../utils/dossier-status.util';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
-import { debounceTime, distinctUntilChanged, finalize, forkJoin, map, Observable, of, Subject, switchMap } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, finalize, forkJoin, map, Observable, of, Subject, switchMap } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 type PublishTab = 'pending-publish' | 'published' | 'unpublished';
@@ -105,10 +105,24 @@ function tabLabel(tab: PublishTab): string {
         </div>
       </div>
 
+      <div class="bulk-toolbar" *ngIf="canBulkPublish() && selectedDossierIds().size > 0">
+        <span class="bulk-toolbar-count">{{ selectedDossierIds().size }} hồ sơ đã chọn</span>
+        <button type="button" class="btn-green btn-small" (click)="openBulkPublishDialog()">
+          <i class="pi pi-cloud-upload"></i> Xuất bản hàng loạt ({{ selectedDossierIds().size }})
+        </button>
+        <button type="button" class="btn-outlined btn-small" (click)="clearSelection()">
+          Bỏ chọn
+        </button>
+      </div>
+
       <div class="wf-table-wrap">
         <table class="wf-table">
           <thead>
             <tr>
+              <th *ngIf="canBulkPublish()" class="col-chk" style="width: 40px; text-align: center;">
+                <input type="checkbox" [checked]="allPageSelected()" (change)="toggleSelectAllPage($event)"
+                       [disabled]="loading() || items().length === 0" />
+              </th>
               <th class="col-stt">STT</th>
               <th *ngFor="let col of bhsColumns()">{{ col.label }}</th>
               <th>Loại hồ sơ</th>
@@ -120,6 +134,7 @@ function tabLabel(tab: PublishTab): string {
           <tbody>
             <ng-container *ngIf="loading()">
               <tr *ngFor="let r of [1,2,3,4,5]" class="skeleton-row">
+                <td *ngIf="canBulkPublish()" class="col-chk"><div class="skeleton-bar short" style="margin: 0 auto; width: 16px;"></div></td>
                 <td class="col-stt"><div class="skeleton-bar short" style="margin: 0 auto; width: 24px;"></div></td>
                 <td *ngFor="let col of bhsColumns()"><div class="skeleton-bar"></div></td>
                 <td><div class="skeleton-bar"></div></td>
@@ -138,6 +153,9 @@ function tabLabel(tab: PublishTab): string {
               </tr>
 
               <tr *ngFor="let item of items(); let i = index">
+                <td *ngIf="canBulkPublish()" class="col-chk text-center" (click)="$event.stopPropagation()">
+                  <input type="checkbox" [checked]="isSelected(item.id)" (change)="toggleSelectDossier(item.id)" />
+                </td>
                 <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
                 <td *ngFor="let col of bhsColumns(); let first = first">
                   <b *ngIf="first" class="wf-name-link" (click)="viewDetail.emit(item.id)">{{ getCatalogValue(item, col) }}</b>
@@ -223,6 +241,39 @@ function tabLabel(tab: PublishTab): string {
         </div>
       </ng-template>
     </p-dialog>
+
+    <!-- Bulk Publish Confirm Dialog -->
+    <p-dialog
+      [visible]="showBulkPublishConfirm()"
+      (visibleChange)="$event ? null : onCancelBulkPublish()"
+      header="Xác nhận xuất bản hàng loạt"
+      [modal]="true"
+      [style]="{ width: '480px' }"
+      styleClass="evn-dialog-custom"
+      [closable]="!bulkPublishSubmitting()">
+      <div style="padding: 4px 0 12px;">
+        <p style="margin: 0 0 10px 0; color: #1e293b;">
+          Xác nhận xuất bản <b>{{ selectedDossiersList().length }}</b> hồ sơ sau:
+        </p>
+        <div style="max-height: 240px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 6px;">
+          <div *ngFor="let item of selectedDossiersList()" style="padding: 6px 10px; border-bottom: 1px solid #f8fafc; font-size: 0.85rem; color: #334155;">
+            {{ getItemLabel(item) }}
+          </div>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button class="btn-cancel btn-small" (click)="onCancelBulkPublish()" [disabled]="bulkPublishSubmitting()">
+            <i class="pi pi-times"></i> Hủy
+          </button>
+          <button class="btn-save btn-small" (click)="onConfirmBulkPublish()" [disabled]="bulkPublishSubmitting()">
+            <i class="pi pi-spin pi-spinner" *ngIf="bulkPublishSubmitting()"></i>
+            <i class="pi pi-cloud-upload" *ngIf="!bulkPublishSubmitting()"></i>
+            Xuất bản ({{ selectedDossiersList().length }})
+          </button>
+        </div>
+      </ng-template>
+    </p-dialog>
   `,
   styles: [`
     .dossier-publish-search-bar {
@@ -282,6 +333,22 @@ function tabLabel(tab: PublishTab): string {
       .search-form-grid { grid-template-columns: 1fr; }
       .search-actions { justify-content: flex-start; }
       .table-footer-paginator { flex-direction: column; align-items: stretch; }
+    }
+    .bulk-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      padding: 10px 14px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+    }
+    .bulk-toolbar-count {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #1d4ed8;
+      margin-right: auto;
     }
     .tab-badge {
       display: inline-flex;
@@ -423,20 +490,22 @@ export class DossierPublishComponent implements OnInit {
   actionSubmitting = signal<boolean>(false);
   publishActionMenuItems = signal<MenuItem[]>([]);
 
+  // Bulk Publish State — chỉ cho phép chọn hàng loạt ở tab "Chờ xuất bản" và khi có quyền phát hành.
+  selectedDossierIds = signal<Set<string>>(new Set());
+  showBulkPublishConfirm = signal<boolean>(false);
+  bulkPublishSubmitting = signal<boolean>(false);
+
   totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
   first = computed(() => (this.currentPage() - 1) * this.pageSize());
-  tableColSpan = computed(() => this.bhsColumns().length + 5);
+  canBulkPublish = computed(() => this.activeTab() === 'pending-publish' && this.authService.hasPermission('DOSSIER_PUBLISH_RELEASE'));
+  tableColSpan = computed(() => this.bhsColumns().length + 5 + (this.canBulkPublish() ? 1 : 0));
 
-  actionTargetLabel = computed(() => {
-    const item = this.actionTarget();
-    if (!item) return '';
-    const firstCol = this.bhsColumns()[0];
-    if (firstCol) {
-      const val = this.getCatalogValue(item, firstCol);
-      if (val !== '-') return val;
-    }
-    return item.infrastructureName || item.dossierTypeName || 'này';
+  selectedDossiersList = computed(() => {
+    const ids = this.selectedDossierIds();
+    return this.items().filter((item) => ids.has(item.id));
   });
+
+  actionTargetLabel = computed(() => this.getItemLabel(this.actionTarget()));
 
   confirmHeader() {
     if (this.confirmActionType() === 'delete') return 'Xác nhận xóa hồ sơ';
@@ -593,9 +662,22 @@ export class DossierPublishComponent implements OnInit {
     });
   }
 
+  getItemLabel(item: any): string {
+    if (!item) return '';
+    const firstCol = this.bhsColumns()[0];
+    if (firstCol) {
+      const val = this.getCatalogValue(item, firstCol);
+      if (val !== '-') return val;
+    }
+    return item.infrastructureName || item.dossierTypeName || 'này';
+  }
+
   loadData() {
     this.loading.set(true);
     this.items.set([]);
+    // Danh sách hiển thị sắp đổi (tab/trang/bộ lọc khác) — bỏ chọn để tránh giữ lựa chọn hàng loạt
+    // của những dòng không còn hiển thị trên bảng.
+    this.selectedDossierIds.set(new Set());
     const dossierTypeId = this.filterDossierTypeId();
 
     this.publishService.getPaged({
@@ -886,6 +968,81 @@ export class DossierPublishComponent implements OnInit {
         const msg = err?.error?.message || 'Có lỗi xảy ra khi thực hiện thao tác';
         this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: msg });
       }
+    });
+  }
+
+  // ===== BULK PUBLISH =====
+
+  isSelected(id: string): boolean {
+    return this.selectedDossierIds().has(id);
+  }
+
+  toggleSelectDossier(id: string): void {
+    const next = new Set(this.selectedDossierIds());
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this.selectedDossierIds.set(next);
+  }
+
+  allPageSelected(): boolean {
+    const items = this.items();
+    if (items.length === 0) return false;
+    const ids = this.selectedDossierIds();
+    return items.every((item) => ids.has(item.id));
+  }
+
+  toggleSelectAllPage(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    const next = new Set(this.selectedDossierIds());
+    this.items().forEach((item) => {
+      if (checked) next.add(item.id);
+      else next.delete(item.id);
+    });
+    this.selectedDossierIds.set(next);
+  }
+
+  clearSelection(): void {
+    this.selectedDossierIds.set(new Set());
+  }
+
+  openBulkPublishDialog(): void {
+    if (this.selectedDossierIds().size === 0) return;
+    this.showBulkPublishConfirm.set(true);
+  }
+
+  onCancelBulkPublish(): void {
+    if (this.bulkPublishSubmitting()) return;
+    this.showBulkPublishConfirm.set(false);
+  }
+
+  onConfirmBulkPublish(): void {
+    const targets = this.selectedDossiersList();
+    if (targets.length === 0 || this.bulkPublishSubmitting()) return;
+
+    this.bulkPublishSubmitting.set(true);
+    const requests = targets.map((item) =>
+      this.publishService.publish(item.id).pipe(
+        map(() => ({ id: item.id, success: true as const })),
+        catchError((err) => of({ id: item.id, success: false as const, error: err?.error?.message }))
+      )
+    );
+
+    forkJoin(requests).pipe(
+      finalize(() => this.bulkPublishSubmitting.set(false))
+    ).subscribe((results) => {
+      const successCount = results.filter((r) => r.success).length;
+      const failCount = results.length - successCount;
+
+      if (successCount > 0) {
+        this.messageService.add({ severity: 'success', summary: 'Thành công', detail: `Đã xuất bản ${successCount} hồ sơ.` });
+      }
+      if (failCount > 0) {
+        this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: `${failCount} hồ sơ xuất bản thất bại.` });
+      }
+
+      this.showBulkPublishConfirm.set(false);
+      this.clearSelection();
+      this.refreshList();
     });
   }
 }

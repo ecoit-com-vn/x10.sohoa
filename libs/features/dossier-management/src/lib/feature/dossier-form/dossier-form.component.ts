@@ -133,7 +133,7 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
           </div>
 
           <div class="form-group" style="flex: 1 1 240px; min-width: 220px;">
-            <label class="form-label">Trạm / Đường dây</label>
+            <label class="form-label">Trạm / Đường dây <span class="required" *ngIf="!isEditMode()">*</span></label>
             <p-multiSelect
               [options]="formInfrastructures()"
               [ngModel]="dossier.infrastructureIds"
@@ -1608,6 +1608,9 @@ export class DossierFormComponent implements OnInit {
   isValid() {
     if (!this.dossier.dossierTypeId) return false;
     if (this.dossier.dossierGroupId == null) return false;
+    // Bắt buộc chọn Trạm/Đường dây khi tạo mới hồ sơ (hồ sơ cũ tạo trước khi có ràng buộc này vẫn
+    // được sửa/lưu bình thường dù chưa có trạm/đường dây, tránh chặn ngược người dùng đang thao tác).
+    if (!this.isEditMode() && (!this.dossier.infrastructureIds || this.dossier.infrastructureIds.length === 0)) return false;
     if (this.isEquipmentDossier() && this.selectedEquipments().length === 0) return false;
     return true;
   }
@@ -1781,6 +1784,8 @@ export class DossierFormComponent implements OnInit {
         detail = 'Vui lòng chọn nhóm hồ sơ';
       } else if (!this.dossier.dossierTypeId) {
         detail = 'Vui lòng chọn loại hồ sơ';
+      } else if (!this.isEditMode() && (!this.dossier.infrastructureIds || this.dossier.infrastructureIds.length === 0)) {
+        detail = 'Vui lòng chọn trạm/đường dây';
       } else if (this.isEquipmentDossier() && this.selectedEquipments().length === 0) {
         detail = 'Hồ sơ thiết bị bắt buộc chọn ít nhất một thiết bị';
       }
