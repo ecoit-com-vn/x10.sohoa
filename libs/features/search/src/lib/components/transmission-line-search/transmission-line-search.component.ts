@@ -221,6 +221,78 @@ export class TransmissionLineSearchComponent implements OnInit {
     return this.items();
   });
 
+  // Transmission Line Tree Table Signals — bảng cha/con giống màn Quản lý đường dây (/catalog/transmission-line)
+  expandedLineIds = signal<Set<string>>(new Set<string>());
+
+  transmissionLineTree = computed(() => {
+    const list = this.items() || [];
+    if (!list.length) return [];
+
+    const map = new Map<string, any>();
+    list.forEach(item => {
+      map.set(item.id, { ...item, children: [] });
+    });
+
+    const roots: any[] = [];
+    map.forEach(node => {
+      if (node.parentId && map.has(node.parentId)) {
+        map.get(node.parentId).children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+
+    return roots;
+  });
+
+  toggleLineGroup(lineId: string, event?: Event) {
+    if (event) event.stopPropagation();
+    this.expandedLineIds.update((prev) => {
+      const next = new Set(prev);
+      if (next.has(lineId)) {
+        next.delete(lineId);
+      } else {
+        next.add(lineId);
+      }
+      return next;
+    });
+  }
+
+  isLineExpanded(lineId: string): boolean {
+    return this.expandedLineIds().has(lineId);
+  }
+
+  onParentLineRowClick(node: any) {
+    if (node.children && node.children.length > 0) {
+      this.toggleLineGroup(node.id);
+    }
+  }
+
+  getLineSTT(node: any, level: number, index: number, parentStt?: string): string {
+    if (level === 0) {
+      const base = (this.currentPage() - 1) * this.pageSize() + index + 1;
+      return `${base}`;
+    }
+    return `${parentStt}.${index + 1}`;
+  }
+
+  syncExpandedLines() {
+    const kw = this.searchKeyword().trim();
+    if (!kw) return;
+
+    const ids = new Set<string>();
+    const collect = (nodes: any[]) => {
+      nodes.forEach((node) => {
+        if (node.children && node.children.length > 0) {
+          ids.add(node.id);
+        }
+        collect(node.children || []);
+      });
+    };
+    collect(this.transmissionLineTree());
+    this.expandedLineIds.set(ids);
+  }
+
   searchOrgUnitTree = computed(() =>
     this.filterUnitTree(
       this.buildUnitTree(this.orgUnits()),
@@ -437,6 +509,7 @@ export class TransmissionLineSearchComponent implements OnInit {
         if (res) {
           this.items.set(res.items || []);
           this.totalCount.set(res.totalCount || 0);
+          this.syncExpandedLines();
         }
       },
       error: () => {
