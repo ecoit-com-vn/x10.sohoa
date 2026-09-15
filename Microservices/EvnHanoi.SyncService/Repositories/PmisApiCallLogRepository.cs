@@ -79,6 +79,36 @@ public class PmisApiCallLogRepository : IPmisApiCallLogRepository
             new { RetentionDays = retentionDays });
     }
 
+    public async Task<int> DeleteAsync(string apiCode, string mode, DateTime? fromDate, DateTime? toDate)
+    {
+        EnsureOpen();
+        var parameters = new DynamicParameters();
+        parameters.Add("ApiCode", apiCode);
+
+        string whereClause;
+        switch (mode)
+        {
+            case "DATE_RANGE":
+                whereClause = "ApiCode = :ApiCode AND CalledAt BETWEEN :FromDate AND :ToDate";
+                parameters.Add("FromDate", fromDate);
+                parameters.Add("ToDate", toDate);
+                break;
+            case "KEEP_LAST_1_DAY":
+                whereClause = "ApiCode = :ApiCode AND CalledAt < SYSTIMESTAMP - 1";
+                break;
+            case "KEEP_LAST_7_DAYS":
+                whereClause = "ApiCode = :ApiCode AND CalledAt < SYSTIMESTAMP - 7";
+                break;
+            case "ALL":
+                whereClause = "ApiCode = :ApiCode";
+                break;
+            default:
+                throw new ArgumentException($"Không nhận diện được mode xoá lịch sử: {mode}", nameof(mode));
+        }
+
+        return await _connection.ExecuteAsync($"DELETE FROM PMIS_API_CALL_LOG WHERE {whereClause}", parameters);
+    }
+
     private void EnsureOpen()
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
