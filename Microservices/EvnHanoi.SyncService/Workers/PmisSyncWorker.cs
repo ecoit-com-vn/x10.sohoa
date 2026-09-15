@@ -15,6 +15,15 @@ using EvnHanoi.SyncService.Services;
 
 namespace EvnHanoi.SyncService.Workers;
 
+/// <summary>
+/// KHÁC với <see cref="Schedulers.PmisScheduledSyncJob"/> (Quartz) — worker này không đọc SYNC_CONFIG/
+/// SYNC_HISTORY và không dùng RedLock. Nó tự polling một API PMIS đơn giản ở <c>Pmis:ApiUrl</c> theo chu
+/// kỳ <c>Pmis:SyncIntervalMinutes</c> (hoặc được đánh thức sớm qua <see cref="IPmisSyncTriggerService"/>),
+/// rồi đẩy từng bản ghi vào queue RabbitMQ <c>equipment_sync_queue</c> để SyncService/NotificationService
+/// index vào Elasticsearch. Nếu <c>Pmis:ApiUrl</c> chưa cấu hình, worker chỉ đứng chờ vô hạn (không lỗi,
+/// không crash) — cảnh báo lúc khởi động KHÔNG có nghĩa là toàn bộ đồng bộ PMIS đang hỏng: luồng đồng bộ
+/// Trạm/Đường dây/Thiết bị chính vẫn chạy bình thường qua PmisScheduledSyncJob, độc lập với worker này.
+/// </summary>
 public class PmisSyncWorker : BackgroundService
 {
     private readonly ILogger<PmisSyncWorker> _logger;
@@ -52,7 +61,8 @@ public class PmisSyncWorker : BackgroundService
         {
             _logger.LogWarning(
                 "PmisSyncWorker: Cấu hình 'Pmis:ApiUrl' chưa được thiết lập. " +
-                "Worker sẽ chạy ở chế độ chờ và bỏ qua đồng bộ PMIS. " +
+                "Worker sẽ chạy ở chế độ chờ và bỏ qua việc đẩy dữ liệu vào equipment_sync_queue " +
+                "(KHÔNG ảnh hưởng đồng bộ Trạm/Đường dây/Thiết bị chính — xem PmisScheduledSyncJob). " +
                 "Vui lòng cấu hình 'Pmis:ApiUrl' trong appsettings.json khi PMIS sẵn sàng.");
         }
 
