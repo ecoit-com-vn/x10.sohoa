@@ -4,7 +4,8 @@ export interface PmisCatalogNode {
   id: string;
   name: string;
   parentId: string | null;
-  nodeType: 'unit' | 'substation' | 'line' | 'equipment';
+  /** 'root' chỉ tồn tại phía FE (node ảo bao toàn bộ cây), không đến từ API. */
+  nodeType: 'root' | 'unit' | 'substation' | 'line' | 'equipment';
   documentCount: number;
   children?: PmisCatalogNode[];
 }

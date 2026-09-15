@@ -26,17 +26,9 @@
         <strong style="font-size: 0.95rem">KHO TÀI LIỆU PMIS</strong>
       </div>
 
-      <div *ngIf="loadingTree()" style="text-align: center; color: #999; padding: 12px 0">
-        <i class="pi pi-spin pi-spinner" style="font-size: 1.2rem"></i>
-      </div>
-
-      <div *ngIf="!loadingTree() && tree().length === 0" style="color: #999; font-size: 0.85rem">
-        Chưa có tài liệu PMIS nào được đồng bộ.
-      </div>
-
-      <ng-container *ngIf="!loadingTree()">
-        <ng-container *ngTemplateOutlet="nodeTemplate; context: { $implicit: tree(), isRoot: true }"></ng-container>
-      </ng-container>
+      <!-- Cây lười (lazy): node gốc mặc định luôn hiển thị; click mở gốc mới gọi API load Đơn vị, click
+           mở 1 Đơn vị mới gọi tiếp API load Trạm/Đường dây/Thiết bị của riêng đơn vị đó. -->
+      <ng-container *ngTemplateOutlet="nodeTemplate; context: { $implicit: tree(), isRoot: true }"></ng-container>
 
       <ng-template #nodeTemplate let-nodes let-isRoot="isRoot">
         <div *ngFor="let node of nodes; first as isFirst; last as isLast" [class.first-node]="isFirst" [class.last-node]="isLast">
@@ -52,7 +44,10 @@
               [class.root-node]="isRoot"
               [title]="node.name"
             >
-              <i class="pi" [ngClass]="nodeIcons[node.nodeType]"></i>
+              <i
+                class="pi"
+                [ngClass]="isNodeLoading(node.id) ? 'pi-spin pi-spinner' : nodeIcons[node.nodeType]"
+              ></i>
               <span class="folder-name-text">
                 {{ node.name }}<ng-container *ngIf="node.documentCount > 0"> ({{ node.documentCount }})</ng-container>
               </span>
@@ -60,11 +55,21 @@
           </div>
 
           <div
-            *ngIf="node.children && node.children.length > 0 && isExpanded(node.id)"
+            *ngIf="isExpanded(node.id) && node.children && node.children.length > 0"
             class="folder-children-wrapper"
             [class.root-children]="isRoot"
           >
             <ng-container *ngTemplateOutlet="nodeTemplate; context: { $implicit: node.children, isRoot: false }"></ng-container>
+          </div>
+
+          <!-- Đã mở nhưng chưa/không còn dữ liệu con (đang tải, hoặc tải xong mà rỗng) -->
+          <div
+            *ngIf="isExpanded(node.id) && (!node.children || node.children.length === 0)"
+            class="folder-children-wrapper"
+            [class.root-children]="isRoot"
+            style="color: #999; font-size: 0.85rem; padding: 4px 0"
+          >
+            {{ isNodeLoading(node.id) ? 'Đang tải...' : 'Chưa có dữ liệu.' }}
           </div>
         </div>
       </ng-template>
