@@ -1,0 +1,43 @@
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.api-key-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 8px;
+}
+
+.hint-text {
+  color: #64748b;
+  font-size: 0.85rem;
+  margin: -4px 0 12px;
+  line-height: 1.5;
+}
+
+.note-cell {
+  max-width: 320px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.loading-row,
+.empty-row {
+  padding: 28px;
+  color: #64748b;
+  text-align: center;
+}
+
+.btn-danger {
+  background-color: #dc2626;
+  color: #fff;
+  border-color: #dc2626;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #b91c1c;
+  border-color: #b91c1c;
+}

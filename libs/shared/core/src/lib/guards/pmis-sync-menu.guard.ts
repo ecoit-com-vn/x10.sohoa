@@ -59,3 +59,22 @@ export const pmisScheduleMenuGuard = withPermissionsLoaded((auth, router) => {
   }
   return deny(router);
 });
+
+/**
+ * Menu Ánh xạ mã đơn vị PMIS (PMIS_UNIT_CODE_MAPPING).
+ * Mã quyền PHẢI khớp đúng mã do PermissionCodeResolver tự suy ra từ tên controller
+ * PmisUnitCodeMappingController (ToSnakeCase("PmisUnitCodeMapping") = "PMIS_UNIT_CODE_MAPPING") —
+ * sai 1 ký tự (vd thiếu "CODE") sẽ khiến menu vẫn hiện đúng (do check ở đây) nhưng gọi API thật lại
+ * bị 403 vì DynamicPermissionFilter đòi mã khác, chỉ không lộ ra khi test bằng tài khoản ADMIN (bypass
+ * toàn bộ kiểm tra quyền).
+ */
+export const pmisUnitMappingMenuGuard = withPermissionsLoaded((auth, router) => {
+  if (
+    auth.hasPermission('SUPER_ADMIN') ||
+    auth.hasPermission('PMIS_UNIT_CODE_MAPPING_VIEW') ||
+    auth.hasPermission('PMIS_UNIT_CODE_MAPPING_CREATE')
+  ) {
+    return true;
+  }
+  return deny(router);
+});
