@@ -39,6 +39,10 @@ export class PmisUnitMappingComponent implements OnInit {
   dialogVisible = signal(false);
   form = signal<CreateForm>(this.emptyForm());
 
+  deleteDialogVisible = signal(false);
+  deleteTarget = signal<PmisUnitCodeMapping | null>(null);
+  deleting = signal(false);
+
   ngOnInit(): void {
     this.load();
   }
@@ -98,6 +102,33 @@ export class PmisUnitMappingComponent implements OnInit {
           this.load();
         },
         error: (error) => this.showError(error, 'Không thể thêm ánh xạ mã đơn vị PMIS.'),
+      });
+  }
+
+  openDelete(item: PmisUnitCodeMapping): void {
+    this.deleteTarget.set(item);
+    this.deleteDialogVisible.set(true);
+  }
+
+  closeDeleteDialog(): void {
+    if (!this.deleting()) this.deleteDialogVisible.set(false);
+  }
+
+  confirmDelete(): void {
+    const target = this.deleteTarget();
+    if (!target) return;
+
+    this.deleting.set(true);
+    this.service
+      .delete(target.id)
+      .pipe(finalize(() => this.deleting.set(false)))
+      .subscribe({
+        next: () => {
+          this.deleteDialogVisible.set(false);
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xoá ánh xạ.' });
+          this.load();
+        },
+        error: (error) => this.showError(error, 'Không thể xoá ánh xạ.'),
       });
   }
 
