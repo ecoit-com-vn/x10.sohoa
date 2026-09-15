@@ -157,18 +157,11 @@
 
       <!-- Folder tree (simplified list view) -->
       <div *ngIf="!loadingTree(); else loadingTreeSpinner">
-        <div
-          *ngIf="folderTree().length === 0"
-          style="color: #999; font-size: 0.85rem"
-        >
-          Chưa có thư mục nào
-        </div>
-
-        <!-- Recursive tree rendering -->
+        <!-- Recursive tree rendering: cấp mặc định "Kho tài liệu thiết bị" luôn bao toàn bộ các cấp bên trong -->
         <ng-container
           *ngTemplateOutlet="
             folderTreeTemplate;
-            context: { $implicit: folderTree(), isRoot: true }
+            context: { $implicit: displayFolderTree(), isRoot: true }
           "
         ></ng-container>
       </div>
@@ -235,6 +228,19 @@
                 context: { $implicit: folder.children, isRoot: false }
               "
             ></ng-container>
+          </div>
+
+          <!-- Trạng thái rỗng: cấp mặc định không có thư mục con nào bên trong -->
+          <div
+            *ngIf="
+              (!folder.children || folder.children.length === 0) &&
+              expandedFolders().has(folder.id)
+            "
+            class="folder-children-wrapper"
+            [class.root-children]="isRoot"
+            style="color: #999; font-size: 0.85rem; padding: 4px 0"
+          >
+            Chưa có thư mục nào
           </div>
         </div>
       </ng-template>
