@@ -99,6 +99,10 @@ export class DocumentManagementComponent implements OnInit {
   noiseReductionTargetDoc = signal<Document | null>(null);
   noiseReductionPreviewBlobUrl = signal<string | null>(null);
 
+  // Cấp mặc định (ảo) bao toàn bộ cây thư mục thiết bị - luôn hiển thị cố định ở gốc cây.
+  readonly ROOT_NODE_ID = '__root__';
+  readonly ROOT_NODE_LABEL = 'Kho tài liệu thiết bị';
+
   // ===== SIGNALS =====
   currentView = signal<ViewMode>('list');
   uploadMode = signal<FolderUploadMode>('web');
@@ -136,7 +140,7 @@ export class DocumentManagementComponent implements OnInit {
   folderFormName = signal('');
   editingFolderId = signal<string | null>(null);
   editingFolderRowVersion = signal(0);
-  expandedFolders = signal<Set<string>>(new Set()); // Track expanded folder IDs
+  expandedFolders = signal<Set<string>>(new Set(['__root__'])); // Track expanded folder IDs (cấp gốc mặc định luôn mở)
 
   // Search Filter states (input bindings)
   filterKeyword = signal('');
@@ -240,7 +244,11 @@ export class DocumentManagementComponent implements OnInit {
     // Lọc theo cấu trúc cây trước
     let list = [];
     if (!selected) {
-      list = flat.filter(f => !f.parentId);
+      // Dùng chung tập hợp "thư mục gốc" đã tính trong folderTree() (convertFlatToTree)
+      // để bảng luôn khớp với cây - kể cả các thư mục mồ côi (parentId trỏ tới cha không tồn tại)
+      // mà convertFlatToTree coi là gốc nhưng `!f.parentId` bỏ sót.
+      const rootIds = new Set(this.folderTree().map(f => f.id));
+      list = flat.filter(f => rootIds.has(f.id));
     } else {
       list = flat.filter(f => f.parentId === selected.id);
     }
@@ -341,6 +349,17 @@ export class DocumentManagementComponent implements OnInit {
     this.loadDocuments();
   }
 
+  // Cây thư mục hiển thị: bọc toàn bộ các thư mục gốc thật bên trong 1 cấp mặc định cố định.
+  displayFolderTree = computed<FolderNode[]>(() => [
+    {
+      id: this.ROOT_NODE_ID,
+      name: this.ROOT_NODE_LABEL,
+      parentId: null,
+      unitId: 0,
+      children: this.folderTree(),
+    },
+  ]);
+
   totalItems = computed(() => this.folderTotalRecords() + this.totalDocuments());
 
   totalPages = computed(() => {
@@ -396,7 +415,7 @@ export class DocumentManagementComponent implements OnInit {
     });
   }
 
-  selectFolder(folder: FolderNode) {
+  selectFolder(folder: FolderNode | null) {
     this.selectedFolder.set(folder);
     this.first.set(0);
     this.folderFirst.set(0);
@@ -414,6 +433,20 @@ export class DocumentManagementComponent implements OnInit {
 
   toggleFolderExpand(folder: FolderNode, event: Event) {
     event.stopPropagation();
+
+    // Cấp gốc mặc định là ảo (không có trong dữ liệu thật) - chỉ đóng/mở, không query theo id giả.
+    if (folder.id === this.ROOT_NODE_ID) {
+      const expanded = this.expandedFolders();
+      if (expanded.has(folder.id)) {
+        expanded.delete(folder.id);
+      } else {
+        expanded.add(folder.id);
+      }
+      this.expandedFolders.set(new Set(expanded));
+      this.selectFolder(null);
+      return;
+    }
+
     if (!folder.children || folder.children.length === 0) {
       // No children, just select
       this.selectFolder(folder);
