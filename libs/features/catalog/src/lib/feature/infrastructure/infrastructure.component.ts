@@ -99,20 +99,33 @@ export class InfrastructureComponent implements OnInit {
   currentItem = signal<any>({});
   isSaving = signal<boolean>(false);
 
-  // Danh sách các đường dây cấp 1 (làm cha)
+  // Danh sách tất cả các đường dây (làm cha, không giới hạn số cấp)
   parentLineOptions = signal<any[]>([]);
 
-  // Lọc chỉ những đường dây cấp 1, và khi sửa thì loại bỏ chính bản thân nó
+  // Cho phép chọn bất kỳ đường dây nào làm cha, miễn là không tạo vòng lặp
+  // (không được chọn chính nó hoặc bất kỳ hậu duệ nào của nó làm cha)
   eligibleParentLines = computed(() => {
     const currentId = this.currentItem()?.id;
-    return this.parentLineOptions().filter(line => {
-      // Chỉ lấy đường dây cấp 1 (chưa có parentId)
-      const isLevel1 = !line.parentId;
-      // Không cho phép tự chọn chính mình
-      const notSelf = !currentId || line.id !== currentId;
-      return isLevel1 && notSelf;
-    });
+    const list = this.parentLineOptions();
+    if (!currentId) return list;
+    const excludedIds = new Set<string>([currentId, ...this.getDescendantIds(currentId, list)]);
+    return list.filter(line => !excludedIds.has(line.id));
   });
+
+  private getDescendantIds(rootId: string, list: any[]): Set<string> {
+    const descendantIds = new Set<string>();
+    const stack = [rootId];
+    while (stack.length) {
+      const id = stack.pop();
+      list.forEach(item => {
+        if (item.parentId === id && !descendantIds.has(item.id)) {
+          descendantIds.add(item.id);
+          stack.push(item.id);
+        }
+      });
+    }
+    return descendantIds;
+  }
 
   // Pagination
   currentPage = signal<number>(1);
@@ -210,12 +223,12 @@ export class InfrastructureComponent implements OnInit {
     }
   }
 
-  getLineSTT(node: any, level: number, rootIndex?: number, childIndex?: number): string {
-    const base = (this.currentPage() - 1) * this.pageSize() + (rootIndex ?? 0) + 1;
+  getLineSTT(node: any, level: number, index: number, parentStt?: string): string {
     if (level === 0) {
+      const base = (this.currentPage() - 1) * this.pageSize() + index + 1;
       return `${base}`;
     }
-    return `${base}.${(childIndex ?? 0) + 1}`;
+    return `${parentStt}.${index + 1}`;
   }
 
   onAddNewChild(parentItem: any) {
@@ -512,7 +525,7 @@ export class InfrastructureComponent implements OnInit {
     event.stopPropagation();
     this.actionMenuItems = [
       { label: 'Xem chi tiết', title: 'Xem chi tiết', icon: 'pi pi-eye color-teal', command: () => this.onViewDetail(item) },
-      ...(this.infraTypeId() === 2 && !item.parentId && this.canCreate() ? [{
+      ...(this.infraTypeId() === 2 && this.canCreate() ? [{
         label: 'Thêm nhánh con',
         title: 'Thêm nhánh con',
         icon: 'pi pi-plus color-teal',

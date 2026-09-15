@@ -852,6 +852,7 @@
   header="Xác nhận xóa thư mục"
   entityLabel="Thư mục"
   [targetName]="deleteTargetFolderLabel()"
+  consequence="và tất cả các cấp thư mục con, tài liệu bên trong sẽ bị xóa."
   [loading]="deletingFolder()"
   (cancelled)="onCancelDeleteFolder()"
   (confirmed)="onConfirmDeleteFolder()"

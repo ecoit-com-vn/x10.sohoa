@@ -288,21 +288,21 @@
         </table>
       </div>
 
-      <ng-template #lineRowsTpl let-nodes let-level="level" let-parentIdx="parentIdx">
+      <ng-template #lineRowsTpl let-nodes let-level="level" let-parentStt="parentStt">
         <ng-container *ngFor="let node of nodes; let i = index">
+          <ng-container *ngIf="getLineSTT(node, level, i, parentStt) as nodeStt">
           <tr
             class="line-row"
             [class.line-row-parent]="level === 0"
             [class.line-row-child]="level > 0"
             [class.line-row-expandable]="node.children?.length > 0"
-            (click)="level === 0 && onParentLineRowClick(node)"
+            (click)="onParentLineRowClick(node)"
           >
             <td class="col-stt text-muted" style="text-align: center;">
-              {{ getLineSTT(node, level, level === 0 ? i : parentIdx, i) }}
+              {{ nodeStt }}
             </td>
             <td>
               <div [class.child-code-prefix]="level > 0">
-                <i *ngIf="level > 0" class="pi pi-minus" style="font-size: 0.65rem; color: #94a3b8; margin-right: 4px;"></i>
                 <a
                   class="wf-link"
                   style="
@@ -320,23 +320,28 @@
             <td>
               <div class="line-name-cell" [style.padding-left.px]="level * 24">
                 <i
-                  *ngIf="level === 0 && (node.childLineCount ?? 0) > 0 && !isLineChildrenLoading(node.id)"
+                  *ngIf="(node.childLineCount ?? 0) > 0 && !isLineChildrenLoading(node.id)"
                   class="pi chevron-icon"
                   [class.pi-angle-down]="!isLineExpanded(node.id)"
                   [class.pi-angle-up]="isLineExpanded(node.id)"
                   (click)="toggleLineGroup(node.id, $event)"
                 ></i>
                 <i
-                  *ngIf="level === 0 && isLineChildrenLoading(node.id)"
+                  *ngIf="isLineChildrenLoading(node.id)"
                   class="pi pi-spin pi-spinner chevron-icon"
                 ></i>
                 <span
-                  *ngIf="level === 0 && (node.childLineCount ?? 0) === 0"
+                  *ngIf="(node.childLineCount ?? 0) === 0"
                   class="chevron-placeholder"
                 ></span>
                 <i
-                  [class]="level === 0 ? 'pi pi-bolt' : 'pi pi-angle-right'"
-                  class="line-item-icon"
+                  *ngIf="!(node.children?.length > 0)"
+                  class="pi pi-bolt line-item-icon"
+                  [class.child-icon]="level > 0"
+                ></i>
+                <i
+                  *ngIf="node.children?.length > 0"
+                  class="pi pi-bolt line-item-icon"
                   [class.child-icon]="level > 0"
                 ></i>
                 <span *ngIf="canEdit(); else viewOnlyLineName">
@@ -358,7 +363,7 @@
                   </b>
                 </ng-template>
                 <span
-                  *ngIf="level === 0 && (node.childLineCount ?? 0) > 0"
+                  *ngIf="(node.childLineCount ?? 0) > 0"
                   class="child-count-badge"
                   [title]="node.childLineCount + ' đường dây nhánh con'"
                 >
@@ -460,10 +465,11 @@
           </tr>
 
           <!-- Child rows when expanded -->
-          <ng-container *ngIf="level === 0 && node.children?.length > 0 && isLineExpanded(node.id)">
+          <ng-container *ngIf="node.children?.length > 0 && isLineExpanded(node.id)">
             <ng-container
-              *ngTemplateOutlet="lineRowsTpl; context: { $implicit: node.children, level: 1, parentIdx: i }"
+              *ngTemplateOutlet="lineRowsTpl; context: { $implicit: node.children, level: level + 1, parentStt: nodeStt }"
             ></ng-container>
+          </ng-container>
           </ng-container>
         </ng-container>
       </ng-template>
@@ -537,7 +543,7 @@
         <span class="field-error" *ngIf="nameError()">{{ nameError() }}</span>
       </div>
 
-      <!-- Cấp cha (chỉ áp dụng cho Đường dây và giới hạn 2 cấp) -->
+      <!-- Cấp cha (chỉ áp dụng cho Đường dây, hỗ trợ nhiều cấp cha - con) -->
       <div class="form-group" *ngIf="infraTypeId() === 2">
         <label class="form-label">Đường dây cấp cha</label>
         <p-select
@@ -548,7 +554,7 @@
           [filter]="true"
           filterBy="name,code"
           [showClear]="true"
-          placeholder="-- Không chọn (Là đường dây cấp 1) --"
+          placeholder="-- Không chọn (Là đường dây cấp cao nhất) --"
           styleClass="w-full"
           [disabled]="isSaving()"
           appendTo="body"
@@ -560,9 +566,6 @@
             </div>
           </ng-template>
         </p-select>
-        <span style="display: block; margin-top: 4px; font-size: 0.78rem; color: #64748b">
-          Lưu ý: Hệ thống chỉ hỗ trợ tối đa 2 cấp (chỉ có thể chọn các đường dây cấp 1 làm cha).
-        </span>
       </div>
 
       <div class="form-group">

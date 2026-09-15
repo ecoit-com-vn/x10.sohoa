@@ -37,6 +37,25 @@
   min-width: 0;
 }
 
+/* Kho tài liệu PMIS: khoá scroll tổng của trang, chỉ cho scroll bên trong 2 panel trái/phải. */
+.pmis-warehouse-page {
+  height: calc(100vh - 56px);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pmis-warehouse-page .document-layout {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pmis-warehouse-page .document-folder-panel,
+.pmis-warehouse-page .document-right-panel {
+  height: auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .upload-overlay {
   position: fixed;
   inset: 0;
