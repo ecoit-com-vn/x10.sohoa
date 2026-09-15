@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
@@ -11,6 +11,7 @@ import { PmisCatalogNode, PmisDocumentItem } from '../models/pmis-catalog.models
 import { convertPmisFlatToTree, findPmisBreadcrumbPath } from '../utils/pmis-catalog-tree.util';
 
 const NODE_ICONS: { [key: string]: string } = {
+  root: 'pi-sitemap',
   unit: 'pi-building',
   substation: 'pi-bolt',
   line: 'pi-share-alt',
@@ -32,15 +33,32 @@ const PAGE_SIZE = 10;
   templateUrl: './pmis-document-warehouse.component.html',
   styleUrl: './document-management.component.css',
 })
-export class PmisDocumentWarehouseComponent implements OnInit {
+export class PmisDocumentWarehouseComponent {
   private readonly catalogService = inject(PmisDocumentCatalogService);
   private readonly messageService = inject(MessageService);
 
   nodeIcons = NODE_ICONS;
 
-  loadingTree = signal(false);
+  // Cấp gốc mặc định (ảo) bao toàn bộ các Đơn vị (công ty) - không gọi API load Đơn vị cho đến khi
+  // người dùng click mở node này; click vào từng công ty mới gọi tiếp API load Trạm/Đường dây/Thiết bị
+  // của riêng công ty đó (load lười theo cấp, tránh tải toàn bộ cây 1 lần như trước).
+  readonly ROOT_NODE_ID = '__root__';
+  readonly ROOT_NODE_LABEL = 'Kho tài liệu PMIS';
+  private unitsLoaded = false;
+  private readonly loadedUnitChildren = new Set<string>();
+
+  loadingNodeIds = signal<Set<string>>(new Set());
   flatNodes = signal<PmisCatalogNode[]>([]);
-  tree = computed(() => convertPmisFlatToTree(this.flatNodes()));
+  tree = computed<PmisCatalogNode[]>(() => [
+    {
+      id: this.ROOT_NODE_ID,
+      name: this.ROOT_NODE_LABEL,
+      parentId: null,
+      nodeType: 'root',
+      documentCount: 0,
+      children: convertPmisFlatToTree(this.flatNodes()),
+    },
+  ]);
   expandedNodeIds = signal<Set<string>>(new Set());
 
   selectedNode = signal<PmisCatalogNode | null>(null);
@@ -61,39 +79,94 @@ export class PmisDocumentWarehouseComponent implements OnInit {
   uploadDocumentType = signal('');
   uploading = signal(false);
 
-  /** Chỉ node Trạm/Đường dây/Thiết bị mới có danh sách tài liệu riêng để xem (Đơn vị chỉ để điều hướng). */
+  /** Chỉ node Trạm/Đường dây/Thiết bị mới có danh sách tài liệu riêng để xem (gốc/Đơn vị chỉ để điều hướng). */
   canShowDocuments = computed(() => {
     const node = this.selectedNode();
-    return !!node && node.nodeType !== 'unit';
+    return !!node && (node.nodeType === 'substation' || node.nodeType === 'line' || node.nodeType === 'equipment');
   });
 
-  ngOnInit(): void {
-    this.loadTree();
+  private mergeNodes(current: PmisCatalogNode[], incoming: PmisCatalogNode[]): PmisCatalogNode[] {
+    if (!incoming || incoming.length === 0) return current;
+    const map = new Map(current.map((n) => [n.id, n]));
+    incoming.forEach((n) => map.set(n.id, n));
+    return Array.from(map.values());
   }
 
-  loadTree(): void {
-    this.loadingTree.set(true);
+  private setNodeLoading(nodeId: string, loading: boolean): void {
+    this.loadingNodeIds.update((current) => {
+      const next = new Set(current);
+      if (loading) next.add(nodeId);
+      else next.delete(nodeId);
+      return next;
+    });
+  }
+
+  isNodeLoading(nodeId: string): boolean {
+    return this.loadingNodeIds().has(nodeId);
+  }
+
+  /** Sau khi upload thủ công, số đếm tài liệu (documentCount) hiển thị trên cây đã cũ - buộc tải lại
+   * đúng nhánh của Đơn vị chứa node vừa upload (không tải lại toàn bộ cây). */
+  private refreshAncestorUnitChildren(node: PmisCatalogNode): void {
+    const path = findPmisBreadcrumbPath(node.id, this.flatNodes());
+    const unitAncestor = path.find((n) => n.nodeType === 'unit');
+    if (!unitAncestor) return;
+    this.loadedUnitChildren.delete(unitAncestor.id);
+    this.loadUnitChildrenIfNeeded(unitAncestor.id);
+  }
+
+  private loadUnitsIfNeeded(): void {
+    if (this.unitsLoaded) return;
+    this.unitsLoaded = true;
+
+    this.setNodeLoading(this.ROOT_NODE_ID, true);
     this.catalogService
-      .getCatalogTree()
-      .pipe(finalize(() => this.loadingTree.set(false)))
+      .getCatalogUnits()
+      .pipe(finalize(() => this.setNodeLoading(this.ROOT_NODE_ID, false)))
       .subscribe({
-        next: (nodes) => {
-          this.flatNodes.set(nodes || []);
-          // Mở sẵn tất cả node Đơn vị cho dễ thấy có dữ liệu ngay khi vào màn.
-          this.expandedNodeIds.set(new Set((nodes || []).filter((n) => n.nodeType === 'unit').map((n) => n.id)));
+        next: (nodes) => this.flatNodes.update((current) => this.mergeNodes(current, nodes)),
+        error: () => {
+          this.unitsLoaded = false; // Cho phép click lại để thử tải lại nếu lần này lỗi.
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải danh sách đơn vị.' });
         },
-        error: () => this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải cây Kho tài liệu PMIS.' }),
+      });
+  }
+
+  private loadUnitChildrenIfNeeded(unitNodeId: string): void {
+    if (this.loadedUnitChildren.has(unitNodeId)) return;
+    this.loadedUnitChildren.add(unitNodeId);
+
+    this.setNodeLoading(unitNodeId, true);
+    this.catalogService
+      .getCatalogUnitChildren(unitNodeId)
+      .pipe(finalize(() => this.setNodeLoading(unitNodeId, false)))
+      .subscribe({
+        next: (nodes) => this.flatNodes.update((current) => this.mergeNodes(current, nodes)),
+        error: () => {
+          this.loadedUnitChildren.delete(unitNodeId);
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải dữ liệu của đơn vị này.' });
+        },
       });
   }
 
   toggleExpand(node: PmisCatalogNode, event: Event): void {
     event.stopPropagation();
+
+    const willExpand = !this.isExpanded(node.id);
     this.expandedNodeIds.update((current) => {
       const next = new Set(current);
       if (next.has(node.id)) next.delete(node.id);
       else next.add(node.id);
       return next;
     });
+
+    if (!willExpand) return;
+
+    if (node.id === this.ROOT_NODE_ID) {
+      this.loadUnitsIfNeeded();
+    } else if (node.nodeType === 'unit') {
+      this.loadUnitChildrenIfNeeded(node.id);
+    }
   }
 
   isExpanded(nodeId: string): boolean {
@@ -102,7 +175,7 @@ export class PmisDocumentWarehouseComponent implements OnInit {
 
   selectNode(node: PmisCatalogNode): void {
     this.selectedNode.set(node);
-    if (node.nodeType !== 'unit') {
+    if (node.nodeType === 'substation' || node.nodeType === 'line' || node.nodeType === 'equipment') {
       this.page.set(1);
       this.loadDocuments();
     } else {
@@ -208,7 +281,7 @@ export class PmisDocumentWarehouseComponent implements OnInit {
         next: () => {
           this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã upload tài liệu.' });
           this.uploadDialogVisible.set(false);
-          this.loadTree();
+          this.refreshAncestorUnitChildren(node);
           this.loadDocuments();
         },
         error: (err) => {
