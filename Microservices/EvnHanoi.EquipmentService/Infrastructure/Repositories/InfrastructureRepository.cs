@@ -320,7 +320,11 @@ public class InfrastructureRepository : IInfrastructureRepository
                             (SELECT COUNT(1)
                                FROM EQUIPMENTS eq
                               WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)}
-                                AND eq.IsDeleted = 0) AS {nameof(Infrastructure.EquipmentCount)}
+                                AND eq.IsDeleted = 0) AS {nameof(Infrastructure.EquipmentCount)},
+                            (SELECT COUNT(1)
+                               FROM INFRASTRUCTURE c
+                              WHERE c.PARENT_ID = i.{nameof(Infrastructure.Id)}
+                                AND c.{nameof(Infrastructure.IsDeleted)} = 0) AS {nameof(Infrastructure.ChildLineCount)}
                      FROM INFRASTRUCTURE i
                      LEFT JOIN ORGANIZATION_UNIT u ON i.UNIT_ID = u.Id
                      WHERE i.PARENT_ID = :ParentId AND i.{nameof(Infrastructure.IsDeleted)} = 0
