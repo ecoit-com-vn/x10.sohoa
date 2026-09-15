@@ -596,6 +596,14 @@ public class DossierSearchRepository : IDossierSearchRepository
                 filterQueries.Add(creatorOrPartBool);
                 break;
 
+            case DossierListTabs.PendingPublish:
+            case DossierListTabs.Published:
+            case DossierListTabs.Unpublished:
+                // Các tab theo trạng thái xuất bản là danh sách dùng chung của cả đơn vị
+                // (đã được lọc theo UnitScopeIds ở ConfigureQuery) - không thu hẹp thêm về
+                // hồ sơ do riêng user tạo/tham gia như ApplyPipelineVisibility ở default bên dưới.
+                break;
+
             default:
                 var pipelineBool = new QueryDescriptor<DossierEsDocument>();
                 pipelineBool.Bool(bb => ApplyPipelineVisibility(bb, userId, roles, includeInbox: true));
