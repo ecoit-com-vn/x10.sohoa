@@ -89,6 +89,25 @@ public class PmisEndpointConfigController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Xoá thủ công Lịch sử gọi API (nút "Xoá lịch sử" trong dialog) — 4 chế độ, xem
+    /// PmisApiCallLogRepository.DeleteAsync.</summary>
+    [HttpPost("{apiCode}/call-logs/cleanup")]
+    public async Task<IActionResult> CleanupCallLogs(string apiCode, [FromBody] CleanupPmisApiCallLogRequest request)
+    {
+        if (request.Mode == "DATE_RANGE" && (request.FromDate == null || request.ToDate == null))
+            return BadRequest(new { message = "Vui lòng chọn đủ 'Từ ngày' và 'Đến ngày'." });
+
+        try
+        {
+            var deletedCount = await _apiCallLogRepository.DeleteAsync(apiCode, request.Mode, request.FromDate, request.ToDate);
+            return Ok(new { deletedCount });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpPut("{apiCode}/headers")]
     public async Task<IActionResult> ReplaceHeaders(string apiCode, [FromBody] ReplacePmisApiEndpointHeadersRequest request)
     {
