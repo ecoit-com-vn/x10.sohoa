@@ -160,9 +160,41 @@
   (visibleChange)="callLogDialogVisible.set($event)"
   [header]="'Lịch sử gọi API - ' + (callLogTarget() || '')"
   [modal]="true"
-  [style]="{ width: '1000px' }"
+  [style]="{ width: '1100px' }"
   styleClass="evn-dialog-custom"
 >
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px; flex-wrap: wrap;">
+    <div class="call-log-filter-group" style="display: flex; gap: 6px;">
+      <button
+        type="button"
+        class="btn-outlined btn-small"
+        [class.btn-filter-active]="callLogStatusFilter() === 'ALL'"
+        (click)="callLogStatusFilter.set('ALL')"
+      >
+        Tất cả ({{ callLogItems().length }})
+      </button>
+      <button
+        type="button"
+        class="btn-outlined btn-small"
+        [class.btn-filter-active]="callLogStatusFilter() === 'SUCCESS'"
+        (click)="callLogStatusFilter.set('SUCCESS')"
+      >
+        Thành công
+      </button>
+      <button
+        type="button"
+        class="btn-outlined btn-small"
+        [class.btn-filter-active]="callLogStatusFilter() === 'ERROR'"
+        (click)="callLogStatusFilter.set('ERROR')"
+      >
+        Lỗi
+      </button>
+    </div>
+    <button type="button" class="btn-outlined btn-small" style="color: #dc2626; border-color: #dc2626;" (click)="openCallLogCleanupDialog()">
+      <i class="pi pi-trash"></i> Xoá lịch sử
+    </button>
+  </div>
+
   <div class="wf-table-wrap">
     <table class="wf-table">
       <thead>
@@ -170,9 +202,9 @@
           <th class="col-stt">STT</th>
           <th>Thời gian</th>
           <th>Phương thức / URL</th>
-          <th>Payload</th>
+          <th class="col-call-log-payload">Payload</th>
           <th>Trạng thái</th>
-          <th>Lỗi</th>
+          <th class="col-call-log-error">Lỗi</th>
         </tr>
       </thead>
       <tbody>
@@ -180,11 +212,11 @@
           <td colspan="6" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
         </tr>
         <ng-container *ngIf="!callLogLoading() || callLogItems().length > 0">
-          <tr *ngFor="let log of callLogItems(); let index = index">
+          <tr *ngFor="let log of displayCallLogItems(); let index = index">
             <td class="col-stt text-muted">{{ index + 1 }}</td>
             <td>{{ formatDate(log.calledAt) }} <br /><small class="text-muted">{{ log.durationMs }}ms</small></td>
             <td class="note-cell"><b>{{ log.httpMethod }}</b> {{ log.url }}</td>
-            <td class="note-cell">{{ log.requestPayload || '---' }}</td>
+            <td class="col-call-log-payload">{{ log.requestPayload || '---' }}</td>
             <td>
               <span [class]="log.isSuccess ? 'status-pill status-active' : 'status-pill status-inactive'">
                 {{ log.isSuccess ? 'Thành công' : 'Lỗi' }}{{ log.statusCode ? ' (' + log.statusCode + ')' : '' }}
@@ -192,9 +224,10 @@
               <br *ngIf="log.isSuccess && log.recordCount !== null" />
               <small *ngIf="log.isSuccess && log.recordCount !== null" class="text-muted">{{ log.recordCount }} bản ghi</small>
             </td>
-            <td
-              style="white-space: pre-wrap; word-break: break-word; max-height: 120px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; display: block;"
-            >{{ log.errorMessage || '---' }}</td>
+            <td class="col-call-log-error">{{ log.errorMessage || '---' }}</td>
+          </tr>
+          <tr *ngIf="!callLogLoading() && callLogItems().length > 0 && displayCallLogItems().length === 0">
+            <td colspan="6" class="empty-row"><i class="pi pi-filter-slash"></i><div>Không có lượt gọi nào khớp bộ lọc.</div></td>
           </tr>
           <tr *ngIf="!callLogLoading() && callLogItems().length === 0">
             <td colspan="6" class="empty-row"><i class="pi pi-inbox"></i><div>Chưa có lượt gọi nào.</div></td>
@@ -205,7 +238,10 @@
   </div>
 
   <div *ngIf="callLogItems().length > 0" style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-    <small class="text-muted">Đang hiện {{ callLogItems().length }} / {{ callLogTotalCount() }} lượt gọi</small>
+    <small class="text-muted">
+      Đang hiện {{ displayCallLogItems().length }} / {{ callLogItems().length }} lượt gọi đã tải
+      <ng-container *ngIf="callLogItems().length < callLogTotalCount()">(tổng {{ callLogTotalCount() }})</ng-container>
+    </small>
     <button
       *ngIf="hasMoreCallLogs()"
       type="button"
@@ -222,6 +258,72 @@
   <ng-template #footer>
     <div class="dialog-footer">
       <button type="button" class="btn-outlined btn-small" (click)="callLogDialogVisible.set(false)">Đóng</button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog xoá lịch sử gọi API -->
+<p-dialog
+  [visible]="callLogCleanupDialogVisible()"
+  (visibleChange)="closeCallLogCleanupDialog()"
+  [header]="'Xoá lịch sử gọi API - ' + (callLogTarget() || '')"
+  [modal]="true"
+  [style]="{ width: '480px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!callLogCleaning()"
+>
+  <div class="api-key-form">
+    <div class="form-group">
+      <label class="form-label flex items-center gap-2">
+        <input type="radio" name="callLogCleanupMode" [checked]="callLogCleanupMode() === 'DATE_RANGE'" (change)="callLogCleanupMode.set('DATE_RANGE')" />
+        Xoá theo khoảng thời gian
+      </label>
+      <div class="frequency-inputs" *ngIf="callLogCleanupMode() === 'DATE_RANGE'" style="margin-top: 6px; display: flex; gap: 8px;">
+        <input class="wf-input" type="date" [ngModel]="callLogCleanupFromDate()" (ngModelChange)="callLogCleanupFromDate.set($event)" placeholder="Từ ngày" />
+        <input class="wf-input" type="date" [ngModel]="callLogCleanupToDate()" (ngModelChange)="callLogCleanupToDate.set($event)" placeholder="Đến ngày" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label flex items-center gap-2">
+        <input type="radio" name="callLogCleanupMode" [checked]="callLogCleanupMode() === 'KEEP_LAST_1_DAY'" (change)="callLogCleanupMode.set('KEEP_LAST_1_DAY')" />
+        Xoá toàn bộ, chỉ giữ lại 1 ngày gần nhất
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label flex items-center gap-2">
+        <input type="radio" name="callLogCleanupMode" [checked]="callLogCleanupMode() === 'KEEP_LAST_7_DAYS'" (change)="callLogCleanupMode.set('KEEP_LAST_7_DAYS')" />
+        Xoá toàn bộ, chỉ giữ lại 7 ngày gần nhất
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label flex items-center gap-2">
+        <input type="radio" name="callLogCleanupMode" [checked]="callLogCleanupMode() === 'ALL'" (change)="callLogCleanupMode.set('ALL')" />
+        Xoá toàn bộ
+      </label>
+    </div>
+
+    <div style="margin-top: 10px; padding: 10px 14px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #b91c1c; font-size: 13px;">
+      <i class="pi pi-exclamation-triangle"></i> Thao tác này xoá vĩnh viễn, không khôi phục được — chỉ áp dụng cho API "{{ callLogTarget() }}".
+    </div>
+  </div>
+
+  <ng-template #footer>
+    <div class="dialog-footer">
+      <button type="button" class="btn-outlined btn-small" (click)="closeCallLogCleanupDialog()" [disabled]="callLogCleaning()">Đóng</button>
+      <button
+        type="button"
+        class="btn-save btn-small"
+        style="background: #dc2626; border-color: #dc2626;"
+        (click)="confirmCallLogCleanup()"
+        [disabled]="callLogCleaning()"
+      >
+        <i *ngIf="callLogCleaning(); else callLogDeleteIcon" class="pi pi-spin pi-spinner"></i>
+        <ng-template #callLogDeleteIcon><i class="pi pi-trash"></i></ng-template>
+        Xoá vĩnh viễn
+      </button>
     </div>
   </ng-template>
 </p-dialog>

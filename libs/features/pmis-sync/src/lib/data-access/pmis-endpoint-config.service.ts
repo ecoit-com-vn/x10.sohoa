@@ -45,6 +45,8 @@ export interface PmisApiCallLog {
   recordCount: number | null;
 }
 
+export type PmisApiCallLogCleanupMode = 'DATE_RANGE' | 'KEEP_LAST_1_DAY' | 'KEEP_LAST_7_DAYS' | 'ALL';
+
 @Injectable({ providedIn: 'root' })
 export class PmisEndpointConfigService {
   private readonly http = inject(HttpClient);
@@ -69,6 +71,19 @@ export class PmisEndpointConfigService {
   getCallLogs(apiCode: string, page: number, pageSize: number): Observable<{ items: PmisApiCallLog[]; totalCount: number }> {
     return this.http.get<{ items: PmisApiCallLog[]; totalCount: number }>(`${this.apiUrl}/${apiCode}/call-logs`, {
       params: { page: String(page), pageSize: String(pageSize) },
+    });
+  }
+
+  cleanupCallLogs(
+    apiCode: string,
+    mode: PmisApiCallLogCleanupMode,
+    fromDate?: string | null,
+    toDate?: string | null
+  ): Observable<{ deletedCount: number }> {
+    return this.http.post<{ deletedCount: number }>(`${this.apiUrl}/${apiCode}/call-logs/cleanup`, {
+      mode,
+      fromDate: fromDate || null,
+      toDate: toDate || null,
     });
   }
 }

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
@@ -8,6 +8,7 @@ import { finalize, forkJoin } from 'rxjs';
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import {
   PmisApiCallLog,
+  PmisApiCallLogCleanupMode,
   PmisApiEndpointConfig,
   PmisApiEndpointHeader,
   PmisEndpointConfigService,
@@ -57,6 +58,22 @@ export class PmisEndpointConfigComponent implements OnInit {
   callLogTarget = signal<string | null>(null);
   callLogPage = signal(1);
   callLogTotalCount = signal(0);
+
+  /** Lọc nhanh trên dữ liệu đã tải (trang hiện tại) — không gọi lại API, chỉ để tìm nhanh lượt lỗi
+   * giữa nhiều lượt gọi thành công khi danh sách dài. */
+  callLogStatusFilter = signal<'ALL' | 'SUCCESS' | 'ERROR'>('ALL');
+  displayCallLogItems = computed(() => {
+    const filter = this.callLogStatusFilter();
+    const items = this.callLogItems();
+    if (filter === 'ALL') return items;
+    return items.filter((log) => (filter === 'SUCCESS' ? log.isSuccess : !log.isSuccess));
+  });
+
+  callLogCleanupDialogVisible = signal(false);
+  callLogCleanupMode = signal<PmisApiCallLogCleanupMode>('KEEP_LAST_7_DAYS');
+  callLogCleanupFromDate = signal<string | null>(null);
+  callLogCleanupToDate = signal<string | null>(null);
+  callLogCleaning = signal(false);
 
   ngOnInit(): void {
     this.load();
@@ -171,6 +188,7 @@ export class PmisEndpointConfigComponent implements OnInit {
     this.callLogItems.set([]);
     this.callLogPage.set(1);
     this.callLogTotalCount.set(0);
+    this.callLogStatusFilter.set('ALL');
     this.loadCallLogPage(apiCode, 1, false);
   }
 
@@ -203,6 +221,47 @@ export class PmisEndpointConfigComponent implements OnInit {
           if (requestId !== this.callLogRequestId) return;
           this.showError(error, 'Không thể tải lịch sử gọi API.');
         },
+      });
+  }
+
+  openCallLogCleanupDialog(): void {
+    this.callLogCleanupMode.set('KEEP_LAST_7_DAYS');
+    this.callLogCleanupFromDate.set(null);
+    this.callLogCleanupToDate.set(null);
+    this.callLogCleanupDialogVisible.set(true);
+  }
+
+  closeCallLogCleanupDialog(): void {
+    if (!this.callLogCleaning()) this.callLogCleanupDialogVisible.set(false);
+  }
+
+  confirmCallLogCleanup(): void {
+    const apiCode = this.callLogTarget();
+    if (!apiCode) return;
+
+    const mode = this.callLogCleanupMode();
+    if (mode === 'DATE_RANGE' && (!this.callLogCleanupFromDate() || !this.callLogCleanupToDate())) {
+      this.messageService.add({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng chọn đủ Từ ngày và Đến ngày.' });
+      return;
+    }
+
+    this.callLogCleaning.set(true);
+    this.service
+      .cleanupCallLogs(apiCode, mode, this.callLogCleanupFromDate(), this.callLogCleanupToDate())
+      .pipe(finalize(() => this.callLogCleaning.set(false)))
+      .subscribe({
+        next: (response) => {
+          this.callLogCleanupDialogVisible.set(false);
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Đã xoá lịch sử',
+            detail: `Đã xoá ${response.deletedCount} lượt gọi API.`,
+          });
+          this.callLogPage.set(1);
+          this.callLogTotalCount.set(0);
+          this.loadCallLogPage(apiCode, 1, false);
+        },
+        error: (error) => this.showError(error, 'Không thể xoá lịch sử gọi API.'),
       });
   }
 

@@ -51,3 +51,22 @@ td.col-hd {
   color: #475569;
   white-space: nowrap;
 }
+
+.col-call-log-payload,
+.col-call-log-error {
+  max-width: 260px;
+  max-height: 120px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  display: block;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+}
+
+.btn-filter-active {
+  border-color: #1a3593;
+  color: #1a3593;
+  background: #eef2ff;
+  font-weight: 600;
+}
