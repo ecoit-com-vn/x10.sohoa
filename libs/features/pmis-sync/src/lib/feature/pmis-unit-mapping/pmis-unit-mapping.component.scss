@@ -30,3 +30,14 @@
   color: #64748b;
   text-align: center;
 }
+
+.btn-danger {
+  background-color: #dc2626;
+  color: #fff;
+  border-color: #dc2626;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #b91c1c;
+  border-color: #b91c1c;
+}

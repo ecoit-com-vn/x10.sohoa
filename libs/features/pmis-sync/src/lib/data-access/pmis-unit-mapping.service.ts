@@ -39,6 +39,10 @@ export class PmisUnitMappingService {
     return this.http.post<{ id: string }>(this.apiUrl, request);
   }
 
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  }
+
   getOrganizationUnits(): Observable<OrganizationUnitOption[]> {
     return this.http.get<OrganizationUnitOption[]>(this.unitsLookupUrl);
   }

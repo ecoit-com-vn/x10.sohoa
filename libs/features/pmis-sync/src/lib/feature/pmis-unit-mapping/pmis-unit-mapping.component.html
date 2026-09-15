@@ -29,11 +29,12 @@
             <th>Đơn vị hệ thống</th>
             <th>Ghi chú</th>
             <th>Ngày thêm</th>
+            <th class="col-hd">Thao tác</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngIf="loading()">
-            <td colspan="5" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
+            <td colspan="6" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
           </tr>
           <ng-container *ngIf="!loading()">
             <tr *ngFor="let item of mappings(); let index = index">
@@ -45,9 +46,14 @@
               </td>
               <td class="note-cell">{{ item.note || '-' }}</td>
               <td>{{ formatDate(item.createdDate) }}</td>
+              <td class="col-hd">
+                <button type="button" class="act-btn act-delete" title="Xoá ánh xạ" (click)="openDelete(item)">
+                  <i class="pi pi-trash"></i>
+                </button>
+              </td>
             </tr>
             <tr *ngIf="mappings().length === 0">
-              <td colspan="5" class="empty-row"><i class="pi pi-inbox"></i><div>Chưa có ánh xạ nào.</div></td>
+              <td colspan="6" class="empty-row"><i class="pi pi-inbox"></i><div>Chưa có ánh xạ nào.</div></td>
             </tr>
           </ng-container>
         </tbody>
@@ -113,6 +119,33 @@
         <i *ngIf="saving(); else saveIcon" class="pi pi-spin pi-spinner"></i>
         <ng-template #saveIcon><i class="pi pi-save"></i></ng-template>
         Lưu
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  [visible]="deleteDialogVisible()"
+  (visibleChange)="closeDeleteDialog()"
+  header="Xoá ánh xạ mã đơn vị PMIS"
+  [modal]="true"
+  [style]="{ width: '440px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!deleting()"
+>
+  <p>
+    Xoá ánh xạ <b>{{ deleteTarget()?.pmisUnitCode }}</b>
+    <ng-container *ngIf="deleteTarget()?.unitName"> ({{ deleteTarget()?.unitName }})</ng-container>?
+    Trạm/Đường dây/Thiết bị của đơn vị này sẽ không tự động xác định lại được đơn vị cho tới khi thêm ánh xạ khác.
+  </p>
+
+  <ng-template #footer>
+    <div class="dialog-footer">
+      <button type="button" class="btn-outlined btn-small" (click)="closeDeleteDialog()" [disabled]="deleting()">Đóng</button>
+      <button type="button" class="btn-save btn-small btn-danger" (click)="confirmDelete()" [disabled]="deleting()">
+        <i *ngIf="deleting(); else deleteIcon" class="pi pi-spin pi-spinner"></i>
+        <ng-template #deleteIcon><i class="pi pi-trash"></i></ng-template>
+        Xoá
       </button>
     </div>
   </ng-template>
