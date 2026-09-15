@@ -28,6 +28,21 @@ builder.AddServiceDefaults();
 // Setup Serilog
 builder.Host.UseSerilog(SerilogSetupHelper.ConfigureSerilog);
 
+// Fail-fast: Internal:Token là shared-secret bắt buộc cho mọi endpoint "/internal/v1/..."
+// (vd. InternalSyncTriggerController.TriggerNow). Thiếu key này trước đây KHÔNG bị phát hiện lúc khởi
+// động — service vẫn "chạy được" bình thường nhưng âm thầm trả 503 cho MỌI request nội bộ, khiến
+// EquipmentService tưởng nhầm là do đang có tiến trình đồng bộ khác chạy (xem báo cáo phân tích log
+// sự cố 503 dây chuyền). Kiểm tra ngay tại đây để pod crash rõ ràng (CrashLoopBackOff) thay vì lỗi mù mờ.
+// Dùng Console.Error trực tiếp thay vì Log.Fatal: Serilog (builder.Host.UseSerilog) chưa thực sự ghi ra
+// sink nào cho tới khi builder.Build() chạy xong — gọi Log.* trước đó bị âm thầm nuốt mất (đã kiểm
+// chứng: DatabaseMigrationHelper cũng gặp y hệt, các dòng "Starting Database Migration..." của nó không
+// hề xuất hiện trong log SyncService/... thật, dù luôn được gọi trước Build()).
+if (string.IsNullOrEmpty(builder.Configuration["Internal:Token"]))
+{
+    Console.Error.WriteLine("[FATAL] Internal:Token chưa được cấu hình — mọi endpoint internal/v1/... sẽ luôn trả 503. Dừng khởi động SyncService.");
+    throw new InvalidOperationException("Missing required configuration: Internal:Token");
+}
+
 builder.Services.AddMemoryCache();
 builder.Services.AddOpenApi();
 builder.Services.AddControllers(options =>
@@ -171,6 +186,16 @@ builder.Services.AddQuartz(q =>
         .WithIdentity("SyncHistoryCleanupJob-trigger")
         .WithSimpleSchedule(x => x.WithIntervalInHours(24).RepeatForever())
     );
+
+    // Đánh dấu FAILED cho các dòng SYNC_HISTORY kẹt RUNNING do pod crash giữa lượt chạy — xem
+    // SyncHistoryWatchdogJob.
+    var syncHistoryWatchdogJobKey = new JobKey("SyncHistoryWatchdogJob");
+    q.AddJob<SyncHistoryWatchdogJob>(opts => opts.WithIdentity(syncHistoryWatchdogJobKey));
+    q.AddTrigger(opts => opts
+        .ForJob(syncHistoryWatchdogJobKey)
+        .WithIdentity("SyncHistoryWatchdogJob-trigger")
+        .WithSimpleSchedule(x => x.WithIntervalInMinutes(5).RepeatForever())
+    );
 });
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
@@ -194,6 +219,9 @@ builder.Services.AddScoped<EvnHanoi.SyncService.Infrastructure.Messaging.IMessag
 
 builder.Services.AddSingleton<EvnHanoi.SyncService.Services.IPmisSyncTriggerService, EvnHanoi.SyncService.Services.PmisSyncTriggerService>();
 builder.Services.AddHostedService<EvnHanoi.SyncService.Workers.EquipmentSyncWorker>();
+// PmisSyncWorker: luồng RabbitMQ (equipment_sync_queue) độc lập với PmisScheduledSyncJob (Quartz) ở
+// trên — xem XML doc trên class PmisSyncWorker. Cảnh báo "Pmis:ApiUrl chưa được thiết lập" lúc khởi
+// động chỉ tắt riêng luồng này, không phải dấu hiệu đồng bộ PMIS chính đang hỏng.
 builder.Services.AddHostedService<EvnHanoi.SyncService.Workers.PmisSyncWorker>();
 builder.Services.AddHostedService<EvnHanoi.SyncService.Workers.PmisPublisherWorker>();
 builder.Services.AddPermissionDiscovery("SyncService");

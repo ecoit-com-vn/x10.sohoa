@@ -11,8 +11,7 @@ public interface IPmisUnitCodeMappingRepository
 
     Task<CreatePmisUnitCodeMappingResult> CreateAsync(CreatePmisUnitCodeMappingRequest request, string? createdBy);
 
-    // Cố ý CHƯA có Delete: UQ_PMIS_UNIT_CODE_MAPPING_CODE (Migration0051) vẫn là UNIQUE constraint thường
-    // (tính cả dòng đã xoá mềm) — thêm xoá mà không sửa lại thành unique index có điều kiện IsDeleted=0
-    // (như PMIS_EQUIPMENT_TYPE_MAPPING đã phải vá ở Migration0054) sẽ chặn nhầm việc thêm lại đúng mã đơn
-    // vị PMIS đã từng bị xoá. Xem ghi chú ngay trong Migration0054_FixPmisEquipmentTypeMappingUnique.
+    /// <summary>Xoá mềm 1 ánh xạ — an toàn để thêm lại đúng mã đơn vị PMIS đó sau này nhờ Migration0058
+    /// đã đổi UQ_PMIS_UNIT_CODE_MAPPING_CODE thành unique index chỉ tính dòng IsDeleted = 0.</summary>
+    Task<bool> DeleteAsync(Guid id);
 }

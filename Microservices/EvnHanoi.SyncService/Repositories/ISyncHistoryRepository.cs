@@ -19,4 +19,9 @@ public interface ISyncHistoryRepository
     /// <summary>Dọn tự động (Quartz, xem SyncHistoryCleanupJob) — xoá SYNC_HISTORY (mọi đối tượng) cũ hơn
     /// <paramref name="retentionDays"/> ngày, Oracle tự tính cutoff bằng SYSTIMESTAMP.</summary>
     Task<int> DeleteOlderThanAsync(int retentionDays);
+
+    /// <summary>Watchdog tự động (Quartz, xem SyncHistoryWatchdogJob) — đánh dấu FAILED cho các dòng còn
+    /// STATUS = RUNNING nhưng START_TIME đã cũ hơn <paramref name="staleAfter"/>: dấu hiệu tiến trình đã
+    /// chết giữa chừng (crash/OOMKilled/rollout) trước khi kịp gọi CompleteAsync. Trả về số dòng đã sửa.</summary>
+    Task<int> FailStaleRunningAsync(TimeSpan staleAfter, string errorMessage);
 }
