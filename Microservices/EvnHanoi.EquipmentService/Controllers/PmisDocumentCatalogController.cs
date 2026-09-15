@@ -42,11 +42,26 @@ public class PmisDocumentCatalogController : ControllerBase
     private string UserId => User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value ?? "system";
     private string? UserFullName => User.FindFirst("full_name")?.Value ?? User.FindFirst(ClaimTypes.Name)?.Value;
 
-    [HttpGet("catalog/tree")]
+    /// <summary>Cấp gốc của cây (chỉ danh sách Đơn vị) — FE chỉ gọi API này khi người dùng mở node gốc
+    /// mặc định, không tải kèm Trạm/Đường dây/Thiết bị.</summary>
+    [HttpGet("catalog/units")]
     [BypassDynamicPermission]
-    public async Task<IActionResult> GetCatalogTree()
+    public async Task<IActionResult> GetCatalogUnits()
     {
-        var nodes = await _pmisDocumentRepository.GetCatalogTreeAsync();
+        var nodes = await _pmisDocumentRepository.GetCatalogUnitsAsync();
+        return Ok(nodes);
+    }
+
+    /// <summary>Trạm/Đường dây + Thiết bị của đúng 1 Đơn vị — FE chỉ gọi API này khi người dùng click mở
+    /// 1 công ty cụ thể trong cây (load lười theo cấp, thay vì tải toàn bộ cây 1 lần).</summary>
+    [HttpGet("catalog/units/{unitNodeId}/children")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetCatalogUnitChildren(string unitNodeId)
+    {
+        if (string.IsNullOrWhiteSpace(unitNodeId))
+            return BadRequest(new { message = "Thiếu unitNodeId." });
+
+        var nodes = await _pmisDocumentRepository.GetCatalogUnitChildrenAsync(unitNodeId);
         return Ok(nodes);
     }
 

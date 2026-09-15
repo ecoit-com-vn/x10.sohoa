@@ -23,10 +23,15 @@ public interface IPmisDocumentRepository
     /// — dùng cho màn "Kho tài liệu PMIS" (xem chi tiết/tải về) và "Chọn từ kho PMIS" (kiểm tra quyền + copy vào hồ sơ).</summary>
     Task<PmisDocumentDetail?> GetByIdAsync(Guid id);
 
-    /// <summary>Cây "Kho tài liệu PMIS": Đơn vị → Trạm biến áp/Đường dây → Thiết bị — tổng hợp từ
-    /// ORGANIZATION_UNIT/INFRASTRUCTURE/EQUIPMENTS + PMIS_DOCUMENT, chỉ liệt kê nhánh có ít nhất 1 tài
-    /// liệu (trực tiếp hoặc ở thiết bị con), không có bảng folder riêng.</summary>
-    Task<IReadOnlyList<PmisDocumentCatalogNodeDto>> GetCatalogTreeAsync();
+    /// <summary>Cấp gốc của cây "Kho tài liệu PMIS": chỉ danh sách Đơn vị (công ty) có ít nhất 1
+    /// Trạm/Đường dây (hoặc thiết bị con) đã có tài liệu PMIS — KHÔNG tải kèm Trạm/Đường dây/Thiết bị,
+    /// dùng để load lười (lazy) khi người dùng mở node gốc, tránh quét toàn bộ INFRASTRUCTURE/EQUIPMENTS
+    /// như GetCatalogTreeAsync cũ.</summary>
+    Task<IReadOnlyList<PmisDocumentCatalogNodeDto>> GetCatalogUnitsAsync();
+
+    /// <summary>Trạm/Đường dây + Thiết bị con của đúng 1 Đơn vị (unitNodeId dạng "unit_{id}" hoặc
+    /// "unit_unassigned") — dùng để load lười khi người dùng click mở 1 công ty trong cây.</summary>
+    Task<IReadOnlyList<PmisDocumentCatalogNodeDto>> GetCatalogUnitChildrenAsync(string unitNodeId);
 
     /// <summary>Danh sách tài liệu của đúng 1 node lá (Trạm/Đường dây hoặc Thiết bị) trong cây trên.</summary>
     Task<(IEnumerable<PmisDocumentDetail> Items, int TotalCount)> GetByOwnerAsync(
