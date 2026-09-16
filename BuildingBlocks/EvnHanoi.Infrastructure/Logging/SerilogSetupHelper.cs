@@ -25,7 +25,13 @@ public static class SerilogSetupHelper
                 path: "Logs/log-.txt",
                 rollingInterval: RollingInterval.Day,
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}",
-                retainedFileCountLimit: 30)
+                retainedFileCountLimit: 30,
+                // Chặn 1 file phình vô hạn trong 1 ngày (vd lỗi lặp liên tục hàng giờ như sự cố PMIS đã gặp)
+                // — ghi đè writable layer của container, tính vào ephemeral-storage của node K8s, từng
+                // gây tràn đĩa node làm kubelet đuổi hàng loạt pod. 50MB/file x tối đa 30 file giữ lại
+                // (retainedFileCountLimit ở trên) = tối đa ~1.5GB/service thay vì không giới hạn.
+                fileSizeLimitBytes: 50 * 1024 * 1024,
+                rollOnFileSizeLimit: true)
             .WriteTo.Elasticsearch(new Serilog.Sinks.Elasticsearch.ElasticsearchSinkOptions(new Uri(context.Configuration["Elasticsearch:Uri"] ?? "http://localhost:9200"))
             {
                 AutoRegisterTemplate = true,
