@@ -96,9 +96,12 @@ public class AvatarStorageService : IAvatarStorageService
                 .WithObject(objectKey);
             await _minioClient.RemoveObjectAsync(removeArgs, cancellationToken);
         }
-        catch (ObjectNotFoundException)
+        catch (MinioException ex)
         {
-            _logger.LogWarning("Avatar object not found while deleting: {Bucket}/{ObjectKey}", BucketName, objectKey);
+            // Best-effort cleanup của avatar cũ: object/bucket có thể đã không còn tồn tại (NoSuchKey,
+            // NoSuchBucket...) hoặc lỗi tạm thời từ MinIO. Không được để lỗi này chặn việc cập nhật
+            // avatar mới, vì tại thời điểm gọi hàm này avatar mới đã upload và DB đã trỏ sang key mới.
+            _logger.LogWarning(ex, "Failed to delete old avatar object, ignoring: {Bucket}/{ObjectKey}", BucketName, objectKey);
         }
     }
 

@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System.Data;
 using Dapper;
 using Microsoft.IdentityModel.Tokens;
@@ -40,6 +41,7 @@ public class AuthController : ControllerBase
     private readonly ISsoClient _ssoClient;
     private readonly ISsoAccountService _ssoAccountService;
     private readonly SsoOptions _ssoOptions;
+    private readonly ILogger<AuthController> _logger;
 
     public AuthController(
         IUserRepository userRepository,
@@ -50,7 +52,8 @@ public class AuthController : ControllerBase
         IAvatarStorageService avatarStorageService,
         ISsoClient ssoClient,
         ISsoAccountService ssoAccountService,
-        IOptions<SsoOptions> ssoOptions)
+        IOptions<SsoOptions> ssoOptions,
+        ILogger<AuthController> logger)
     {
         _userRepository = userRepository;
         _configuration = configuration;
@@ -61,6 +64,7 @@ public class AuthController : ControllerBase
         _ssoClient = ssoClient;
         _ssoAccountService = ssoAccountService;
         _ssoOptions = ssoOptions.Value;
+        _logger = logger;
     }
 
     [AllowAnonymous]
@@ -711,7 +715,17 @@ public class AuthController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(oldAvatarObjectKey))
         {
-            await _avatarStorageService.DeleteAvatarAsync(oldAvatarObjectKey, cancellationToken);
+            // Avatar mới đã upload và DB đã trỏ sang key mới ở trên - dọn avatar cũ chỉ là best-effort,
+            // không được để lỗi ở bước này (object/bucket cũ không còn tồn tại, lỗi mạng...) làm fail
+            // response trong khi avatar mới đã được lưu thành công.
+            try
+            {
+                await _avatarStorageService.DeleteAvatarAsync(oldAvatarObjectKey, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to delete old avatar object key {ObjectKey} for user {UserId}, ignoring", oldAvatarObjectKey, userId);
+            }
         }
 
         user.AvatarObjectKey = objectKey;
