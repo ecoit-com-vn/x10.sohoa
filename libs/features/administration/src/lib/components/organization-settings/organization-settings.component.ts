@@ -8,7 +8,7 @@ import { PaginatorModule } from 'primeng/paginator';
 import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem, MessageService } from 'primeng/api';
 import { environment } from '@env/environment';
-import { finalize } from 'rxjs';
+import { catchError, concatMap, finalize, forkJoin, from, map, of, toArray } from 'rxjs';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import {
   DeleteConfirmDialogComponent,
@@ -65,6 +65,8 @@ export class OrganizationSettings implements OnInit {
 
   loading = signal<boolean>(false);
   saving = signal<boolean>(false);
+  syncing = signal<boolean>(false);
+  private readonly hrmsOrgSyncUrl = 'https://demogwlan.evnhanoi.vn/api/Hrms/danh-sach-don-vi';
   actionMenuItems: MenuItem[] = [];
 
   // Lock/Unlock Confirmation
@@ -269,6 +271,124 @@ export class OrganizationSettings implements OnInit {
     this.serverErrors.set({});
     this.dialogHeader.set('Thêm mới đơn vị phòng ban');
     this.currentView.set('add');
+  }
+
+  // Đồng bộ danh sách đơn vị từ hệ thống HRMS (EVN Hà Nội) về bảng đơn vị phòng ban hiện có.
+  onSyncOrganizations(): void {
+    if (!this.authService.hasPermission('ORGANIZATION_CREATE')) {
+      this.messageService.add({ severity: 'error', summary: 'Không có quyền', detail: 'Bạn không có quyền đồng bộ đơn vị phòng ban.' });
+      return;
+    }
+    if (this.syncing()) {
+      return;
+    }
+
+    this.syncing.set(true);
+    this.http.get<any>(this.hrmsOrgSyncUrl)
+      .subscribe({
+        next: (res) => {
+          const items: any[] = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+          if (!items.length) {
+            this.syncing.set(false);
+            this.messageService.add({ severity: 'info', summary: 'Đồng bộ đơn vị', detail: 'Không có dữ liệu đơn vị từ HRMS để đồng bộ.' });
+            return;
+          }
+          this.syncOrganizationUnits(items);
+        },
+        error: (err) => {
+          this.syncing.set(false);
+          const detailMsg = err?.error?.message || err?.message || 'Không thể lấy danh sách đơn vị từ hệ thống HRMS.';
+          this.messageService.add({ severity: 'error', summary: 'Lỗi đồng bộ', detail: detailMsg });
+        }
+      });
+  }
+
+  // Ánh xạ dữ liệu HRMS (ORG_CODE, ORG_NAME, ORG_PARENT_ID, ACTIVE, ORG_STT, SHORT_NAME, ORGANIZATION_ID...)
+  // vào các cột hiện có của bảng đơn vị (code, name, parentId, isActive, sortOrder, description, orgIdSso).
+  // orgIdSso lưu ORGANIZATION_ID để lần đồng bộ sau nhận diện đúng đơn vị đã tồn tại (update thay vì tạo trùng).
+  private syncOrganizationUnits(items: any[]): void {
+    const existingUnits = this.units();
+    const existingByOrgIdSso = new Map<string, any>(
+      existingUnits.filter(u => u.orgIdSso).map(u => [String(u.orgIdSso), u])
+    );
+    const codeToInternalId = new Map<string, number>(
+      existingUnits.filter(u => u.code).map(u => [String(u.code).trim().toUpperCase(), u.id])
+    );
+
+    from(items).pipe(
+      concatMap((item: any) => {
+        const existing = existingByOrgIdSso.get(String(item.ORGANIZATION_ID));
+        const payload = {
+          code: String(item.ORG_CODE ?? '').trim(),
+          name: String(item.ORG_NAME ?? '').trim(),
+          description: String(item.SHORT_NAME ?? '').trim(),
+          orgIdSso: String(item.ORGANIZATION_ID ?? '').trim(),
+          sortOrder: Number(item.ORG_STT) || 1,
+          isActive: item.ACTIVE !== false,
+          parentId: existing?.parentId ?? null
+        };
+        const request$ = existing
+          ? this.http.put<any>(`${this.apiUrl}/${existing.id}`, { ...existing, ...payload, id: existing.id })
+          : this.http.post<any>(this.apiUrl, payload);
+
+        return request$.pipe(
+          map(result => ({ item, id: existing?.id ?? result?.id ?? result?.Id, error: null as any })),
+          catchError(err => of({ item, id: existing?.id ?? null, error: err }))
+        );
+      }),
+      toArray()
+    ).subscribe(results => {
+      results.forEach(r => {
+        const code = String(r.item?.ORG_CODE ?? '').trim().toUpperCase();
+        if (code && r.id) {
+          codeToInternalId.set(code, r.id);
+        }
+      });
+
+      // Đơn vị cấp trên (ORG_PARENT_ID) được HRMS trả về theo mã đơn vị (ORG_CODE), không phải id nội bộ,
+      // nên phải resolve sau khi đã tạo/cập nhật xong toàn bộ danh sách để tránh thiếu đơn vị cha chưa tồn tại.
+      const parentUpdateRequests = results
+        .filter(r => !r.error && r.id && r.item?.ORG_PARENT_ID)
+        .map(r => {
+          const parentCode = String(r.item.ORG_PARENT_ID ?? '').trim().toUpperCase();
+          const resolvedParentId = codeToInternalId.get(parentCode) ?? null;
+          const current = this.units().find(u => u.id === r.id) ?? {};
+          if ((current as any).parentId === resolvedParentId) {
+            return null;
+          }
+          return this.http.put(`${this.apiUrl}/${r.id}`, { ...current, id: r.id, parentId: resolvedParentId }).pipe(
+            catchError(() => of(null))
+          );
+        })
+        .filter((req): req is NonNullable<typeof req> => !!req);
+
+      if (!parentUpdateRequests.length) {
+        this.finishOrganizationSync(results);
+        return;
+      }
+
+      forkJoin(parentUpdateRequests).subscribe(() => this.finishOrganizationSync(results));
+    });
+  }
+
+  private finishOrganizationSync(results: { item: any; id: number | null; error: any }[]): void {
+    this.syncing.set(false);
+    this.loadUnits();
+
+    const failedCount = results.filter(r => r.error).length;
+    if (failedCount > 0) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Đồng bộ hoàn tất có lỗi',
+        detail: `Đã đồng bộ ${results.length - failedCount}/${results.length} đơn vị, ${failedCount} đơn vị đồng bộ lỗi.`
+      });
+    } else {
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Đồng bộ thành công',
+        detail: `Đã đồng bộ ${results.length} đơn vị từ hệ thống HRMS.`
+      });
+    }
   }
 
   onToggleStatusRequest(unit: any) {
