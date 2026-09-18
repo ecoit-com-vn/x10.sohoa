@@ -103,7 +103,7 @@ public class PmisScheduledSyncJob : IJob
                 _ => (0, 0, 0, 0, [])
             };
 
-            var status = total > 0 && success == 0
+            var status = (total > 0 && success == 0) || (total == 0 && errors.Count > 0)
                 ? SyncHistoryStatus.Failed
                 : (warnings > 0 ? SyncHistoryStatus.Warning : SyncHistoryStatus.Success);
             await _syncHistoryRepository.CompleteAsync(historyId, status, total, success, failed,
