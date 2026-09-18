@@ -1,3 +1,5 @@
+using EvnHanoi.SyncService.Models;
+
 namespace EvnHanoi.SyncService.Services;
 
 /// <summary>URL + header đã giải mã, sẵn sàng để <c>PmisClient</c> gắn vào <see cref="HttpRequestMessage"/>.</summary>
@@ -8,6 +10,10 @@ public class ResolvedPmisEndpoint
     public required string Url { get; init; }
     public required string HttpMethod { get; init; }
     public int? TimeoutSeconds { get; init; }
+    /// <summary>Số bản ghi mỗi trang ("take") khi phân trang gọi API PMIS này — đã áp
+    /// <see cref="PmisPaging.DefaultPageSize"/> nếu admin chưa cấu hình, caller dùng trực tiếp không cần
+    /// tự fallback lại lần nữa.</summary>
+    public int PageSize { get; init; } = PmisPaging.DefaultPageSize;
     public IReadOnlyDictionary<string, string> Headers { get; init; } = new Dictionary<string, string>();
 }
 
