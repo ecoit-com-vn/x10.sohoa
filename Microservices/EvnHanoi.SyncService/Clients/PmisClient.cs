@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -5,12 +6,32 @@ using EvnHanoi.SyncService.Models;
 using EvnHanoi.SyncService.Models.Pmis;
 using EvnHanoi.SyncService.Repositories;
 using EvnHanoi.SyncService.Services;
+using Polly;
+using Polly.Extensions.Http;
 
 namespace EvnHanoi.SyncService.Clients;
 
 public class PmisClient : IPmisClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
+    // 1 circuit breaker RIÊNG cho mỗi cặp (HttpClient name, apiCode) — vd. "PMIS:SUBSTATION_LIST" và
+    // "PMIS:DEVICE_QR_IMAGE" độc lập nhau, "PMIS:SUBSTATION_LIST" và "PMIS-Interactive:SUBSTATION_LIST"
+    // cũng độc lập nhau. Trước đây circuit breaker gắn ở mức HttpClientFactory (1 policy dùng chung cho
+    // cả named client "PMIS"), nên 1 API code lỗi liên tục (vd. DEVICE_QR_IMAGE do URL cấu hình sai) sẽ
+    // "mở mạch" luôn cho các API code khác vẫn gọi PMIS bình thường (vd. SUBSTATION_LIST) — đã gặp thực
+    // tế trên production. Dùng ConcurrentDictionary tĩnh (không phải field instance) vì PmisClient được
+    // đăng ký Scoped — mỗi request/lượt job tạo instance mới, nếu lưu policy trong field instance thì
+    // trạng thái "mở mạch" sẽ mất ngay khi scope kết thúc, vô hiệu hoá luôn tác dụng của circuit breaker.
+    private static readonly ConcurrentDictionary<string, IAsyncPolicy<HttpResponseMessage>> CircuitBreakers = new();
+
+    // internal (không private): PmisSyncWorker/PmisPublisherWorker gọi thẳng CreateClient("PMIS") mà
+    // không qua PmisClient, nhưng vẫn cần circuit breaker riêng theo đúng nguyên tắc trên — dùng chung
+    // registry này với key riêng (vd. "PMIS:LegacyPull", "PMIS:LegacyPush") thay vì bị chặn quyền truy cập.
+    internal static IAsyncPolicy<HttpResponseMessage> GetCircuitBreaker(string key) =>
+        CircuitBreakers.GetOrAdd(key, _ => HttpPolicyExtensions
+            .HandleTransientHttpError()
+            .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30)));
 
     private readonly IPmisEndpointConfigProvider _endpointConfigProvider;
     private readonly IHttpClientFactory _httpClientFactory;
@@ -103,7 +124,13 @@ public class PmisClient : IPmisClient
             }
 
             var httpClient = _httpClientFactory.CreateClient(_httpClientName);
-            response = await httpClient.SendAsync(request);
+            // Key RIÊNG với hậu tố ":File" — endpointApiCode ở đây chỉ dùng để lấy header cấu hình, còn
+            // request thật sự gọi tới fileUrl động (server lưu trữ tài liệu), khác hẳn API danh sách
+            // (SendCoreAsync dùng key "{httpClientName}:{apiCode}" không hậu tố cho endpoint.Url cố định
+            // của chính apiCode đó). Nếu dùng chung key, tải file lỗi 5 lần (server lưu trữ tài liệu sập)
+            // sẽ mở luôn circuit của API danh sách tài liệu dù bản thân API đó vẫn gọi PMIS bình thường.
+            var circuitBreaker = GetCircuitBreaker($"{_httpClientName}:{endpointApiCode}:File");
+            response = await circuitBreaker.ExecuteAsync(() => httpClient.SendAsync(request));
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadAsByteArrayAsync();
         }
@@ -174,12 +201,13 @@ public class PmisClient : IPmisClient
             httpClient.Timeout = TimeSpan.FromSeconds(endpoint.TimeoutSeconds.Value);
         }
 
+        var circuitBreaker = GetCircuitBreaker($"{_httpClientName}:{apiCode}");
         var sw = Stopwatch.StartNew();
         HttpResponseMessage? response = null;
         Exception? callError = null;
         try
         {
-            response = await httpClient.SendAsync(httpRequest);
+            response = await circuitBreaker.ExecuteAsync(() => httpClient.SendAsync(httpRequest));
             response.EnsureSuccessStatusCode();
             // Không sw.Stop()/trả về ngay ở đây — caller (GetListAsync) còn cần đọc/parse body xong mới
             // dừng đồng hồ và tự ghi log, để DurationMs phản ánh đúng toàn bộ thời gian gọi (kể cả đọc body).

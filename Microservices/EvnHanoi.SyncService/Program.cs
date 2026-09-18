@@ -108,19 +108,22 @@ var retryPolicy = HttpPolicyExtensions
     .Or<TimeoutRejectedException>()
     .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
 
-var circuitBreakerPolicy = HttpPolicyExtensions
+// Circuit breaker cho PMIS ("PMIS"/"PMIS-Interactive") KHÔNG gắn ở mức HttpClientFactory nữa. PMIS có
+// ~10 API code khác nhau (SUBSTATION_LIST, LINE_LIST, DEVICE_QR_IMAGE...) dùng CHUNG 1 HttpClient — nếu
+// gắn 1 policy instance dùng chung cho cả named client, 5 lỗi liên tiếp của RIÊNG 1 API code (vd.
+// DEVICE_QR_IMAGE lỗi cấu hình) sẽ "mở mạch" luôn cho TẤT CẢ API code khác, kể cả những API vẫn gọi
+// PMIS bình thường (vd. SUBSTATION_LIST) — đã gặp thực tế trên production. Circuit breaker giờ được
+// tạo/áp dụng RIÊNG cho từng cặp (HttpClient name, apiCode) ngay trong
+// PmisClient.SendCoreAsync/DownloadDocumentFileAsync (xem PmisClient.GetCircuitBreaker) — vẫn giữ
+// nguyên việc tách riêng nền ("PMIS") và tương tác ("PMIS-Interactive"), cộng thêm tách riêng theo
+// từng API code trong cùng 1 HttpClient.
+var timeoutPolicy = Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromSeconds(60));
+
+// Circuit breaker RIÊNG cho CA (Certificate Authority) — trước đây dùng chung 1 instance với PMIS,
+// khiến lỗi gọi CA có thể mở luôn circuit của PMIS (và ngược lại) dù 2 dịch vụ hoàn toàn không liên quan.
+var caCircuitBreakerPolicy = HttpPolicyExtensions
     .HandleTransientHttpError()
     .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30));
-
-// Circuit breaker RIÊNG cho HttpClient "PMIS-Interactive" (xem PmisClient/InteractivePmisClient) — nếu
-// dùng chung 1 policy instance với "PMIS", 5 lỗi liên tiếp của đồng bộ nền (tự động theo lịch/Lưu thủ
-// công) sẽ "mở mạch" luôn cho cả API Tra cứu/Tìm kiếm tương tác, khoá màn hình người dùng đang chờ
-// trong 30s dù bản thân API đó có thể vẫn gọi được PMIS bình thường.
-var interactiveCircuitBreakerPolicy = HttpPolicyExtensions
-    .HandleTransientHttpError()
-    .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30));
-
-var timeoutPolicy = Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromSeconds(10));
 
 var bulkheadPolicy = Policy.BulkheadAsync<HttpResponseMessage>(10, 20); // Concurrency Limiter for CA
 
@@ -131,17 +134,14 @@ builder.Services.AddHttpClient("PMIS", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Endpoints:PMIS"] ?? "https://api.pmis.mock/");
 })
-.AddPolicyHandler(circuitBreakerPolicy)
 .AddPolicyHandler(timeoutPolicy);
 
-// 3b. PMIS HttpClient — bản dành cho API tra cứu/tìm kiếm tương tác, cùng cấu hình base URL/timeout
-// nhưng circuit breaker riêng (interactiveCircuitBreakerPolicy) — xem InteractivePmisClient. Cũng
-// không retry, cùng lý do như HttpClient "PMIS" ở trên.
+// 3b. PMIS HttpClient — bản dành cho API tra cứu/tìm kiếm tương tác, cùng cấu hình base URL/timeout —
+// xem InteractivePmisClient. Cũng không retry, cùng lý do như HttpClient "PMIS" ở trên.
 builder.Services.AddHttpClient("PMIS-Interactive", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Endpoints:PMIS"] ?? "https://api.pmis.mock/");
 })
-.AddPolicyHandler(interactiveCircuitBreakerPolicy)
 .AddPolicyHandler(timeoutPolicy);
 
 // 4. CA HttpClient
@@ -150,7 +150,7 @@ builder.Services.AddHttpClient("CA", client =>
     client.BaseAddress = new Uri(builder.Configuration["Endpoints:CA"] ?? "https://api.ca.mock/");
 })
 .AddPolicyHandler(retryPolicy)
-.AddPolicyHandler(circuitBreakerPolicy)
+.AddPolicyHandler(caCircuitBreakerPolicy)
 .AddPolicyHandler(bulkheadPolicy);
 
 // 5. Quartz Scheduler — PmisScheduledSyncJob thay PmisSyncScheduler cũ (chỉ log, chưa lưu gì).
