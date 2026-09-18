@@ -122,6 +122,25 @@ public partial class EquipmentController : ControllerBase
 
         return Ok(dto);
     }
+    [HttpGet("{id}/transfer-history")]
+    public async Task<IActionResult> GetTransferHistory(
+        Guid id,
+        [FromQuery] Guid? infrastructureId = null,
+        [FromQuery] DateTime? fromDate = null,
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var equipment = await _equipmentRepository.GetByIdAsync(id);
+        if (equipment == null)
+            return NotFound();
+
+        var (items, totalCount) = await _equipmentRepository.GetTransferHistoryAsync(
+            equipment.Code, infrastructureId, fromDate, toDate, page, pageSize);
+
+        return Ok(new { items, totalCount, page, pageSize });
+    }
+
     [HttpPost("{id}/copy-byid")]
     public async Task<IActionResult> CreateFromById(Guid id, Guid InfrastructureId, string? note)
     {
