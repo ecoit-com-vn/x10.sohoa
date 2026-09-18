@@ -1,0 +1,74 @@
+<p-dialog [visible]="visible" (visibleChange)="$event ? null : close()"
+  [header]="equipmentLabel() ? 'Lịch sử di chuyển thiết bị - ' + equipmentLabel() : 'Lịch sử di chuyển thiết bị'"
+  [modal]="true" [style]="{ width: '1200px' }" styleClass="evn-dialog-custom" [closable]="true">
+  <div class="transfer-history-search">
+    <div class="transfer-history-search-fields">
+      <div class="form-group">
+        <label class="form-label">Trạm / đường dây</label>
+        <p-select [options]="infrastructures()" [ngModel]="filterInfrastructureId()"
+          (ngModelChange)="filterInfrastructureId.set($event)" optionLabel="name" optionValue="id"
+          placeholder="-- Tất cả --" [filter]="true" [showClear]="true" [virtualScroll]="true"
+          [virtualScrollItemSize]="36" appendTo="body" styleClass="w-full">
+        </p-select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Từ ngày</label>
+        <p-datepicker class="w-full" [ngModel]="filterFromDate()" (ngModelChange)="filterFromDate.set($event)"
+          dateFormat="dd/mm/yy" placeholder="dd/MM/yyyy" [showIcon]="true" appendTo="body" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Đến ngày</label>
+        <p-datepicker class="w-full" [ngModel]="filterToDate()" (ngModelChange)="filterToDate.set($event)"
+          dateFormat="dd/mm/yy" placeholder="dd/MM/yyyy" [showIcon]="true" appendTo="body" />
+      </div>
+    </div>
+    <div class="transfer-history-search-actions">
+      <button type="button" class="btn-outlined" (click)="onReset()">
+        <i class="pi pi-refresh"></i> Làm mới
+      </button>
+      <button type="button" class="btn-save" (click)="onSearch()">
+        <i class="pi pi-search"></i> Tìm kiếm
+      </button>
+    </div>
+  </div>
+
+  <div class="wf-table-wrap">
+    <table class="wf-table">
+      <thead>
+        <tr>
+          <th class="col-stt">STT</th>
+          <th>Trạm/đường dây</th>
+          <th>Đơn vị quản lý</th>
+          <th>Ngày chuyển</th>
+        </tr>
+      </thead>
+      <tbody>
+        <ng-container *ngIf="loading()">
+          <tr *ngFor="let item of [1, 2, 3]">
+            <td class="col-stt"><div class="skeleton-shimmer skeleton-sm"></div></td>
+            <td><div class="skeleton-shimmer skeleton-md"></div></td>
+            <td><div class="skeleton-shimmer skeleton-md"></div></td>
+            <td><div class="skeleton-shimmer skeleton-sm"></div></td>
+          </tr>
+        </ng-container>
+        <ng-container *ngIf="!loading()">
+          <tr *ngFor="let item of items(); let i = index">
+            <td class="col-stt">{{ startIndex() + i + 1 }}</td>
+            <td>{{ item.infrastructureName || item.InfrastructureName || '-' }}</td>
+            <td>{{ item.unitName || item.UnitName || '-' }}</td>
+            <td>{{ (item.transferredAt || item.TransferredAt) | date: 'dd/MM/yyyy HH:mm' }}</td>
+          </tr>
+          <tr *ngIf="items().length === 0">
+            <td colspan="4" class="empty-row">Chưa có lịch sử di chuyển.</td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="transfer-history-paginator">
+    <app-eco-paginator [first]="(page() - 1) * pageSize()" [rows]="pageSize()" [totalRecords]="totalCount()"
+      [rowsPerPageOptions]="[10, 20, 50]" recordLabel="lượt chuyển" (onPageChange)="onPageChange($event)">
+    </app-eco-paginator>
+  </div>
+</p-dialog>

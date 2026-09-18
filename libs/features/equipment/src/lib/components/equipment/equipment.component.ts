@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject, effect, HostListener } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, effect, HostListener, ViewChild } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
   EcoPaginatorComponent,
@@ -26,6 +26,7 @@ import {
 import { EMPTY, forkJoin, of } from 'rxjs';
 import { catchError, finalize, switchMap, map } from 'rxjs/operators';
 import { EquipmentDocumentsComponent } from '../equipment-documents/equipment-documents.component';
+import { EquipmentTransferHistoryDialogComponent } from '../equipment-transfer-history-dialog/equipment-transfer-history-dialog.component';
 import { EavFormService } from '../../../../../../shared/core/src/lib/services/eav-form.service';
 
 @Component({
@@ -43,7 +44,8 @@ import { EavFormService } from '../../../../../../shared/core/src/lib/services/e
     EcoPaginatorComponent,
     DeleteConfirmDialogComponent,
     EquipmentDocumentsComponent,
-    DatePickerModule
+    DatePickerModule,
+    EquipmentTransferHistoryDialogComponent
   ],
   providers: [MessageService],
   templateUrl: './equipment.component.html',
@@ -66,10 +68,17 @@ export class EquipmentComponent implements OnInit {
   activeRowMenu = signal<string | null>(null);
   actionMenuItems: MenuItem[] = [];
 
+  @ViewChild(EquipmentTransferHistoryDialogComponent) transferHistoryDialog!: EquipmentTransferHistoryDialogComponent;
+
+  onViewTransferHistory(item: any): void {
+    this.transferHistoryDialog.open(item.id, item.code && item.name ? `${item.code} - ${item.name}` : (item.name || item.code || ''));
+  }
+
   openActionMenu(item: any, event: Event, menu: Menu) {
     event.stopPropagation();
     this.actionMenuItems = [
       { label: 'Xem chi tiết', title: 'Xem chi tiết', icon: 'pi pi-eye color-teal', command: () => this.onViewSpecs(item) },
+      { label: 'Lịch sử', title: 'Lịch sử di chuyển thiết bị', icon: 'pi pi-history color-blue', command: () => this.onViewTransferHistory(item) },
       ...(this.canEdit() && item.equipmentTypeId ? [{ label: 'Cấu hình', title: 'Cấu hình', icon: 'pi pi-cog color-blue', command: () => this.onEditSpecs(item) }] : []),
       ...(this.canEdit() ? [{ label: 'Sửa', title: 'Sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
       ...(this.canManage() && this.canShowTransferEquipment(item) ? [{ label: 'Chuyển thiết bị', title: 'Chuyển thiết bị', icon: 'pi pi-send color-blue', command: () => this.openTransferDialog(item) }] : []),

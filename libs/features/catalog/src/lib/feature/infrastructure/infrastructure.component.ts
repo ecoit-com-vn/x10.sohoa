@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject, effect, HostListener } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, effect, HostListener, ViewChild } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
   EcoPaginatorComponent,
@@ -16,7 +16,7 @@ import { MenuItem, MessageService } from 'primeng/api';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService, BreadcrumbTrailItem } from '@sohoa.frontend/shared/core';
 import { InfrastructureService } from '../../data-access/infrastructure.service';
-import { EquipmentService } from '@sohoa.frontend/features/equipment';
+import { EquipmentService, EquipmentTransferHistoryDialogComponent } from '@sohoa.frontend/features/equipment';
 import { DossierDocumentService, DossierManagementService } from '@sohoa.frontend/features/dossier-management';
 import { forkJoin, of } from 'rxjs';
 import { catchError, finalize } from 'rxjs/operators';
@@ -34,7 +34,8 @@ import { catchError, finalize } from 'rxjs/operators';
     MenuModule,
     EcoPaginatorComponent,
     WfBreadcrumbComponent,
-    DeleteConfirmDialogComponent
+    DeleteConfirmDialogComponent,
+    EquipmentTransferHistoryDialogComponent
   ],
   providers: [MessageService],
   templateUrl: './infrastructure.component.html',
@@ -551,6 +552,12 @@ export class InfrastructureComponent implements OnInit {
     } else {
       this.activeEquipmentMenu.set(item.id);
     }
+  }
+
+  @ViewChild(EquipmentTransferHistoryDialogComponent) transferHistoryDialog!: EquipmentTransferHistoryDialogComponent;
+
+  onViewEquipmentTransferHistory(eq: any): void {
+    this.transferHistoryDialog.open(eq.id, eq.code && eq.name ? `${eq.code} - ${eq.name}` : (eq.name || eq.code || ''));
   }
   // ── END DETAIL VIEW SIGNALS ────────────────────────────────────────────────
 
