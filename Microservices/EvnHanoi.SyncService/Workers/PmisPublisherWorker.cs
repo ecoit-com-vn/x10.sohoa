@@ -92,10 +92,15 @@ public class PmisPublisherWorker : BackgroundService
     private async Task PushToPmisAsync(PmisPushPayload payload, CancellationToken cancellationToken)
     {
         var client = _httpClientFactory.CreateClient("PMIS");
-        
+
+        // Circuit breaker RIÊNG cho worker này (key "PMIS:LegacyPush") — xem comment tương tự ở
+        // PmisSyncWorker.SyncFromPmisAsync: policy circuit breaker chung ở mức HttpClientFactory cho
+        // named client "PMIS" đã bị gỡ, PmisClient giờ tự quản theo từng apiCode ở tầng gọi.
+        var circuitBreaker = EvnHanoi.SyncService.Clients.PmisClient.GetCircuitBreaker("PMIS:LegacyPush");
+
         await _httpRetryPolicy.ExecuteAsync(async () =>
         {
-            var response = await client.PostAsJsonAsync(_pmisPushApiUrl, payload, cancellationToken);
+            var response = await circuitBreaker.ExecuteAsync(() => client.PostAsJsonAsync(_pmisPushApiUrl, payload, cancellationToken));
             response.EnsureSuccessStatusCode();
         });
     }

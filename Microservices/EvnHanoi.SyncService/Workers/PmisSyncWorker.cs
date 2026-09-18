@@ -174,12 +174,19 @@ public class PmisSyncWorker : BackgroundService
     {
         var client = _httpClientFactory.CreateClient("PMIS");
 
+        // Circuit breaker RIÊNG cho worker legacy này (Clients.PmisClient.GetCircuitBreaker — dùng chung
+        // registry với key riêng "PMIS:LegacyPull") — trước đây dựa vào circuit breaker gắn ở mức
+        // HttpClientFactory cho named client "PMIS", nhưng policy đó đã bị gỡ (PmisClient giờ tự quản
+        // circuit breaker riêng theo từng apiCode ở tầng gọi, không còn ở tầng HttpClientFactory nữa) —
+        // nếu không tự thêm ở đây, catch BrokenCircuitException bên dưới sẽ không bao giờ được kích hoạt.
+        var circuitBreaker = Clients.PmisClient.GetCircuitBreaker("PMIS:LegacyPull");
+
         string responseString;
         try
         {
             responseString = await _httpRetryPolicy.ExecuteAsync(async () =>
             {
-                var response = await client.GetAsync(_pmisApiUrl, cancellationToken);
+                var response = await circuitBreaker.ExecuteAsync(() => client.GetAsync(_pmisApiUrl, cancellationToken));
                 response.EnsureSuccessStatusCode();
                 return await response.Content.ReadAsStringAsync(cancellationToken);
             });
