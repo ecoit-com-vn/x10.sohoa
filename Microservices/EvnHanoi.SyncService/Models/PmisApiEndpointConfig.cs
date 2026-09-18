@@ -12,6 +12,11 @@ public class PmisApiEndpointConfig
     public string? Url { get; set; }
     public string HttpMethod { get; set; } = "GET";
     public int? TimeoutSeconds { get; set; }
+    /// <summary>Số bản ghi lấy mỗi trang (query "take") khi gọi API PMIS này — null = dùng mặc định
+    /// <see cref="PmisPaging.DefaultPageSize"/>. Trước đây hard-code rải rác trong code (1000 ở
+    /// PmisScheduledSyncJob/PmisSyncExecutionService, 100 trong các DTO tra cứu tương tác) — giờ admin tự
+    /// chỉnh theo từng API qua "Cấu hình kết nối API" mà không cần build/deploy lại.</summary>
+    public int? PageSize { get; set; }
     public bool IsActive { get; set; }
     public int RowVersion { get; set; }
     public string? CreatedBy { get; set; }
@@ -28,6 +33,7 @@ public class PmisApiEndpointConfigListItemDto
     public string? Url { get; set; }
     public string HttpMethod { get; set; } = "GET";
     public int? TimeoutSeconds { get; set; }
+    public int? PageSize { get; set; }
     public bool IsActive { get; set; }
     public int RowVersion { get; set; }
     public int HeaderCount { get; set; }
@@ -37,6 +43,13 @@ public class UpdatePmisApiEndpointConfigRequest
 {
     public string? Url { get; set; }
     public int? TimeoutSeconds { get; set; }
+    public int? PageSize { get; set; }
     public bool IsActive { get; set; }
     public int RowVersion { get; set; }
+}
+
+/// <summary>Giá trị mặc định khi admin chưa cấu hình PageSize cho 1 API PMIS cụ thể.</summary>
+public static class PmisPaging
+{
+    public const int DefaultPageSize = 100;
 }

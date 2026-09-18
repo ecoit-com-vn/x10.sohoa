@@ -24,6 +24,7 @@ public class PmisEndpointConfigRepository : IPmisEndpointConfigRepository
                    c.URL AS Url,
                    c.HTTP_METHOD AS HttpMethod,
                    c.TIMEOUT_SECONDS AS TimeoutSeconds,
+                   c.PAGE_SIZE AS PageSize,
                    c.IS_ACTIVE AS IsActive,
                    c.ROW_VERSION AS RowVersion,
                    (SELECT COUNT(1) FROM PMIS_API_ENDPOINT_HEADER h
@@ -45,6 +46,7 @@ public class PmisEndpointConfigRepository : IPmisEndpointConfigRepository
                    URL AS Url,
                    HTTP_METHOD AS HttpMethod,
                    TIMEOUT_SECONDS AS TimeoutSeconds,
+                   PAGE_SIZE AS PageSize,
                    IS_ACTIVE AS IsActive,
                    ROW_VERSION AS RowVersion,
                    CREATED_BY AS CreatedBy,
@@ -64,6 +66,7 @@ public class PmisEndpointConfigRepository : IPmisEndpointConfigRepository
             UPDATE PMIS_API_ENDPOINT_CONFIG
             SET URL = :Url,
                 TIMEOUT_SECONDS = :TimeoutSeconds,
+                PAGE_SIZE = :PageSize,
                 IS_ACTIVE = :IsActive,
                 ROW_VERSION = ROW_VERSION + 1,
                 MODIFIED_BY = :ModifiedBy,
@@ -75,6 +78,7 @@ public class PmisEndpointConfigRepository : IPmisEndpointConfigRepository
             ApiCode = apiCode,
             request.Url,
             request.TimeoutSeconds,
+            request.PageSize,
             IsActive = request.IsActive ? 1 : 0,
             ExpectedVersion = request.RowVersion,
             ModifiedBy = modifiedBy

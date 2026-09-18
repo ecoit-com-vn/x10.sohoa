@@ -1,21 +1,30 @@
+using System.Net.Http;
 using Polly;
+using Polly.CircuitBreaker;
 
 namespace EvnHanoi.SyncService.Clients;
 
 /// <summary>
 /// Định dạng chi tiết exception để lưu vào SYNC_HISTORY/SYNC_HISTORY_DETAIL/PMIS_API_CALL_LOG.ErrorMessage
-/// (NVARCHAR2(2000)). Ưu tiên hiển thị NGUYÊN NHÂN GỐC THẬT (vd. HttpRequestException: "Resource
-/// temporarily unavailable (demogwlan.evnhanoi.vn:443)" — có kèm rõ host:port PMIS) thay vì lớp vỏ bọc
-/// của Polly (BrokenCircuitException: "The circuit is now open and is not allowing calls."/
-/// TimeoutRejectedException — chỉ nói "không gọi được" chứ không nói kết nối tới đâu, vì sao) — trước đây
-/// FormatShort chỉ lấy đúng exception ngoài cùng nên người dùng chỉ thấy "BrokenCircuitException...".
-/// Dừng lại ở exception THẬT đầu tiên (không phải Polly.ExecutionRejectedException — lớp cha chung của
-/// BrokenCircuitException/TimeoutRejectedException, đã xác nhận qua reflection) chứ KHÔNG đi tiếp
-/// xuống SocketException bên dưới — SocketException thường chỉ lặp lại message ngắn ("Resource
-/// temporarily unavailable") mà KHÔNG còn host:port (HttpRequestException là nơi .NET gắn thêm host:port
-/// vào message), đi quá sâu sẽ mất chính thông tin người dùng cần thấy. KHÔNG còn kèm stack trace kỹ
-/// thuật trong thông báo hiển thị cho người dùng — stack trace đầy đủ vẫn được ghi qua Serilog
-/// (Log.Error(ex, ...)) ở nơi gọi, chỉ không lưu vào cột hiển thị trên UI.
+/// (NVARCHAR2(2000)). Ưu tiên hiển thị NGUYÊN NHÂN GỐC THẬT thay vì lớp vỏ bọc của Polly
+/// (BrokenCircuitException: "The circuit is now open and is not allowing calls."/TimeoutRejectedException
+/// — chỉ nói "không gọi được" chứ không nói kết nối tới đâu, vì sao).
+///
+/// Có 2 dạng nguyên nhân gốc hoàn toàn khác nhau cần xử lý riêng (đã kiểm chứng bằng log thật + reflection
+/// trên Polly 7.2.4):
+/// 1. Circuit mở do EXCEPTION (mất kết nối, DNS lỗi...) — BrokenCircuitException (non-generic) có
+///    InnerException là exception thật (vd. HttpRequestException: "Resource temporarily unavailable
+///    (demogwlan.evnhanoi.vn:443)" — .NET gắn thêm host:port vào message ở lớp NÀY, không có ở
+///    SocketException bên dưới, nên dừng lại đây, KHÔNG unwrap tiếp).
+/// 2. Circuit mở do PMIS trả HTTP status lỗi (500/503/408 — HandleTransientHttpError() coi status đó là
+///    "fault" dù không có exception nào được throw) — Polly tạo BrokenCircuitException&lt;HttpResponseMessage&gt;
+///    (GENERIC, kế thừa từ bản non-generic) với InnerException = null nhưng có property Result chứa chính
+///    HttpResponseMessage lỗi đó — đây là dạng phổ biến nhất trên production thực tế (xem
+///    Logs/log-20260829.txt), nếu chỉ unwrap theo InnerException sẽ luôn ra tay không (message vẫn
+///    y nguyên "The circuit is now open..."), phải đọc riêng property Result.
+///
+/// KHÔNG còn kèm stack trace kỹ thuật trong thông báo hiển thị cho người dùng — stack trace đầy đủ vẫn
+/// được ghi qua Serilog (Log.Error(ex, ...)) ở nơi gọi, chỉ không lưu vào cột hiển thị trên UI.
 /// </summary>
 public static class SyncErrorFormatter
 {
@@ -24,15 +33,33 @@ public static class SyncErrorFormatter
 
     /// <summary>Bỏ qua các lớp vỏ bọc "không thực sự gọi/không xong" của Polly (circuit breaker mở,
     /// timeout policy...) để lấy exception THẬT đầu tiên bên dưới — nơi message còn giữ chi tiết kết nối
-    /// (host:port, lý do socket) do PMIS/hạ tầng mạng trả về.</summary>
+    /// (host:port, lý do socket) do PMIS/hạ tầng mạng trả về. Dừng lại NGAY khi gặp
+    /// BrokenCircuitException&lt;HttpResponseMessage&gt; có Result — trường hợp đó không unwrap theo
+    /// InnerException được (luôn null), phải xử lý riêng ở Describe().</summary>
     private static Exception MeaningfulCause(Exception ex)
     {
         var current = ex;
-        while (current is ExecutionRejectedException && current.InnerException != null)
+        while (current is ExecutionRejectedException
+               && current is not BrokenCircuitException<HttpResponseMessage> { Result: not null }
+               && current.InnerException != null)
         {
             current = current.InnerException;
         }
         return current;
+    }
+
+    /// <summary>Diễn giải 1 exception thành chuỗi dễ hiểu — riêng BrokenCircuitException&lt;HttpResponseMessage&gt;
+    /// đọc thẳng status code + URI từ Result thay vì dùng Message chung ("The circuit is now open...").</summary>
+    private static string Describe(Exception ex)
+    {
+        if (ex is BrokenCircuitException<HttpResponseMessage> { Result: { } response })
+        {
+            var status = $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".TrimEnd();
+            var uri = response.RequestMessage?.RequestUri;
+            return uri == null ? $"PMIS trả về {status}" : $"PMIS trả về {status} ({uri})";
+        }
+
+        return $"{ex.GetType().Name}: {ex.Message}";
     }
 
     /// <summary>Định dạng đầy đủ — dùng khi ErrorMessage chỉ lưu đúng 1 lỗi (không bị nối với lỗi khác).
@@ -42,8 +69,8 @@ public static class SyncErrorFormatter
     {
         var cause = MeaningfulCause(ex);
         var result = ReferenceEquals(ex, cause)
-            ? $"{ex.GetType().Name}: {ex.Message}"
-            : $"{ex.GetType().Name}: {ex.Message} ---> Nguyên nhân gốc: {cause.GetType().Name}: {cause.Message}";
+            ? Describe(ex)
+            : $"{ex.GetType().Name}: {ex.Message} ---> Nguyên nhân gốc: {Describe(cause)}";
 
         return result.Length > MaxLength ? result[..MaxLength] + "…" : result;
     }
@@ -53,8 +80,7 @@ public static class SyncErrorFormatter
     /// PmisScheduledSyncJob.PushPageAsync), tránh vượt giới hạn cột khi ghép chung nhiều lỗi.</summary>
     public static string FormatShort(Exception ex)
     {
-        var cause = MeaningfulCause(ex);
-        var message = $"{cause.GetType().Name}: {cause.Message}";
+        var message = Describe(MeaningfulCause(ex));
         return message.Length > MaxLengthShort ? message[..MaxLengthShort] + "…" : message;
     }
 }
