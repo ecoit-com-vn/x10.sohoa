@@ -1,3 +1,4 @@
+using EvnHanoi.SyncService.Models;
 using EvnHanoi.SyncService.Repositories;
 using EvnHanoi.SyncService.Security;
 using Microsoft.Extensions.Caching.Memory;
@@ -44,6 +45,7 @@ public class PmisEndpointConfigProvider : IPmisEndpointConfigProvider
                 Url = config.Url!,
                 HttpMethod = config.HttpMethod,
                 TimeoutSeconds = config.TimeoutSeconds,
+                PageSize = config.PageSize is > 0 ? config.PageSize.Value : PmisPaging.DefaultPageSize,
                 Headers = resolvedHeaders
             };
         });
