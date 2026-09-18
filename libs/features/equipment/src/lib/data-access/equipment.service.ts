@@ -128,6 +128,38 @@ export class EquipmentService {
     return this.http.get<any>(`${this.base}/lookup`);
   }
 
+  getTransferHistory(
+    equipmentId: string,
+    page: number,
+    pageSize: number,
+    infrastructureId?: string | null,
+    fromDate?: Date | null,
+    toDate?: Date | null
+  ): Observable<{ items: any[]; totalCount: number }> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('pageSize', pageSize.toString());
+
+    if (infrastructureId) {
+      params = params.set('infrastructureId', infrastructureId);
+    }
+    if (fromDate) {
+      params = params.set('fromDate', this.toDateOnlyString(fromDate));
+    }
+    if (toDate) {
+      params = params.set('toDate', this.toDateOnlyString(toDate));
+    }
+
+    return this.http.get<{ items: any[]; totalCount: number }>(`${this.base}/${equipmentId}/transfer-history`, { params });
+  }
+
+  private toDateOnlyString(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   getOrganizationUnits(): Observable<any[]> {
     return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/organization-units/lookup`);
   }

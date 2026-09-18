@@ -1324,6 +1324,12 @@
                           <span>Chỉnh sửa</span>
                         </button>
 
+                        <button type="button" class="dropdown-item-btn"
+                          (click)="onViewEquipmentTransferHistory(eq); activeEquipmentMenu.set(null)">
+                          <i class="pi pi-history color-blue"></i>
+                          <span>Lịch sử</span>
+                        </button>
+
                         <button *ngIf="canManage() && canShowTransferEquipment(eq)"
                           type="button" class="dropdown-item-btn"
                           (click)="openTransferDialog(eq); activeEquipmentMenu.set(null)">
@@ -2822,4 +2828,6 @@
       </div>
     </ng-template>
   </p-dialog>
+
+  <app-equipment-transfer-history-dialog></app-equipment-transfer-history-dialog>
 </div>
