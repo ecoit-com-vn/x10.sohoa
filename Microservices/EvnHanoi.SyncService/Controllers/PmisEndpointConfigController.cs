@@ -72,6 +72,10 @@ public class PmisEndpointConfigController : ControllerBase
     [HttpPut("{apiCode}")]
     public async Task<IActionResult> Update(string apiCode, [FromBody] UpdatePmisApiEndpointConfigRequest request)
     {
+        if (!PmisHttpMethods.IsValid(request.HttpMethod))
+            return BadRequest(new { message = $"Phương thức HTTP không hợp lệ — chỉ chấp nhận: {string.Join(", ", PmisHttpMethods.Allowed)}." });
+        request.HttpMethod = request.HttpMethod.ToUpperInvariant();
+
         var existing = await _repository.GetByApiCodeAsync(apiCode);
         if (existing == null) return NotFound(new { message = "Không tìm thấy API PMIS cần cập nhật." });
 
