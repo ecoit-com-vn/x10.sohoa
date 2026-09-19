@@ -37,6 +37,10 @@ public interface IPmisDocumentRepository
     Task<(IEnumerable<PmisDocumentDetail> Items, int TotalCount)> GetByOwnerAsync(
         string ownerType, Guid ownerId, string? keyword, int page, int pageSize);
 
+    /// <summary>Toàn bộ Trạm/Đường dây đã có tài liệu PMIS trên TẤT CẢ công ty (không lọc theo 1 Đơn vị) -
+    /// dùng cho ô tìm kiếm phía trên cây, kèm UnitNodeId/UnitName để FE tự mở đúng nhánh cây chứa nó.</summary>
+    Task<IReadOnlyList<PmisInfrastructureLookupDto>> SearchInfrastructuresAsync();
+
     /// <summary>Nút "Upload tài liệu" thủ công khi đồng bộ tự động lỗi — tự sinh PmisDocumentCode dạng
     /// "MANUAL_{guid}" (không trùng mã PMIS thật, vẫn thoả UNIQUE) để phân biệt CreatedBy khác 'PMIS_SYNC'.</summary>
     Task<Guid> InsertManualAsync(string ownerType, Guid ownerId, string documentName, string? documentType, string objectKey, long fileSize, string uploadedBy);
