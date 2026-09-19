@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace EvnHanoi.SyncService.Models;
 
 /// <summary>
@@ -42,6 +44,7 @@ public class PmisApiEndpointConfigListItemDto
 public class UpdatePmisApiEndpointConfigRequest
 {
     public string? Url { get; set; }
+    public string HttpMethod { get; set; } = "GET";
     public int? TimeoutSeconds { get; set; }
     public int? PageSize { get; set; }
     public bool IsActive { get; set; }
@@ -52,4 +55,12 @@ public class UpdatePmisApiEndpointConfigRequest
 public static class PmisPaging
 {
     public const int DefaultPageSize = 100;
+}
+
+/// <summary>Danh sách phương thức HTTP hợp lệ cho 1 API PMIS — validate ở controller trước khi lưu, tránh
+/// admin gõ nhầm 1 chuỗi tuỳ ý xuống cột HTTP_METHOD (VARCHAR2(10), không có CHECK constraint ở DB).</summary>
+public static class PmisHttpMethods
+{
+    public static readonly string[] Allowed = ["GET", "POST", "PUT", "DELETE"];
+    public static bool IsValid(string? method) => method != null && Allowed.Contains(method, StringComparer.OrdinalIgnoreCase);
 }
