@@ -1,11 +1,16 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using EvnHanoi.IdentityService.Core.Domain.Models;
+using EvnHanoi.IdentityService.Core.DTOs;
 
 namespace EvnHanoi.IdentityService.Core.Interfaces;
 
 public interface IUserRepository
 {
+    /// <summary>Danh sách user cho API đồng bộ hệ thống ngoài — kèm RoleIds hợp nhất từ cả 3 kênh
+    /// gán quyền (trực tiếp, theo đơn vị, theo nhóm người dùng).</summary>
+    Task<IEnumerable<UserSyncItemDto>> GetSyncUsersAsync();
+
     Task<User?> GetUserByUsernameAsync(string username);
     Task<IEnumerable<User>> GetAllAsync();
     Task<(IEnumerable<User> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? keyword = null, long? organizationUnitId = null, bool? isActive = null, bool includeDescendants = false);
