@@ -911,6 +911,7 @@ StatusTransition,
 
         var sqlBase = @"FROM EQUIPMENT_TRANSFER_HISTORY h
                         LEFT JOIN INFRASTRUCTURE inf ON h.TargetInfrastructureId = inf.Id
+                        LEFT JOIN INFRASTRUCTURE srcInf ON h.SourceInfrastructureId = srcInf.Id
                         LEFT JOIN ORGANIZATION_UNIT u ON h.TargetUnitId = u.Id
                         WHERE h.EquipmentCode = :EquipmentCode";
 
@@ -938,6 +939,9 @@ StatusTransition,
         var totalCount = await _connection.ExecuteScalarAsync<int>($"SELECT COUNT(1) {sqlBase}", parameters);
 
         var selectSql = $@"SELECT h.Id AS {nameof(EquipmentTransferHistoryDto.Id)},
+                                   h.SourceInfrastructureId AS {nameof(EquipmentTransferHistoryDto.SourceInfrastructureId)},
+                                   srcInf.Name AS {nameof(EquipmentTransferHistoryDto.SourceInfrastructureName)},
+                                   srcInf.Code AS {nameof(EquipmentTransferHistoryDto.SourceInfrastructureCode)},
                                    h.TargetInfrastructureId AS {nameof(EquipmentTransferHistoryDto.TargetInfrastructureId)},
                                    inf.Name AS {nameof(EquipmentTransferHistoryDto.InfrastructureName)},
                                    inf.Code AS {nameof(EquipmentTransferHistoryDto.InfrastructureCode)},
