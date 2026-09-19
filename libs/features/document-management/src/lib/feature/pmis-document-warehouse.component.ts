@@ -2,17 +2,20 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
+import { SelectModule } from 'primeng/select';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
-import { finalize } from 'rxjs';
+import { finalize, forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { PmisDocumentCatalogService } from '../data-access/pmis-document-catalog.service';
-import { PmisCatalogNode, PmisDocumentItem } from '../models/pmis-catalog.models';
-import { convertPmisFlatToTree, findPmisBreadcrumbPath } from '../utils/pmis-catalog-tree.util';
+import { PmisCatalogNode, PmisDocumentItem, PmisInfrastructureLookupItem } from '../models/pmis-catalog.models';
+import { convertPmisFlatToTree, findPmisBreadcrumbPath, groupInfrastructureNodesByType } from '../utils/pmis-catalog-tree.util';
 
 const NODE_ICONS: { [key: string]: string } = {
   root: 'pi-sitemap',
   unit: 'pi-building',
+  group: 'pi-folder',
   substation: 'pi-bolt',
   line: 'pi-share-alt',
   equipment: 'pi-box',
@@ -28,7 +31,7 @@ const PAGE_SIZE = 10;
 @Component({
   selector: 'app-pmis-document-warehouse',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ToastModule, WfBreadcrumbComponent],
+  imports: [CommonModule, FormsModule, DialogModule, SelectModule, ToastModule, WfBreadcrumbComponent],
   providers: [MessageService],
   templateUrl: './pmis-document-warehouse.component.html',
   styleUrl: './document-management.component.css',
@@ -56,7 +59,7 @@ export class PmisDocumentWarehouseComponent {
       parentId: null,
       nodeType: 'root',
       documentCount: 0,
-      children: convertPmisFlatToTree(this.flatNodes()),
+      children: groupInfrastructureNodesByType(convertPmisFlatToTree(this.flatNodes())),
     },
   ]);
   expandedNodeIds = signal<Set<string>>(new Set());
@@ -84,6 +87,98 @@ export class PmisDocumentWarehouseComponent {
     const node = this.selectedNode();
     return !!node && (node.nodeType === 'substation' || node.nodeType === 'line' || node.nodeType === 'equipment');
   });
+
+  /** Chọn 1 Đơn vị (công ty) hoặc 1 thư mục "Trạm biến áp"/"Đường dây" hiển thị danh sách con của nó
+   * sang bảng bên phải - cây chỉ dùng để điều hướng, danh sách duyệt/click tiếp nằm ở bảng cho quen
+   * thuộc như các màn danh sách khác. Đọc thẳng `children` đã dựng sẵn trên chính node đang chọn (tree()
+   * computed) thay vì lọc lại flatNodes - vì 2 thư mục "group" chỉ tồn tại trên cây, không có trong
+   * flatNodes. */
+  canShowChildList = computed(() => {
+    const type = this.selectedNode()?.nodeType;
+    return type === 'unit' || type === 'group';
+  });
+
+  childNodesForTable = computed<PmisCatalogNode[]>(() => this.selectedNode()?.children ?? []);
+
+  // Tìm Trạm/Đường dây trên TOÀN BỘ công ty (không cần duyệt tay qua từng công ty trong cây) — tải 1
+  // lần khi mở dropdown lần đầu, lọc theo từ khóa ngay trong p-select (giống các dropdown lookup khác
+  // trong dự án), chọn xong tự tải + mở đúng nhánh cây chứa nó rồi hiển thị tài liệu.
+  private infraSearchLoaded = false;
+  infraSearchLoading = signal(false);
+  infraSearchOptions = signal<PmisInfrastructureLookupItem[]>([]);
+  selectedInfraSearchId = signal<string | null>(null);
+
+  loadInfraSearchOptionsIfNeeded(): void {
+    if (this.infraSearchLoaded) return;
+    this.infraSearchLoaded = true;
+
+    this.infraSearchLoading.set(true);
+    this.catalogService
+      .searchInfrastructures()
+      .pipe(finalize(() => this.infraSearchLoading.set(false)))
+      .subscribe({
+        next: (items) => this.infraSearchOptions.set(items || []),
+        error: () => {
+          this.infraSearchLoaded = false;
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải danh sách Trạm/Đường dây.' });
+        },
+      });
+  }
+
+  onInfraSearchSelected(infraId: string | null): void {
+    this.selectedInfraSearchId.set(null); // reset để có thể chọn lại đúng item đó lần sau
+    if (!infraId) return;
+
+    const item = this.infraSearchOptions().find((i) => i.id === infraId);
+    if (item) this.goToInfrastructure(item);
+  }
+
+  /** Tải kèm Danh sách Đơn vị (nếu cây gốc chưa mở) + Trạm/Đường dây/Thiết bị của đúng Đơn vị chứa item
+   * (nếu chưa tải), rồi mở sẵn nhánh cây (gốc → Đơn vị → thư mục Trạm/Đường dây) và chọn đúng node. */
+  private goToInfrastructure(item: PmisInfrastructureLookupItem): void {
+    const proceed = () => {
+      const groupId = `${item.unitNodeId}__group_${item.nodeType}`;
+      this.expandedNodeIds.update((current) => new Set(current).add(this.ROOT_NODE_ID).add(item.unitNodeId).add(groupId));
+
+      const node = this.flatNodes().find((n) => n.id === item.id);
+      if (node) this.selectNode(node);
+    };
+
+    const needUnits = !this.unitsLoaded;
+    const needChildren = !this.loadedUnitChildren.has(item.unitNodeId);
+    if (!needUnits && !needChildren) {
+      proceed();
+      return;
+    }
+
+    if (needUnits) this.setNodeLoading(this.ROOT_NODE_ID, true);
+    if (needChildren) {
+      this.loadedUnitChildren.add(item.unitNodeId);
+      this.setNodeLoading(item.unitNodeId, true);
+    }
+
+    forkJoin({
+      units: needUnits ? this.catalogService.getCatalogUnits() : of<PmisCatalogNode[]>([]),
+      children: needChildren ? this.catalogService.getCatalogUnitChildren(item.unitNodeId) : of<PmisCatalogNode[]>([]),
+    })
+      .pipe(
+        finalize(() => {
+          if (needUnits) this.setNodeLoading(this.ROOT_NODE_ID, false);
+          if (needChildren) this.setNodeLoading(item.unitNodeId, false);
+        }),
+        catchError(() => {
+          if (needChildren) this.loadedUnitChildren.delete(item.unitNodeId);
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải dữ liệu của Trạm/Đường dây này.' });
+          return of(null);
+        }),
+      )
+      .subscribe((result) => {
+        if (!result) return;
+        if (needUnits) this.unitsLoaded = true;
+        this.flatNodes.update((current) => this.mergeNodes(this.mergeNodes(current, result.units), result.children));
+        proceed();
+      });
+  }
 
   private mergeNodes(current: PmisCatalogNode[], incoming: PmisCatalogNode[]): PmisCatalogNode[] {
     if (!incoming || incoming.length === 0) return current;
