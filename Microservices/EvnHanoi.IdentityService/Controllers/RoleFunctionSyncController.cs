@@ -28,16 +28,40 @@ public class RoleFunctionSyncController : ControllerBase
 
     private readonly IRoleRepository _roleRepository;
     private readonly IMenuRepository _menuRepository;
+    private readonly IUserRepository _userRepository;
     private readonly IExternalApiKeyValidator _externalApiKeyValidator;
 
     public RoleFunctionSyncController(
         IRoleRepository roleRepository,
         IMenuRepository menuRepository,
+        IUserRepository userRepository,
         IExternalApiKeyValidator externalApiKeyValidator)
     {
         _roleRepository = roleRepository;
         _menuRepository = menuRepository;
+        _userRepository = userRepository;
         _externalApiKeyValidator = externalApiKeyValidator;
+    }
+
+    [HttpGet("users")]
+    public async Task<IActionResult> GetUsers([FromHeader(Name = PrivateKeyHeader)] string? privateKey)
+    {
+        if (!await IsAuthorizedAsync(privateKey))
+            return Unauthorized(new { success = false, message = "Private key không hợp lệ hoặc đã hết hạn." });
+
+        var users = await _userRepository.GetSyncUsersAsync();
+        var data = users.Select(u => new
+        {
+            name = u.FullName,
+            username = u.Username,
+            ns_ID = u.SsoNsId,
+            role = u.RoleIds,
+            orgID = u.OrganizationUnitId,
+            depID = u.SsoDeptId,
+            positionID = u.PositionId
+        });
+
+        return Ok(new { success = true, data });
     }
 
     [HttpGet("roles")]

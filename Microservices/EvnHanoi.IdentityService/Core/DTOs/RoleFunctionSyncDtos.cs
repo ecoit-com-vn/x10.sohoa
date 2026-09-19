@@ -26,3 +26,17 @@ public class SyncDeleteRoleRequest
 {
     public long Id { get; set; }
 }
+
+/// <summary>1 dòng user cho API "Danh sách đồng bộ user" — RoleIds là chuỗi RoleId nối dấu phẩy
+/// (vd. "1,2,8"), hợp nhất từ USER_ROLE + USER_UNIT_ROLE + USER_GROUP_MEMBER/USER_GROUP_ROLE.</summary>
+public class UserSyncItemDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string? SsoNsId { get; set; }
+    public string? RoleIds { get; set; }
+    public long? OrganizationUnitId { get; set; }
+    public string? SsoDeptId { get; set; }
+    public long? PositionId { get; set; }
+}

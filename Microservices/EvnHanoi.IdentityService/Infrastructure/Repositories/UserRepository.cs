@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using Dapper;
 using EvnHanoi.IdentityService.Core.Domain.Models;
+using EvnHanoi.IdentityService.Core.DTOs;
 using EvnHanoi.IdentityService.Core.Interfaces;
 using EvnHanoi.Infrastructure.Database;
 
@@ -19,6 +20,41 @@ public class UserRepository : IUserRepository
     {
         _connection = connection;
         _permissionRepository = permissionRepository;
+    }
+
+    public async Task<IEnumerable<UserSyncItemDto>> GetSyncUsersAsync()
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        const string sql = @"
+            SELECT
+                u.Id AS Id,
+                u.FullName AS FullName,
+                u.UserName AS Username,
+                u.SSO_NS_ID AS SsoNsId,
+                u.OrganizationUnitId AS OrganizationUnitId,
+                u.SSO_DEPT_ID AS SsoDeptId,
+                u.PositionId AS PositionId,
+                (
+                    SELECT LISTAGG(RoleId, ',') WITHIN GROUP (ORDER BY RoleId)
+                    FROM (
+                        SELECT DISTINCT RoleId FROM (
+                            SELECT RoleId FROM USER_ROLE WHERE UserId = u.Id
+                            UNION
+                            SELECT RoleId FROM USER_UNIT_ROLE WHERE UserId = u.Id
+                            UNION
+                            SELECT ugr.RoleId
+                            FROM USER_GROUP_MEMBER ugm
+                            INNER JOIN USER_GROUP_ROLE ugr ON ugm.UserGroupId = ugr.UserGroupId
+                            WHERE ugm.UserId = u.Id
+                        )
+                    )
+                ) AS RoleIds
+            FROM APP_USER u
+            WHERE u.IsDeleted = 0
+            ORDER BY u.FullName";
+
+        return await _connection.QueryAsync<UserSyncItemDto>(sql);
     }
 
     public async Task<User?> GetUserByUsernameAsync(string username)
