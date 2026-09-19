@@ -66,11 +66,18 @@ builder.Services.AddScoped<IInteractivePmisClient, InteractivePmisClient>();
 builder.Services.AddScoped<IEquipmentServiceClient, EquipmentServiceClient>();
 builder.Services.AddScoped<IPmisSyncExecutionService, PmisSyncExecutionService>();
 
+// RemoveAllResilienceHandlers(): builder.AddServiceDefaults() gắn "Standard Resilience Handler" (timeout
+// 10 phút/lần thử, 22 phút tổng — tinh chỉnh cho LLM/OCR) làm mặc định cho MỌI HttpClient, kể cả client
+// nội bộ nhanh này giữa 2 service cùng cluster — bỏ đi để dùng đúng HttpClient.Timeout mặc định (100s)
+// thay vì có thể treo tới 22 phút nếu EquipmentService phản hồi chậm.
+#pragma warning disable EXTEXP0001
 builder.Services.AddHttpClient("EquipmentServiceInternal", client =>
 {
     var baseUrl = builder.Configuration["Services:EquipmentService"] ?? "http://localhost:5254";
     client.BaseAddress = new Uri(baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/");
-});
+})
+.RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
 
 // Configure JWT Authentication (đồng bộ với các microservice khác — Gateway forward token,
 // từng service tự validate)
@@ -130,28 +137,50 @@ var bulkheadPolicy = Policy.BulkheadAsync<HttpResponseMessage>(10, 20); // Concu
 // 3. PMIS HttpClient — KHÔNG gắn retryPolicy: PMIS lỗi thì đánh dấu thất bại ngay lập tức, không tự
 // thử lại nhiều lần trong 1 lượt gọi — đồng bộ tự động chỉ cần đúng theo tần suất đã cấu hình
 // (PmisScheduledSyncJob), không cần dồn thêm các lượt retry nội bộ của HttpClient.
+//
+// RemoveAllResilienceHandlers() BẮT BUỘC phải gọi trước — builder.AddServiceDefaults() (Program.cs đầu
+// file) gắn "Standard Resilience Handler" (retry 3 lần + circuit breaker + timeout riêng) làm MẶC ĐỊNH
+// cho MỌI HttpClient của MỌI microservice (ConfigureHttpClientDefaults trong
+// EvnHanoi.ServiceDefaults/Extensions.cs, vốn tinh chỉnh cho các API LLM/OCR chạy hàng chục phút, không
+// hợp với 1 API REST nhanh như PMIS). Trước đây KHÔNG gọi hàm này — "PMIS"/"PMIS-Interactive" vẫn âm
+// thầm bị handler mặc định đó retry 3 lần/lỗi (xác nhận qua log thật: "Source: '-standard//Standard-
+// Retry'"), NGƯỢC HẲN với comment/ý định ở trên. Hệ quả: 1 lỗi PMIS thực tế thành 3-4 lần thử kết nối
+// TCP thật mỗi lần, nhân với PmisScheduledSyncJob (tick mỗi phút x 3 đối tượng x tới 50 trang) +
+// PmisSyncWorker/PmisPublisherWorker (RabbitMQ) + tra cứu tương tác cùng dùng chung client này chạy suốt
+// vòng đời pod — dễ dồn cạn cổng/kết nối cục bộ theo thời gian dù test tay (`curl` 1 lần) luôn thành
+// công vì chỉ mở đúng 1 kết nối. Giờ bỏ hẳn handler mặc định, chỉ giữ đúng policy tự khai báo bên dưới.
+// RemoveAllResilienceHandlers() còn đánh dấu "experimental" (EXTEXP0001) ở version SDK hiện tại — API ổn
+// định về hành vi (chỉ gỡ handler đã gắn qua ConfigureHttpClientDefaults), tắt cảnh báo có chủ đích.
+#pragma warning disable EXTEXP0001
 builder.Services.AddHttpClient("PMIS", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Endpoints:PMIS"] ?? "https://api.pmis.mock/");
 })
+.RemoveAllResilienceHandlers()
 .AddPolicyHandler(timeoutPolicy);
 
 // 3b. PMIS HttpClient — bản dành cho API tra cứu/tìm kiếm tương tác, cùng cấu hình base URL/timeout —
-// xem InteractivePmisClient. Cũng không retry, cùng lý do như HttpClient "PMIS" ở trên.
+// xem InteractivePmisClient. Cũng không retry, cùng lý do như HttpClient "PMIS" ở trên (kể cả việc bỏ
+// Standard Resilience Handler mặc định).
 builder.Services.AddHttpClient("PMIS-Interactive", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Endpoints:PMIS"] ?? "https://api.pmis.mock/");
 })
+.RemoveAllResilienceHandlers()
 .AddPolicyHandler(timeoutPolicy);
 
-// 4. CA HttpClient
+// 4. CA HttpClient — cũng bỏ Standard Resilience Handler mặc định, cùng lý do như "PMIS" ở trên: retry
+// mặc định (3 lần) + timeout 10 phút/lần thử sẽ chồng thêm lên trên retryPolicy/caCircuitBreakerPolicy
+// đã tự khai báo, khiến 1 lỗi CA thực tế bị thử lại tới 2 lớp lồng nhau thay vì đúng 1 lớp như ý định.
 builder.Services.AddHttpClient("CA", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Endpoints:CA"] ?? "https://api.ca.mock/");
 })
+.RemoveAllResilienceHandlers()
 .AddPolicyHandler(retryPolicy)
 .AddPolicyHandler(caCircuitBreakerPolicy)
 .AddPolicyHandler(bulkheadPolicy);
+#pragma warning restore EXTEXP0001
 
 // 5. Quartz Scheduler — PmisScheduledSyncJob thay PmisSyncScheduler cũ (chỉ log, chưa lưu gì).
 // Tick mỗi phút, tự kiểm tra SYNC_CONFIG của từng đối tượng để biết có tới hạn hay không — giữ
