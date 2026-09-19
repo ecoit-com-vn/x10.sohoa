@@ -87,6 +87,19 @@
     </div>
 
     <div class="form-group">
+      <label class="form-label">Số bản ghi mỗi trang (take)</label>
+      <input
+        class="wf-input w-full"
+        type="number"
+        min="1"
+        [ngModel]="form().pageSize"
+        (ngModelChange)="updateFormField('pageSize', $event)"
+        [disabled]="saving()"
+        placeholder="Mặc định 100"
+      />
+    </div>
+
+    <div class="form-group">
       <label class="form-label">Trạng thái</label>
       <select
         class="wf-select w-full"
