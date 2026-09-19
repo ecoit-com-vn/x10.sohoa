@@ -14,6 +14,7 @@
           <tr>
             <th class="col-stt">STT</th>
             <th>Tên API</th>
+            <th>Phương thức</th>
             <th>Url</th>
             <th>Trạng thái</th>
             <th>Số header</th>
@@ -22,12 +23,13 @@
         </thead>
         <tbody>
           <tr *ngIf="loading()">
-            <td colspan="6" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
+            <td colspan="7" class="loading-row"><i class="pi pi-spin pi-spinner"></i> Đang tải dữ liệu...</td>
           </tr>
           <ng-container *ngIf="!loading()">
             <tr *ngFor="let item of endpoints(); let index = index">
               <td class="col-stt text-muted">{{ index + 1 }}</td>
               <td><b>{{ item.displayName }}</b><br /><small class="text-muted">{{ item.apiCode }}</small></td>
+              <td><b>{{ item.httpMethod }}</b></td>
               <td class="note-cell">{{ item.url || '(chưa cấu hình)' }}</td>
               <td>
                 <span [class]="item.isActive ? 'status-pill status-active' : 'status-pill status-inactive'">
@@ -71,6 +73,18 @@
         [disabled]="saving()"
         placeholder="https://pmis.evn.com.vn/api/..."
       />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Phương thức</label>
+      <select
+        class="wf-select w-full"
+        [ngModel]="form().httpMethod"
+        (ngModelChange)="updateFormField('httpMethod', $event)"
+        [disabled]="saving()"
+      >
+        <option *ngFor="let method of httpMethods" [ngValue]="method">{{ method }}</option>
+      </select>
     </div>
 
     <div class="form-group">

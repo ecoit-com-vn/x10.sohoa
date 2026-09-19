@@ -12,6 +12,7 @@ import {
   PmisApiEndpointConfig,
   PmisApiEndpointHeader,
   PmisEndpointConfigService,
+  PmisHttpMethod,
 } from '../../data-access/pmis-endpoint-config.service';
 import { formatUtcDate } from '../../data-access/date-format.util';
 
@@ -24,6 +25,7 @@ interface EditForm {
   apiCode: string;
   displayName: string;
   url: string;
+  httpMethod: PmisHttpMethod;
   timeoutSeconds: number | null;
   pageSize: number | null;
   isActive: boolean;
@@ -41,6 +43,8 @@ interface EditForm {
 export class PmisEndpointConfigComponent implements OnInit {
   private readonly service = inject(PmisEndpointConfigService);
   private readonly messageService = inject(MessageService);
+
+  readonly httpMethods: PmisHttpMethod[] = ['GET', 'POST', 'PUT', 'DELETE'];
 
   endpoints = signal<PmisApiEndpointConfig[]>([]);
   loading = signal(false);
@@ -102,6 +106,7 @@ export class PmisEndpointConfigComponent implements OnInit {
             apiCode: item.apiCode,
             displayName: item.displayName,
             url: item.url || '',
+            httpMethod: (item.httpMethod as PmisHttpMethod) || 'GET',
             timeoutSeconds: item.timeoutSeconds,
             pageSize: item.pageSize,
             isActive: item.isActive,
@@ -158,6 +163,7 @@ export class PmisEndpointConfigComponent implements OnInit {
     forkJoin([
       this.service.update(draft.apiCode, {
         url: draft.url.trim() || null,
+        httpMethod: draft.httpMethod,
         timeoutSeconds: draft.timeoutSeconds,
         pageSize: draft.pageSize,
         isActive: draft.isActive,
@@ -273,7 +279,7 @@ export class PmisEndpointConfigComponent implements OnInit {
   }
 
   private emptyForm(): EditForm {
-    return { apiCode: '', displayName: '', url: '', timeoutSeconds: null, pageSize: null, isActive: false, rowVersion: 1 };
+    return { apiCode: '', displayName: '', url: '', httpMethod: 'GET', timeoutSeconds: null, pageSize: null, isActive: false, rowVersion: 1 };
   }
 
   private showError(error: any, fallback: string): void {
