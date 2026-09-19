@@ -10,6 +10,8 @@ export interface PmisApiEndpointConfig {
   url: string | null;
   httpMethod: string;
   timeoutSeconds: number | null;
+  /** Số bản ghi mỗi trang ("take") khi phân trang gọi API PMIS này — null = dùng mặc định 100. */
+  pageSize: number | null;
   isActive: boolean;
   rowVersion: number;
   headerCount: number;
@@ -22,9 +24,13 @@ export interface PmisApiEndpointHeader {
   isSecret: boolean;
 }
 
+export type PmisHttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
+
 export interface UpdatePmisApiEndpointConfigRequest {
   url: string | null;
+  httpMethod: PmisHttpMethod;
   timeoutSeconds: number | null;
+  pageSize: number | null;
   isActive: boolean;
   rowVersion: number;
 }
