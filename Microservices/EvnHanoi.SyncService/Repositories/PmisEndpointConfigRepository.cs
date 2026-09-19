@@ -65,6 +65,7 @@ public class PmisEndpointConfigRepository : IPmisEndpointConfigRepository
         const string sql = @"
             UPDATE PMIS_API_ENDPOINT_CONFIG
             SET URL = :Url,
+                HTTP_METHOD = :HttpMethod,
                 TIMEOUT_SECONDS = :TimeoutSeconds,
                 PAGE_SIZE = :PageSize,
                 IS_ACTIVE = :IsActive,
@@ -77,6 +78,7 @@ public class PmisEndpointConfigRepository : IPmisEndpointConfigRepository
         {
             ApiCode = apiCode,
             request.Url,
+            request.HttpMethod,
             request.TimeoutSeconds,
             request.PageSize,
             IsActive = request.IsActive ? 1 : 0,
