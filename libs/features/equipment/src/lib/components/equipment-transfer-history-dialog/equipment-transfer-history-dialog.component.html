@@ -37,8 +37,8 @@
       <thead>
         <tr>
           <th class="col-stt">STT</th>
-          <th>Trạm/đường dây</th>
-          <th>Đơn vị quản lý</th>
+          <th>Trạm/đường dây chuyển</th>
+          <th>Trạm/đường dây nhận</th>
           <th>Ngày chuyển</th>
         </tr>
       </thead>
@@ -54,8 +54,8 @@
         <ng-container *ngIf="!loading()">
           <tr *ngFor="let item of items(); let i = index">
             <td class="col-stt">{{ startIndex() + i + 1 }}</td>
+            <td>{{ item.sourceInfrastructureName || item.SourceInfrastructureName || '-' }}</td>
             <td>{{ item.infrastructureName || item.InfrastructureName || '-' }}</td>
-            <td>{{ item.unitName || item.UnitName || '-' }}</td>
             <td>{{ (item.transferredAt || item.TransferredAt) | date: 'dd/MM/yyyy HH:mm' }}</td>
           </tr>
           <tr *ngIf="items().length === 0">
