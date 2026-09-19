@@ -25,6 +25,7 @@ interface EditForm {
   displayName: string;
   url: string;
   timeoutSeconds: number | null;
+  pageSize: number | null;
   isActive: boolean;
   rowVersion: number;
 }
@@ -102,6 +103,7 @@ export class PmisEndpointConfigComponent implements OnInit {
             displayName: item.displayName,
             url: item.url || '',
             timeoutSeconds: item.timeoutSeconds,
+            pageSize: item.pageSize,
             isActive: item.isActive,
             rowVersion: item.rowVersion,
           });
@@ -157,6 +159,7 @@ export class PmisEndpointConfigComponent implements OnInit {
       this.service.update(draft.apiCode, {
         url: draft.url.trim() || null,
         timeoutSeconds: draft.timeoutSeconds,
+        pageSize: draft.pageSize,
         isActive: draft.isActive,
         rowVersion: draft.rowVersion,
       }),
@@ -270,7 +273,7 @@ export class PmisEndpointConfigComponent implements OnInit {
   }
 
   private emptyForm(): EditForm {
-    return { apiCode: '', displayName: '', url: '', timeoutSeconds: null, isActive: false, rowVersion: 1 };
+    return { apiCode: '', displayName: '', url: '', timeoutSeconds: null, pageSize: null, isActive: false, rowVersion: 1 };
   }
 
   private showError(error: any, fallback: string): void {
