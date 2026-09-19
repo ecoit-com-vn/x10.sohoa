@@ -11,13 +11,13 @@ namespace EvnHanoi.SyncService.Services;
 public class PmisSyncExecutionService : IPmisSyncExecutionService
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
-    private const int DocumentPageSize = 1000;
     private const int DocumentMaxPages = 50; // an toàn: tối đa 50.000 tài liệu/đối tượng/lần đồng bộ
     private const int DocumentUpsertBatchSize = 20; // gửi theo lô, tránh 1 request base64 hoá hết cả nghìn tài liệu
 
     private readonly IEquipmentServiceClient _equipmentServiceClient;
     private readonly ISyncHistoryRepository _syncHistoryRepository;
     private readonly IPmisClient _pmisClient;
+    private readonly IPmisEndpointConfigProvider _endpointConfigProvider;
 
     // Danh mục loại thiết bị PMIS (maLoaiTB -> tenLoaiTB) — tải 1 lần/vòng đời service (Scoped: 1 lần
     // đồng bộ tự động, hoặc 1 lần lưu thủ công), KHÔNG tải lại theo từng trang/từng thiết bị. Đây là
@@ -40,12 +40,19 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
     private readonly HashSet<string> _warnedAmbiguousParentNames = new(StringComparer.OrdinalIgnoreCase);
 
     public PmisSyncExecutionService(
-        IEquipmentServiceClient equipmentServiceClient, ISyncHistoryRepository syncHistoryRepository, IPmisClient pmisClient)
+        IEquipmentServiceClient equipmentServiceClient, ISyncHistoryRepository syncHistoryRepository, IPmisClient pmisClient,
+        IPmisEndpointConfigProvider endpointConfigProvider)
     {
         _equipmentServiceClient = equipmentServiceClient;
         _syncHistoryRepository = syncHistoryRepository;
         _pmisClient = pmisClient;
+        _endpointConfigProvider = endpointConfigProvider;
     }
+
+    /// <summary>Số bản ghi/trang admin đã cấu hình cho apiCode này qua "Cấu hình kết nối API" — mặc định
+    /// <see cref="PmisPaging.DefaultPageSize"/> nếu API chưa cấu hình/chưa bật.</summary>
+    private async Task<int> GetPageSizeAsync(string apiCode) =>
+        (await _endpointConfigProvider.GetEndpointAsync(apiCode))?.PageSize ?? PmisPaging.DefaultPageSize;
 
     /// <summary>Tra tên loại thiết bị chuẩn từ danh mục PMIS (API 3/5) — null nếu tra lỗi (PMIS tạm gián
     /// đoạn) hoặc không tìm thấy mã, để caller tự fallback sang tenLoaiTB đính kèm dòng thiết bị.</summary>
@@ -67,7 +74,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
     {
         try
         {
-            var request = new PmisDeviceTypeSearchRequest { Take = 1000 };
+            var apiCode = isSubstationDevice ? "SUBSTATION_DEVICE_TYPE_LIST" : "LINE_DEVICE_TYPE_LIST";
+            var request = new PmisDeviceTypeSearchRequest { Take = await GetPageSizeAsync(apiCode) };
             var items = isSubstationDevice
                 ? (await _pmisClient.GetSubstationDeviceTypesAsync(request)).Items
                 : (await _pmisClient.GetLineDeviceTypesAsync(request)).Items;
@@ -411,6 +419,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         var details = new List<SyncHistoryDetail>();
         try
         {
+            var pageSize = await GetPageSizeAsync(isSubstationOrigin ? "SUBSTATION_DOCUMENT_LIST" : "LINE_DOCUMENT_LIST");
             var items = new List<(string MaTaiLieu, string? TenTaiLieu, string? LoaiTaiLieu, string? File, string? MaTB)>();
             var skip = 0;
             for (var page = 0; page < DocumentMaxPages; page++)
@@ -422,10 +431,10 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                         MaTBA = maTBA,
                         MaTB = maTB,
                         Skip = skip,
-                        Take = DocumentPageSize
+                        Take = pageSize
                     });
                     items.AddRange(resp.Items.Select(d => (d.MaTaiLieu, d.TenTaiLieu, d.LoaiTaiLieu, d.File, d.MaTB)));
-                    if (resp.Items.Count < DocumentPageSize || items.Count >= resp.Total) break;
+                    if (resp.Items.Count < pageSize || items.Count >= resp.Total) break;
                 }
                 else
                 {
@@ -434,12 +443,12 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                         MaDuongDay = maDuongDay,
                         MaTB = maTB,
                         Skip = skip,
-                        Take = DocumentPageSize
+                        Take = pageSize
                     });
                     items.AddRange(resp.Items.Select(d => (d.MaTaiLieu, d.TenTaiLieu, d.LoaiTaiLieu, d.File, d.MaTB)));
-                    if (resp.Items.Count < DocumentPageSize || items.Count >= resp.Total) break;
+                    if (resp.Items.Count < pageSize || items.Count >= resp.Total) break;
                 }
-                skip += DocumentPageSize;
+                skip += pageSize;
             }
 
             if (items.Count == 0) return (0, details);

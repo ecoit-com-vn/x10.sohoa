@@ -1,5 +1,6 @@
 using EvnHanoi.SyncService.Clients;
 using EvnHanoi.SyncService.Models.Pmis;
+using EvnHanoi.SyncService.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,13 +15,13 @@ namespace EvnHanoi.SyncService.Controllers;
 [Route("api/v1/sync/lookup")]
 public class PmisLookupController : ControllerBase
 {
-    private const int MaxTake = 1000;
-
     private readonly IPmisClient _pmisClient;
+    private readonly IPmisEndpointConfigProvider _endpointConfigProvider;
 
-    public PmisLookupController(IInteractivePmisClient pmisClient)
+    public PmisLookupController(IInteractivePmisClient pmisClient, IPmisEndpointConfigProvider endpointConfigProvider)
     {
         _pmisClient = pmisClient;
+        _endpointConfigProvider = endpointConfigProvider;
     }
 
     /// <summary>
@@ -30,12 +31,15 @@ public class PmisLookupController : ControllerBase
     [HttpGet("device-types")]
     public async Task<IActionResult> GetDeviceTypes()
     {
-        var request = new PmisDeviceTypeSearchRequest { Take = MaxTake };
+        var substationTake = (await _endpointConfigProvider.GetEndpointAsync("SUBSTATION_DEVICE_TYPE_LIST"))?.PageSize
+            ?? Models.PmisPaging.DefaultPageSize;
+        var lineTake = (await _endpointConfigProvider.GetEndpointAsync("LINE_DEVICE_TYPE_LIST"))?.PageSize
+            ?? Models.PmisPaging.DefaultPageSize;
 
         try
         {
-            var substation = await _pmisClient.GetSubstationDeviceTypesAsync(request);
-            var line = await _pmisClient.GetLineDeviceTypesAsync(request);
+            var substation = await _pmisClient.GetSubstationDeviceTypesAsync(new PmisDeviceTypeSearchRequest { Take = substationTake });
+            var line = await _pmisClient.GetLineDeviceTypesAsync(new PmisDeviceTypeSearchRequest { Take = lineTake });
 
             var items = substation.Items.Select(x => new { x.MaLoaiTB, x.TenLoaiTB, Source = "SUBSTATION" })
                 .Concat(line.Items.Select(x => new { x.MaLoaiTB, x.TenLoaiTB, Source = "LINE" }))

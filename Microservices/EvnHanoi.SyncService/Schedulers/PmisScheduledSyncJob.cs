@@ -20,7 +20,6 @@ namespace EvnHanoi.SyncService.Schedulers;
 /// </summary>
 public class PmisScheduledSyncJob : IJob
 {
-    private const int PageSize = 1000;
     private const int MaxPages = 50; // an toàn: tối đa 50.000 bản ghi/đối tượng/lần chạy
 
     private readonly ISyncConfigRepository _syncConfigRepository;
@@ -30,6 +29,7 @@ public class PmisScheduledSyncJob : IJob
     private readonly IPmisSyncExecutionService _executionService;
     private readonly IDistributedLockFactory _lockFactory;
     private readonly IMessageProducer _messageProducer;
+    private readonly IPmisEndpointConfigProvider _endpointConfigProvider;
 
     public PmisScheduledSyncJob(
         ISyncConfigRepository syncConfigRepository,
@@ -38,7 +38,8 @@ public class PmisScheduledSyncJob : IJob
         IEquipmentServiceClient equipmentServiceClient,
         IPmisSyncExecutionService executionService,
         IDistributedLockFactory lockFactory,
-        IMessageProducer messageProducer)
+        IMessageProducer messageProducer,
+        IPmisEndpointConfigProvider endpointConfigProvider)
     {
         _syncConfigRepository = syncConfigRepository;
         _syncHistoryRepository = syncHistoryRepository;
@@ -47,7 +48,14 @@ public class PmisScheduledSyncJob : IJob
         _executionService = executionService;
         _lockFactory = lockFactory;
         _messageProducer = messageProducer;
+        _endpointConfigProvider = endpointConfigProvider;
     }
+
+    /// <summary>Số bản ghi/trang admin đã cấu hình cho apiCode này qua "Cấu hình kết nối API" — mặc định
+    /// <see cref="Models.PmisPaging.DefaultPageSize"/> nếu API chưa cấu hình/chưa bật (đọc từ cache 5 phút
+    /// của <see cref="IPmisEndpointConfigProvider"/>, không tốn thêm round-trip DB đáng kể).</summary>
+    private async Task<int> GetPageSizeAsync(string apiCode) =>
+        (await _endpointConfigProvider.GetEndpointAsync(apiCode))?.PageSize ?? PmisPaging.DefaultPageSize;
 
     public async Task Execute(IJobExecutionContext context)
     {
@@ -179,6 +187,7 @@ public class PmisScheduledSyncJob : IJob
 
     private async Task<(int Total, int Success, int Failed, int Warnings, List<string> Errors)> RunSubstationAsync(string historyId)
     {
+        var pageSize = await GetPageSizeAsync("SUBSTATION_LIST");
         int total = 0, success = 0, failed = 0, warnings = 0;
         var errors = new List<string>();
         var skip = 0;
@@ -187,7 +196,7 @@ public class PmisScheduledSyncJob : IJob
             PmisListResponse<PmisSubstationDto> result;
             try
             {
-                result = await _pmisClient.GetSubstationsAsync(new PmisSubstationSearchRequest { Skip = skip, Take = PageSize });
+                result = await _pmisClient.GetSubstationsAsync(new PmisSubstationSearchRequest { Skip = skip, Take = pageSize });
             }
             catch (Exception ex)
             {
@@ -209,8 +218,8 @@ public class PmisScheduledSyncJob : IJob
             warnings += pageWarnings;
             errors.AddRange(pageErrors);
 
-            if (result.Items.Count < PageSize || total >= result.Total) break;
-            skip += PageSize;
+            if (result.Items.Count < pageSize || total >= result.Total) break;
+            skip += pageSize;
         }
 
         return (total, success, failed, warnings, errors);
@@ -218,6 +227,7 @@ public class PmisScheduledSyncJob : IJob
 
     private async Task<(int Total, int Success, int Failed, int Warnings, List<string> Errors)> RunLineAsync(string historyId)
     {
+        var pageSize = await GetPageSizeAsync("LINE_LIST");
         int total = 0, success = 0, failed = 0, warnings = 0;
         var errors = new List<string>();
         var skip = 0;
@@ -226,7 +236,7 @@ public class PmisScheduledSyncJob : IJob
             PmisListResponse<PmisLineDto> result;
             try
             {
-                result = await _pmisClient.GetLinesAsync(new PmisLineSearchRequest { Skip = skip, Take = PageSize });
+                result = await _pmisClient.GetLinesAsync(new PmisLineSearchRequest { Skip = skip, Take = pageSize });
             }
             catch (Exception ex)
             {
@@ -245,8 +255,8 @@ public class PmisScheduledSyncJob : IJob
             warnings += pageWarnings;
             errors.AddRange(pageErrors);
 
-            if (result.Items.Count < PageSize || total >= result.Total) break;
-            skip += PageSize;
+            if (result.Items.Count < pageSize || total >= result.Total) break;
+            skip += pageSize;
         }
 
         return (total, success, failed, warnings, errors);
@@ -257,11 +267,14 @@ public class PmisScheduledSyncJob : IJob
         // Thiết bị không có API "lấy tất cả" — phải lặp theo từng Trạm/Đường dây đã đồng bộ trước đó
         // (module 3) để lấy thiết bị con, đúng theo 2 API riêng biệt của tài liệu PMIS.
         var parents = await _equipmentServiceClient.GetSyncedInfrastructurePmisCodesAsync();
+        var substationDevicePageSize = await GetPageSizeAsync("SUBSTATION_DEVICE_LIST");
+        var lineDevicePageSize = await GetPageSizeAsync("LINE_DEVICE_LIST");
         int total = 0, success = 0, failed = 0, warnings = 0;
         var errors = new List<string>();
 
         foreach (var parent in parents)
         {
+            var pageSize = parent.InfraTypeId == 1 ? substationDevicePageSize : lineDevicePageSize;
             var skip = 0;
             for (var page = 0; page < MaxPages; page++)
             {
@@ -275,7 +288,7 @@ public class PmisScheduledSyncJob : IJob
                         {
                             MaTBA = parent.PmisCode,
                             Skip = skip,
-                            Take = PageSize
+                            Take = pageSize
                         });
                         pageItems = result.Items.Select(i => JsonSerializer.SerializeToElement(i)).ToList();
                         pageCount = result.Items.Count;
@@ -287,7 +300,7 @@ public class PmisScheduledSyncJob : IJob
                             MaDuongDay = parent.PmisCode,
                             KemQRCode = true, // chạy nền không có người quyết định — luôn lấy đầy đủ dữ liệu kể cả QR
                             Skip = skip,
-                            Take = PageSize
+                            Take = pageSize
                         });
                         pageItems = result.Items.Select(i => JsonSerializer.SerializeToElement(i)).ToList();
                         pageCount = result.Items.Count;
@@ -313,8 +326,8 @@ public class PmisScheduledSyncJob : IJob
                 warnings += pageWarnings;
                 errors.AddRange(pageErrors);
 
-                if (pageCount < PageSize || pageCount == 0) break;
-                skip += PageSize;
+                if (pageCount < pageSize || pageCount == 0) break;
+                skip += pageSize;
             }
         }
 
