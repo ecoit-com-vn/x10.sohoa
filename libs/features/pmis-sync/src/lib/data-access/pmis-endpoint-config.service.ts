@@ -24,8 +24,11 @@ export interface PmisApiEndpointHeader {
   isSecret: boolean;
 }
 
+export type PmisHttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
+
 export interface UpdatePmisApiEndpointConfigRequest {
   url: string | null;
+  httpMethod: PmisHttpMethod;
   timeoutSeconds: number | null;
   pageSize: number | null;
   isActive: boolean;
