@@ -65,6 +65,16 @@ public class PmisDocumentCatalogController : ControllerBase
         return Ok(nodes);
     }
 
+    /// <summary>Toàn bộ Trạm/Đường dây đã có tài liệu PMIS trên TẤT CẢ công ty - dùng cho ô tìm kiếm phía
+    /// trên cây, cho phép nhảy thẳng tới đúng Trạm/Đường dây mà không cần duyệt qua từng công ty.</summary>
+    [HttpGet("catalog/infrastructures/lookup")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> SearchInfrastructures()
+    {
+        var items = await _pmisDocumentRepository.SearchInfrastructuresAsync();
+        return Ok(items);
+    }
+
     [HttpGet("catalog/documents")]
     [BypassDynamicPermission]
     public async Task<IActionResult> GetCatalogDocuments(

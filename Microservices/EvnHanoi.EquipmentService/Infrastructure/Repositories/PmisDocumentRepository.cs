@@ -321,6 +321,44 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         return (rows.Select(ToDetail), totalCount);
     }
 
+    public async Task<IReadOnlyList<PmisInfrastructureLookupDto>> SearchInfrastructuresAsync()
+    {
+        EnsureOpen();
+
+        var rows = await _connection.QueryAsync<InfraLookupRow>(@"
+            SELECT i.Id, i.Name, i.Code, i.INFRA_TYPE_ID AS InfraTypeId, i.UNIT_ID AS UnitId, ou.Name AS UnitName,
+                   NVL(direct_doc.DocCount, 0) AS DirectDocumentCount
+            FROM INFRASTRUCTURE i
+            LEFT JOIN ORGANIZATION_UNIT ou ON ou.Id = i.UNIT_ID
+            LEFT JOIN (
+                SELECT OwnerId, COUNT(1) AS DocCount
+                FROM PMIS_DOCUMENT
+                WHERE OwnerType = 'INFRASTRUCTURE' AND IsDeleted = 0
+                GROUP BY OwnerId
+            ) direct_doc ON direct_doc.OwnerId = i.Id
+            LEFT JOIN (
+                SELECT e.INFRASTRUCTURE_ID AS InfrastructureId, COUNT(1) AS DocCount
+                FROM EQUIPMENTS e
+                INNER JOIN PMIS_DOCUMENT pd ON pd.OwnerType = 'EQUIPMENT' AND pd.OwnerId = e.Id AND pd.IsDeleted = 0
+                WHERE e.IsDeleted = 0
+                GROUP BY e.INFRASTRUCTURE_ID
+            ) child_doc ON child_doc.InfrastructureId = i.Id
+            WHERE i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0
+              AND (direct_doc.DocCount IS NOT NULL OR child_doc.DocCount IS NOT NULL)
+            ORDER BY i.Name");
+
+        return rows.Select(r => new PmisInfrastructureLookupDto
+        {
+            Id = $"infra_{r.Id}",
+            Name = string.IsNullOrEmpty(r.Code) ? r.Name : $"{r.Name} ({r.Code})",
+            Code = r.Code,
+            NodeType = r.InfraTypeId == 1 ? "substation" : "line",
+            DocumentCount = r.DirectDocumentCount,
+            UnitNodeId = r.UnitId.HasValue ? $"unit_{r.UnitId}" : UnassignedUnitNodeId,
+            UnitName = r.UnitName ?? "(Chưa xác định đơn vị)"
+        }).ToList();
+    }
+
     private static PmisDocumentDetail ToDetail(PmisDocumentRow row) => new()
     {
         Id = Guid.Parse(row.Id),
@@ -373,6 +411,17 @@ public class PmisDocumentRepository : IPmisDocumentRepository
     {
         public long Id { get; set; }
         public string Name { get; set; } = string.Empty;
+    }
+
+    private class InfraLookupRow
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Code { get; set; }
+        public int InfraTypeId { get; set; }
+        public long? UnitId { get; set; }
+        public string? UnitName { get; set; }
+        public int DirectDocumentCount { get; set; }
     }
 
     private void EnsureOpen()
