@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom, forkJoin, map, Observable, of, switchMap } from 'rxjs';
 import { ApiService, APP_CONFIG } from '@sohoa.frontend/shared/core';
-import { PmisCatalogDocumentsResponse, PmisCatalogNode } from '../models/pmis-catalog.models';
+import { PmisCatalogDocumentsResponse, PmisCatalogNode, PmisInfrastructureLookupItem } from '../models/pmis-catalog.models';
 
 interface DownloadTokenResponse {
   token: string;
@@ -37,6 +37,12 @@ export class PmisDocumentCatalogService {
         );
       })
     );
+  }
+
+  /** Toàn bộ Trạm/Đường dây đã có tài liệu PMIS trên TẤT CẢ công ty - dùng cho ô tìm kiếm phía trên cây,
+   * cho phép nhảy thẳng tới đúng Trạm/Đường dây mà không cần biết nó thuộc công ty nào. */
+  searchInfrastructures(): Observable<PmisInfrastructureLookupItem[]> {
+    return this.api.get<PmisInfrastructureLookupItem[]>(`${this.base}/catalog/infrastructures/lookup`);
   }
 
   getCatalogDocuments(folderId: string, keyword: string | null, page: number, pageSize: number): Observable<PmisCatalogDocumentsResponse> {
