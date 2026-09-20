@@ -610,4 +610,57 @@ public class InfrastructureRepository : IInfrastructureRepository
             PmisUnitCode = r.PmisUnitCode
         });
     }
+
+    /// <summary>Các Đường dây ĐÃ tồn tại (từ lượt đồng bộ trước) nhưng vẫn chưa xác định được cha (tên có
+    /// "/" — chắc chắn là nhánh — nhưng PARENT_ID còn NULL) — dùng để SyncService thử khớp lại cha 1 lần
+    /// nữa vào cuối mỗi lượt đồng bộ Đường dây, sau khi đường trục (có thể vừa được tạo trong CHÍNH lượt
+    /// đó) đã chắc chắn tồn tại (xem PmisSyncExecutionService.BackfillLineParentsAsync).</summary>
+    public async Task<IEnumerable<EvnHanoi.EquipmentService.Core.DTOs.LineNameIndexEntry>> GetLinesMissingParentAsync()
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var rows = await _connection.QueryAsync<LineNameIndexRow>(
+            @"SELECT i.ID AS Id, i.NAME AS Name,
+                     (SELECT m.PmisUnitCode FROM PMIS_UNIT_CODE_MAPPING m
+                      WHERE m.UnitId = i.UNIT_ID AND m.IsDeleted = 0 FETCH FIRST 1 ROW ONLY) AS PmisUnitCode
+              FROM INFRASTRUCTURE i
+              WHERE i.INFRA_TYPE_ID = 2 AND i.ISDELETED = 0
+                AND i.PARENT_ID IS NULL AND INSTR(i.NAME, '/') > 0");
+
+        return rows.Select(r => new EvnHanoi.EquipmentService.Core.DTOs.LineNameIndexEntry
+        {
+            Id = Guid.Parse(r.Id),
+            Name = r.Name,
+            PmisUnitCode = r.PmisUnitCode
+        });
+    }
+
+    /// <summary>Cập nhật RIÊNG cột PARENT_ID cho NHIỀU Đường dây đã tồn tại cùng lúc — dùng cho backfill
+    /// (xem GetLinesMissingParentAsync), khác <see cref="UpdateAsync"/>/UpsertFromPmisAsync vốn cần đủ các
+    /// field khác (Code/Address/OperationDate...) để so sánh hasChanged, không phù hợp khi chỉ có
+    /// Id + ParentId mới tự tra được, không có lại toàn bộ dữ liệu PMIS gốc của dòng đó. Gửi cả danh sách
+    /// qua 1 lệnh Dapper (Execute nhận IEnumerable tham số) thay vì foreach + await từng dòng ở tầng
+    /// controller — Dapper vẫn thực thi tuần tự từng dòng ở tầng DB (không phải 1 câu SQL gộp/batch thật
+    /// sự), lợi ích chính là gộp thành ĐÚNG 1 lần gọi HTTP SyncService→EquipmentService thay vì N lần.</summary>
+    public async Task<int> UpdateParentIdsAsync(IReadOnlyList<(Guid Id, Guid ParentId)> items)
+    {
+        if (items.Count == 0) return 0;
+
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        return await _connection.ExecuteAsync(
+            $@"UPDATE INFRASTRUCTURE
+               SET PARENT_ID = :ParentId,
+                   {nameof(Infrastructure.ModifiedBy)} = :ModifiedBy,
+                   {nameof(Infrastructure.ModifiedDate)} = SYSTIMESTAMP
+               WHERE {nameof(Infrastructure.Id)} = :Id AND {nameof(Infrastructure.IsDeleted)} = 0",
+            items.Select(i => new
+            {
+                Id = i.Id.ToString(),
+                ParentId = i.ParentId.ToString(),
+                ModifiedBy = "PMIS_SYNC"
+            }));
+    }
 }

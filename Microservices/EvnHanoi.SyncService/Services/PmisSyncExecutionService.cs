@@ -11,7 +11,10 @@ namespace EvnHanoi.SyncService.Services;
 public class PmisSyncExecutionService : IPmisSyncExecutionService
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
-    private const int DocumentMaxPages = 50; // an toàn: tối đa 50.000 tài liệu/đối tượng/lần đồng bộ
+    // An toàn: tối đa tài liệu/đối tượng/lần đồng bộ — tính theo TỔNG SỐ BẢN GHI, không phải số TRANG, vì
+    // PageSize giờ admin tự cấu hình được (xem lý do tương tự ở PmisScheduledSyncJob.MaxTotalRecords).
+    // Dùng chung đúng 1 nguồn (PmisPaging.MaxTotalRecordsPerRun) để không lệch với hằng số bên đó.
+    private const int DocumentMaxTotalRecords = PmisPaging.MaxTotalRecordsPerRun;
     private const int DocumentUpsertBatchSize = 20; // gửi theo lô, tránh 1 request base64 hoá hết cả nghìn tài liệu
 
     private readonly IEquipmentServiceClient _equipmentServiceClient;
@@ -102,13 +105,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             var entries = await _equipmentServiceClient.GetLineNameIndexAsync();
             var index = new Dictionary<string, List<(string?, Guid)>>(StringComparer.OrdinalIgnoreCase);
             foreach (var entry in entries)
-            {
-                var key = NormalizeLineName(entry.Name);
-                if (key == null) continue;
-                if (!index.TryGetValue(key, out var candidates))
-                    index[key] = candidates = [];
-                candidates.Add((entry.PmisUnitCode, entry.Id));
-            }
+                AddLineToIndex(index, entry.Name, entry.PmisUnitCode, entry.Id);
             return index;
         }
         catch (Exception ex)
@@ -162,6 +159,136 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         return (false, null);
     }
 
+    /// <summary>Đưa 1 đường trục VỪA lưu thành công (trong CHÍNH lượt đồng bộ đang chạy) vào
+    /// <see cref="_lineNameIndex"/> ngay lập tức — để các nhánh tham chiếu tới nó xử lý SAU trong cùng
+    /// lượt (cùng trang hoặc trang kế tiếp) tìm thấy được ngay, KHÔNG phải đợi tới lượt chạy kế tiếp mới
+    /// tự khớp lại (xem SyncInfrastructureAsync — xử lý trục trước, nhánh sau, trong cùng 1 trang).</summary>
+    private void AddLineToIndex(string? name, string? unitCode, Guid id)
+    {
+        if (_lineNameIndex != null) AddLineToIndex(_lineNameIndex, name, unitCode, id);
+    }
+
+    /// <summary>Chèn (hoặc gộp thêm ứng viên nếu trùng tên) 1 dòng vào danh mục tra cứu đường dây theo
+    /// tên đã chuẩn hoá — dùng chung bởi LoadLineNameIndexAsync (tải cả danh mục 1 lần) và
+    /// AddLineToIndex (bổ sung từng dòng mới tạo giữa lượt chạy).</summary>
+    private static void AddLineToIndex(
+        Dictionary<string, List<(string? PmisUnitCode, Guid Id)>> index, string? name, string? unitCode, Guid id)
+    {
+        var key = NormalizeLineName(name);
+        if (key == null) return;
+        if (!index.TryGetValue(key, out var candidates))
+            index[key] = candidates = [];
+        candidates.Add((unitCode, id));
+    }
+
+    /// <summary>Gửi 1 lô upsert Trạm/Đường dây — bắt lỗi RIÊNG cho lô này thay vì để văng ra ngoài, vì
+    /// SyncInfrastructureAsync (đường dây) giờ gửi TỐI ĐA 2 lô/trang (trục, rồi nhánh — xem 2-pass bên
+    /// dưới): nếu để lô nhánh lỗi (mất kết nối tạm thời) làm cả method throw, lô trục ĐÃ LƯU THÀNH CÔNG
+    /// trước đó sẽ bị caller (PmisManualSyncController/PmisScheduledSyncJob) coi nhầm là CẢ LƯỢT thất bại
+    /// (100% failed) dù trục thật sự đã lưu — mất dấu thành công thật. Trả về kết quả Failed cho ĐÚNG các
+    /// bản ghi trong lô lỗi, không ảnh hưởng lô còn lại.</summary>
+    private async Task<List<UpsertInfrastructureFromPmisResult>> UpsertInfrastructureSafeAsync(List<UpsertInfrastructureFromPmisRequest> requests)
+    {
+        try
+        {
+            return await _equipmentServiceClient.UpsertInfrastructureAsync(requests);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "PmisSyncExecutionService: lỗi gửi 1 lô Trạm/Đường dây ({Count} bản ghi) sang EquipmentService — đánh dấu cả lô này thất bại, không ảnh hưởng các lô khác trong cùng trang.", requests.Count);
+            return requests.Select(r => new UpsertInfrastructureFromPmisResult
+            {
+                PmisCode = r.PmisCode,
+                Success = false,
+                ErrorMessage = $"Lỗi gửi lô: {ex.Message}"
+            }).ToList();
+        }
+    }
+
+    private static UpsertInfrastructureFromPmisRequest BuildLineUpsertRequest(PmisLineDto item, bool isRoot, Guid? parentId) =>
+        new()
+        {
+            InfraTypeId = 2,
+            PmisCode = item.MaDuongDay,
+            Code = item.MaDuongDay,
+            Name = item.TenDuongDay,
+            UnitCode = item.MaDonVi,
+            OperationDate = item.NgayVanHanh,
+            GridTypeId = ResolveGridTypeId(item.CapDienAp),
+            IsRootLine = isRoot,
+            ParentInfrastructureId = parentId
+        };
+
+    /// <summary>Xem IPmisSyncExecutionService.BackfillLineParentsAsync — gọi vào cuối mỗi lượt đồng bộ
+    /// Đường dây (PmisScheduledSyncJob.RunLineAsync, PmisManualSyncController.Save), sau khi
+    /// _lineNameIndex đã có đầy đủ mọi đường trục tồn tại từ trước LẪN vừa tạo mới trong CHÍNH lượt này
+    /// (xem AddLineToIndex). Tự log + build sẵn message cảnh báo (nếu có) — cả 2 nơi gọi chỉ cần cộng
+    /// thẳng WarningDelta vào biến đếm của mình và thêm ErrorMessage (nếu khác null) vào danh sách lỗi,
+    /// không phải tự lặp lại cùng 1 đoạn xử lý.</summary>
+    public async Task<(int WarningDelta, string? ErrorMessage)> BackfillLineParentsAsync()
+    {
+        _lineNameIndex ??= await LoadLineNameIndexAsync();
+
+        List<LineNameIndexEntry> candidates;
+        try
+        {
+            candidates = await _equipmentServiceClient.GetLinesMissingParentAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "PmisSyncExecutionService: lỗi khi tải danh sách Đường dây chưa xác định cha, bỏ qua backfill lượt này.");
+            return (0, null);
+        }
+
+        if (candidates.Count == 0) return (0, null);
+
+        var toBackfill = new List<BackfillLineParentItem>();
+        var stillUnresolved = 0;
+        foreach (var candidate in candidates)
+        {
+            // GetLinesMissingParentAsync lọc thô bằng "tên có chứa '/'" (SQL không thể tái hiện chính xác
+            // quy tắc ResolveParentLineName — tách theo dấu "/" CUỐI CÙNG) — 1 số tên như "/ABC" (dấu "/"
+            // duy nhất nằm ở VỊ TRÍ ĐẦU) qua đúng quy tắc đó lại được coi là GỐC (không có cha), không
+            // phải nhánh thật. Bỏ qua hẳn các trường hợp này thay vì tính là "chưa xác định được cha" —
+            // PARENT_ID=null với 1 dòng THẬT SỰ là gốc là đúng, không phải lỗi, không nên cảnh báo mãi mãi.
+            if (ResolveParentLineName(candidate.Name) == null) continue;
+
+            var (isRoot, parentId) = ResolveParentLineId(candidate.Name, candidate.PmisUnitCode);
+            if (!isRoot && parentId is { } resolvedId)
+                toBackfill.Add(new BackfillLineParentItem { Id = candidate.Id, ParentInfrastructureId = resolvedId });
+            else
+                stillUnresolved++;
+        }
+
+        var resolved = 0;
+        if (toBackfill.Count > 0)
+        {
+            try
+            {
+                resolved = await _equipmentServiceClient.BackfillLineParentsAsync(toBackfill);
+                // updatedCount có thể ÍT HƠN số đã gửi (vd dòng bị xoá/IsDeleted đúng lúc giữa lượt đọc
+                // GetLinesMissingParentAsync và lượt UPDATE — UpdateParentIdsAsync lọc IsDeleted=0 nên âm
+                // thầm bỏ qua dòng đó) — phần chênh lệch vẫn phải tính là "chưa xác định được cha" thay vì
+                // biến mất khỏi mọi con số báo cáo (trước đây chỉ cộng stillUnresolved khi có exception).
+                if (resolved < toBackfill.Count) stillUnresolved += toBackfill.Count - resolved;
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "PmisSyncExecutionService: lỗi khi gửi backfill PARENT_ID cho {Count} đường dây, sẽ tự thử lại ở lượt sau.", toBackfill.Count);
+                stillUnresolved += toBackfill.Count;
+            }
+        }
+
+        if (resolved > 0)
+            Log.Information("PmisSyncExecutionService: đã tự khớp lại cha cho {Count} đường dây đã đồng bộ từ trước (trước đó chưa xác định được cha).", resolved);
+
+        var errorMessage = stillUnresolved > 0
+            ? $"Đường dây: còn {stillUnresolved} nhánh đã đồng bộ từ trước vẫn chưa xác định được cha."
+            : null;
+
+        return (stillUnresolved, errorMessage);
+    }
+
     public async Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncInfrastructureAsync(
         int infraTypeId, string syncHistoryId, IReadOnlyList<JsonElement> rawItems)
     {
@@ -170,14 +297,15 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         if (infraTypeId == 2)
             _lineNameIndex ??= await LoadLineNameIndexAsync();
 
-        var unresolvedParentRefCount = 0;
-        var upsertRequests = new List<UpsertInfrastructureFromPmisRequest>();
-        foreach (var raw in rawItems)
+        List<UpsertInfrastructureFromPmisRequest> upsertRequests;
+        List<UpsertInfrastructureFromPmisResult> results;
+
+        if (infraTypeId == 1)
         {
-            if (infraTypeId == 1)
+            upsertRequests = rawItems.Select(raw =>
             {
                 var item = raw.Deserialize<PmisSubstationDto>(JsonOptions)!;
-                upsertRequests.Add(new UpsertInfrastructureFromPmisRequest
+                return new UpsertInfrastructureFromPmisRequest
                 {
                     InfraTypeId = 1,
                     PmisCode = item.MaTBA,
@@ -187,32 +315,77 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                     UnitCode = item.MaDonVi,
                     OperationDate = item.NgayVanHanh,
                     GridTypeId = ResolveGridTypeId(item.CapDienAp)
-                });
-            }
-            else
-            {
-                var item = raw.Deserialize<PmisLineDto>(JsonOptions)!;
-                var (isRoot, parentId) = ResolveParentLineId(item.TenDuongDay, item.MaDonVi);
-                if (!isRoot && parentId == null) unresolvedParentRefCount++;
+                };
+            }).ToList();
 
-                upsertRequests.Add(new UpsertInfrastructureFromPmisRequest
-                {
-                    InfraTypeId = 2,
-                    PmisCode = item.MaDuongDay,
-                    Code = item.MaDuongDay,
-                    Name = item.TenDuongDay,
-                    UnitCode = item.MaDonVi,
-                    OperationDate = item.NgayVanHanh,
-                    GridTypeId = ResolveGridTypeId(item.CapDienAp),
-                    IsRootLine = isRoot,
-                    ParentInfrastructureId = parentId
-                });
+            results = upsertRequests.Count == 0
+                ? []
+                : await UpsertInfrastructureSafeAsync(upsertRequests);
+        }
+        else
+        {
+            // Đường dây: xử lý TRỤC (không có "/") trước, NHÁNH (có "/") sau — trong CÙNG 1 trang này.
+            // Trục vừa lưu thành công được đưa ngay vào _lineNameIndex (AddLineToIndex) để nhánh xử lý
+            // NGAY SAU trong cùng trang, hoặc ở trang kế tiếp trong cùng lượt (_lineNameIndex là field
+            // tồn tại xuyên suốt cả lượt chạy), tìm thấy cha luôn — không phải đợi lượt chạy sau. Vẫn
+            // build lại đúng theo THỨ TỰ GỐC của rawItems ở cuối để details/rawItems[i] bên dưới khớp chỉ số.
+            var lineItems = new PmisLineDto[rawItems.Count];
+            var rootIndices = new List<int>();
+            var branchIndices = new List<int>();
+            for (var i = 0; i < rawItems.Count; i++)
+            {
+                var item = rawItems[i].Deserialize<PmisLineDto>(JsonOptions)!;
+                lineItems[i] = item;
+                (ResolveParentLineName(item.TenDuongDay) == null ? rootIndices : branchIndices).Add(i);
             }
+
+            var requestsByIndex = new UpsertInfrastructureFromPmisRequest?[rawItems.Count];
+            var resultsByIndex = new UpsertInfrastructureFromPmisResult?[rawItems.Count];
+
+            if (rootIndices.Count > 0)
+            {
+                var rootRequests = rootIndices.Select(i => BuildLineUpsertRequest(lineItems[i], isRoot: true, parentId: null)).ToList();
+                var rootResults = await UpsertInfrastructureSafeAsync(rootRequests);
+                for (var k = 0; k < rootIndices.Count; k++)
+                {
+                    var idx = rootIndices[k];
+                    requestsByIndex[idx] = rootRequests[k];
+                    resultsByIndex[idx] = rootResults[k];
+                    // CHỈ thêm khi WasCreated=true (trục THẬT SỰ mới, chưa từng có trong _lineNameIndex) —
+                    // PMIS trả về TOÀN BỘ dữ liệu mỗi lượt (không phải delta), nên 1 trục ĐÃ tồn tại từ
+                    // trước (WasCreated=false, chỉ update) sẽ được xử lý lại ở MỌI lượt sau; nếu vẫn thêm
+                    // vào đây sẽ tạo ứng viên TRÙNG với chính nó đã có sẵn từ LoadLineNameIndexAsync đầu
+                    // lượt, phá vỡ "candidates.Count == 1" trong ResolveParentLineId cho mọi nhánh của trục
+                    // đó — bug thật đã gặp, xem code-review.
+                    if (rootResults[k] is { Success: true, WasCreated: true, InfrastructureId: { } newId })
+                        AddLineToIndex(lineItems[idx].TenDuongDay, lineItems[idx].MaDonVi, newId);
+                }
+            }
+
+            if (branchIndices.Count > 0)
+            {
+                var branchRequests = new List<UpsertInfrastructureFromPmisRequest>(branchIndices.Count);
+                foreach (var idx in branchIndices)
+                {
+                    var item = lineItems[idx];
+                    var (isRoot, parentId) = ResolveParentLineId(item.TenDuongDay, item.MaDonVi);
+                    branchRequests.Add(BuildLineUpsertRequest(item, isRoot, parentId));
+                }
+
+                var branchResults = await UpsertInfrastructureSafeAsync(branchRequests);
+                for (var k = 0; k < branchIndices.Count; k++)
+                {
+                    var idx = branchIndices[k];
+                    requestsByIndex[idx] = branchRequests[k];
+                    resultsByIndex[idx] = branchResults[k];
+                }
+            }
+
+            upsertRequests = requestsByIndex.Select(r => r!).ToList();
+            results = resultsByIndex.Select(r => r!).ToList();
         }
 
         if (upsertRequests.Count == 0) return (0, 0, 0, []);
-
-        var results = await _equipmentServiceClient.UpsertInfrastructureAsync(upsertRequests);
 
         var details = new List<SyncHistoryDetail>();
         var errors = new List<string>();
@@ -241,9 +414,11 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
 
         // Đồng bộ tài liệu đính kèm (API 8/9) cho từng Trạm/Đường dây vừa lưu thành công — lỗi ở bước này
         // CHỈ ghi cảnh báo, không ảnh hưởng successCount/errors ở trên (xem SyncDocumentsForOwnerAsync).
-        // Cộng thêm số đường dây có "/" nhưng chưa xác định được cha (xem ResolveParentLineId) — để lộ ra
-        // qua Lịch sử đồng bộ thay vì âm thầm, dù đây thường chỉ là tình huống tạm thời tự hết sau 1-2 lượt.
-        var warnings = unresolvedParentRefCount;
+        // KHÔNG đếm số đường dây "/" chưa xác định được cha ở NGAY ĐÂY nữa (dễ đếm trùng với
+        // BackfillLineParentsAsync gọi ở cuối RunLineAsync — PMIS trả về full dataset mỗi lượt nên cùng 1
+        // dòng còn "mồ côi" thật sự sẽ được cả 2 chỗ đếm) — để backfill là nơi DUY NHẤT báo số liệu cuối
+        // cùng, chính xác hơn vì tính SAU khi mọi trang + mọi trục mới tạo trong lượt đã có đầy đủ.
+        var warnings = 0;
         var docDetails = new List<SyncHistoryDetail>();
         for (var i = 0; i < results.Count; i++)
         {
@@ -422,7 +597,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             var pageSize = await GetPageSizeAsync(isSubstationOrigin ? "SUBSTATION_DOCUMENT_LIST" : "LINE_DOCUMENT_LIST");
             var items = new List<(string MaTaiLieu, string? TenTaiLieu, string? LoaiTaiLieu, string? File, string? MaTB)>();
             var skip = 0;
-            for (var page = 0; page < DocumentMaxPages; page++)
+            var hitRecordCap = false;
+            while (true)
             {
                 if (isSubstationOrigin)
                 {
@@ -449,9 +625,17 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                     if (resp.Items.Count < pageSize || items.Count >= resp.Total) break;
                 }
                 skip += pageSize;
+
+                if (skip >= DocumentMaxTotalRecords)
+                {
+                    Log.Warning("PmisSyncExecutionService: tài liệu của {OwnerType} {OwnerPmisCode} đã đạt giới hạn an toàn {Max} bản ghi/lượt, dừng lại dù PMIS có thể còn dữ liệu (skip={Skip}).",
+                        ownerType, ownerPmisCode, DocumentMaxTotalRecords, skip);
+                    hitRecordCap = true;
+                    break;
+                }
             }
 
-            if (items.Count == 0) return (0, details);
+            if (items.Count == 0) return (hitRecordCap ? 1 : 0, details);
 
             // Gửi lỗi 1 lô KHÔNG được làm mất kết quả của các lô trước đã gửi thành công — mỗi lô tự bắt
             // lỗi riêng và báo Warning cho đúng các tài liệu trong lô đó, thay vì để exception bay lên
@@ -519,7 +703,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
 
             await SendBatchAsync(requests, results);
 
-            if (results.Count == 0) return (0, details);
+            if (results.Count == 0) return (hitRecordCap ? 1 : 0, details);
 
             var warningCount = 0;
             foreach (var result in results)
@@ -538,7 +722,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                     ErrorMessage = result.ErrorMessage
                 });
             }
-            return (warningCount, details);
+            return (hitRecordCap ? warningCount + 1 : warningCount, details);
         }
         catch (Exception ex)
         {

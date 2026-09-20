@@ -20,7 +20,15 @@ namespace EvnHanoi.SyncService.Schedulers;
 /// </summary>
 public class PmisScheduledSyncJob : IJob
 {
-    private const int MaxPages = 50; // an toàn: tối đa 50.000 bản ghi/đối tượng/lần chạy
+    // An toàn: tối đa bản ghi/đối tượng (hoặc /cha, ở Thiết bị)/lần chạy — tính theo TỔNG SỐ BẢN GHI,
+    // không phải số TRANG, vì PageSize giờ admin tự cấu hình được qua "Cấu hình kết nối API" (trước đây là
+    // hằng số cố định MaxPages=50 × PageSize cố định=1000 = 50.000; nếu vẫn dùng số trang cố định làm giới
+    // hạn, admin chỉnh PageSize xuống thấp (vd 100) sẽ vô tình siết giới hạn thật xuống còn 50×100=5.000 —
+    // ÍT HƠN dữ liệu PMIS thật (đã gặp: 24.429 trạm biến áp, 13.681+ đường dây), khiến mỗi lượt đồng bộ âm
+    // thầm dừng giữa chừng, KHÔNG BAO GIỜ đồng bộ hết vì skip luôn reset về 0 lượt sau). Dùng chung đúng 1
+    // nguồn (PmisPaging.MaxTotalRecordsPerRun) với DocumentMaxTotalRecords ở PmisSyncExecutionService,
+    // tránh định nghĩa lặp ở 2 nơi dễ lệch nhau khi cần đổi ngưỡng sau này.
+    private const int MaxTotalRecords = PmisPaging.MaxTotalRecordsPerRun;
 
     private readonly ISyncConfigRepository _syncConfigRepository;
     private readonly ISyncHistoryRepository _syncHistoryRepository;
@@ -49,6 +57,17 @@ public class PmisScheduledSyncJob : IJob
         _lockFactory = lockFactory;
         _messageProducer = messageProducer;
         _endpointConfigProvider = endpointConfigProvider;
+    }
+
+    /// <summary>Kiểm tra + xử lý (log Warning, tăng warnings) khi 1 vòng phân trang chạm giới hạn an toàn
+    /// tổng số bản ghi — dùng chung cho cả 3 vòng lặp Trạm biến áp/Đường dây/Thiết bị bên dưới, tránh lặp
+    /// lại y hệt 1 khối code chỉ khác mỗi nhãn đối tượng.</summary>
+    private static bool HasHitSafetyCap(int skip, string entityLabel, ref int warnings)
+    {
+        if (skip < MaxTotalRecords) return false;
+        Log.Warning("PmisScheduledSyncJob: {Entity} đã đạt giới hạn an toàn {Max} bản ghi/lượt chạy, dừng lại dù PMIS có thể còn dữ liệu (skip={Skip}) — sẽ tiếp tục ở lượt sau.", entityLabel, MaxTotalRecords, skip);
+        warnings++;
+        return true;
     }
 
     /// <summary>Số bản ghi/trang admin đã cấu hình cho apiCode này qua "Cấu hình kết nối API" — mặc định
@@ -191,7 +210,7 @@ public class PmisScheduledSyncJob : IJob
         int total = 0, success = 0, failed = 0, warnings = 0;
         var errors = new List<string>();
         var skip = 0;
-        for (var page = 0; page < MaxPages; page++)
+        while (true)
         {
             PmisListResponse<PmisSubstationDto> result;
             try
@@ -220,6 +239,8 @@ public class PmisScheduledSyncJob : IJob
 
             if (result.Items.Count < pageSize || total >= result.Total) break;
             skip += pageSize;
+
+            if (HasHitSafetyCap(skip, "Trạm biến áp", ref warnings)) break;
         }
 
         return (total, success, failed, warnings, errors);
@@ -231,7 +252,7 @@ public class PmisScheduledSyncJob : IJob
         int total = 0, success = 0, failed = 0, warnings = 0;
         var errors = new List<string>();
         var skip = 0;
-        for (var page = 0; page < MaxPages; page++)
+        while (true)
         {
             PmisListResponse<PmisLineDto> result;
             try
@@ -257,7 +278,18 @@ public class PmisScheduledSyncJob : IJob
 
             if (result.Items.Count < pageSize || total >= result.Total) break;
             skip += pageSize;
+
+            if (HasHitSafetyCap(skip, "Đường dây", ref warnings)) break;
         }
+
+        // Fillback: thử khớp lại cha cho các Đường dây ĐÃ đồng bộ từ TRƯỚC lượt này mà vẫn chưa xác định
+        // được cha (tên có "/" nhưng ParentInfrastructureId còn null — vd đường trục lúc đó chưa tồn tại,
+        // hoặc nằm ở trang xử lý SAU nhánh tham chiếu tới nó trong cùng 1 lượt cũ). Gọi ở CUỐI, sau khi
+        // toàn bộ các trang phía trên đã xử lý xong — lúc này mọi đường trục mới xuất hiện trong CHÍNH
+        // lượt hiện tại cũng chắc chắn đã có trong _lineNameIndex (xem PmisSyncExecutionService.AddLineToIndex).
+        var (backfillWarnings, backfillError) = await _executionService.BackfillLineParentsAsync();
+        warnings += backfillWarnings;
+        if (backfillError != null) errors.Add(backfillError);
 
         return (total, success, failed, warnings, errors);
     }
@@ -276,7 +308,7 @@ public class PmisScheduledSyncJob : IJob
         {
             var pageSize = parent.InfraTypeId == 1 ? substationDevicePageSize : lineDevicePageSize;
             var skip = 0;
-            for (var page = 0; page < MaxPages; page++)
+            while (true)
             {
                 List<JsonElement> pageItems;
                 int pageCount;
@@ -328,6 +360,8 @@ public class PmisScheduledSyncJob : IJob
 
                 if (pageCount < pageSize || pageCount == 0) break;
                 skip += pageSize;
+
+                if (HasHitSafetyCap(skip, $"Thiết bị cha={parent.PmisCode}", ref warnings)) break;
             }
         }
 

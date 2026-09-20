@@ -45,7 +45,16 @@ public class PmisEndpointConfigProvider : IPmisEndpointConfigProvider
                 Url = config.Url!,
                 HttpMethod = config.HttpMethod,
                 TimeoutSeconds = config.TimeoutSeconds,
-                PageSize = config.PageSize is > 0 ? config.PageSize.Value : PmisPaging.DefaultPageSize,
+                // Chặn CẢ 2 đầu ngay tại đây — nơi DUY NHẤT mọi caller (PmisScheduledSyncJob,
+                // PmisSyncExecutionService, PmisLookupController) đọc PageSize để dùng — thay vì chỉ chặn
+                // ở PmisEndpointConfigController.Update (chặn lúc LƯU không bảo vệ được nếu giá trị xấu
+                // lọt vào DB bằng đường khác: sửa tay SQL, migration seed sau này...). <=0 → mặc định 100
+                // (an toàn tuyệt đối: PageSize=0 sẽ khiến skip không bao giờ tăng, vòng lặp phân trang ở
+                // PmisScheduledSyncJob/PmisSyncExecutionService chạy vô hạn). >MaxPageSize → hạ về đúng
+                // trần, tránh 1 trang tự vượt xa giới hạn an toàn tổng (PmisPaging.MaxTotalRecordsPerRun).
+                PageSize = config.PageSize is > 0
+                    ? Math.Min(config.PageSize.Value, PmisPaging.MaxPageSize)
+                    : PmisPaging.DefaultPageSize,
                 Headers = resolvedHeaders
             };
         });
