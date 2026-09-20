@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace EvnHanoi.SyncService.Models.Internal;
 
 // Bản sao (mirror) đúng shape DTO nội bộ của EquipmentService (Core/DTOs/PmisSyncDtos.cs) —
@@ -31,6 +33,29 @@ public class LineNameIndexEntry
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? PmisUnitCode { get; set; }
+}
+
+/// <summary>Mirror của BackfillLineParentRequest/Item (EquipmentService) — cập nhật RIÊNG cột
+/// ParentInfrastructureId cho các Đường dây ĐÃ tồn tại nhưng chưa xác định được cha ở lượt trước (xem
+/// PmisSyncExecutionService.BackfillLineParentsAsync).</summary>
+public class BackfillLineParentRequest
+{
+    public List<BackfillLineParentItem> Items { get; set; } = [];
+}
+
+public class BackfillLineParentItem
+{
+    public Guid Id { get; set; }
+    public Guid ParentInfrastructureId { get; set; }
+}
+
+public class BackfillLineParentResult
+{
+    // Server trả về { updatedCount } (anonymous object, camelCase) — gắn tên tường minh thay vì phụ
+    // thuộc naming policy mặc định của JsonSerializerOptions (khác các DTO khác trong file này vốn là
+    // class thật ở cả 2 phía nên khớp tên tự nhiên).
+    [JsonPropertyName("updatedCount")]
+    public int UpdatedCount { get; set; }
 }
 
 public class UpsertInfrastructureFromPmisResult

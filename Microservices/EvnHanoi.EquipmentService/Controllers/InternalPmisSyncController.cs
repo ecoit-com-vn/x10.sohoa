@@ -78,6 +78,36 @@ public class InternalPmisSyncController : ControllerBase
         return Ok(rows);
     }
 
+    /// <summary>Các Đường dây ĐÃ tồn tại (từ lượt đồng bộ trước) nhưng tên có "/" (chắc chắn là nhánh) mà
+    /// PARENT_ID vẫn NULL — SyncService gọi vào cuối mỗi lượt đồng bộ Đường dây để thử khớp lại cha 1 lần
+    /// nữa (xem PmisSyncExecutionService.BackfillLineParentsAsync), phòng trường hợp đường trục lúc đồng
+    /// bộ ban đầu chưa tồn tại (cùng lượt hoặc trang xử lý trước trục) nên nhánh đó bị bỏ sót.</summary>
+    [HttpGet("infrastructure/lines-missing-parent")]
+    public async Task<IActionResult> GetLinesMissingParent([FromHeader(Name = "X-Internal-Token")] string? internalToken)
+    {
+        if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
+
+        var rows = await _infrastructureRepository.GetLinesMissingParentAsync();
+        return Ok(rows);
+    }
+
+    /// <summary>Cập nhật RIÊNG cột PARENT_ID cho các Đường dây đã tồn tại (backfill) — không đi qua toàn
+    /// bộ luồng upsert-from-pmis vì SyncService không có lại đủ dữ liệu PMIS gốc (Code/Address/
+    /// OperationDate...) của các dòng này, chỉ có Id + ParentId vừa tự tra được.</summary>
+    [HttpPost("infrastructure/backfill-line-parents")]
+    public async Task<IActionResult> BackfillLineParents(
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken,
+        [FromBody] BackfillLineParentRequest request)
+    {
+        if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
+        if (request.Items is not { Count: > 0 }) return Ok(new { updatedCount = 0 });
+
+        var updatedCount = await _infrastructureRepository.UpdateParentIdsAsync(
+            request.Items.Select(i => (i.Id, i.ParentInfrastructureId)).ToList());
+
+        return Ok(new { updatedCount });
+    }
+
     [HttpPost("infrastructure/upsert-from-pmis")]
     public async Task<IActionResult> UpsertInfrastructureFromPmis(
         [FromHeader(Name = "X-Internal-Token")] string? internalToken,

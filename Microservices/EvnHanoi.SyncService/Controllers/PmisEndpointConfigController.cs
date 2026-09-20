@@ -76,6 +76,9 @@ public class PmisEndpointConfigController : ControllerBase
             return BadRequest(new { message = $"Phương thức HTTP không hợp lệ — chỉ chấp nhận: {string.Join(", ", PmisHttpMethods.Allowed)}." });
         request.HttpMethod = request.HttpMethod.ToUpperInvariant();
 
+        if (!PmisPaging.IsValid(request.PageSize))
+            return BadRequest(new { message = $"Số bản ghi mỗi trang phải từ 1 đến {PmisPaging.MaxPageSize}." });
+
         var existing = await _repository.GetByApiCodeAsync(apiCode);
         if (existing == null) return NotFound(new { message = "Không tìm thấy API PMIS cần cập nhật." });
 
