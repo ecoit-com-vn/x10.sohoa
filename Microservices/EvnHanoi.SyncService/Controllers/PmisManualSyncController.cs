@@ -136,6 +136,17 @@ public class PmisManualSyncController : ControllerBase
             return StatusCode(500, new { message });
         }
 
+        // Đồng bộ thủ công Đường dây: người dùng có thể chỉ chọn lưu 1 vài nhánh mà chưa chọn đúng đường
+        // trục của nó (hoặc trục đã có sẵn từ trước) — thử khớp lại cha ngay, cùng cơ chế với
+        // PmisScheduledSyncJob.RunLineAsync, để không phải đợi tới lượt đồng bộ tự động (có thể đang tắt
+        // hẳn cho Đường dây — SyncConfig.IsEnabled) mới có cơ hội tự sửa.
+        if (normalizedType == SyncObjectType.TransmissionLine)
+        {
+            var (backfillWarnings, backfillError) = await _executionService.BackfillLineParentsAsync();
+            warningCount += backfillWarnings;
+            if (backfillError != null) errors.Add(backfillError);
+        }
+
         var finalStatus = successCount == 0
             ? SyncHistoryStatus.Failed
             : (warningCount > 0 ? SyncHistoryStatus.Warning : SyncHistoryStatus.Success);

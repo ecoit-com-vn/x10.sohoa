@@ -49,4 +49,13 @@ public interface IInfrastructureRepository
     /// <summary>Toàn bộ Đường dây hiện có (Id + Name + mã đơn vị PMIS nếu tra được) — SyncService tải 1
     /// lần/lượt đồng bộ Đường dây để tự tìm cha theo tên trong bộ nhớ, thay vì mỗi dòng tự query riêng.</summary>
     Task<IEnumerable<EvnHanoi.EquipmentService.Core.DTOs.LineNameIndexEntry>> GetLineNameIndexAsync();
+
+    /// <summary>Các Đường dây ĐÃ tồn tại nhưng tên có "/" (chắc chắn là nhánh) mà PARENT_ID vẫn NULL — dùng
+    /// để SyncService thử khớp lại cha vào cuối mỗi lượt đồng bộ (backfill).</summary>
+    Task<IEnumerable<EvnHanoi.EquipmentService.Core.DTOs.LineNameIndexEntry>> GetLinesMissingParentAsync();
+
+    /// <summary>Cập nhật RIÊNG cột PARENT_ID cho NHIỀU Đường dây đã tồn tại cùng lúc (backfill) — không
+    /// đụng các field khác, khác UpdateAsync/UpsertFromPmisAsync vốn cần đủ dữ liệu PMIS gốc của dòng đó.
+    /// Trả về số dòng cập nhật thành công.</summary>
+    Task<int> UpdateParentIdsAsync(IReadOnlyList<(Guid Id, Guid ParentId)> items);
 }

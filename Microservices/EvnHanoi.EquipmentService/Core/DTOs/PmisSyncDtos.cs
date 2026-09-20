@@ -73,6 +73,22 @@ public class LineNameIndexEntry
     public string? PmisUnitCode { get; set; }
 }
 
+/// <summary>Payload POST internal/v1/infrastructure/backfill-line-parents — cập nhật CHỈ cột PARENT_ID
+/// cho các Đường dây ĐÃ tồn tại từ trước (không đi qua toàn bộ luồng upsert-from-pmis — không có/không cần
+/// đủ dữ liệu PMIS khác như Code/Address/OperationDate để so sánh hasChanged) — dùng khi SyncService tự
+/// khớp lại cha cho các nhánh trước đó chưa xác định được, sau khi đường trục đã tồn tại (xem
+/// PmisSyncExecutionService.BackfillLineParentsAsync).</summary>
+public class BackfillLineParentRequest
+{
+    public List<BackfillLineParentItem> Items { get; set; } = [];
+}
+
+public class BackfillLineParentItem
+{
+    public Guid Id { get; set; }
+    public Guid ParentInfrastructureId { get; set; }
+}
+
 public class UpsertInfrastructureFromPmisResult
 {
     public string PmisCode { get; set; } = string.Empty;

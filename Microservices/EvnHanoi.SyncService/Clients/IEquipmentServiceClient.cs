@@ -15,6 +15,14 @@ public interface IEquipmentServiceClient
     /// tên trong bộ nhớ, xem PmisSyncExecutionService.ResolveParentLineIdAsync.</summary>
     Task<List<LineNameIndexEntry>> GetLineNameIndexAsync();
 
+    /// <summary>Các Đường dây ĐÃ tồn tại (từ lượt đồng bộ trước) nhưng tên có "/" mà vẫn chưa xác định
+    /// được cha — dùng để backfill vào cuối mỗi lượt đồng bộ, xem PmisSyncExecutionService.BackfillLineParentsAsync.</summary>
+    Task<List<LineNameIndexEntry>> GetLinesMissingParentAsync();
+
+    /// <summary>Cập nhật RIÊNG cột ParentInfrastructureId cho các Đường dây trong danh sách — trả về số
+    /// dòng cập nhật thành công.</summary>
+    Task<int> BackfillLineParentsAsync(List<BackfillLineParentItem> items);
+
     Task<List<UpsertPmisDocumentResult>> UpsertDocumentsAsync(List<UpsertPmisDocumentRequest> items);
 }
 
