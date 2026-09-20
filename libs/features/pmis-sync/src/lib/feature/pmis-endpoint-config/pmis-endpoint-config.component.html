@@ -106,10 +106,11 @@
         class="wf-input w-full"
         type="number"
         min="1"
+        max="5000"
         [ngModel]="form().pageSize"
         (ngModelChange)="updateFormField('pageSize', $event)"
         [disabled]="saving()"
-        placeholder="Mặc định 100"
+        placeholder="Mặc định 100, tối đa 5000"
       />
     </div>
 
