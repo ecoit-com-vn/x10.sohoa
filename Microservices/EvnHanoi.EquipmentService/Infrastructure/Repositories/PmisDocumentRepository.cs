@@ -36,7 +36,9 @@ public class PmisDocumentRepository : IPmisDocumentRepository
                 sql = "SELECT Id FROM INFRASTRUCTURE WHERE PMIS_CODE = :Code AND IsDeleted = 0";
                 break;
             case "EQUIPMENT":
-                sql = "SELECT Id FROM EQUIPMENTS WHERE PMIS_CODE = :Code AND IsDeleted = 0";
+                // EquipmentSqlFilters.NotTransferredAway — loại "hồn ma" chuyển TBA, giữ thiết bị "đã
+                // chuyển hồ sơ" (xem GetPagedAsync).
+                sql = $"SELECT Id FROM EQUIPMENTS WHERE PMIS_CODE = :Code AND IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway()}";
                 break;
             default:
                 return null;
@@ -136,13 +138,13 @@ public class PmisDocumentRepository : IPmisDocumentRepository
     {
         EnsureOpen();
 
-        var infraRows = (await _connection.QueryAsync<InfraCatalogRow>(@"
+        var infraRows = (await _connection.QueryAsync<InfraCatalogRow>($@"
             SELECT i.Id, i.Name, i.Code, i.INFRA_TYPE_ID AS InfraTypeId, i.UNIT_ID AS UnitId,
                    (SELECT COUNT(1) FROM PMIS_DOCUMENT pd
                       WHERE pd.OwnerType = 'INFRASTRUCTURE' AND pd.OwnerId = i.Id AND pd.IsDeleted = 0) AS DirectDocumentCount,
                    (SELECT COUNT(1) FROM EQUIPMENTS e
                       INNER JOIN PMIS_DOCUMENT pd2 ON pd2.OwnerType = 'EQUIPMENT' AND pd2.OwnerId = e.Id AND pd2.IsDeleted = 0
-                    WHERE e.INFRASTRUCTURE_ID = i.Id AND e.IsDeleted = 0) AS ChildEquipmentDocumentCount
+                    WHERE e.INFRASTRUCTURE_ID = i.Id AND e.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("e")}) AS ChildEquipmentDocumentCount
             FROM INFRASTRUCTURE i
             WHERE i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0"))
             .Where(r => r.DirectDocumentCount > 0 || r.ChildEquipmentDocumentCount > 0)
@@ -152,12 +154,12 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         if (infraRows.Count == 0) return nodes;
 
         var infraIds = infraRows.Select(r => r.Id).ToHashSet();
-        var equipmentRows = (await _connection.QueryAsync<EquipmentCatalogRow>(@"
+        var equipmentRows = (await _connection.QueryAsync<EquipmentCatalogRow>($@"
             SELECT e.Id, e.Name, e.Code, e.INFRASTRUCTURE_ID AS InfrastructureId,
                    (SELECT COUNT(1) FROM PMIS_DOCUMENT pd
                       WHERE pd.OwnerType = 'EQUIPMENT' AND pd.OwnerId = e.Id AND pd.IsDeleted = 0) AS DocumentCount
             FROM EQUIPMENTS e
-            WHERE e.PMIS_CODE IS NOT NULL AND e.IsDeleted = 0
+            WHERE e.PMIS_CODE IS NOT NULL AND e.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("e")}
               AND EXISTS (SELECT 1 FROM PMIS_DOCUMENT pd
                           WHERE pd.OwnerType = 'EQUIPMENT' AND pd.OwnerId = e.Id AND pd.IsDeleted = 0)"))
             .Where(r => r.InfrastructureId != null && infraIds.Contains(r.InfrastructureId!))

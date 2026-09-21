@@ -317,7 +317,7 @@ public class EquipmentRepository : IEquipmentRepository
                                 ModifiedDate as {nameof(Equipment.ModifiedDate)},
                                 IsDeleted as {nameof(Equipment.IsDeleted)},
                                 UnitId as {nameof(Equipment.UnitId)}
-                         FROM EQUIPMENTS WHERE IsDeleted = 0";
+                         FROM EQUIPMENTS WHERE IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway()}";
             return await _connection.QueryAsync<Equipment>(sql);
         }
         else
@@ -340,7 +340,7 @@ public class EquipmentRepository : IEquipmentRepository
                                 IsDeleted as {nameof(Equipment.IsDeleted)},
                                 UnitId as {nameof(Equipment.UnitId)}
                          FROM EQUIPMENTS
-                         WHERE UnitId IN :UnitIds AND IsDeleted = 0";
+                         WHERE UnitId IN :UnitIds AND IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway()}";
             return await _connection.QueryAsync<Equipment>(sql, new { UnitIds = unitIds.ToArray() });
         }
     }
@@ -361,14 +361,21 @@ public class EquipmentRepository : IEquipmentRepository
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
-        var sqlBase = @"FROM EQUIPMENTS e
+        // EquipmentSqlFilters.NotTransferredAway: loại các dòng "hồn ma" (StatusTransition=0, "Đã chuyển
+        // TBA") đã bị thay thế bởi CloneForInfrastructureTransferAsync khi thiết bị chuyển Trạm/Đường dây —
+        // dòng cũ vẫn IsDeleted=0 (chỉ IS_ACTIVE=0) và giữ nguyên INFRASTRUCTURE_ID cũ (không xoá dấu vết),
+        // nên nếu không lọc sẽ hiện SAI trong màn xem/tìm thiết bị thông thường (đã gặp thật: 1 trạm hiện
+        // toàn bộ thiết bị "Đã chuyển TBA" dù chỉ 1 số ít thật sự chuyển đi — do PMIS_CODE lệch chuẩn khiến
+        // hệ thống hiểu nhầm CẢ trạm đó đã đổi, xem Migration0060). KHÔNG lọc StatusTransition=1 ("Đã
+        // chuyển hồ sơ") — đó vẫn là thiết bị sống, xem EquipmentSqlFilters.NotTransferredAway.
+        var sqlBase = $@"FROM EQUIPMENTS e
                         LEFT JOIN EquipmentTypes et ON e.EquipmentTypeId = et.Id
                         LEFT JOIN GridTypes gt ON et.GridTypeId = gt.Id
                         LEFT JOIN INFRASTRUCTURE inf ON e.INFRASTRUCTURE_ID = inf.Id
                         LEFT JOIN ORGANIZATION_UNIT u ON e.UnitId = u.Id
                         LEFT JOIN CATALOG es ON e.EQUIPMENT_STATUS_ID = es.Id
                         LEFT JOIN APP_USER usr ON e.CreatorId = usr.Id
-                        WHERE e.IsDeleted = 0";
+                        WHERE e.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("e")}";
 
 
         var parameters = new DynamicParameters();
@@ -485,10 +492,12 @@ public class EquipmentRepository : IEquipmentRepository
         if (filter.Page < 1) filter.Page = 1;
         if (filter.PageSize < 1) filter.PageSize = 10;
 
-        var sqlBase = @"FROM EQUIPMENTS e
+        // EquipmentSqlFilters.NotTransferredAway — xem giải thích ở GetPagedAsync (loại "hồn ma" chuyển
+        // TBA khỏi màn autocomplete chọn thiết bị khi tạo hồ sơ, giữ lại thiết bị "đã chuyển hồ sơ").
+        var sqlBase = $@"FROM EQUIPMENTS e
                         LEFT JOIN EquipmentTypes et ON e.EquipmentTypeId = et.Id
                         LEFT JOIN INFRASTRUCTURE inf ON e.INFRASTRUCTURE_ID = inf.Id
-                        WHERE e.IsDeleted = 0";
+                        WHERE e.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("e")}";
 
 
         var parameters = new DynamicParameters();
@@ -1528,10 +1537,10 @@ StatusTransition,
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
-        const string sql = @"SELECT COUNT(1)
+        var sql = $@"SELECT COUNT(1)
                              FROM EQUIPMENTS
                              WHERE INFRASTRUCTURE_ID = :InfrastructureId
-                               AND IsDeleted = 0";
+                               AND IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway()}";
 
         return await _connection.ExecuteScalarAsync<int>(sql, new { InfrastructureId = infrastructureId.ToString() });
     }
@@ -1571,8 +1580,10 @@ StatusTransition,
             // Thiết bị đường dây không có capDienAp riêng (chỉ thiết bị TBA có) — lấy GridTypeId của
             // Trạm/Đường dây cha làm phương án dự phòng khi không truyền sẵn (xem Migration0051/0052 +
             // BAO_CAO_TEST_API_PMIS_GATEWAY_THAT.md).
+            // UPPER(TRIM(...)) — xem giải thích ở InfrastructureRepository.UpsertFromPmisAsync (chuẩn hoá
+            // so khớp PMIS_CODE để tránh tạo trùng INFRASTRUCTURE do mã lệch khoảng trắng/hoa-thường).
             var infraRow = await _connection.QuerySingleOrDefaultAsync<InfraLookupRow>(
-                "SELECT Id, GRIDTYPEID AS GridTypeId FROM INFRASTRUCTURE WHERE PMIS_CODE = :PmisCode AND IsDeleted = 0",
+                "SELECT Id, GRIDTYPEID AS GridTypeId FROM INFRASTRUCTURE WHERE UPPER(TRIM(PMIS_CODE)) = UPPER(TRIM(:PmisCode)) AND IsDeleted = 0",
                 new { PmisCode = parentPmisCode });
             infrastructureId = infraRow?.Id;
             effectiveGridTypeId ??= infraRow?.GridTypeId;
@@ -1616,11 +1627,13 @@ StatusTransition,
                 "SELECT UnitId FROM PMIS_UNIT_CODE_MAPPING WHERE PmisUnitCode = :Code AND IsDeleted = 0", new { Code = unitCode });
         }
 
+        // UPPER(TRIM(...)) — cùng lý do với lookup cha ở trên (chuẩn hoá so khớp PMIS_CODE của CHÍNH thiết
+        // bị này, tránh Oracle không tìm thấy dòng đã lưu chỉ vì lệch khoảng trắng/hoa-thường).
         var existing = await _connection.QuerySingleOrDefaultAsync<EquipmentCompareRow>(
             @"SELECT Id, Name, Code, SerialNumber, INFRASTRUCTURE_ID AS InfrastructureId,
                      MANUFACTURE_YEAR AS ManufactureYear, UnitId, EquipmentTypeId,
                      EQUIPMENT_STATUS_ID AS EquipmentStatusId, FORM_VALUES AS FormValues
-              FROM EQUIPMENTS WHERE PMIS_CODE = :PmisCode AND IsDeleted = 0 AND StatusTransition IS NULL",
+              FROM EQUIPMENTS WHERE UPPER(TRIM(PMIS_CODE)) = UPPER(TRIM(:PmisCode)) AND IsDeleted = 0 AND StatusTransition IS NULL",
             new { PmisCode = pmisCode });
 
         if (existing != null)
@@ -1683,12 +1696,10 @@ StatusTransition,
                 }
                 catch (Exception ex) when (ex.Message.Contains("ORA-00001", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Mã "code" ở Trạm/Đường dây MỚI đã bị 1 thiết bị KHÁC đang hoạt động chiếm (UX_EQUIPMENTS_
-                    // ACTIVE_INFRA_CODE, xem Migration0059) — khác lỗi "hồn ma" đã xử lý bằng migration đó, đây
-                    // là xung đột THẬT giữa 2 thiết bị đang sống (vd PMIS trả trùng maTB cho 2 thiết bị khác
-                    // nhau) — không thể tự đoán merge, phải báo rõ cho admin kiểm tra lại trên PMIS.
-                    return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
-                        $"Không thể chuyển thiết bị sang trạm/đường dây mới: mã '{code}' đã được dùng cho 1 thiết bị khác đang hoạt động tại đúng trạm/đường dây đó — có thể PMIS trả trùng mã thiết bị, vui lòng kiểm tra lại trên PMIS.");
+                    // Xung đột THẬT giữa 2 thiết bị đang sống — không thể tự đoán merge, phải báo rõ cho
+                    // admin. Có 2 unique index khác nhau trên EQUIPMENTS từ Migration0059/0060 nên phải xem
+                    // đúng tên index trong message Oracle mới biết nguyên nhân thật (xem FailDuplicateActiveCode).
+                    return FailDuplicateActiveCode(ex, "chuyển thiết bị sang trạm/đường dây mới", code, pmisCode);
                 }
 
                 return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Transferred(
@@ -1757,11 +1768,8 @@ StatusTransition,
             }
             catch (Exception ex) when (ex.Message.Contains("ORA-00001", StringComparison.OrdinalIgnoreCase))
             {
-                // Code/InfrastructureId mới đổi sang trùng đúng ô mà 1 thiết bị KHÁC đang hoạt động chiếm
-                // (UX_EQUIPMENTS_ACTIVE_INFRA_CODE, xem Migration0059) — xung đột THẬT giữa 2 thiết bị đang
-                // sống, không thể tự đoán merge, phải báo rõ cho admin kiểm tra lại trên PMIS.
-                return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
-                    $"Không thể cập nhật thiết bị: mã '{code}' đã được dùng cho 1 thiết bị khác đang hoạt động tại đúng trạm/đường dây này — có thể PMIS trả trùng mã thiết bị, vui lòng kiểm tra lại trên PMIS.");
+                // Xung đột THẬT giữa 2 thiết bị đang sống — xem FailDuplicateActiveCode.
+                return FailDuplicateActiveCode(ex, "cập nhật thiết bị", code, pmisCode);
             }
             return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Ok(Guid.Parse(existing.Id!), false, true, Guid.Parse(equipmentTypeId));
         }
@@ -1794,13 +1802,25 @@ StatusTransition,
         }
         catch (Exception ex) when (ex.Message.Contains("ORA-00001", StringComparison.OrdinalIgnoreCase))
         {
-            // Thiết bị PMIS mới (chưa có PMIS_CODE trong hệ thống) nhưng mã 'code' đã bị 1 thiết bị KHÁC
-            // đang hoạt động chiếm tại đúng trạm/đường dây này (UX_EQUIPMENTS_ACTIVE_INFRA_CODE, xem
-            // Migration0059) — có thể PMIS trả trùng mã thiết bị, hoặc đã có thiết bị nhập tay trùng mã.
-            return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
-                $"Không thể tạo mới thiết bị: mã '{code}' đã được dùng cho 1 thiết bị khác đang hoạt động tại đúng trạm/đường dây này — có thể PMIS trả trùng mã thiết bị, vui lòng kiểm tra lại trên PMIS.");
+            // Thiết bị PMIS mới (chưa có PMIS_CODE trong hệ thống) nhưng trùng mã với 1 thiết bị KHÁC đang
+            // hoạt động — xem FailDuplicateActiveCode (phân biệt trùng Code+Infra vs trùng PmisCode).
+            return FailDuplicateActiveCode(ex, "tạo mới thiết bị", code, pmisCode);
         }
         return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Ok(newId, true, true, Guid.Parse(equipmentTypeId));
+    }
+
+    /// <summary>Xây message thân thiện cho ORA-00001 gặp phải trong UpsertFromPmisAsync — bảng EQUIPMENTS
+    /// có 2 unique index dạng hàm khác nhau (UX_EQUIPMENTS_ACTIVE_INFRA_CODE từ Migration0059, trùng
+    /// Code+InfrastructureId; UX_EQUIPMENTS_ACTIVE_PMIS_CODE từ Migration0060, trùng PMIS_CODE) — phải đọc
+    /// đúng tên index trong message Oracle mới biết nguyên nhân thật, tránh báo nhầm hướng cho admin (vd
+    /// race PMIS_CODE hoàn toàn mới bị báo nhầm thành "trùng mã Code" trong khi Code không hề trùng).</summary>
+    private static EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult FailDuplicateActiveCode(
+        Exception ex, string action, string code, string pmisCode)
+    {
+        var message = ex.Message.Contains("UX_EQUIPMENTS_ACTIVE_PMIS_CODE", StringComparison.OrdinalIgnoreCase)
+            ? $"Không thể {action}: mã PMIS '{pmisCode}' đã được dùng cho 1 thiết bị khác đang hoạt động — có thể do 2 lượt đồng bộ chạy đồng thời hoặc PMIS trả trùng mã, vui lòng đồng bộ lại."
+            : $"Không thể {action}: mã '{code}' đã được dùng cho 1 thiết bị khác đang hoạt động tại đúng trạm/đường dây này — có thể PMIS trả trùng mã thiết bị, vui lòng kiểm tra lại trên PMIS.";
+        return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(message);
     }
 
     public async Task<bool> SetFormValuesIfEmptyAsync(Guid equipmentId, string formValuesJson)

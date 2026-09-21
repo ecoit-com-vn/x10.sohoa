@@ -12,11 +12,12 @@ public interface IPmisSyncExecutionService
     Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncInfrastructureAsync(int infraTypeId, string syncHistoryId, IReadOnlyList<JsonElement> rawItems);
     Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncEquipmentAsync(string syncHistoryId, IReadOnlyList<JsonElement> rawItems);
 
-    /// <summary>Thử khớp lại cha cho các Đường dây ĐÃ đồng bộ từ trước nhưng vẫn chưa xác định được cha
-    /// (tên có "/" nhưng ParentInfrastructureId còn null) — gọi 1 lần vào CUỐI mỗi lượt đồng bộ Đường dây
-    /// (sau khi toàn bộ các trang đã xử lý xong, đường trục nào mới xuất hiện trong CHÍNH lượt này cũng đã
-    /// chắc chắn tồn tại). Trả về (số cần cộng vào Warnings, thông báo lỗi tóm tắt nếu có để thêm vào danh
-    /// sách Errors — null nếu không còn dòng nào chưa khớp được) — caller chỉ cần cộng/thêm thẳng, không
-    /// phải tự lặp lại logic log/format message.</summary>
+    /// <summary>Thử khớp lại cha/cấp điện áp cho các Đường dây ĐÃ đồng bộ từ trước còn thiếu — chạy ĐỘC LẬP
+    /// từ job Quartz riêng (LineParentBackfillJob, tick định kỳ, KHÔNG chèn vào lượt đồng bộ Đường dây
+    /// nào). Xử lý 2 trường hợp (xem GetLinesNeedingBackfillAsync): (1) tên có "/" nhưng
+    /// ParentInfrastructureId còn null — resolve theo tên; (2) đã có cha nhưng GridTypeId còn null — mượn
+    /// thẳng GridTypeId của cha. Trả về (số cần cộng vào Warnings, thông báo lỗi tóm tắt nếu có để thêm vào
+    /// danh sách Errors — null nếu không còn dòng nào chưa khớp được) — caller chỉ cần cộng/thêm thẳng,
+    /// không phải tự lặp lại logic log/format message.</summary>
     Task<(int WarningDelta, string? ErrorMessage)> BackfillLineParentsAsync();
 }
