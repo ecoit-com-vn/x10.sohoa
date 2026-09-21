@@ -150,6 +150,7 @@
           [uploadHandler]="uploadHandler"
           [deferUpload]="true"
           [maxFileSize]="524288000"
+          [allowedExtensions]="dossierAllowedExtensions"
           (uploadError)="onUploadError($event)"
         ></app-file-upload-zone>
 
@@ -161,6 +162,7 @@
           [deferUpload]="true"
           [hideDropZone]="true"
           [maxFileSize]="524288000"
+          [allowedExtensions]="dossierAllowedExtensions"
           (uploadError)="onUploadError($event)"
         ></app-file-upload-zone>
       </ng-container>

@@ -84,7 +84,9 @@ export class DossierDirectUploadDialogComponent implements OnInit {
   private dossierDocumentService = inject(DossierDocumentService);
   private messageService = inject(MessageService);
 
-
+  /** Hồ sơ chỉ nhận file PDF và ảnh (JPG/PNG/TIFF) — khớp với whitelist mime-type backend đang cho phép
+   * cho luồng upload trực tiếp vào hồ sơ (FileUploadService.UploadFileToDossierDirectAsync). */
+  readonly dossierAllowedExtensions = ['.pdf', '.jpg', '.jpeg', '.png', '.tiff'];
 
   @ViewChild(FileUploadZoneComponent) uploadZone?: FileUploadZoneComponent;
 
