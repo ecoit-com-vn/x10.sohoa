@@ -690,10 +690,12 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 if (string.IsNullOrWhiteSpace(doc.MaTaiLieu)) continue;
 
                 string? fileBase64 = null;
+                string? fileDownloadError = null;
                 if (!string.IsNullOrWhiteSpace(doc.File))
                 {
-                    var bytes = await _pmisClient.DownloadDocumentFileAsync(doc.File, endpointApiCode);
+                    var (bytes, errorReason) = await _pmisClient.DownloadDocumentFileAsync(doc.File, endpointApiCode);
                     if (bytes is { Length: > 0 }) fileBase64 = Convert.ToBase64String(bytes);
+                    else fileDownloadError = errorReason;
                 }
 
                 requests.Add(new UpsertPmisDocumentRequest
@@ -705,6 +707,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                     DocumentType = doc.LoaiTaiLieu,
                     FileName = doc.TenTaiLieu ?? doc.MaTaiLieu,
                     FileBase64 = fileBase64,
+                    FileDownloadError = fileDownloadError,
                     SyncHistoryId = syncHistoryId,
                     // Đồng bộ cấp Trạm/Đường dây (maTB tham số = null, không lọc) PMIS trả về CẢ tài liệu
                     // thuộc riêng 1 thiết bị con (doc.MaTB có giá trị) LẪN tài liệu thuộc chính trạm/đường

@@ -350,9 +350,7 @@ public class InternalPmisSyncController : ControllerBase
                     {
                         PmisDocumentCode = item.PmisDocumentCode,
                         Success = objectKey != null,
-                        ErrorMessage = objectKey == null
-                            ? "Không tải được file tài liệu từ PMIS — đã lưu thông tin, chưa có file."
-                            : null
+                        ErrorMessage = objectKey == null ? BuildFileDownloadFailedMessage(item) : null
                     });
                     continue;
                 }
@@ -363,9 +361,7 @@ public class InternalPmisSyncController : ControllerBase
                 {
                     PmisDocumentCode = item.PmisDocumentCode,
                     Success = objectKey != null,
-                    ErrorMessage = objectKey == null
-                        ? "Không tải được file tài liệu từ PMIS — đã lưu thông tin, chưa có file."
-                        : null
+                    ErrorMessage = objectKey == null ? BuildFileDownloadFailedMessage(item) : null
                 });
             }
             catch (Exception ex)
@@ -492,6 +488,14 @@ public class InternalPmisSyncController : ControllerBase
             return null;
         }
     }
+
+    /// <summary>Ghép nguyên nhân thật (nếu SyncService có gửi kèm — xem UpsertPmisDocumentRequest.FileDownloadError)
+    /// vào thông báo chung, để admin thấy được lý do cụ thể ngay trong màn "Lịch sử đồng bộ" thay vì phải
+    /// vào log pod SyncService mới biết được vì sao tải file thất bại.</summary>
+    private static string BuildFileDownloadFailedMessage(UpsertPmisDocumentRequest item) =>
+        string.IsNullOrWhiteSpace(item.FileDownloadError)
+            ? "Không tải được file tài liệu từ PMIS — đã lưu thông tin, chưa có file."
+            : $"Không tải được file tài liệu từ PMIS — đã lưu thông tin, chưa có file. Nguyên nhân: {item.FileDownloadError}";
 
     private bool ValidateInternalToken(string? internalToken, out IActionResult? errorResult)
     {

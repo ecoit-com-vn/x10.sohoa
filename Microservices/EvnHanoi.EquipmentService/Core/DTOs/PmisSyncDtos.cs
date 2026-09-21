@@ -143,6 +143,12 @@ public class UpsertPmisDocumentRequest
     public string? FileBase64 { get; set; }                     // null nếu SyncService tải file thất bại
     public string? SyncHistoryId { get; set; }
 
+    /// <summary>Nguyên nhân THẬT khi FileBase64=null (vd "HttpRequestException: Response status code
+    /// does not indicate success: 404 (Not Found).") — SyncService rút gọn qua SyncErrorFormatter trước
+    /// khi gửi, không lộ stack trace. Ghép vào ErrorMessage trả về (xem InternalPmisSyncController) để
+    /// hiện luôn trong màn "Lịch sử đồng bộ", phục vụ debug mà không cần vào log pod SyncService.</summary>
+    public string? FileDownloadError { get; set; }
+
     /// <summary>Mã thiết bị PMIS (maTB) đính kèm trên CHÍNH dòng tài liệu này, nếu có — luôn gửi kèm dù
     /// gọi ở lượt đồng bộ Trạm/Đường dây hay Thiết bị. Khi có giá trị, server ưu tiên gán OwnerType=
     /// EQUIPMENT theo mã này (nếu thiết bị đã tồn tại) thay vì dùng OwnerType/OwnerPmisCode ở trên —
