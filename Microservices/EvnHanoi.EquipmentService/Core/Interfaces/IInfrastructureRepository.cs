@@ -57,5 +57,5 @@ public interface IInfrastructureRepository
     /// <summary>Cập nhật RIÊNG cột PARENT_ID cho NHIỀU Đường dây đã tồn tại cùng lúc (backfill) — không
     /// đụng các field khác, khác UpdateAsync/UpsertFromPmisAsync vốn cần đủ dữ liệu PMIS gốc của dòng đó.
     /// Trả về số dòng cập nhật thành công.</summary>
-    Task<int> UpdateParentIdsAsync(IReadOnlyList<(Guid Id, Guid ParentId)> items);
+    Task<int> UpdateParentIdsAsync(IReadOnlyList<(Guid Id, Guid ParentId, int? GridTypeId)> items);
 }
