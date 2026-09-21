@@ -224,11 +224,21 @@
   [style]="{ width: '900px' }"
   styleClass="evn-dialog-custom"
 >
+  <!-- Watchdog tự đánh rớt lượt RUNNING quá lâu không phải lỗi dữ liệu (rất có thể chỉ do khối lượng lớn
+       chạy lâu hơn ngưỡng, xem SyncHistoryWatchdogJob) — hiển thị màu cảnh báo (vàng) kèm gợi ý chạy lại,
+       khác lỗi thật (đỏ) để admin không hoảng khi thấy khung đỏ oan. -->
   <div
     *ngIf="historyDetailTarget()?.errorMessage as errorMessage"
-    style="margin-bottom: 12px; padding: 10px 14px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #b91c1c; white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5;"
+    [style.background]="errorMessage.includes('RUNNING quá') ? '#fffbeb' : '#fef2f2'"
+    [style.border]="errorMessage.includes('RUNNING quá') ? '1px solid #fde68a' : '1px solid #fecaca'"
+    [style.color]="errorMessage.includes('RUNNING quá') ? '#b45309' : '#b91c1c'"
+    style="margin-bottom: 12px; padding: 10px 14px; border-radius: 6px; white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5;"
   >
-    <b>Lỗi của cả lượt đồng bộ:</b> {{ errorMessage }}
+    <b>{{ errorMessage.includes('RUNNING quá') ? 'Lượt đồng bộ chưa hoàn tất:' : 'Lỗi của cả lượt đồng bộ:' }}</b>
+    {{ errorMessage }}
+    <div *ngIf="errorMessage.includes('RUNNING quá')" style="margin-top: 6px; font-family: inherit;">
+      Vui lòng thử chạy lại lượt đồng bộ này.
+    </div>
   </div>
 
   <div class="wf-table-wrap">
