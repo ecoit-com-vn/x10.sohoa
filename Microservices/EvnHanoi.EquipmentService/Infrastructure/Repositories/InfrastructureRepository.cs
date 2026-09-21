@@ -589,6 +589,7 @@ public class InfrastructureRepository : IInfrastructureRepository
         public string Id { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string? PmisUnitCode { get; set; }
+        public int? GridTypeId { get; set; }
     }
 
     public async Task<IEnumerable<EvnHanoi.EquipmentService.Core.DTOs.LineNameIndexEntry>> GetLineNameIndexAsync()
@@ -599,9 +600,10 @@ public class InfrastructureRepository : IInfrastructureRepository
         // Lấy ngược mã đơn vị PMIS từ PMIS_UNIT_CODE_MAPPING (UnitId -> PmisUnitCode) chỉ để phân biệt khi
         // trùng tên giữa nhiều đơn vị (xem PmisSyncExecutionService.ResolveParentLineIdAsync) — 1 UnitId có
         // thể map từ nhiều mã PMIS khác nhau về lý thuyết, lấy tạm 1 mã bất kỳ (FETCH FIRST 1 ROW ONLY) là
-        // đủ dùng vì chỉ để gợi ý phân biệt, không phải nguồn sự thật.
+        // đủ dùng vì chỉ để gợi ý phân biệt, không phải nguồn sự thật. GridTypeId lấy kèm để SyncService cho
+        // nhánh mượn tạm cấp điện áp của trục khi nhánh không có capDienAp riêng (xem LineNameIndexEntry).
         var rows = await _connection.QueryAsync<LineNameIndexRow>(
-            @"SELECT i.ID AS Id, i.NAME AS Name,
+            @"SELECT i.ID AS Id, i.NAME AS Name, i.GRIDTYPEID AS GridTypeId,
                      (SELECT m.PmisUnitCode FROM PMIS_UNIT_CODE_MAPPING m
                       WHERE m.UnitId = i.UNIT_ID AND m.IsDeleted = 0 FETCH FIRST 1 ROW ONLY) AS PmisUnitCode
               FROM INFRASTRUCTURE i
@@ -611,7 +613,8 @@ public class InfrastructureRepository : IInfrastructureRepository
         {
             Id = Guid.Parse(r.Id),
             Name = r.Name,
-            PmisUnitCode = r.PmisUnitCode
+            PmisUnitCode = r.PmisUnitCode,
+            GridTypeId = r.GridTypeId
         });
     }
 
@@ -625,7 +628,7 @@ public class InfrastructureRepository : IInfrastructureRepository
             _connection.Open();
 
         var rows = await _connection.QueryAsync<LineNameIndexRow>(
-            @"SELECT i.ID AS Id, i.NAME AS Name,
+            @"SELECT i.ID AS Id, i.NAME AS Name, i.GRIDTYPEID AS GridTypeId,
                      (SELECT m.PmisUnitCode FROM PMIS_UNIT_CODE_MAPPING m
                       WHERE m.UnitId = i.UNIT_ID AND m.IsDeleted = 0 FETCH FIRST 1 ROW ONLY) AS PmisUnitCode
               FROM INFRASTRUCTURE i
@@ -636,18 +639,22 @@ public class InfrastructureRepository : IInfrastructureRepository
         {
             Id = Guid.Parse(r.Id),
             Name = r.Name,
-            PmisUnitCode = r.PmisUnitCode
+            PmisUnitCode = r.PmisUnitCode,
+            GridTypeId = r.GridTypeId
         });
     }
 
-    /// <summary>Cập nhật RIÊNG cột PARENT_ID cho NHIỀU Đường dây đã tồn tại cùng lúc — dùng cho backfill
-    /// (xem GetLinesMissingParentAsync), khác <see cref="UpdateAsync"/>/UpsertFromPmisAsync vốn cần đủ các
-    /// field khác (Code/Address/OperationDate...) để so sánh hasChanged, không phù hợp khi chỉ có
-    /// Id + ParentId mới tự tra được, không có lại toàn bộ dữ liệu PMIS gốc của dòng đó. Gửi cả danh sách
-    /// qua 1 lệnh Dapper (Execute nhận IEnumerable tham số) thay vì foreach + await từng dòng ở tầng
-    /// controller — Dapper vẫn thực thi tuần tự từng dòng ở tầng DB (không phải 1 câu SQL gộp/batch thật
-    /// sự), lợi ích chính là gộp thành ĐÚNG 1 lần gọi HTTP SyncService→EquipmentService thay vì N lần.</summary>
-    public async Task<int> UpdateParentIdsAsync(IReadOnlyList<(Guid Id, Guid ParentId)> items)
+    /// <summary>Cập nhật cột PARENT_ID (và GRIDTYPEID nếu có) cho NHIỀU Đường dây đã tồn tại cùng lúc —
+    /// dùng cho backfill (xem GetLinesMissingParentAsync), khác <see cref="UpdateAsync"/>/UpsertFromPmisAsync
+    /// vốn cần đủ các field khác (Code/Address/OperationDate...) để so sánh hasChanged, không phù hợp khi
+    /// chỉ có Id + ParentId (+ GridTypeId mượn từ cha) mới tự tra được, không có lại toàn bộ dữ liệu PMIS
+    /// gốc của dòng đó. GridTypeId dùng COALESCE(GRIDTYPEID, :GridTypeId) — chỉ điền khi cột đang NULL,
+    /// không đoán đè lên giá trị đã có (an toàn với kiểu số, khác COALESCE trên cột CLOB từng gặp
+    /// ORA-00932). Gửi cả danh sách qua 1 lệnh Dapper (Execute nhận IEnumerable tham số) thay vì foreach +
+    /// await từng dòng ở tầng controller — Dapper vẫn thực thi tuần tự từng dòng ở tầng DB (không phải 1
+    /// câu SQL gộp/batch thật sự), lợi ích chính là gộp thành ĐÚNG 1 lần gọi HTTP SyncService→EquipmentService
+    /// thay vì N lần.</summary>
+    public async Task<int> UpdateParentIdsAsync(IReadOnlyList<(Guid Id, Guid ParentId, int? GridTypeId)> items)
     {
         if (items.Count == 0) return 0;
 
@@ -657,6 +664,7 @@ public class InfrastructureRepository : IInfrastructureRepository
         return await _connection.ExecuteAsync(
             $@"UPDATE INFRASTRUCTURE
                SET PARENT_ID = :ParentId,
+                   GRIDTYPEID = COALESCE(GRIDTYPEID, :GridTypeId),
                    {nameof(Infrastructure.ModifiedBy)} = :ModifiedBy,
                    {nameof(Infrastructure.ModifiedDate)} = SYSTIMESTAMP
                WHERE {nameof(Infrastructure.Id)} = :Id AND {nameof(Infrastructure.IsDeleted)} = 0",
@@ -664,6 +672,7 @@ public class InfrastructureRepository : IInfrastructureRepository
             {
                 Id = i.Id.ToString(),
                 ParentId = i.ParentId.ToString(),
+                GridTypeId = i.GridTypeId,
                 ModifiedBy = "PMIS_SYNC"
             }));
     }
