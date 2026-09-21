@@ -103,7 +103,7 @@ public class InternalPmisSyncController : ControllerBase
         if (request.Items is not { Count: > 0 }) return Ok(new { updatedCount = 0 });
 
         var updatedCount = await _infrastructureRepository.UpdateParentIdsAsync(
-            request.Items.Select(i => (i.Id, i.ParentInfrastructureId)).ToList());
+            request.Items.Select(i => (i.Id, i.ParentInfrastructureId, i.GridTypeId)).ToList());
 
         return Ok(new { updatedCount });
     }

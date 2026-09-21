@@ -71,6 +71,13 @@ public class LineNameIndexEntry
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? PmisUnitCode { get; set; }
+
+    /// <summary>GRIDTYPEID hiện có của chính dòng này (null nếu đường dây này chưa tự xác định được cấp
+    /// điện áp từ capDienAp của chính nó) — SyncService dùng để: (1) cho nhánh mượn tạm khi nhánh không
+    /// có capDienAp riêng (rất phổ biến — nhánh thường không khai báo lại cấp điện áp của trục), (2) biết
+    /// có cần backfill GridTypeId cho 1 dòng đang thiếu cha hay không (chỉ điền khi đang null, không đoán
+    /// đè lên giá trị đã có — xem PmisSyncExecutionService.ResolveGridTypeId).</summary>
+    public int? GridTypeId { get; set; }
 }
 
 /// <summary>Payload POST internal/v1/infrastructure/backfill-line-parents — cập nhật CHỈ cột PARENT_ID
@@ -87,6 +94,10 @@ public class BackfillLineParentItem
 {
     public Guid Id { get; set; }
     public Guid ParentInfrastructureId { get; set; }
+
+    /// <summary>Cấp lưới điện mượn tạm từ đường trục cha, CHỈ khi dòng này đang GRIDTYPEID=NULL — null có
+    /// nghĩa là không cần cập nhật cột này (đã có giá trị riêng từ trước, hoặc cha cũng chưa có).</summary>
+    public int? GridTypeId { get; set; }
 }
 
 public class UpsertInfrastructureFromPmisResult

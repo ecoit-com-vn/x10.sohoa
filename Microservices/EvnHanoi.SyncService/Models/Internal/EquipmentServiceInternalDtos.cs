@@ -33,6 +33,10 @@ public class LineNameIndexEntry
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? PmisUnitCode { get; set; }
+
+    /// <summary>GRIDTYPEID hiện có của chính dòng này — dùng để cho nhánh mượn tạm cấp điện áp của trục
+    /// khi nhánh không có capDienAp riêng (xem PmisSyncExecutionService.ResolveParentLineId).</summary>
+    public int? GridTypeId { get; set; }
 }
 
 /// <summary>Mirror của BackfillLineParentRequest/Item (EquipmentService) — cập nhật RIÊNG cột
@@ -47,6 +51,10 @@ public class BackfillLineParentItem
 {
     public Guid Id { get; set; }
     public Guid ParentInfrastructureId { get; set; }
+
+    /// <summary>Cấp lưới điện mượn tạm từ đường trục cha, CHỈ khi dòng này đang GRIDTYPEID=NULL — null có
+    /// nghĩa là không cần cập nhật cột này.</summary>
+    public int? GridTypeId { get; set; }
 }
 
 public class BackfillLineParentResult

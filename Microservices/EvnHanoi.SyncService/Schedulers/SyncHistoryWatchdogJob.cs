@@ -29,7 +29,7 @@ public class SyncHistoryWatchdogJob : IJob
         {
             var affected = await _repository.FailStaleRunningAsync(
                 StaleThreshold,
-                $"Tự động đánh dấu thất bại: RUNNING quá {StaleThreshold.TotalMinutes:0} phút không hoàn tất — có thể do SyncService bị dừng đột ngột giữa lượt chạy.");
+                $"Tự động đánh dấu thất bại: RUNNING quá {StaleThreshold.TotalMinutes:0} phút không hoàn tất — có thể do khối lượng dữ liệu lớn hoặc SyncService bị dừng đột ngột giữa lượt chạy. Vui lòng chạy lại; nếu lỗi lặp lại nhiều lần, kiểm tra log SyncService.");
 
             if (affected > 0)
                 Log.Warning("SyncHistoryWatchdogJob: đã đánh dấu FAILED cho {Count} dòng SYNC_HISTORY bị kẹt RUNNING quá {Minutes} phút.", affected, StaleThreshold.TotalMinutes);
