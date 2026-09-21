@@ -1681,6 +1681,15 @@ StatusTransition,
                     return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
                         "Không thể tự động chuyển thiết bị sang trạm/đường dây mới — thiết bị vừa được chuyển bởi 1 thao tác khác, vui lòng đồng bộ lại.");
                 }
+                catch (Exception ex) when (ex.Message.Contains("ORA-00001", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Mã "code" ở Trạm/Đường dây MỚI đã bị 1 thiết bị KHÁC đang hoạt động chiếm (UX_EQUIPMENTS_
+                    // ACTIVE_INFRA_CODE, xem Migration0059) — khác lỗi "hồn ma" đã xử lý bằng migration đó, đây
+                    // là xung đột THẬT giữa 2 thiết bị đang sống (vd PMIS trả trùng maTB cho 2 thiết bị khác
+                    // nhau) — không thể tự đoán merge, phải báo rõ cho admin kiểm tra lại trên PMIS.
+                    return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
+                        $"Không thể chuyển thiết bị sang trạm/đường dây mới: mã '{code}' đã được dùng cho 1 thiết bị khác đang hoạt động tại đúng trạm/đường dây đó — có thể PMIS trả trùng mã thiết bị, vui lòng kiểm tra lại trên PMIS.");
+                }
 
                 return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Transferred(
                     replacementId, Guid.Parse(equipmentTypeId), oldId, existing.UnitId, unitId);
@@ -1742,7 +1751,18 @@ StatusTransition,
                 updateParameters.Add("QrCode", EvnHanoi.Infrastructure.Database.OracleClob.Param(qrCodeBase64));
             }
 
-            await _connection.ExecuteAsync(updateSql, updateParameters);
+            try
+            {
+                await _connection.ExecuteAsync(updateSql, updateParameters);
+            }
+            catch (Exception ex) when (ex.Message.Contains("ORA-00001", StringComparison.OrdinalIgnoreCase))
+            {
+                // Code/InfrastructureId mới đổi sang trùng đúng ô mà 1 thiết bị KHÁC đang hoạt động chiếm
+                // (UX_EQUIPMENTS_ACTIVE_INFRA_CODE, xem Migration0059) — xung đột THẬT giữa 2 thiết bị đang
+                // sống, không thể tự đoán merge, phải báo rõ cho admin kiểm tra lại trên PMIS.
+                return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
+                    $"Không thể cập nhật thiết bị: mã '{code}' đã được dùng cho 1 thiết bị khác đang hoạt động tại đúng trạm/đường dây này — có thể PMIS trả trùng mã thiết bị, vui lòng kiểm tra lại trên PMIS.");
+            }
             return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Ok(Guid.Parse(existing.Id!), false, true, Guid.Parse(equipmentTypeId));
         }
 
@@ -1755,20 +1775,31 @@ StatusTransition,
                         1, :UnitId, :CreatedBy, SYSTIMESTAMP, 0, :PmisCode, :QrCode, SYSTIMESTAMP
                     )";
 
-        await _connection.ExecuteAsync(insertSql, new
+        try
         {
-            Id = newId.ToString(),
-            EquipmentTypeId = equipmentTypeId,
-            Name = name,
-            Code = code,
-            SerialNumber = serialNumber,
-            InfrastructureId = infrastructureId,
-            ManufactureYear = manufactureYear,
-            UnitId = unitId,
-            CreatedBy = "PMIS_SYNC",
-            PmisCode = pmisCode,
-            QrCode = EvnHanoi.Infrastructure.Database.OracleClob.Param(qrCodeBase64)
-        });
+            await _connection.ExecuteAsync(insertSql, new
+            {
+                Id = newId.ToString(),
+                EquipmentTypeId = equipmentTypeId,
+                Name = name,
+                Code = code,
+                SerialNumber = serialNumber,
+                InfrastructureId = infrastructureId,
+                ManufactureYear = manufactureYear,
+                UnitId = unitId,
+                CreatedBy = "PMIS_SYNC",
+                PmisCode = pmisCode,
+                QrCode = EvnHanoi.Infrastructure.Database.OracleClob.Param(qrCodeBase64)
+            });
+        }
+        catch (Exception ex) when (ex.Message.Contains("ORA-00001", StringComparison.OrdinalIgnoreCase))
+        {
+            // Thiết bị PMIS mới (chưa có PMIS_CODE trong hệ thống) nhưng mã 'code' đã bị 1 thiết bị KHÁC
+            // đang hoạt động chiếm tại đúng trạm/đường dây này (UX_EQUIPMENTS_ACTIVE_INFRA_CODE, xem
+            // Migration0059) — có thể PMIS trả trùng mã thiết bị, hoặc đã có thiết bị nhập tay trùng mã.
+            return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
+                $"Không thể tạo mới thiết bị: mã '{code}' đã được dùng cho 1 thiết bị khác đang hoạt động tại đúng trạm/đường dây này — có thể PMIS trả trùng mã thiết bị, vui lòng kiểm tra lại trên PMIS.");
+        }
         return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Ok(newId, true, true, Guid.Parse(equipmentTypeId));
     }
 
