@@ -229,6 +229,26 @@ public class PmisDocumentCatalogNodeDto
     public int DocumentCount { get; set; }
 }
 
+/// <summary>1 dòng kết quả "Tìm Trạm/Đường dây" trên TOÀN BỘ công ty (không giới hạn theo 1 Đơn vị như
+/// GetCatalogUnitChildrenAsync) — dùng cho ô tìm kiếm phía trên cây "Kho tài liệu PMIS", cho phép nhảy
+/// thẳng tới đúng Trạm/Đường dây mà không cần biết nó thuộc công ty nào. Kèm UnitNodeId/UnitName để FE
+/// tự tải + mở đúng nhánh cây chứa nó.</summary>
+public class PmisInfrastructureLookupDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Code { get; set; }
+
+    /// <summary>substation | line.</summary>
+    public string NodeType { get; set; } = string.Empty;
+    public int DocumentCount { get; set; }
+
+    /// <summary>"unit_{id}" hoặc "unit_unassigned" - dùng để gọi GetCatalogUnitChildrenAsync và mở đúng
+    /// công ty trong cây.</summary>
+    public string UnitNodeId { get; set; } = string.Empty;
+    public string? UnitName { get; set; }
+}
+
 /// <summary>1 dòng PMIS_UNIT_CODE_MAPPING (ánh xạ mã đơn vị PMIS ↔ UnitId thật) — xem Migration0051 và
 /// PmisUnitCodeMappingController.</summary>
 public class PmisUnitCodeMappingDto

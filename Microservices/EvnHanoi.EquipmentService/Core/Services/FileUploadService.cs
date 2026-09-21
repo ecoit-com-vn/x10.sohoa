@@ -541,7 +541,7 @@ public class FileUploadService : IFileUploadService
 
         var unitCode = await ResolveUnitCodeFromUserAsync(userUnitId);
 
-        await ValidateMimeTypeAsync(mimeType);
+        ValidateDossierMimeType(mimeType);
         ValidateMagicBytes(fileStream, mimeType);
 
         var scanResult = await _antivirusService.ScanFileAsync(fileStream, fileName, cancellationToken);
@@ -814,6 +814,23 @@ public class FileUploadService : IFileUploadService
         var isMimeTypeAllowed = await _mimeTypeValidator.IsAllowedMimeTypeAsync(mimeType);
         if (!isMimeTypeAllowed)
             throw new ArgumentException($"Loại file không được hỗ trợ: {mimeType}");
+    }
+
+    /// <summary>Upload trực tiếp vào hồ sơ chỉ nhận PDF và ảnh (không nhận Word/Excel/DWG như các luồng
+    /// upload khác) — whitelist riêng, hẹp hơn IMimeTypeValidationService dùng chung cho toàn hệ thống,
+    /// vì hồ sơ chỉ lưu bản scan/PDF điện tử, không phải kho tài liệu văn phòng đa định dạng.</summary>
+    private static readonly HashSet<string> DossierAllowedMimeTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+        "image/tiff",
+    };
+
+    private static void ValidateDossierMimeType(string mimeType)
+    {
+        if (!DossierAllowedMimeTypes.Contains(mimeType))
+            throw new ArgumentException($"Hồ sơ chỉ nhận file PDF hoặc ảnh (JPG/PNG/TIFF): {mimeType}");
     }
 
     public async Task AbortDossierChunkedUploadAsync(

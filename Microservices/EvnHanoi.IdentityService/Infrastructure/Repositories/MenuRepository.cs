@@ -4,6 +4,7 @@ using System.Data;
 using System.Threading.Tasks;
 using Dapper;
 using EvnHanoi.IdentityService.Core.Domain.Models;
+using EvnHanoi.IdentityService.Core.DTOs;
 using EvnHanoi.IdentityService.Core.Interfaces;
 
 namespace EvnHanoi.IdentityService.Infrastructure.Repositories;
@@ -15,6 +16,23 @@ public class MenuRepository : IMenuRepository
     public MenuRepository(IDbConnection connection)
     {
         _connection = connection;
+    }
+
+    public async Task<IEnumerable<RoleFunctionAssignmentDto>> GetRoleFunctionAssignmentsAsync()
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        const string sql = @"
+            SELECT DISTINCT
+                rpg.RoleId AS RoleId,
+                m.Id AS FuncId
+            FROM ROLE_PERMISSION_GROUP rpg
+            JOIN PERMISSION_GROUP_PERMISSION pgp ON pgp.PermissionGroupId = rpg.PermissionGroupId
+            JOIN PERMISSION p ON p.Id = pgp.PermissionId
+            JOIN APP_MENU m ON m.PermissionCode = p.Code
+            WHERE m.PermissionCode IS NOT NULL";
+
+        return await _connection.QueryAsync<RoleFunctionAssignmentDto>(sql);
     }
 
     public async Task<IEnumerable<Menu>> GetAllAsync()

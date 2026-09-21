@@ -852,6 +852,51 @@ StatusTransition,
             if (sourceUpdated != 1)
                 throw new InvalidOperationException("Thiết bị nguồn không còn tồn tại, đã bị xóa, hoặc đã được chuyển bởi 1 thao tác khác.");
 
+            // Ghi lịch sử di chuyển trong cùng transaction với việc tạo bản ghi mới/khoá bản ghi cũ —
+            // đảm bảo lịch sử luôn khớp với dữ liệu thực tế (không thể có 1 lần chuyển thành công mà
+            // thiếu dòng lịch sử, hoặc có dòng lịch sử "ma" khi transaction rollback).
+            await _connection.ExecuteAsync(@"INSERT INTO EQUIPMENT_TRANSFER_HISTORY (
+                    Id,
+                    EquipmentCode,
+                    SourceEquipmentId,
+                    TargetEquipmentId,
+                    SourceInfrastructureId,
+                    TargetInfrastructureId,
+                    SourceUnitId,
+                    TargetUnitId,
+                    Note,
+                    TransferredBy,
+                    TransferredAt
+                )
+                VALUES (
+                    :Id,
+                    :EquipmentCode,
+                    :SourceEquipmentId,
+                    :TargetEquipmentId,
+                    :SourceInfrastructureId,
+                    :TargetInfrastructureId,
+                    :SourceUnitId,
+                    :TargetUnitId,
+                    :Note,
+                    :TransferredBy,
+                    :TransferredAt
+                )",
+                new
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    EquipmentCode = replacementEquipment.Code,
+                    SourceEquipmentId = sourceEquipment.Id.ToString(),
+                    TargetEquipmentId = replacementEquipment.Id.ToString(),
+                    SourceInfrastructureId = sourceEquipment.InfrastructureId?.ToString(),
+                    TargetInfrastructureId = replacementEquipment.InfrastructureId?.ToString(),
+                    SourceUnitId = sourceEquipment.UnitId,
+                    TargetUnitId = replacementEquipment.UnitId,
+                    sourceEquipment.Note,
+                    TransferredBy = replacementEquipment.CreatedBy,
+                    TransferredAt = replacementEquipment.CreatedAt
+                },
+                transaction);
+
             transaction.Commit();
             return true;
         }
@@ -860,6 +905,69 @@ StatusTransition,
             transaction.Rollback();
             throw;
         }
+    }
+
+    public async Task<(IEnumerable<EquipmentTransferHistoryDto> Items, int TotalCount)> GetTransferHistoryAsync(
+        string equipmentCode,
+        Guid? infrastructureId,
+        DateTime? fromDate,
+        DateTime? toDate,
+        int page,
+        int pageSize)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var sqlBase = @"FROM EQUIPMENT_TRANSFER_HISTORY h
+                        LEFT JOIN INFRASTRUCTURE inf ON h.TargetInfrastructureId = inf.Id
+                        LEFT JOIN INFRASTRUCTURE srcInf ON h.SourceInfrastructureId = srcInf.Id
+                        LEFT JOIN ORGANIZATION_UNIT u ON h.TargetUnitId = u.Id
+                        WHERE h.EquipmentCode = :EquipmentCode";
+
+        var parameters = new DynamicParameters();
+        parameters.Add("EquipmentCode", equipmentCode);
+
+        if (infrastructureId.HasValue)
+        {
+            sqlBase += " AND h.TargetInfrastructureId = :InfrastructureId";
+            parameters.Add("InfrastructureId", infrastructureId.Value.ToString());
+        }
+
+        if (fromDate.HasValue)
+        {
+            sqlBase += " AND h.TransferredAt >= :FromDate";
+            parameters.Add("FromDate", fromDate.Value.Date);
+        }
+
+        if (toDate.HasValue)
+        {
+            sqlBase += " AND h.TransferredAt < :ToDateExclusive";
+            parameters.Add("ToDateExclusive", toDate.Value.Date.AddDays(1));
+        }
+
+        var totalCount = await _connection.ExecuteScalarAsync<int>($"SELECT COUNT(1) {sqlBase}", parameters);
+
+        var selectSql = $@"SELECT h.Id AS {nameof(EquipmentTransferHistoryDto.Id)},
+                                   h.SourceInfrastructureId AS {nameof(EquipmentTransferHistoryDto.SourceInfrastructureId)},
+                                   srcInf.Name AS {nameof(EquipmentTransferHistoryDto.SourceInfrastructureName)},
+                                   srcInf.Code AS {nameof(EquipmentTransferHistoryDto.SourceInfrastructureCode)},
+                                   h.TargetInfrastructureId AS {nameof(EquipmentTransferHistoryDto.TargetInfrastructureId)},
+                                   inf.Name AS {nameof(EquipmentTransferHistoryDto.InfrastructureName)},
+                                   inf.Code AS {nameof(EquipmentTransferHistoryDto.InfrastructureCode)},
+                                   h.TargetUnitId AS {nameof(EquipmentTransferHistoryDto.TargetUnitId)},
+                                   u.Name AS {nameof(EquipmentTransferHistoryDto.UnitName)},
+                                   h.Note AS {nameof(EquipmentTransferHistoryDto.Note)},
+                                   h.TransferredBy AS {nameof(EquipmentTransferHistoryDto.TransferredBy)},
+                                   h.TransferredAt AS {nameof(EquipmentTransferHistoryDto.TransferredAt)}
+                            {sqlBase}
+                            ORDER BY h.TransferredAt DESC
+                            OFFSET :Skip ROWS FETCH NEXT :Take ROWS ONLY";
+
+        parameters.Add("Skip", (Math.Max(page, 1) - 1) * pageSize);
+        parameters.Add("Take", pageSize);
+
+        var items = await _connection.QueryAsync<EquipmentTransferHistoryDto>(selectSql, parameters);
+        return (items, totalCount);
     }
 
     public async Task<Equipment?> GetDetailTransferTargetAsync(Equipment sourceEquipment)

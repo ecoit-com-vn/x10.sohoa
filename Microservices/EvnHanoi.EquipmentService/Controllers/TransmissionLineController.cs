@@ -92,15 +92,12 @@ public class TransmissionLineController : ControllerBase
         // Force Transmission Line type
         infrastructure.InfraTypeId = INFRA_TYPE_ID;
 
-        // Kiểm tra phân cấp tối đa 2 cấp
+        // Cho phép phân cấp nhiều cấp cha - con, chỉ cần cha tồn tại và đúng loại
         if (infrastructure.ParentId.HasValue && infrastructure.ParentId.Value != Guid.Empty)
         {
             var parent = await _infrastructureRepository.GetByIdAsync(infrastructure.ParentId.Value);
             if (parent == null || parent.InfraTypeId != INFRA_TYPE_ID)
                 return BadRequest(new { message = "Đường dây cấp cha không tồn tại hoặc không hợp lệ." });
-
-            if (parent.ParentId.HasValue && parent.ParentId.Value != Guid.Empty)
-                return BadRequest(new { message = "Đường dây được chọn làm cấp cha đã là đường dây con. Hệ thống chỉ cho phép tối đa 2 cấp đường dây." });
         }
         else
         {
@@ -136,7 +133,7 @@ public class TransmissionLineController : ControllerBase
         // Force Transmission Line type
         infrastructure.InfraTypeId = INFRA_TYPE_ID;
 
-        // Kiểm tra phân cấp tối đa 2 cấp
+        // Cho phép phân cấp nhiều cấp cha - con, chỉ cần chặn tự tham chiếu và vòng lặp
         if (infrastructure.ParentId.HasValue && infrastructure.ParentId.Value != Guid.Empty)
         {
             if (infrastructure.ParentId.Value == id)
@@ -146,8 +143,8 @@ public class TransmissionLineController : ControllerBase
             if (parent == null || parent.InfraTypeId != INFRA_TYPE_ID)
                 return BadRequest(new { message = "Đường dây cấp cha không tồn tại hoặc không hợp lệ." });
 
-            if (parent.ParentId.HasValue && parent.ParentId.Value != Guid.Empty)
-                return BadRequest(new { message = "Đường dây được chọn làm cấp cha đã là đường dây con. Hệ thống chỉ cho phép tối đa 2 cấp đường dây." });
+            if (await IsDescendantAsync(infrastructure.ParentId.Value, id))
+                return BadRequest(new { message = "Không thể chọn một đường dây con/cháu của chính nó làm cấp cha." });
         }
         else
         {
@@ -227,6 +224,27 @@ public class TransmissionLineController : ControllerBase
             return StatusCode(500, new { message = "Không thể mở khóa đường dây." });
 
         return Ok(new { message = "Đã mở khóa đường dây thành công." });
+    }
+
+    // Kiểm tra xem candidateParentId có phải là hậu duệ (con/cháu...) của ancestorId hay không,
+    // để chặn việc chọn một hậu duệ làm cha (tránh tạo vòng lặp trong cây phân cấp).
+    private async Task<bool> IsDescendantAsync(Guid candidateParentId, Guid ancestorId)
+    {
+        var currentId = candidateParentId;
+        var visited = new HashSet<Guid>();
+        while (currentId != Guid.Empty && visited.Add(currentId))
+        {
+            if (currentId == ancestorId)
+                return true;
+
+            var current = await _infrastructureRepository.GetByIdAsync(currentId);
+            if (current?.ParentId == null || current.ParentId.Value == Guid.Empty)
+                break;
+
+            currentId = current.ParentId.Value;
+        }
+
+        return false;
     }
 
     private async Task<List<long>?> GetAllowedUnitIdsAsync()

@@ -23,14 +23,34 @@ public interface IPmisDocumentRepository
     /// — dùng cho màn "Kho tài liệu PMIS" (xem chi tiết/tải về) và "Chọn từ kho PMIS" (kiểm tra quyền + copy vào hồ sơ).</summary>
     Task<PmisDocumentDetail?> GetByIdAsync(Guid id);
 
-    /// <summary>Cây "Kho tài liệu PMIS": Đơn vị → Trạm biến áp/Đường dây → Thiết bị — tổng hợp từ
-    /// ORGANIZATION_UNIT/INFRASTRUCTURE/EQUIPMENTS + PMIS_DOCUMENT, chỉ liệt kê nhánh có ít nhất 1 tài
-    /// liệu (trực tiếp hoặc ở thiết bị con), không có bảng folder riêng.</summary>
-    Task<IReadOnlyList<PmisDocumentCatalogNodeDto>> GetCatalogTreeAsync();
+    /// <summary>Cấp gốc của cây "Kho tài liệu PMIS": chỉ danh sách Đơn vị (công ty) có ít nhất 1
+    /// Trạm/Đường dây (hoặc thiết bị con) đã có tài liệu PMIS — KHÔNG tải kèm Trạm/Đường dây/Thiết bị,
+    /// dùng để load lười (lazy) khi người dùng mở node gốc, tránh quét toàn bộ INFRASTRUCTURE/EQUIPMENTS
+    /// như GetCatalogTreeAsync cũ. <paramref name="allowedUnitIds"/> null = không giới hạn (quản trị hệ
+    /// thống, xem tất cả); có giá trị = chỉ trả về các Đơn vị nằm trong danh sách này (đơn vị đăng nhập +
+    /// các đơn vị con), "unit_unassigned" chỉ xuất hiện khi allowedUnitIds null.</summary>
+    Task<IReadOnlyList<PmisDocumentCatalogNodeDto>> GetCatalogUnitsAsync(IEnumerable<long>? allowedUnitIds);
+
+    /// <summary>Trạm/Đường dây + Thiết bị con của đúng 1 Đơn vị (unitNodeId dạng "unit_{id}" hoặc
+    /// "unit_unassigned") — dùng để load lười khi người dùng click mở 1 công ty trong cây. Controller chịu
+    /// trách nhiệm kiểm tra unitNodeId có nằm trong phạm vi được phép của người dùng trước khi gọi.</summary>
+    Task<IReadOnlyList<PmisDocumentCatalogNodeDto>> GetCatalogUnitChildrenAsync(string unitNodeId);
 
     /// <summary>Danh sách tài liệu của đúng 1 node lá (Trạm/Đường dây hoặc Thiết bị) trong cây trên.</summary>
     Task<(IEnumerable<PmisDocumentDetail> Items, int TotalCount)> GetByOwnerAsync(
         string ownerType, Guid ownerId, string? keyword, int page, int pageSize);
+
+    /// <summary>UnitId (đơn vị quản lý) thực sự của 1 node lá (Trạm/Đường dây hoặc Thiết bị - Thiết bị lấy
+    /// UnitId của chính nó, không phải của Trạm/Đường dây cha) — dùng để kiểm tra quyền trước khi trả tài
+    /// liệu/cho upload, null nếu không tìm thấy hoặc chưa gán đơn vị.</summary>
+    Task<long?> GetOwnerUnitIdAsync(string ownerType, Guid ownerId);
+
+    /// <summary>Toàn bộ Trạm/Đường dây đã có tài liệu PMIS (không lọc theo 1 Đơn vị cụ thể) - dùng cho ô
+    /// tìm kiếm phía trên cây, kèm UnitNodeId/UnitName để FE tự mở đúng nhánh cây chứa nó.
+    /// <paramref name="allowedUnitIds"/> cùng quy ước với GetCatalogUnitsAsync — có giá trị thì cũng loại
+    /// luôn các Trạm/Đường dây chưa xác định đơn vị (UNIT_ID NULL), vì người dùng không phải quản trị hệ
+    /// thống thì không có "đơn vị" nào để coi các bản ghi mồ côi này là của mình.</summary>
+    Task<IReadOnlyList<PmisInfrastructureLookupDto>> SearchInfrastructuresAsync(IEnumerable<long>? allowedUnitIds);
 
     /// <summary>Nút "Upload tài liệu" thủ công khi đồng bộ tự động lỗi — tự sinh PmisDocumentCode dạng
     /// "MANUAL_{guid}" (không trùng mã PMIS thật, vẫn thoả UNIQUE) để phân biệt CreatedBy khác 'PMIS_SYNC'.</summary>
