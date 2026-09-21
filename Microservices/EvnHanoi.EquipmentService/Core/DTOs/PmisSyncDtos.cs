@@ -78,6 +78,15 @@ public class LineNameIndexEntry
     /// có cần backfill GridTypeId cho 1 dòng đang thiếu cha hay không (chỉ điền khi đang null, không đoán
     /// đè lên giá trị đã có — xem PmisSyncExecutionService.ResolveGridTypeId).</summary>
     public int? GridTypeId { get; set; }
+
+    /// <summary>Chỉ có giá trị khi dòng này được trả về bởi GetLinesNeedingBackfillAsync VÀ đã có cha
+    /// (PARENT_ID không NULL) — cho SyncService biết ngay ParentId THẬT (không cần resolve lại theo tên)
+    /// và GridTypeId hiện có của chính cha đó (ParentGridTypeId), để mượn thẳng khi chính dòng này thiếu
+    /// GridTypeId. Null với các dòng tải qua GetLineNameIndexAsync (không JOIN cột này).</summary>
+    public Guid? ParentId { get; set; }
+
+    /// <summary>Xem ParentId — GRIDTYPEID hiện có của dòng cha (null nếu cha cũng chưa có).</summary>
+    public int? ParentGridTypeId { get; set; }
 }
 
 /// <summary>Payload POST internal/v1/infrastructure/backfill-line-parents — cập nhật CHỈ cột PARENT_ID

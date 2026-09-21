@@ -137,15 +137,11 @@ public class PmisManualSyncController : ControllerBase
         }
 
         // Đồng bộ thủ công Đường dây: người dùng có thể chỉ chọn lưu 1 vài nhánh mà chưa chọn đúng đường
-        // trục của nó (hoặc trục đã có sẵn từ trước) — thử khớp lại cha ngay, cùng cơ chế với
-        // PmisScheduledSyncJob.RunLineAsync, để không phải đợi tới lượt đồng bộ tự động (có thể đang tắt
-        // hẳn cho Đường dây — SyncConfig.IsEnabled) mới có cơ hội tự sửa.
-        if (normalizedType == SyncObjectType.TransmissionLine)
-        {
-            var (backfillWarnings, backfillError) = await _executionService.BackfillLineParentsAsync();
-            warningCount += backfillWarnings;
-            if (backfillError != null) errors.Add(backfillError);
-        }
+        // trục của nó (hoặc trục đã có sẵn từ trước) — việc "tự khớp lại cha/cấp điện áp" cho các nhánh còn
+        // thiếu KHÔNG còn chạy inline ngay đây nữa, đã tách ra job Quartz riêng chạy nền định kỳ
+        // (LineParentBackfillJob, tick mỗi 5 phút — không phụ thuộc SyncConfig.IsEnabled của Đường dây),
+        // tránh kéo dài thời gian RUNNING của CHÍNH request save này khi số nhánh mồ côi tồn đọng nhiều
+        // (xem comment MaxBackfillPerRun trong PmisSyncExecutionService).
 
         var finalStatus = successCount == 0
             ? SyncHistoryStatus.Failed

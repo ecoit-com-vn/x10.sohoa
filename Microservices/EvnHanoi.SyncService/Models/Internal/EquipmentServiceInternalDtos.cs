@@ -37,6 +37,14 @@ public class LineNameIndexEntry
     /// <summary>GRIDTYPEID hiện có của chính dòng này — dùng để cho nhánh mượn tạm cấp điện áp của trục
     /// khi nhánh không có capDienAp riêng (xem PmisSyncExecutionService.ResolveParentLineId).</summary>
     public int? GridTypeId { get; set; }
+
+    /// <summary>Chỉ có giá trị khi dòng này được trả về bởi GetLinesNeedingBackfillAsync VÀ đã có cha —
+    /// cho biết ngay ParentId THẬT (không cần resolve lại theo tên) và GridTypeId hiện có của cha đó
+    /// (ParentGridTypeId), để BackfillLineParentsAsync mượn thẳng khi chính dòng này thiếu GridTypeId.</summary>
+    public Guid? ParentId { get; set; }
+
+    /// <summary>Xem ParentId — GRIDTYPEID hiện có của dòng cha (null nếu cha cũng chưa có).</summary>
+    public int? ParentGridTypeId { get; set; }
 }
 
 /// <summary>Mirror của BackfillLineParentRequest/Item (EquipmentService) — cập nhật RIÊNG cột

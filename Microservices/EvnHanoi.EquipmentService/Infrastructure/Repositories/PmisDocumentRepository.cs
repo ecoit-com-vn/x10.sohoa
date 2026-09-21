@@ -36,7 +36,9 @@ public class PmisDocumentRepository : IPmisDocumentRepository
                 sql = "SELECT Id FROM INFRASTRUCTURE WHERE PMIS_CODE = :Code AND IsDeleted = 0";
                 break;
             case "EQUIPMENT":
-                sql = "SELECT Id FROM EQUIPMENTS WHERE PMIS_CODE = :Code AND IsDeleted = 0";
+                // EquipmentSqlFilters.NotTransferredAway — loại "hồn ma" chuyển TBA, giữ thiết bị "đã
+                // chuyển hồ sơ" (xem GetPagedAsync).
+                sql = $"SELECT Id FROM EQUIPMENTS WHERE PMIS_CODE = :Code AND IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway()}";
                 break;
             default:
                 return null;
@@ -146,7 +148,9 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         // ORGANIZATION_UNIT (kể cả đơn vị không có dữ liệu) → chậm dù kết quả cuối chỉ vài chục đơn vị.
         // Dùng đúng kỹ thuật GROUP BY 1 lần rồi JOIN như GetCatalogUnitChildrenAsync/GetCatalogTreeAsync
         // cũ (xem lịch sử 504 timeout) — chỉ 1 lượt full-scan duy nhất trên mỗi bảng.
-        var unitsSql = @"
+        // EquipmentSqlFilters.NotTransferredAway — loại thiết bị "hồn ma" chuyển TBA khỏi việc quyết định
+        // 1 Đơn vị có "còn thiết bị có tài liệu PMIS" hay không (xem GetPagedAsync để biết đầy đủ lý do).
+        var unitsSql = $@"
             SELECT DISTINCT ou.Id, ou.Name
             FROM ORGANIZATION_UNIT ou
             INNER JOIN INFRASTRUCTURE i ON i.UNIT_ID = ou.Id AND i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0
@@ -160,7 +164,7 @@ public class PmisDocumentRepository : IPmisDocumentRepository
                 SELECT e.INFRASTRUCTURE_ID AS InfrastructureId
                 FROM EQUIPMENTS e
                 INNER JOIN PMIS_DOCUMENT pd ON pd.OwnerType = 'EQUIPMENT' AND pd.OwnerId = e.Id AND pd.IsDeleted = 0
-                WHERE e.IsDeleted = 0
+                WHERE e.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("e")}
                 GROUP BY e.INFRASTRUCTURE_ID
             ) child_doc ON child_doc.InfrastructureId = i.Id
             WHERE (direct_doc.OwnerId IS NOT NULL OR child_doc.InfrastructureId IS NOT NULL)";
@@ -184,7 +188,7 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         // Cùng kỹ thuật GROUP BY + JOIN ở trên, chỉ đổi điều kiện UNIT_ID IS NULL — không phải correlated.
         // CHỈ hiện với quản trị hệ thống (allowedIdsList null) — các bản ghi này chưa thuộc đơn vị nào nên
         // người dùng thường không có "đơn vị" nào để được coi là chủ sở hữu.
-        var hasUnassigned = allowedIdsList == null && await _connection.ExecuteScalarAsync<int>(@"
+        var hasUnassigned = allowedIdsList == null && await _connection.ExecuteScalarAsync<int>($@"
             SELECT CASE WHEN EXISTS (
                 SELECT 1
                 FROM INFRASTRUCTURE i
@@ -198,7 +202,7 @@ public class PmisDocumentRepository : IPmisDocumentRepository
                     SELECT e.INFRASTRUCTURE_ID AS InfrastructureId
                     FROM EQUIPMENTS e
                     INNER JOIN PMIS_DOCUMENT pd ON pd.OwnerType = 'EQUIPMENT' AND pd.OwnerId = e.Id AND pd.IsDeleted = 0
-                    WHERE e.IsDeleted = 0
+                    WHERE e.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("e")}
                     GROUP BY e.INFRASTRUCTURE_ID
                 ) child_doc ON child_doc.InfrastructureId = i.Id
                 WHERE i.UNIT_ID IS NULL AND i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0
@@ -236,7 +240,7 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         // Giữ nguyên cách đếm tài liệu bằng GROUP BY 1 lần rồi LEFT/INNER JOIN (xem lịch sử 504 timeout ở
         // GetCatalogTreeAsync cũ), chỉ thêm điều kiện lọc theo đúng 1 đơn vị (UnitId) để không còn phải
         // quét toàn bộ INFRASTRUCTURE/EQUIPMENTS của mọi đơn vị trong 1 lần gọi.
-        var infraRows = (await _connection.QueryAsync<InfraCatalogRow>(@"
+        var infraRows = (await _connection.QueryAsync<InfraCatalogRow>($@"
             SELECT i.Id, i.Name, i.Code, i.INFRA_TYPE_ID AS InfraTypeId, i.UNIT_ID AS UnitId,
                    NVL(direct_doc.DocCount, 0) AS DirectDocumentCount,
                    NVL(child_doc.DocCount, 0) AS ChildEquipmentDocumentCount
@@ -251,7 +255,7 @@ public class PmisDocumentRepository : IPmisDocumentRepository
                 SELECT e.INFRASTRUCTURE_ID AS InfrastructureId, COUNT(1) AS DocCount
                 FROM EQUIPMENTS e
                 INNER JOIN PMIS_DOCUMENT pd ON pd.OwnerType = 'EQUIPMENT' AND pd.OwnerId = e.Id AND pd.IsDeleted = 0
-                WHERE e.IsDeleted = 0
+                WHERE e.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("e")}
                 GROUP BY e.INFRASTRUCTURE_ID
             ) child_doc ON child_doc.InfrastructureId = i.Id
             WHERE i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0
@@ -263,8 +267,10 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         var nodes = new List<PmisDocumentCatalogNodeDto>();
         if (infraRows.Count == 0) return nodes;
 
+        // {EquipmentSqlFilters.NotTransferredAway()} — đây chính là các dòng EQUIPMENT sẽ hiện làm node
+        // con bấm được trong cây "Kho tài liệu PMIS", quan trọng nhất phải loại "hồn ma" (xem GetPagedAsync).
         var infraIds = infraRows.Select(r => r.Id).ToList();
-        var equipmentRows = (await _connection.QueryAsync<EquipmentCatalogRow>(@"
+        var equipmentRows = (await _connection.QueryAsync<EquipmentCatalogRow>($@"
             SELECT e.Id, e.Name, e.Code, e.INFRASTRUCTURE_ID AS InfrastructureId, doc.DocCount AS DocumentCount
             FROM EQUIPMENTS e
             INNER JOIN (
@@ -273,7 +279,7 @@ public class PmisDocumentRepository : IPmisDocumentRepository
                 WHERE OwnerType = 'EQUIPMENT' AND IsDeleted = 0
                 GROUP BY OwnerId
             ) doc ON doc.OwnerId = e.Id
-            WHERE e.PMIS_CODE IS NOT NULL AND e.IsDeleted = 0
+            WHERE e.PMIS_CODE IS NOT NULL AND e.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("e")}
               AND e.INFRASTRUCTURE_ID IN :InfraIds",
             new { InfraIds = infraIds }))
             .ToList();
@@ -354,7 +360,7 @@ public class PmisDocumentRepository : IPmisDocumentRepository
 
         var allowedIdsList = allowedUnitIds?.ToList();
 
-        var sql = @"
+        var sql = $@"
             SELECT i.Id, i.Name, i.Code, i.INFRA_TYPE_ID AS InfraTypeId, i.UNIT_ID AS UnitId, ou.Name AS UnitName,
                    NVL(direct_doc.DocCount, 0) AS DirectDocumentCount
             FROM INFRASTRUCTURE i
@@ -369,7 +375,7 @@ public class PmisDocumentRepository : IPmisDocumentRepository
                 SELECT e.INFRASTRUCTURE_ID AS InfrastructureId, COUNT(1) AS DocCount
                 FROM EQUIPMENTS e
                 INNER JOIN PMIS_DOCUMENT pd ON pd.OwnerType = 'EQUIPMENT' AND pd.OwnerId = e.Id AND pd.IsDeleted = 0
-                WHERE e.IsDeleted = 0
+                WHERE e.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("e")}
                 GROUP BY e.INFRASTRUCTURE_ID
             ) child_doc ON child_doc.InfrastructureId = i.Id
             WHERE i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0
