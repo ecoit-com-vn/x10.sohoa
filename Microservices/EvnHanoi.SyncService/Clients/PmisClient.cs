@@ -104,9 +104,11 @@ public class PmisClient : IPmisClient
     /// Vẫn đính kèm header đã cấu hình cho đúng endpoint nguồn (<paramref name="endpointApiCode"/> —
     /// SUBSTATION_DOCUMENT_LIST hoặc LINE_DOCUMENT_LIST, mỗi endpoint có thể cấu hình header/API key
     /// khác nhau) phòng trường hợp cần xác thực như AnhQRCode.
-    /// Trả về null nếu tải lỗi — KHÔNG throw, để caller tự quyết định ghi cảnh báo mà không chặn đồng bộ.
+    /// Trả Bytes=null nếu tải lỗi — KHÔNG throw, để caller tự quyết định ghi cảnh báo mà không chặn đồng
+    /// bộ — kèm ErrorReason để caller lưu lại phục vụ debug (trước đây lỗi chỉ có trong log Serilog của
+    /// pod, EquipmentService/màn hình Lịch sử đồng bộ không biết được nguyên nhân thật).
     /// </summary>
-    public async Task<byte[]?> DownloadDocumentFileAsync(string fileUrl, string endpointApiCode)
+    public async Task<(byte[]? Bytes, string? ErrorReason)> DownloadDocumentFileAsync(string fileUrl, string endpointApiCode)
     {
         var sw = Stopwatch.StartNew();
         HttpResponseMessage? response = null;
@@ -132,13 +134,13 @@ public class PmisClient : IPmisClient
             var circuitBreaker = GetCircuitBreaker($"{_httpClientName}:{endpointApiCode}:File");
             response = await circuitBreaker.ExecuteAsync(() => httpClient.SendAsync(request));
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadAsByteArrayAsync();
+            return (await response.Content.ReadAsByteArrayAsync(), null);
         }
         catch (Exception ex)
         {
             callError = ex;
             Serilog.Log.Warning(ex, "PmisClient: lỗi tải file tài liệu từ URL {FileUrl}.", fileUrl);
-            return null;
+            return (null, SyncErrorFormatter.FormatShort(ex));
         }
         finally
         {
