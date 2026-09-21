@@ -17,6 +17,13 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
     private const int DocumentMaxTotalRecords = PmisPaging.MaxTotalRecordsPerRun;
     private const int DocumentUpsertBatchSize = 20; // gửi theo lô, tránh 1 request base64 hoá hết cả nghìn tài liệu
 
+    // An toàn: tối đa số đường dây cập nhật PARENT_ID/lượt backfill — UpdateParentIdsAsync (EquipmentService)
+    // cập nhật TUẦN TỰ từng dòng qua Dapper (không phải 1 câu SQL gộp), nếu số "chưa xác định cha" lên tới
+    // hàng nghìn (từng xảy ra thật trên production do 1 bug khác khiến hầu hết đường dây tạm thời rơi vào
+    // trạng thái này) có thể mất hàng chục phút, khiến SyncHistoryWatchdogJob đánh rớt cả lượt vì treo
+    // RUNNING quá 30 phút thật sự. Phần vượt trần tự thử tiếp ở các lượt sau, không mất dữ liệu.
+    private const int MaxBackfillPerRun = 2000;
+
     private readonly IEquipmentServiceClient _equipmentServiceClient;
     private readonly ISyncHistoryRepository _syncHistoryRepository;
     private readonly IPmisClient _pmisClient;
@@ -244,8 +251,24 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
 
         var toBackfill = new List<BackfillLineParentItem>();
         var stillUnresolved = 0;
-        foreach (var candidate in candidates)
+        for (var i = 0; i < candidates.Count; i++)
         {
+            // An toàn: dừng thu thập thêm nếu đã đạt trần/lượt — UpdateParentIdsAsync (EquipmentService)
+            // cập nhật TUẦN TỰ từng dòng (không phải 1 câu SQL gộp), nếu số lượng lên tới hàng nghìn (vd
+            // do 1 bug khác khiến hầu hết đường dây tạm thời bị coi là "chưa xác định cha") có thể mất rất
+            // lâu — từng khiến SyncHistoryWatchdogJob đánh rớt cả lượt vì treo RUNNING quá 30 phút thật sự
+            // trên production. Phần còn lại tự thử tiếp ở lượt sau (candidates vẫn còn PARENT_ID=null nên
+            // GetLinesMissingParentAsync lượt sau vẫn thấy), không mất dữ liệu, chỉ trải đều ra nhiều lượt.
+            if (toBackfill.Count >= MaxBackfillPerRun)
+            {
+                var remaining = candidates.Count - i;
+                Log.Warning("PmisSyncExecutionService: backfill cha đường dây đạt trần {Max}/lượt, còn {Remaining} dòng sẽ thử tiếp ở lượt sau.", MaxBackfillPerRun, remaining);
+                stillUnresolved += remaining;
+                break;
+            }
+
+            var candidate = candidates[i];
+
             // GetLinesMissingParentAsync lọc thô bằng "tên có chứa '/'" (SQL không thể tái hiện chính xác
             // quy tắc ResolveParentLineName — tách theo dấu "/" CUỐI CÙNG) — 1 số tên như "/ABC" (dấu "/"
             // duy nhất nằm ở VỊ TRÍ ĐẦU) qua đúng quy tắc đó lại được coi là GỐC (không có cha), không
