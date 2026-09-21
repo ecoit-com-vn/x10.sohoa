@@ -20,11 +20,14 @@ public interface IPmisClient
     /// (không chặn phần còn lại của đồng bộ). Field maQRCode ở các API khác chỉ là URL, không phải base64.</summary>
     Task<byte[]?> GetDeviceQrImageBytesAsync(string idPmis);
 
-    /// <summary>Tải file nhị phân tài liệu đính kèm theo URL động (field "File" của API 8/9) — trả null
-    /// nếu lỗi, không throw (đồng bộ tài liệu không được chặn lượt đồng bộ chính). <paramref name="endpointApiCode"/>
-    /// chỉ định lấy header xác thực từ đúng cấu hình endpoint nguồn (SUBSTATION_DOCUMENT_LIST hoặc
-    /// LINE_DOCUMENT_LIST) — không dùng cố định 1 endpoint cho cả 2 nguồn.</summary>
-    Task<byte[]?> DownloadDocumentFileAsync(string fileUrl, string endpointApiCode);
+    /// <summary>Tải file nhị phân tài liệu đính kèm theo URL động (field "File" của API 8/9) — trả
+    /// Bytes=null nếu lỗi (không throw, đồng bộ tài liệu không được chặn lượt đồng bộ chính), kèm
+    /// ErrorReason (rút gọn qua SyncErrorFormatter — không lộ stack trace) để caller lưu lại làm bằng
+    /// chứng debug thay vì chỉ có trong log Serilog của pod (trước đây lỗi bị bỏ hẳn, EquipmentService
+    /// chỉ thấy "file rỗng" mà không biết vì sao). <paramref name="endpointApiCode"/> chỉ định lấy header
+    /// xác thực từ đúng cấu hình endpoint nguồn (SUBSTATION_DOCUMENT_LIST hoặc LINE_DOCUMENT_LIST) —
+    /// không dùng cố định 1 endpoint cho cả 2 nguồn.</summary>
+    Task<(byte[]? Bytes, string? ErrorReason)> DownloadDocumentFileAsync(string fileUrl, string endpointApiCode);
 }
 
 /// <summary>Báo lỗi nghiệp vụ khi 1 API PMIS chưa được cấu hình (chưa bật hoặc chưa nhập Url) qua màn "Cấu hình kết nối PMIS".</summary>
