@@ -134,9 +134,11 @@ public class PmisDocumentRepository : IPmisDocumentRepository
 
     private const string UnassignedUnitNodeId = "unit_unassigned";
 
-    public async Task<IReadOnlyList<PmisDocumentCatalogNodeDto>> GetCatalogUnitsAsync()
+    public async Task<IReadOnlyList<PmisDocumentCatalogNodeDto>> GetCatalogUnitsAsync(IEnumerable<long>? allowedUnitIds)
     {
         EnsureOpen();
+
+        var allowedIdsList = allowedUnitIds?.ToList();
 
         // QUAN TRỌNG: KHÔNG dùng EXISTS tương quan (correlated subquery) chạy lại cho từng dòng
         // ORGANIZATION_UNIT — INFRASTRUCTURE.UNIT_ID không có index (chỉ là FK, Oracle không tự tạo index
@@ -144,7 +146,7 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         // ORGANIZATION_UNIT (kể cả đơn vị không có dữ liệu) → chậm dù kết quả cuối chỉ vài chục đơn vị.
         // Dùng đúng kỹ thuật GROUP BY 1 lần rồi JOIN như GetCatalogUnitChildrenAsync/GetCatalogTreeAsync
         // cũ (xem lịch sử 504 timeout) — chỉ 1 lượt full-scan duy nhất trên mỗi bảng.
-        var units = (await _connection.QueryAsync<UnitCatalogRow>(@"
+        var unitsSql = @"
             SELECT DISTINCT ou.Id, ou.Name
             FROM ORGANIZATION_UNIT ou
             INNER JOIN INFRASTRUCTURE i ON i.UNIT_ID = ou.Id AND i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0
@@ -161,8 +163,16 @@ public class PmisDocumentRepository : IPmisDocumentRepository
                 WHERE e.IsDeleted = 0
                 GROUP BY e.INFRASTRUCTURE_ID
             ) child_doc ON child_doc.InfrastructureId = i.Id
-            WHERE direct_doc.OwnerId IS NOT NULL OR child_doc.InfrastructureId IS NOT NULL"))
-            .ToList();
+            WHERE (direct_doc.OwnerId IS NOT NULL OR child_doc.InfrastructureId IS NOT NULL)";
+
+        var unitsParameters = new DynamicParameters();
+        if (allowedIdsList != null)
+        {
+            unitsSql += " AND ou.Id IN :AllowedUnitIds";
+            unitsParameters.Add("AllowedUnitIds", allowedIdsList.Count > 0 ? allowedIdsList : new List<long> { -1 });
+        }
+
+        var units = (await _connection.QueryAsync<UnitCatalogRow>(unitsSql, unitsParameters)).ToList();
 
         var nodes = units
             .Select(u => new PmisDocumentCatalogNodeDto { Id = $"unit_{u.Id}", Name = u.Name, ParentId = null, NodeType = "unit" })
@@ -172,7 +182,9 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         // qua (sẽ làm mất luôn thiết bị/tài liệu con khỏi cây, không có cách nào khác để tìm thấy), gom
         // vào 1 node "đơn vị" tạm ở gốc cây để vẫn duyệt/xem/chọn được, kèm gợi ý cho admin đi sửa mapping.
         // Cùng kỹ thuật GROUP BY + JOIN ở trên, chỉ đổi điều kiện UNIT_ID IS NULL — không phải correlated.
-        var hasUnassigned = await _connection.ExecuteScalarAsync<int>(@"
+        // CHỈ hiện với quản trị hệ thống (allowedIdsList null) — các bản ghi này chưa thuộc đơn vị nào nên
+        // người dùng thường không có "đơn vị" nào để được coi là chủ sở hữu.
+        var hasUnassigned = allowedIdsList == null && await _connection.ExecuteScalarAsync<int>(@"
             SELECT CASE WHEN EXISTS (
                 SELECT 1
                 FROM INFRASTRUCTURE i
@@ -321,11 +333,28 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         return (rows.Select(ToDetail), totalCount);
     }
 
-    public async Task<IReadOnlyList<PmisInfrastructureLookupDto>> SearchInfrastructuresAsync()
+    public async Task<long?> GetOwnerUnitIdAsync(string ownerType, Guid ownerId)
     {
         EnsureOpen();
 
-        var rows = await _connection.QueryAsync<InfraLookupRow>(@"
+        var sql = ownerType switch
+        {
+            "INFRASTRUCTURE" => "SELECT UNIT_ID FROM INFRASTRUCTURE WHERE Id = :OwnerId AND IsDeleted = 0",
+            "EQUIPMENT" => "SELECT UnitId FROM EQUIPMENTS WHERE Id = :OwnerId AND IsDeleted = 0",
+            _ => null
+        };
+        if (sql == null) return null;
+
+        return await _connection.QuerySingleOrDefaultAsync<long?>(sql, new { OwnerId = ownerId.ToString() });
+    }
+
+    public async Task<IReadOnlyList<PmisInfrastructureLookupDto>> SearchInfrastructuresAsync(IEnumerable<long>? allowedUnitIds)
+    {
+        EnsureOpen();
+
+        var allowedIdsList = allowedUnitIds?.ToList();
+
+        var sql = @"
             SELECT i.Id, i.Name, i.Code, i.INFRA_TYPE_ID AS InfraTypeId, i.UNIT_ID AS UnitId, ou.Name AS UnitName,
                    NVL(direct_doc.DocCount, 0) AS DirectDocumentCount
             FROM INFRASTRUCTURE i
@@ -344,8 +373,20 @@ public class PmisDocumentRepository : IPmisDocumentRepository
                 GROUP BY e.INFRASTRUCTURE_ID
             ) child_doc ON child_doc.InfrastructureId = i.Id
             WHERE i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0
-              AND (direct_doc.DocCount IS NOT NULL OR child_doc.DocCount IS NOT NULL)
-            ORDER BY i.Name");
+              AND (direct_doc.DocCount IS NOT NULL OR child_doc.DocCount IS NOT NULL)";
+
+        var parameters = new DynamicParameters();
+        if (allowedIdsList != null)
+        {
+            // Không phải quản trị hệ thống: chỉ thấy Trạm/Đường dây thuộc đơn vị được phép, loại luôn các
+            // bản ghi chưa xác định đơn vị (UNIT_ID NULL sẽ không khớp IN nên tự động bị loại).
+            sql += " AND i.UNIT_ID IN :AllowedUnitIds";
+            parameters.Add("AllowedUnitIds", allowedIdsList.Count > 0 ? allowedIdsList : new List<long> { -1 });
+        }
+
+        sql += " ORDER BY i.Name";
+
+        var rows = await _connection.QueryAsync<InfraLookupRow>(sql, parameters);
 
         return rows.Select(r => new PmisInfrastructureLookupDto
         {
