@@ -60,9 +60,9 @@ public class EquipmentServiceClient : IEquipmentServiceClient
         return await response.Content.ReadFromJsonAsync<List<LineNameIndexEntry>>() ?? [];
     }
 
-    public async Task<List<LineNameIndexEntry>> GetLinesMissingParentAsync()
+    public async Task<List<LineNameIndexEntry>> GetLinesNeedingBackfillAsync()
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "internal/v1/infrastructure/lines-missing-parent");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "internal/v1/infrastructure/lines-needing-backfill");
         request.Headers.Add("X-Internal-Token", _internalToken);
 
         var response = await _httpClient.SendAsync(request);

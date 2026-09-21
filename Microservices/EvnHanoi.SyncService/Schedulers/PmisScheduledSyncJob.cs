@@ -282,15 +282,11 @@ public class PmisScheduledSyncJob : IJob
             if (HasHitSafetyCap(skip, "Đường dây", ref warnings)) break;
         }
 
-        // Fillback: thử khớp lại cha cho các Đường dây ĐÃ đồng bộ từ TRƯỚC lượt này mà vẫn chưa xác định
-        // được cha (tên có "/" nhưng ParentInfrastructureId còn null — vd đường trục lúc đó chưa tồn tại,
-        // hoặc nằm ở trang xử lý SAU nhánh tham chiếu tới nó trong cùng 1 lượt cũ). Gọi ở CUỐI, sau khi
-        // toàn bộ các trang phía trên đã xử lý xong — lúc này mọi đường trục mới xuất hiện trong CHÍNH
-        // lượt hiện tại cũng chắc chắn đã có trong _lineNameIndex (xem PmisSyncExecutionService.AddLineToIndex).
-        var (backfillWarnings, backfillError) = await _executionService.BackfillLineParentsAsync();
-        warnings += backfillWarnings;
-        if (backfillError != null) errors.Add(backfillError);
-
+        // Việc "tự khớp lại cha/cấp điện áp" cho các Đường dây ĐÃ đồng bộ từ TRƯỚC (tên có "/" nhưng
+        // ParentInfrastructureId/GridTypeId còn thiếu) KHÔNG còn chạy inline ở đây — đã tách ra job Quartz
+        // riêng chạy nền định kỳ (LineParentBackfillJob), độc lập với lượt sync này, tránh kéo dài thời
+        // gian RUNNING của CHÍNH lượt sync Đường dây (xem comment MaxBackfillPerRun trong
+        // PmisSyncExecutionService — từng gây treo RUNNING quá 30 phút thật trên production).
         return (total, success, failed, warnings, errors);
     }
 

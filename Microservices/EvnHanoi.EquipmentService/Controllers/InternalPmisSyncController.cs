@@ -78,16 +78,16 @@ public class InternalPmisSyncController : ControllerBase
         return Ok(rows);
     }
 
-    /// <summary>Các Đường dây ĐÃ tồn tại (từ lượt đồng bộ trước) nhưng tên có "/" (chắc chắn là nhánh) mà
-    /// PARENT_ID vẫn NULL — SyncService gọi vào cuối mỗi lượt đồng bộ Đường dây để thử khớp lại cha 1 lần
-    /// nữa (xem PmisSyncExecutionService.BackfillLineParentsAsync), phòng trường hợp đường trục lúc đồng
-    /// bộ ban đầu chưa tồn tại (cùng lượt hoặc trang xử lý trước trục) nên nhánh đó bị bỏ sót.</summary>
-    [HttpGet("infrastructure/lines-missing-parent")]
-    public async Task<IActionResult> GetLinesMissingParent([FromHeader(Name = "X-Internal-Token")] string? internalToken)
+    /// <summary>Các Đường dây ĐÃ tồn tại (từ lượt đồng bộ trước) cần "khớp lại" cha và/hoặc cấp điện áp —
+    /// SyncService gọi từ job Quartz riêng chạy nền định kỳ (LineParentBackfillJob, KHÔNG còn chèn vào
+    /// lượt đồng bộ Đường dây nào — xem PmisSyncExecutionService.BackfillLineParentsAsync). Xem điều kiện
+    /// đầy đủ ở InfrastructureRepository.GetLinesNeedingBackfillAsync.</summary>
+    [HttpGet("infrastructure/lines-needing-backfill")]
+    public async Task<IActionResult> GetLinesNeedingBackfill([FromHeader(Name = "X-Internal-Token")] string? internalToken)
     {
         if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
 
-        var rows = await _infrastructureRepository.GetLinesMissingParentAsync();
+        var rows = await _infrastructureRepository.GetLinesNeedingBackfillAsync();
         return Ok(rows);
     }
 

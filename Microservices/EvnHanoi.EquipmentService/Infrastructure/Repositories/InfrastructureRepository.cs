@@ -93,7 +93,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                             u.Id as OrgId,
                             u.Code as OrgCode,
                             u.Name as OrgName,
-                            (SELECT COUNT(1) FROM EQUIPMENTS eq WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)} AND eq.IsDeleted = 0) AS {nameof(Infrastructure.EquipmentCount)}
+                            (SELECT COUNT(1) FROM EQUIPMENTS eq WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)} AND eq.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("eq")}) AS {nameof(Infrastructure.EquipmentCount)}
                      FROM INFRASTRUCTURE i
                      LEFT JOIN INFRASTRUCTURE p ON i.PARENT_ID = p.ID
                      LEFT JOIN INFRASTRUCTURE_TYPE it ON i.INFRA_TYPE_ID = it.ID
@@ -140,7 +140,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                             u.Id as OrgId,
                             u.Code as OrgCode,
                             u.Name as OrgName,
-                            (SELECT COUNT(1) FROM EQUIPMENTS eq WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)} AND eq.IsDeleted = 0) AS {nameof(Infrastructure.EquipmentCount)}
+                            (SELECT COUNT(1) FROM EQUIPMENTS eq WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)} AND eq.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("eq")}) AS {nameof(Infrastructure.EquipmentCount)}
                      FROM INFRASTRUCTURE i
                      LEFT JOIN INFRASTRUCTURE p ON i.PARENT_ID = p.ID
                      LEFT JOIN INFRASTRUCTURE_TYPE it ON i.INFRA_TYPE_ID = it.ID
@@ -266,7 +266,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                            (SELECT COUNT(1)
                               FROM EQUIPMENTS eq
                              WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)}
-                               AND eq.IsDeleted = 0) AS {nameof(Infrastructure.EquipmentCount)},
+                               AND eq.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("eq")}) AS {nameof(Infrastructure.EquipmentCount)},
                            (SELECT COUNT(1)
                               FROM INFRASTRUCTURE c
                              WHERE c.PARENT_ID = i.{nameof(Infrastructure.Id)}
@@ -320,7 +320,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                             (SELECT COUNT(1)
                                FROM EQUIPMENTS eq
                               WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)}
-                                AND eq.IsDeleted = 0) AS {nameof(Infrastructure.EquipmentCount)},
+                                AND eq.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("eq")}) AS {nameof(Infrastructure.EquipmentCount)},
                             (SELECT COUNT(1)
                                FROM INFRASTRUCTURE c
                               WHERE c.PARENT_ID = i.{nameof(Infrastructure.Id)}
@@ -479,11 +479,17 @@ public class InfrastructureRepository : IInfrastructureRepository
         // Chỉ áp dụng cho Đường dây (infraTypeId = 2) — Trạm biến áp không có khái niệm này, không đụng PARENT_ID.
         var isLine = infraTypeId == 2;
 
+        // UPPER(TRIM(...)) ở cả 2 bên: SyncService giờ đã tự Trim() trước khi gửi (xem PmisSyncExecutionService),
+        // nhưng vẫn so khớp "lỏng" ở đây để dữ liệu CŨ đã lưu lệch chuẩn từ trước tự khớp lại đúng ngay ở lần
+        // sync tới — tránh lặp lại lỗi thật đã gặp: PMIS_CODE lệch khoảng trắng/hoa-thường khiến hệ thống
+        // không tìm thấy trạm cũ, tự tạo thêm 1 dòng INFRASTRUCTURE trùng cho CÙNG 1 trạm thật, kéo theo
+        // TOÀN BỘ thiết bị của trạm bị coi là "chuyển sang trạm mới" ở lượt kế tiếp (xem Migration0060).
         var existing = await _connection.QuerySingleOrDefaultAsync<InfraCompareRow>(
             $@"SELECT {nameof(Infrastructure.Id)} AS Id, {nameof(Infrastructure.Code)} AS Code, {nameof(Infrastructure.Name)} AS Name,
                       {nameof(Infrastructure.Address)} AS Address, UNIT_ID AS UnitId, OPERATION_DATE AS OperationDate, GRIDTYPEID AS GridTypeId,
                       PARENT_ID AS ParentId
-               FROM INFRASTRUCTURE WHERE PMIS_CODE = :PmisCode AND {nameof(Infrastructure.IsDeleted)} = 0",
+               FROM INFRASTRUCTURE
+               WHERE UPPER(TRIM(PMIS_CODE)) = UPPER(TRIM(:PmisCode)) AND {nameof(Infrastructure.IsDeleted)} = 0",
             new { PmisCode = pmisCode });
 
         if (existing != null)
@@ -551,20 +557,33 @@ public class InfrastructureRepository : IInfrastructureRepository
                         :PmisCode, SYSTIMESTAMP, :CreatedBy, SYSTIMESTAMP, 0
                     )";
 
-        await _connection.ExecuteAsync(insertSql, new
+        try
         {
-            Id = newId.ToString(),
-            Code = code,
-            Name = name,
-            Address = address,
-            InfraTypeId = infraTypeId,
-            UnitId = unitId,
-            OperationDate = operationDate,
-            GridTypeId = gridTypeId,
-            ParentId = isLine ? parentInfrastructureId?.ToString() : null,
-            PmisCode = pmisCode,
-            CreatedBy = "PMIS_SYNC"
-        });
+            await _connection.ExecuteAsync(insertSql, new
+            {
+                Id = newId.ToString(),
+                Code = code,
+                Name = name,
+                Address = address,
+                InfraTypeId = infraTypeId,
+                UnitId = unitId,
+                OperationDate = operationDate,
+                GridTypeId = gridTypeId,
+                ParentId = isLine ? parentInfrastructureId?.ToString() : null,
+                PmisCode = pmisCode,
+                CreatedBy = "PMIS_SYNC"
+            });
+        }
+        catch (Exception ex) when (ex.Message.Contains("ORA-00001", StringComparison.OrdinalIgnoreCase))
+        {
+            // Race THẬT giữa 2 lượt sync đồng thời (thủ công + tự động, không có RedLock chung) cùng
+            // insert 1 Trạm/Đường dây MỚI với PMIS_CODE trùng nhau (UX_INFRASTRUCTURE_ACTIVE_PMIS_CODE,
+            // Migration0060) — method này không có kiểu Fail() riêng (chỉ trả tuple), nên ném lại exception
+            // với message tiếng Việt rõ nghĩa để caller (InternalPmisSyncController) hiển thị đúng thay vì
+            // lộ nguyên văn lỗi Oracle.
+            throw new InvalidOperationException(
+                $"Không thể tạo mới Trạm/Đường dây: mã PMIS '{pmisCode}' đã được dùng cho 1 bản ghi khác đang hoạt động — có thể do 2 lượt đồng bộ chạy đồng thời, vui lòng đồng bộ lại.");
+        }
         return (newId, true, true);
     }
 
@@ -590,6 +609,8 @@ public class InfrastructureRepository : IInfrastructureRepository
         public string Name { get; set; } = string.Empty;
         public string? PmisUnitCode { get; set; }
         public int? GridTypeId { get; set; }
+        public string? ParentId { get; set; }
+        public int? ParentGridTypeId { get; set; }
     }
 
     public async Task<IEnumerable<EvnHanoi.EquipmentService.Core.DTOs.LineNameIndexEntry>> GetLineNameIndexAsync()
@@ -618,34 +639,47 @@ public class InfrastructureRepository : IInfrastructureRepository
         });
     }
 
-    /// <summary>Các Đường dây ĐÃ tồn tại (từ lượt đồng bộ trước) nhưng vẫn chưa xác định được cha (tên có
-    /// "/" — chắc chắn là nhánh — nhưng PARENT_ID còn NULL) — dùng để SyncService thử khớp lại cha 1 lần
-    /// nữa vào cuối mỗi lượt đồng bộ Đường dây, sau khi đường trục (có thể vừa được tạo trong CHÍNH lượt
-    /// đó) đã chắc chắn tồn tại (xem PmisSyncExecutionService.BackfillLineParentsAsync).</summary>
-    public async Task<IEnumerable<EvnHanoi.EquipmentService.Core.DTOs.LineNameIndexEntry>> GetLinesMissingParentAsync()
+    /// <summary>Các Đường dây ĐÃ tồn tại (từ lượt đồng bộ trước) cần "khớp lại" bởi job Quartz chạy nền
+    /// riêng (LineParentBackfillJob, SyncService) — KHÔNG còn chèn vào lượt đồng bộ Đường dây nào — gồm
+    /// 2 trường hợp:
+    /// (1) tên có "/" (chắc chắn là nhánh) nhưng PARENT_ID còn NULL (đường trục lúc đồng bộ chưa tồn tại);
+    /// (2) đã có PARENT_ID nhưng GRIDTYPEID vẫn NULL (bản thân nhánh không có capDienAp riêng, lúc gán cha
+    /// trước đó cha cũng chưa có GridTypeId — giờ cha đã có, thử mượn lại).</summary>
+    public async Task<IEnumerable<EvnHanoi.EquipmentService.Core.DTOs.LineNameIndexEntry>> GetLinesNeedingBackfillAsync()
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
+        // JOIN sẵn tới dòng cha (ParentId/ParentGridTypeId) — cho candidate loại (2) (đã có PARENT_ID,
+        // chỉ thiếu GRIDTYPEID) dùng THẲNG cấp điện áp của cha đã biết, không cần SyncService resolve lại
+        // theo tên (tránh bị tính nhầm "chưa xác định được cha" nếu tên trùng/đổi tên — xem
+        // PmisSyncExecutionService.BackfillLineParentsAsync).
         var rows = await _connection.QueryAsync<LineNameIndexRow>(
             @"SELECT i.ID AS Id, i.NAME AS Name, i.GRIDTYPEID AS GridTypeId,
+                     i.PARENT_ID AS ParentId, p.GRIDTYPEID AS ParentGridTypeId,
                      (SELECT m.PmisUnitCode FROM PMIS_UNIT_CODE_MAPPING m
                       WHERE m.UnitId = i.UNIT_ID AND m.IsDeleted = 0 FETCH FIRST 1 ROW ONLY) AS PmisUnitCode
               FROM INFRASTRUCTURE i
+              LEFT JOIN INFRASTRUCTURE p ON p.ID = i.PARENT_ID AND p.ISDELETED = 0
               WHERE i.INFRA_TYPE_ID = 2 AND i.ISDELETED = 0
-                AND i.PARENT_ID IS NULL AND INSTR(i.NAME, '/') > 0");
+                AND (
+                    (i.PARENT_ID IS NULL AND INSTR(i.NAME, '/') > 0)
+                    OR (i.PARENT_ID IS NOT NULL AND i.GRIDTYPEID IS NULL)
+                )");
 
         return rows.Select(r => new EvnHanoi.EquipmentService.Core.DTOs.LineNameIndexEntry
         {
             Id = Guid.Parse(r.Id),
             Name = r.Name,
             PmisUnitCode = r.PmisUnitCode,
-            GridTypeId = r.GridTypeId
+            GridTypeId = r.GridTypeId,
+            ParentId = r.ParentId != null ? Guid.Parse(r.ParentId) : null,
+            ParentGridTypeId = r.ParentGridTypeId
         });
     }
 
     /// <summary>Cập nhật cột PARENT_ID (và GRIDTYPEID nếu có) cho NHIỀU Đường dây đã tồn tại cùng lúc —
-    /// dùng cho backfill (xem GetLinesMissingParentAsync), khác <see cref="UpdateAsync"/>/UpsertFromPmisAsync
+    /// dùng cho backfill (xem GetLinesNeedingBackfillAsync), khác <see cref="UpdateAsync"/>/UpsertFromPmisAsync
     /// vốn cần đủ các field khác (Code/Address/OperationDate...) để so sánh hasChanged, không phù hợp khi
     /// chỉ có Id + ParentId (+ GridTypeId mượn từ cha) mới tự tra được, không có lại toàn bộ dữ liệu PMIS
     /// gốc của dòng đó. GridTypeId dùng COALESCE(GRIDTYPEID, :GridTypeId) — chỉ điền khi cột đang NULL,
