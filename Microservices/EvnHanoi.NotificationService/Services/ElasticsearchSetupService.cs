@@ -120,16 +120,35 @@ public class ElasticsearchSetupService : IHostedService
             dbConnection.Open();
         }
 
-        // Sync Equipments
+        // Sync Equipments: chỉ bootstrap khi index rỗng (fresh deploy) — cập nhật liên tục sau đó qua
+        // RabbitMQ (EquipmentIndexWorker, queue "equipment_sync_queue"), CÙNG nguyên tắc đã áp dụng cho
+        // dossier_index/document_index ngay dưới đây. TRƯỚC ĐÂY thiếu guard này nên MỌI lần Pod khởi
+        // động lại đều quét lại TOÀN BỘ bảng Equipments rồi IndexAsync TỪNG DÒNG MỘT (205.699 bản ghi
+        // thật trên production) — vì đây là IHostedService.StartAsync, ASP.NET Core đợi hoàn tất TRƯỚC
+        // KHI Kestrel sẵn sàng nhận request, nên NotificationService bị "Connection refused" (502 qua
+        // ApiGateway) suốt nhiều giờ mỗi lần Pod restart — đã gặp thật trên production 210.245.84.38,
+        // làm hỏng cả trang "Phê duyệt hồ sơ" (search/dossiers) lẫn thông báo/SignalR hub, vốn đều route
+        // qua notification-cluster. Xem notification_service_startup_blocks_on_full_equipment_resync
+        // trong memory.
         try
         {
-            var equipments = await dbConnection.QueryAsync<Equipment>(
-                "SELECT Id, Name, Code, '' AS Description, SerialNumber AS Type, '1' AS Status FROM Equipments");
-            _logger.LogInformation("Syncing {Count} equipments to Elasticsearch...", equipments.Count());
-            foreach (var eq in equipments)
+            var countResponse = await _client.CountAsync<Equipment>(c => c.Indices("equipments"), cancellationToken);
+            if (countResponse.IsValidResponse && countResponse.Count > 0)
             {
-                if (cancellationToken.IsCancellationRequested) break;
-                await _client.IndexAsync(eq, idx => idx.Index("equipments").Id(eq.Id), cancellationToken);
+                _logger.LogInformation(
+                    "equipments index đã có {Count} bản ghi — bỏ qua đồng bộ lúc khởi động (cập nhật qua RabbitMQ equipment_sync_queue).",
+                    countResponse.Count);
+            }
+            else
+            {
+                var equipments = await dbConnection.QueryAsync<Equipment>(
+                    "SELECT Id, Name, Code, '' AS Description, SerialNumber AS Type, '1' AS Status FROM Equipments");
+                _logger.LogInformation("Bootstrapping {Count} equipments into empty equipments index...", equipments.Count());
+                foreach (var eq in equipments)
+                {
+                    if (cancellationToken.IsCancellationRequested) break;
+                    await _client.IndexAsync(eq, idx => idx.Index("equipments").Id(eq.Id), cancellationToken);
+                }
             }
         }
         catch (Exception ex)
