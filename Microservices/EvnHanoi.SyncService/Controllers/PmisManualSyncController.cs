@@ -121,9 +121,11 @@ public class PmisManualSyncController : ControllerBase
 
             try
             {
-                await _syncHistoryRepository.CompleteAsync(
+                var completed = await _syncHistoryRepository.CompleteAsync(
                     historyId, SyncHistoryStatus.Failed, request.Items.Count, 0, request.Items.Count,
                     SyncErrorFormatter.Format(ex));
+                if (!completed)
+                    Log.Warning("PmisManualSyncController.Save: syncHistoryId={SyncHistoryId} đã bị SyncHistoryWatchdogJob đánh FAILED trước khi request tự báo lỗi xong — exception thật xem log phía trên.", historyId);
             }
             catch (Exception completeEx)
             {
@@ -146,9 +148,11 @@ public class PmisManualSyncController : ControllerBase
         var finalStatus = successCount == 0
             ? SyncHistoryStatus.Failed
             : (warningCount > 0 ? SyncHistoryStatus.Warning : SyncHistoryStatus.Success);
-        await _syncHistoryRepository.CompleteAsync(
+        var completedOk = await _syncHistoryRepository.CompleteAsync(
             historyId, finalStatus, request.Items.Count, successCount, failedCount,
             errors.Count > 0 ? string.Join("; ", errors.Take(5)) : null);
+        if (!completedOk)
+            Log.Warning("PmisManualSyncController.Save: hoàn tất với kết quả thật ({Status}, success={Success}/{Total}) nhưng syncHistoryId={SyncHistoryId} đã bị SyncHistoryWatchdogJob đánh FAILED trước đó (chạy quá 30 phút) — giữ nguyên FAILED của watchdog, bỏ kết quả thật này.", finalStatus, successCount, request.Items.Count, historyId);
 
         return Ok(new PmisManualSaveResponse
         {

@@ -26,6 +26,11 @@ public interface IEquipmentServiceClient
     /// dòng cập nhật thành công.</summary>
     Task<int> BackfillLineParentsAsync(List<BackfillLineParentItem> items);
 
+    /// <summary>Tạo 1 Đường dây THẬT cho 1 cấp waypoint trung gian mà PMIS không tự cung cấp bản ghi
+    /// riêng — xem PmisSyncExecutionService.ResolveOrCreateParentChainAsync. Trả về null nếu tạo lỗi
+    /// (caller tự log/dừng chuỗi, thử lại ở lượt sau).</summary>
+    Task<Guid?> CreateSyntheticLineAsync(CreateSyntheticLineRequest request);
+
     Task<List<UpsertPmisDocumentResult>> UpsertDocumentsAsync(List<UpsertPmisDocumentRequest> items);
 }
 

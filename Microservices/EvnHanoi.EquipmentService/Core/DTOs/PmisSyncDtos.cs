@@ -119,6 +119,28 @@ public class UpsertInfrastructureFromPmisResult
     public string? ErrorMessage { get; set; }
 }
 
+/// <summary>Payload POST internal/v1/infrastructure/create-synthetic-line — nhánh Đường dây nhiều cấp
+/// không cố định (vd "A/Nhánh B/Nhánh C/Nhánh D") mà PMIS không tự cung cấp bản ghi riêng cho waypoint
+/// trung gian (B, C) thì SyncService tự tạo waypoint đó làm 1 Đường dây THẬT qua endpoint này, thay vì
+/// bỏ cuộc gán cha — xem PmisSyncExecutionService.ResolveOrCreateParentChainAsync. Không đánh dấu "ảo":
+/// ghi vào INFRASTRUCTURE như Đường dây bình thường, chỉ khác PMIS_CODE để trống (không có mã PMIS thật)
+/// — admin sửa/xoá được như Đường dây thường qua UI.</summary>
+public class CreateSyntheticLineRequest
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? UnitCode { get; set; }
+    public Guid? ParentInfrastructureId { get; set; } // null = waypoint này chính là trục gốc
+    public int? GridTypeId { get; set; }
+}
+
+public class CreateSyntheticLineResult
+{
+    public bool Success { get; set; }
+    public Guid? InfrastructureId { get; set; }
+    public string? ErrorMessage { get; set; }
+}
+
 /// <summary>Payload endpoint nội bộ POST /api/v1/equipment/internal/upsert-from-pmis (gọi bởi SyncService).</summary>
 public class UpsertEquipmentFromPmisRequest
 {

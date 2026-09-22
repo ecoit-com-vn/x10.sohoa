@@ -140,7 +140,13 @@ public class PmisClient : IPmisClient
         {
             callError = ex;
             Serilog.Log.Warning(ex, "PmisClient: lỗi tải file tài liệu từ URL {FileUrl}.", fileUrl);
-            return (null, SyncErrorFormatter.FormatShort(ex));
+            // Dùng Format (đầy đủ: lớp vỏ bọc Polly + nguyên nhân gốc, tối đa 1900 ký tự) thay vì
+            // FormatShort (chỉ nguyên nhân gốc, tối đa 300 ký tự) — ErrorReason ở đây không bị nối chung
+            // với lỗi khác (khác PmisScheduledSyncJob.PushPageAsync nối nhiều dòng bằng "; "), nên không
+            // cần rút ngắn; đích đến là 1 cột ERROR_MESSAGE NVARCHAR2(2000) riêng của đúng 1 tài liệu này
+            // (xem InternalPmisSyncController.BuildFileDownloadFailedMessage) — admin cần thấy rõ HTTP
+            // status/host lỗi thật (404, timeout, DNS...) ngay trên UI thay vì chỉ 1 câu chung chung.
+            return (null, SyncErrorFormatter.Format(ex));
         }
         finally
         {
