@@ -193,7 +193,7 @@ public class FileUploadService : IFileUploadService
             var folder = await ValidateFolderPermissionAsync(folderId, userUnitId);
 
             // ===== MIME TYPE & SIGNATURE VALIDATION =====
-            await ValidateMimeTypeAsync(mimeType);
+            ValidateDossierMimeType(mimeType);
             ValidateMagicBytes(fileStream, mimeType);
 
             // ===== ANTIVIRUS SCAN =====
@@ -307,6 +307,10 @@ public class FileUploadService : IFileUploadService
                 throw new ArgumentException("Tên file không được để trống");
 
             await ValidateFolderPermissionAsync(folderId, userUnitId);
+
+            // Chặn sớm theo đuôi file suy ra mimeType - tránh tạo hẳn 1 session upload rồi mới phát hiện
+            // file không hợp lệ ở bước Complete (sau khi người dùng đã chờ upload xong toàn bộ chunk).
+            ValidateDossierMimeType(ResolveMimeType(fileName));
 
             var maxFileSize = _config.GetValue<long>("FileUpload:MaxFileSizeBytes");
             if (fileSize > maxFileSize)
@@ -432,6 +436,12 @@ public class FileUploadService : IFileUploadService
             using (var mergedStream = await _fileStorageService.DownloadFileAsync(
                 mergedPath, _fileStorageService.DocumentBucketName, minioVersionId, cancellationToken))
             {
+                // File thật (đã merge từ chunk) mới đáng tin cậy để kiểm tra chữ ký - tên file ở bước
+                // Initiate chỉ chặn được gian lận đơn giản (đổi đuôi file), không thay được cho việc đọc
+                // magic bytes của nội dung thật sau khi đã có đủ dữ liệu.
+                ValidateDossierMimeType(mimeType);
+                ValidateMagicBytes(mergedStream, mimeType);
+
                 var compression = await _documentCompressionService.CompressAsync(mergedStream, session.FileName, mimeType, cancellationToken);
                 using var compressedStream = compression.Stream;
                 mimeType = compression.MimeType;
@@ -809,16 +819,9 @@ public class FileUploadService : IFileUploadService
         return folder.UnitCode.Trim();
     }
 
-    private async Task ValidateMimeTypeAsync(string mimeType)
-    {
-        var isMimeTypeAllowed = await _mimeTypeValidator.IsAllowedMimeTypeAsync(mimeType);
-        if (!isMimeTypeAllowed)
-            throw new ArgumentException($"Loại file không được hỗ trợ: {mimeType}");
-    }
-
-    /// <summary>Upload trực tiếp vào hồ sơ chỉ nhận PDF và ảnh (không nhận Word/Excel/DWG như các luồng
-    /// upload khác) — whitelist riêng, hẹp hơn IMimeTypeValidationService dùng chung cho toàn hệ thống,
-    /// vì hồ sơ chỉ lưu bản scan/PDF điện tử, không phải kho tài liệu văn phòng đa định dạng.</summary>
+    /// <summary>Upload vào "Kho tài liệu thiết bị" (/documents) và vào hồ sơ chỉ nhận PDF và ảnh — chỉ
+    /// lưu bản scan/PDF điện tử, không phải kho văn phòng đa định dạng nên whitelist hẹp hơn hẳn
+    /// IMimeTypeValidationService (vốn còn cho Word/Excel/DWG, dùng ở các luồng khác như PMIS).</summary>
     private static readonly HashSet<string> DossierAllowedMimeTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "application/pdf",
@@ -870,7 +873,7 @@ public class FileUploadService : IFileUploadService
             throw new ArgumentException("Tên file không được để trống");
 
         var mimeType = ResolveMimeType(fileName);
-        await ValidateMimeTypeAsync(mimeType);
+        ValidateDossierMimeType(mimeType);
 
         var chunkSize = _config.GetValue<int>("FileUpload:DefaultChunkSizeBytes", 5_242_880);
         var maxFileSize = _config.GetValue<long>("FileUpload:MaxFileSizeBytes", 524_288_000);
@@ -971,7 +974,7 @@ public class FileUploadService : IFileUploadService
             }
 
             var mimeType = ResolveMimeType(session.FileName);
-            await ValidateMimeTypeAsync(mimeType);
+            ValidateDossierMimeType(mimeType);
             ValidateMagicBytes(mergedStream, mimeType);
 
             // ===== NÉN FILE SAU KHI MERGE (giảm về ~150 DPI cho PDF scan/ảnh, giữ nguyên PDF điện tử
