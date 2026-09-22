@@ -11,6 +11,13 @@ namespace EvnHanoi.SyncService.Services;
 public class PmisSyncExecutionService : IPmisSyncExecutionService
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
+    // PMIS đôi khi trả field maTBA/maDuongDay là CHUỖI RỖNG thay vì bỏ hẳn field (null) — "??" thường
+    // không bắt được trường hợp này (chuỗi rỗng không phải null nên thắng luôn, fallback không bao giờ
+    // chạy tới). Coi cả 2 là "thiếu dữ liệu" như nhau trước khi áp dụng fallback, tránh tái diễn đúng
+    // bug orphan (ParentPmisCode="" vẫn bị EquipmentRepository coi là "hợp lệ, không có cha" và ghi
+    // INFRASTRUCTURE_ID=NULL — xem pmis_sync_equipment_orphan_null_infra_id).
+    private static string? BlankToNull(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
     // An toàn: tối đa tài liệu/đối tượng/lần đồng bộ — tính theo TỔNG SỐ BẢN GHI, không phải số TRANG, vì
     // PageSize giờ admin tự cấu hình được (xem lý do tương tự ở PmisScheduledSyncJob.MaxTotalRecords).
     // Dùng chung đúng 1 nguồn (PmisPaging.MaxTotalRecordsPerRun) để không lệch với hằng số bên đó.
@@ -569,7 +576,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
     }
 
     public async Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncEquipmentAsync(
-        string syncHistoryId, IReadOnlyList<JsonElement> rawItems)
+        string syncHistoryId, IReadOnlyList<JsonElement> rawItems, string? parentPmisCodeFallback = null)
     {
         var upsertRequests = new List<UpsertEquipmentFromPmisRequest>();
         // Song song 1:1 với upsertRequests — giữ lại ngữ cảnh gốc (TBA hay đường dây, mã cha) để đồng bộ
@@ -641,6 +648,16 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             // Fallback về tenLoaiTB đính kèm dòng thiết bị nếu danh mục không có mã này hoặc PMIS lỗi.
             var equipmentTypeName = await ResolveDeviceTypeNameAsync(isSubstationDevice, item.MaLoaiTB) ?? item.TenLoaiTB;
 
+            // Fallback về parentPmisCodeFallback (cha đã biết chắc chắn từ ngữ cảnh gọi — vd. đang lặp
+            // API 5/6 theo ĐÚNG 1 trạm/đường dây, hoặc người dùng đã chọn trạm/đường dây khi tìm kiếm
+            // thủ công) khi PMIS trả về dòng thiết bị THIẾU (null HOẶC rỗng — xem BlankToNull) field
+            // maTBA/maDuongDay — đã gặp thật, khiến ParentPmisCode=null và INFRASTRUCTURE_ID bị ghi NULL
+            // lúc INSERT lần đầu (không rơi vào nhánh update còn fallback về InfrastructureId cũ), làm
+            // thiết bị "đồng bộ Thành công" nhưng biến mất khỏi danh sách thiết bị của trạm/đường dây
+            // (EquipmentRepository.GetPagedAsync lọc theo INFRASTRUCTURE_ID). Xem
+            // pmis_sync_equipment_orphan_null_infra_id trong memory.
+            var resolvedParentPmisCode = (BlankToNull(item.MaTBA) ?? BlankToNull(item.MaDuongDay) ?? parentPmisCodeFallback)?.Trim();
+
             upsertRequests.Add(new UpsertEquipmentFromPmisRequest
             {
                 PmisCode = maTB,
@@ -648,14 +665,21 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 Name = tenTB,
                 EquipmentTypeCode = item.MaLoaiTB ?? string.Empty,
                 EquipmentTypeName = equipmentTypeName,
-                ParentPmisCode = (item.MaTBA ?? item.MaDuongDay)?.Trim(),
+                ParentPmisCode = resolvedParentPmisCode,
                 UnitCode = item.MaDonVi,
                 ManufactureYear = item.NamSanXuat,
                 QrCodeBase64 = qrCodeBase64,
                 GridTypeId = gridTypeId,
                 ThongSoKyThuat = thongSoKyThuat
             });
-            origins.Add((isSubstationDevice, item.MaTBA, item.MaDuongDay, maTB));
+            // Dùng ĐÚNG resolvedParentPmisCode (không phải item.MaTBA/MaDuongDay thô) cho origins — nếu
+            // không, đồng bộ tài liệu đính kèm (SyncDocumentsForOwnerAsync ngay dưới) vẫn nhận mã cha
+            // null/rỗng cho đúng những thiết bị vừa được cứu khỏi orphan ở trên, khiến API 8/9 luôn thất
+            // bại/rỗng cho riêng các thiết bị này dù thiết bị đã được gán đúng trạm/đường dây.
+            origins.Add((isSubstationDevice,
+                isSubstationDevice ? resolvedParentPmisCode : null,
+                isSubstationDevice ? null : resolvedParentPmisCode,
+                maTB));
         }
 
         if (upsertRequests.Count == 0) return (0, 0, 0, []);

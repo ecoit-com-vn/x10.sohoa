@@ -352,7 +352,8 @@ public class PmisScheduledSyncJob : IJob
 
                 total += pageItems.Count;
                 var (pageSuccess, pageFailed, pageWarnings, pageErrors) = await PushPageAsync(
-                    _executionService.SyncEquipmentAsync, historyId, pageItems, $"Thiết bị cha={parent.PmisCode} skip={skip}");
+                    (hId, items) => _executionService.SyncEquipmentAsync(hId, items, parent.PmisCode),
+                    historyId, pageItems, $"Thiết bị cha={parent.PmisCode} skip={skip}");
                 success += pageSuccess;
                 failed += pageFailed;
                 warnings += pageWarnings;
