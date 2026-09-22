@@ -869,13 +869,8 @@ export class InfrastructureComponent implements OnInit {
         if (res) {
           this.items.set(res.items || []);
           this.totalCount.set(res.totalCount || 0);
-
-          // Mở sẵn toàn bộ node có con ngay khi tải trang — người dùng thấy cây cha-con luôn, không cần
-          // bấm chevron trước (đúng như trải nghiệm mong đợi, giống cách /search tự mở node khớp).
-          const rootIdsWithChildren = (res.items || [])
-            .filter((item: any) => (res.items || []).some((other: any) => other.parentId === item.id))
-            .map((item: any) => item.id);
-          this.expandedLineIds.set(new Set<string>(rootIdsWithChildren));
+          // Mặc định thu gọn mọi node khi tải trang mới — người dùng tự bấm chevron để xem nhánh con.
+          this.expandedLineIds.set(new Set<string>());
         }
       },
       error: () => {
