@@ -15,13 +15,21 @@ public interface IEquipmentServiceClient
     /// tên trong bộ nhớ, xem PmisSyncExecutionService.ResolveParentLineIdAsync.</summary>
     Task<List<LineNameIndexEntry>> GetLineNameIndexAsync();
 
-    /// <summary>Các Đường dây ĐÃ tồn tại (từ lượt đồng bộ trước) nhưng tên có "/" mà vẫn chưa xác định
-    /// được cha — dùng để backfill vào cuối mỗi lượt đồng bộ, xem PmisSyncExecutionService.BackfillLineParentsAsync.</summary>
-    Task<List<LineNameIndexEntry>> GetLinesMissingParentAsync();
+    /// <summary>Các Đường dây ĐÃ tồn tại cần "khớp lại" bởi LineParentBackfillJob (job Quartz riêng chạy
+    /// nền định kỳ, KHÔNG chèn vào lượt đồng bộ Đường dây nào) — gồm 2 trường hợp: (1) tên có "/" nhưng
+    /// vẫn chưa xác định được cha; (2) đã có cha nhưng GridTypeId còn thiếu (trả kèm ParentId/
+    /// ParentGridTypeId để không cần resolve lại theo tên) — xem
+    /// PmisSyncExecutionService.BackfillLineParentsAsync.</summary>
+    Task<List<LineNameIndexEntry>> GetLinesNeedingBackfillAsync();
 
     /// <summary>Cập nhật RIÊNG cột ParentInfrastructureId cho các Đường dây trong danh sách — trả về số
     /// dòng cập nhật thành công.</summary>
     Task<int> BackfillLineParentsAsync(List<BackfillLineParentItem> items);
+
+    /// <summary>Tạo 1 Đường dây THẬT cho 1 cấp waypoint trung gian mà PMIS không tự cung cấp bản ghi
+    /// riêng — xem PmisSyncExecutionService.ResolveOrCreateParentChainAsync. Trả về null nếu tạo lỗi
+    /// (caller tự log/dừng chuỗi, thử lại ở lượt sau).</summary>
+    Task<Guid?> CreateSyntheticLineAsync(CreateSyntheticLineRequest request);
 
     Task<List<UpsertPmisDocumentResult>> UpsertDocumentsAsync(List<UpsertPmisDocumentRequest> items);
 }

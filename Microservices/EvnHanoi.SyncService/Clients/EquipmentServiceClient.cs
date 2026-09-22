@@ -60,9 +60,9 @@ public class EquipmentServiceClient : IEquipmentServiceClient
         return await response.Content.ReadFromJsonAsync<List<LineNameIndexEntry>>() ?? [];
     }
 
-    public async Task<List<LineNameIndexEntry>> GetLinesMissingParentAsync()
+    public async Task<List<LineNameIndexEntry>> GetLinesNeedingBackfillAsync()
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "internal/v1/infrastructure/lines-missing-parent");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "internal/v1/infrastructure/lines-needing-backfill");
         request.Headers.Add("X-Internal-Token", _internalToken);
 
         var response = await _httpClient.SendAsync(request);
@@ -82,6 +82,20 @@ public class EquipmentServiceClient : IEquipmentServiceClient
         response.EnsureSuccessStatusCode();
         var result = await response.Content.ReadFromJsonAsync<BackfillLineParentResult>();
         return result?.UpdatedCount ?? 0;
+    }
+
+    public async Task<Guid?> CreateSyntheticLineAsync(CreateSyntheticLineRequest request)
+    {
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "internal/v1/infrastructure/create-synthetic-line")
+        {
+            Content = JsonContent.Create(request)
+        };
+        httpRequest.Headers.Add("X-Internal-Token", _internalToken);
+
+        var response = await _httpClient.SendAsync(httpRequest);
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<CreateSyntheticLineResult>();
+        return result is { Success: true, InfrastructureId: { } id } ? id : null;
     }
 
     public async Task<List<UpsertPmisDocumentResult>> UpsertDocumentsAsync(List<UpsertPmisDocumentRequest> items)

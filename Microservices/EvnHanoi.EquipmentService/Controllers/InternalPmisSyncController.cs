@@ -78,16 +78,16 @@ public class InternalPmisSyncController : ControllerBase
         return Ok(rows);
     }
 
-    /// <summary>Các Đường dây ĐÃ tồn tại (từ lượt đồng bộ trước) nhưng tên có "/" (chắc chắn là nhánh) mà
-    /// PARENT_ID vẫn NULL — SyncService gọi vào cuối mỗi lượt đồng bộ Đường dây để thử khớp lại cha 1 lần
-    /// nữa (xem PmisSyncExecutionService.BackfillLineParentsAsync), phòng trường hợp đường trục lúc đồng
-    /// bộ ban đầu chưa tồn tại (cùng lượt hoặc trang xử lý trước trục) nên nhánh đó bị bỏ sót.</summary>
-    [HttpGet("infrastructure/lines-missing-parent")]
-    public async Task<IActionResult> GetLinesMissingParent([FromHeader(Name = "X-Internal-Token")] string? internalToken)
+    /// <summary>Các Đường dây ĐÃ tồn tại (từ lượt đồng bộ trước) cần "khớp lại" cha và/hoặc cấp điện áp —
+    /// SyncService gọi từ job Quartz riêng chạy nền định kỳ (LineParentBackfillJob, KHÔNG còn chèn vào
+    /// lượt đồng bộ Đường dây nào — xem PmisSyncExecutionService.BackfillLineParentsAsync). Xem điều kiện
+    /// đầy đủ ở InfrastructureRepository.GetLinesNeedingBackfillAsync.</summary>
+    [HttpGet("infrastructure/lines-needing-backfill")]
+    public async Task<IActionResult> GetLinesNeedingBackfill([FromHeader(Name = "X-Internal-Token")] string? internalToken)
     {
         if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
 
-        var rows = await _infrastructureRepository.GetLinesMissingParentAsync();
+        var rows = await _infrastructureRepository.GetLinesNeedingBackfillAsync();
         return Ok(rows);
     }
 
@@ -106,6 +106,33 @@ public class InternalPmisSyncController : ControllerBase
             request.Items.Select(i => (i.Id, i.ParentInfrastructureId, i.GridTypeId)).ToList());
 
         return Ok(new { updatedCount });
+    }
+
+    /// <summary>Tạo 1 Đường dây THẬT cho 1 cấp waypoint trung gian mà PMIS không tự cung cấp bản ghi
+    /// riêng (nhánh nhiều cấp không cố định, vd "A/Nhánh B/Nhánh C/Nhánh D" chỉ có bản ghi PMIS cho lá D)
+    /// — SyncService gọi từ LineParentBackfillJob khi không tìm được đúng cha ở cấp liền kề, xem
+    /// PmisSyncExecutionService.ResolveOrCreateParentChainAsync. Không throw khi lỗi — trả Success=false
+    /// để caller tự log/dừng chuỗi, thử lại ở lượt sau.</summary>
+    [HttpPost("infrastructure/create-synthetic-line")]
+    public async Task<IActionResult> CreateSyntheticLine(
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken,
+        [FromBody] CreateSyntheticLineRequest request)
+    {
+        if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
+        if (string.IsNullOrWhiteSpace(request.Code) || string.IsNullOrWhiteSpace(request.Name))
+            return Ok(new CreateSyntheticLineResult { Success = false, ErrorMessage = "Code/Name là bắt buộc." });
+
+        try
+        {
+            var id = await _infrastructureRepository.CreateSyntheticLineAsync(
+                request.Code, request.Name, request.UnitCode, request.ParentInfrastructureId, request.GridTypeId);
+            return Ok(new CreateSyntheticLineResult { Success = true, InfrastructureId = id });
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "InternalPmisSyncController: lỗi tạo Đường dây waypoint trung gian '{Name}' (code={Code}).", request.Name, request.Code);
+            return Ok(new CreateSyntheticLineResult { Success = false, ErrorMessage = ex.Message });
+        }
     }
 
     [HttpPost("infrastructure/upsert-from-pmis")]

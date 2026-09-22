@@ -78,6 +78,15 @@ public class LineNameIndexEntry
     /// có cần backfill GridTypeId cho 1 dòng đang thiếu cha hay không (chỉ điền khi đang null, không đoán
     /// đè lên giá trị đã có — xem PmisSyncExecutionService.ResolveGridTypeId).</summary>
     public int? GridTypeId { get; set; }
+
+    /// <summary>Chỉ có giá trị khi dòng này được trả về bởi GetLinesNeedingBackfillAsync VÀ đã có cha
+    /// (PARENT_ID không NULL) — cho SyncService biết ngay ParentId THẬT (không cần resolve lại theo tên)
+    /// và GridTypeId hiện có của chính cha đó (ParentGridTypeId), để mượn thẳng khi chính dòng này thiếu
+    /// GridTypeId. Null với các dòng tải qua GetLineNameIndexAsync (không JOIN cột này).</summary>
+    public Guid? ParentId { get; set; }
+
+    /// <summary>Xem ParentId — GRIDTYPEID hiện có của dòng cha (null nếu cha cũng chưa có).</summary>
+    public int? ParentGridTypeId { get; set; }
 }
 
 /// <summary>Payload POST internal/v1/infrastructure/backfill-line-parents — cập nhật CHỈ cột PARENT_ID
@@ -107,6 +116,28 @@ public class UpsertInfrastructureFromPmisResult
     public Guid? InfrastructureId { get; set; }
     public bool WasCreated { get; set; }
     public bool HasChanged { get; set; } = true;
+    public string? ErrorMessage { get; set; }
+}
+
+/// <summary>Payload POST internal/v1/infrastructure/create-synthetic-line — nhánh Đường dây nhiều cấp
+/// không cố định (vd "A/Nhánh B/Nhánh C/Nhánh D") mà PMIS không tự cung cấp bản ghi riêng cho waypoint
+/// trung gian (B, C) thì SyncService tự tạo waypoint đó làm 1 Đường dây THẬT qua endpoint này, thay vì
+/// bỏ cuộc gán cha — xem PmisSyncExecutionService.ResolveOrCreateParentChainAsync. Không đánh dấu "ảo":
+/// ghi vào INFRASTRUCTURE như Đường dây bình thường, chỉ khác PMIS_CODE để trống (không có mã PMIS thật)
+/// — admin sửa/xoá được như Đường dây thường qua UI.</summary>
+public class CreateSyntheticLineRequest
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? UnitCode { get; set; }
+    public Guid? ParentInfrastructureId { get; set; } // null = waypoint này chính là trục gốc
+    public int? GridTypeId { get; set; }
+}
+
+public class CreateSyntheticLineResult
+{
+    public bool Success { get; set; }
+    public Guid? InfrastructureId { get; set; }
     public string? ErrorMessage { get; set; }
 }
 

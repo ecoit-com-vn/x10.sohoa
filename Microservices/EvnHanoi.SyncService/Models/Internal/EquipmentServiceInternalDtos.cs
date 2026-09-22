@@ -37,6 +37,14 @@ public class LineNameIndexEntry
     /// <summary>GRIDTYPEID hiện có của chính dòng này — dùng để cho nhánh mượn tạm cấp điện áp của trục
     /// khi nhánh không có capDienAp riêng (xem PmisSyncExecutionService.ResolveParentLineId).</summary>
     public int? GridTypeId { get; set; }
+
+    /// <summary>Chỉ có giá trị khi dòng này được trả về bởi GetLinesNeedingBackfillAsync VÀ đã có cha —
+    /// cho biết ngay ParentId THẬT (không cần resolve lại theo tên) và GridTypeId hiện có của cha đó
+    /// (ParentGridTypeId), để BackfillLineParentsAsync mượn thẳng khi chính dòng này thiếu GridTypeId.</summary>
+    public Guid? ParentId { get; set; }
+
+    /// <summary>Xem ParentId — GRIDTYPEID hiện có của dòng cha (null nếu cha cũng chưa có).</summary>
+    public int? ParentGridTypeId { get; set; }
 }
 
 /// <summary>Mirror của BackfillLineParentRequest/Item (EquipmentService) — cập nhật RIÊNG cột
@@ -130,5 +138,26 @@ public class UpsertPmisDocumentResult
     public string PmisDocumentCode { get; set; } = string.Empty;
     public bool Success { get; set; }
     public bool WasSkippedAsExisting { get; set; }
+    public string? ErrorMessage { get; set; }
+}
+
+/// <summary>Tạo 1 Đường dây THẬT đại diện cho 1 cấp "waypoint" trung gian mà PMIS không tự cung cấp bản
+/// ghi riêng (nhánh nhiều cấp không cố định, vd "A/Nhánh B/Nhánh C/Nhánh D" — PMIS chỉ có bản ghi cho lá
+/// D, không có cho waypoint B/C) — xem PmisSyncExecutionService.ResolveOrCreateParentChainAsync. Không
+/// đánh dấu "ảo": ghi vào INFRASTRUCTURE như 1 Đường dây bình thường, chỉ khác là PMIS_CODE để trống
+/// (không có mã PMIS thật) — admin có thể sửa như 1 Đường dây thường qua UI.</summary>
+public class CreateSyntheticLineRequest
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? UnitCode { get; set; }
+    public Guid? ParentInfrastructureId { get; set; } // null = waypoint này chính là trục gốc (PMIS cũng chưa từng gửi bản ghi trục gốc riêng)
+    public int? GridTypeId { get; set; } // mượn tạm từ tổ tiên thật gần nhất tìm được, xem ResolveOrCreateParentChainAsync
+}
+
+public class CreateSyntheticLineResult
+{
+    public bool Success { get; set; }
+    public Guid? InfrastructureId { get; set; }
     public string? ErrorMessage { get; set; }
 }
