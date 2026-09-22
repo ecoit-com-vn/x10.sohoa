@@ -33,12 +33,16 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         switch (ownerType)
         {
             case "INFRASTRUCTURE":
-                sql = "SELECT Id FROM INFRASTRUCTURE WHERE PMIS_CODE = :Code AND IsDeleted = 0";
+                // UPPER(TRIM(...)) — khớp đúng cách so sánh chuẩn hoá đã dùng ở InfrastructureRepository/
+                // EquipmentRepository.UpsertFromPmisAsync (PMIS trả PMIS_CODE lệch khoảng trắng/hoa-thường
+                // tuỳ lần) — trước đây so khớp CHÍNH XÁC ở đây khiến tài liệu báo "Không tìm thấy đối
+                // tượng sở hữu" dù Trạm/Đường dây/Thiết bị đó thật sự đã tồn tại, chỉ lệch định dạng mã.
+                sql = "SELECT Id FROM INFRASTRUCTURE WHERE UPPER(TRIM(PMIS_CODE)) = UPPER(TRIM(:Code)) AND IsDeleted = 0";
                 break;
             case "EQUIPMENT":
                 // EquipmentSqlFilters.NotTransferredAway — loại "hồn ma" chuyển TBA, giữ thiết bị "đã
                 // chuyển hồ sơ" (xem GetPagedAsync).
-                sql = $"SELECT Id FROM EQUIPMENTS WHERE PMIS_CODE = :Code AND IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway()}";
+                sql = $"SELECT Id FROM EQUIPMENTS WHERE UPPER(TRIM(PMIS_CODE)) = UPPER(TRIM(:Code)) AND IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway()}";
                 break;
             default:
                 return null;
