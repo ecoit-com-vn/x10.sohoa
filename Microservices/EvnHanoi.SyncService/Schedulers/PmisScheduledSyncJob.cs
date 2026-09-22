@@ -133,8 +133,10 @@ public class PmisScheduledSyncJob : IJob
             var status = (total > 0 && success == 0) || (total == 0 && errors.Count > 0)
                 ? SyncHistoryStatus.Failed
                 : (warnings > 0 ? SyncHistoryStatus.Warning : SyncHistoryStatus.Success);
-            await _syncHistoryRepository.CompleteAsync(historyId, status, total, success, failed,
+            var completed = await _syncHistoryRepository.CompleteAsync(historyId, status, total, success, failed,
                 errors.Count > 0 ? string.Join("; ", errors.Take(5)) : null);
+            if (!completed)
+                Log.Warning("PmisScheduledSyncJob: {ObjectType} hoàn tất với kết quả thật ({Status}, total={Total}, success={Success}) nhưng syncHistoryId={SyncHistoryId} đã bị SyncHistoryWatchdogJob đánh FAILED trước đó (chạy quá 30 phút) — giữ nguyên FAILED của watchdog, bỏ kết quả thật này.", objectType, status, total, success, historyId);
 
             // Lượt chạy hoàn tất bình thường (kể cả Failed do 0/n item thành công vẫn là 1 lượt đã thử
             // xong) — đẩy NextSyncAt theo tần suất cấu hình, và reset bộ đếm lỗi liên tiếp vì PMIS đã
@@ -145,7 +147,9 @@ public class PmisScheduledSyncJob : IJob
         catch (Exception ex)
         {
             Log.Error(ex, "PmisScheduledSyncJob: đồng bộ tự động {ObjectType} thất bại.", objectType);
-            await _syncHistoryRepository.CompleteAsync(historyId, SyncHistoryStatus.Failed, total, success, failed, SyncErrorFormatter.Format(ex));
+            var completed = await _syncHistoryRepository.CompleteAsync(historyId, SyncHistoryStatus.Failed, total, success, failed, SyncErrorFormatter.Format(ex));
+            if (!completed)
+                Log.Warning("PmisScheduledSyncJob: syncHistoryId={SyncHistoryId} ({ObjectType}) đã bị SyncHistoryWatchdogJob đánh FAILED trước khi job tự báo lỗi xong — exception thật xem log phía trên.", historyId, objectType);
 
             // Lỗi ngay từ bước gọi PMIS — đánh dấu thất bại ngay (không tự retry), và chờ đúng đến lần
             // kế tiếp theo tần suất đã cấu hình mới thử lại, giống hệt nhánh thành công — không rút

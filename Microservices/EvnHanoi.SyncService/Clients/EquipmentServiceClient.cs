@@ -84,6 +84,20 @@ public class EquipmentServiceClient : IEquipmentServiceClient
         return result?.UpdatedCount ?? 0;
     }
 
+    public async Task<Guid?> CreateSyntheticLineAsync(CreateSyntheticLineRequest request)
+    {
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "internal/v1/infrastructure/create-synthetic-line")
+        {
+            Content = JsonContent.Create(request)
+        };
+        httpRequest.Headers.Add("X-Internal-Token", _internalToken);
+
+        var response = await _httpClient.SendAsync(httpRequest);
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<CreateSyntheticLineResult>();
+        return result is { Success: true, InfrastructureId: { } id } ? id : null;
+    }
+
     public async Task<List<UpsertPmisDocumentResult>> UpsertDocumentsAsync(List<UpsertPmisDocumentRequest> items)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "internal/v1/documents/upsert-from-pmis")
