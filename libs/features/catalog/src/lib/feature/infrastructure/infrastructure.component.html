@@ -320,15 +320,11 @@
             <td>
               <div class="line-name-cell" [style.padding-left.px]="level * 24">
                 <i
-                  *ngIf="hasChildLines(node) && !isLineChildrenLoading(node.id)"
+                  *ngIf="hasChildLines(node)"
                   class="pi chevron-icon"
                   [class.pi-angle-down]="!isLineExpanded(node.id)"
                   [class.pi-angle-up]="isLineExpanded(node.id)"
                   (click)="toggleLineGroup(node.id, $event)"
-                ></i>
-                <i
-                  *ngIf="isLineChildrenLoading(node.id)"
-                  class="pi pi-spin pi-spinner chevron-icon"
                 ></i>
                 <span
                   *ngIf="!hasChildLines(node)"
