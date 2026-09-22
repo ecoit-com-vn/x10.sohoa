@@ -61,11 +61,4 @@ public interface IInfrastructureRepository
     /// đụng các field khác, khác UpdateAsync/UpsertFromPmisAsync vốn cần đủ dữ liệu PMIS gốc của dòng đó.
     /// Trả về số dòng cập nhật thành công.</summary>
     Task<int> UpdateParentIdsAsync(IReadOnlyList<(Guid Id, Guid ParentId, int? GridTypeId)> items);
-
-    /// <summary>Tạo 1 Đường dây THẬT cho 1 cấp waypoint trung gian mà PMIS không tự cung cấp bản ghi
-    /// riêng (nhánh nhiều cấp không cố định — xem SyncService.PmisSyncExecutionService.
-    /// ResolveOrCreateParentChainAsync). PMIS_CODE để trống (không có mã PMIS thật). Code phải DUY NHẤT
-    /// và XÁC ĐỊNH (deterministic) theo tên waypoint — nếu 2 lần gọi trùng CODE (race giữa các tick
-    /// LineParentBackfillJob, không dùng RedLock), trả về Id của bản ghi đã tạo trước đó thay vì lỗi.</summary>
-    Task<Guid> CreateSyntheticLineAsync(string code, string name, string? unitCode, Guid? parentId, int? gridTypeId);
 }
