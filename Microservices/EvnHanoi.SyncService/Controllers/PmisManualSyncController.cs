@@ -210,6 +210,11 @@ public class PmisManualSyncController : ControllerBase
         // liệu đính kèm sang SUBSTATION_DOCUMENT_LIST. Đường dây: KHÔNG set MaThietBi, tự điền sẵn
         // ThongSoKyThuat/MaQRCode từ lần gọi ChiTietThietBi ở trên (giống shape DanhSachThietBiDuongDay) —
         // SyncEquipmentAsync route tài liệu đính kèm sang LINE_DOCUMENT_LIST, không gọi lại PMIS lần 2.
+        // Bù lại bằng request.ParentPmisCode (FE đã có sẵn từ EquipmentDto, chắc chắn đúng) nếu ChiTietThietBi
+        // trả về thiếu maTBA — cùng lớp lỗi "PMIS thiếu field mã cha" ở SearchEquipmentsAsync/SyncEquipmentAsync,
+        // xem pmis_sync_equipment_orphan_null_infra_id trong memory. IsNullOrWhiteSpace (không phải "??") vì
+        // PMIS có thể trả maTBA là CHUỖI RỖNG thay vì bỏ hẳn field — "??" sẽ không bắt được trường hợp đó.
+        var parentPmisCode = !string.IsNullOrWhiteSpace(detail.MaTBA) ? detail.MaTBA : request.ParentPmisCode;
         var rawItem = request.IsSubstationDevice
             ? JsonSerializer.SerializeToElement(new
             {
@@ -217,7 +222,7 @@ public class PmisManualSyncController : ControllerBase
                 TenThietBi = detail.TenTB,
                 MaLoaiTB = detail.MaLoaiTB,
                 TenLoaiTB = detail.TenLoaiTB,
-                MaTBA = detail.MaTBA,
+                MaTBA = parentPmisCode,
                 MaDonVi = detail.MaDonVi,
                 NamSanXuat = detail.NamSanXuat
             })
@@ -227,7 +232,7 @@ public class PmisManualSyncController : ControllerBase
                 TenTB = detail.TenTB,
                 MaLoaiTB = detail.MaLoaiTB,
                 TenLoaiTB = detail.TenLoaiTB,
-                MaDuongDay = detail.MaTBA,
+                MaDuongDay = parentPmisCode,
                 MaDonVi = detail.MaDonVi,
                 NamSanXuat = detail.NamSanXuat,
                 MaQRCode = detail.MaQRCode,
@@ -258,7 +263,7 @@ public class PmisManualSyncController : ControllerBase
         List<string> errors;
         try
         {
-            (successCount, failedCount, warningCount, errors) = await _executionService.SyncEquipmentAsync(historyId, [rawItem]);
+            (successCount, failedCount, warningCount, errors) = await _executionService.SyncEquipmentAsync(historyId, [rawItem], parentPmisCode);
         }
         catch (Exception ex)
         {
@@ -374,11 +379,20 @@ public class PmisManualSyncController : ControllerBase
             return new PmisManualSearchResponse
             {
                 Total = result.Total,
-                Items = result.Items.Select(item => new PmisSyncPreviewItemDto
+                Items = result.Items.Select(item =>
                 {
-                    PmisCode = item.MaThietBi,
-                    DisplayName = item.TenThietBi,
-                    RawData = JsonSerializer.SerializeToElement(item)
+                    // PMIS đôi khi trả 1 dòng thiết bị THIẾU field maTBA (dù đây rõ ràng là thiết bị của
+                    // ĐÚNG trạm r.MaTBA đang tìm) — nếu không bù lại, lúc Lưu (Save gửi lại y hệt RawData
+                    // này) ParentPmisCode sẽ null, ghi INFRASTRUCTURE_ID=NULL và thiết bị "Thành công"
+                    // nhưng biến mất khỏi danh sách thiết bị của trạm. Xem
+                    // pmis_sync_equipment_orphan_null_infra_id trong memory.
+                    if (string.IsNullOrWhiteSpace(item.MaTBA)) item.MaTBA = r.MaTBA;
+                    return new PmisSyncPreviewItemDto
+                    {
+                        PmisCode = item.MaThietBi,
+                        DisplayName = item.TenThietBi,
+                        RawData = JsonSerializer.SerializeToElement(item)
+                    };
                 }).ToList()
             };
         }
@@ -397,11 +411,16 @@ public class PmisManualSyncController : ControllerBase
         return new PmisManualSearchResponse
         {
             Total = lineResult.Total,
-            Items = lineResult.Items.Select(item => new PmisSyncPreviewItemDto
+            Items = lineResult.Items.Select(item =>
             {
-                PmisCode = item.MaTB,
-                DisplayName = item.TenTB,
-                RawData = JsonSerializer.SerializeToElement(item)
+                // Bù lại maDuongDay nếu PMIS thiếu — xem giải thích ở nhánh MaTBA phía trên.
+                if (string.IsNullOrWhiteSpace(item.MaDuongDay)) item.MaDuongDay = r.MaDuongDay;
+                return new PmisSyncPreviewItemDto
+                {
+                    PmisCode = item.MaTB,
+                    DisplayName = item.TenTB,
+                    RawData = JsonSerializer.SerializeToElement(item)
+                };
             }).ToList()
         };
     }

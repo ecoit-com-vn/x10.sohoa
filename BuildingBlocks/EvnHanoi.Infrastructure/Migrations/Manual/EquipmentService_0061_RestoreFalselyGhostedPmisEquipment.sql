@@ -15,31 +15,36 @@
 -- đúng 1 dòng (ưu tiên ModifiedDate mới nhất). Oracle rollback toàn bộ statement khi lỗi — lần chạy
 -- trước KHÔNG ghi gì vào DB, an toàn để chạy lại bản đã sửa này.
 --
+-- SCHEMA: script này giả định chạy dưới 1 user CÓ QUYỀN nhưng KHÔNG PHẢI chủ schema ứng dụng (vd
+-- SYS) — mọi tham chiếu bảng đều gắn tiền tố "QLSHX10." tường minh, tránh ORA-00942 "table or view
+-- does not exist" (unqualified name sẽ tìm nhầm trong schema của user đang kết nối, không phải
+-- QLSHX10). Nếu bạn kết nối THẲNG bằng user QLSHX10, tiền tố này thừa nhưng vô hại.
+--
 -- Trước khi chạy tay trên production, nên SELECT trước để xem trước số dòng/nội dung sẽ bị đổi:
 --
 -- SELECT x.* FROM (
 --     SELECT c.Id, c.Code, c.Name, c.PMIS_CODE, c.INFRASTRUCTURE_ID, c.ModifiedDate,
 --            ROW_NUMBER() OVER (PARTITION BY UPPER(TRIM(c.PMIS_CODE)) ORDER BY c.ModifiedDate DESC, c.Id DESC) AS rn_code,
 --            ROW_NUMBER() OVER (PARTITION BY c.INFRASTRUCTURE_ID, c.Code ORDER BY c.ModifiedDate DESC, c.Id DESC) AS rn_infra_code
---     FROM EQUIPMENTS c
+--     FROM QLSHX10.EQUIPMENTS c
 --     WHERE c.StatusTransition = 0
 --       AND c.IsDeleted = 0
 --       AND c.ModifiedBy = 'PMIS_SYNC'
 --       AND c.PMIS_CODE IS NOT NULL
 --       AND NOT EXISTS (
---           SELECT 1 FROM EQUIPMENTS e2
+--           SELECT 1 FROM QLSHX10.EQUIPMENTS e2
 --           WHERE UPPER(TRIM(e2.PMIS_CODE)) = UPPER(TRIM(c.PMIS_CODE))
 --             AND e2.IsDeleted = 0 AND e2.StatusTransition IS NULL AND e2.Id <> c.Id
 --       )
 --       AND NOT EXISTS (
---           SELECT 1 FROM EQUIPMENTS e3
+--           SELECT 1 FROM QLSHX10.EQUIPMENTS e3
 --           WHERE e3.INFRASTRUCTURE_ID = c.INFRASTRUCTURE_ID AND e3.Code = c.Code
 --             AND e3.IsDeleted = 0 AND e3.StatusTransition IS NULL AND e3.Id <> c.Id
 --       )
 -- ) x
 -- WHERE x.rn_code = 1 AND x.rn_infra_code = 1;
 
-UPDATE EQUIPMENTS e
+UPDATE QLSHX10.EQUIPMENTS e
 SET StatusTransition = NULL,
     ModifiedBy = 'MIGRATION_0061_RESTORE_GHOST',
     ModifiedDate = SYSTIMESTAMP
@@ -52,20 +57,20 @@ WHERE e.Id IN (
                ROW_NUMBER() OVER (
                    PARTITION BY c.INFRASTRUCTURE_ID, c.Code
                    ORDER BY c.ModifiedDate DESC, c.Id DESC) AS rn_infra_code
-        FROM EQUIPMENTS c
+        FROM QLSHX10.EQUIPMENTS c
         WHERE c.StatusTransition = 0
           AND c.IsDeleted = 0
           AND c.ModifiedBy = 'PMIS_SYNC'
           AND c.PMIS_CODE IS NOT NULL
           AND NOT EXISTS (
-              SELECT 1 FROM EQUIPMENTS e2
+              SELECT 1 FROM QLSHX10.EQUIPMENTS e2
               WHERE UPPER(TRIM(e2.PMIS_CODE)) = UPPER(TRIM(c.PMIS_CODE))
                 AND e2.IsDeleted = 0
                 AND e2.StatusTransition IS NULL
                 AND e2.Id <> c.Id
           )
           AND NOT EXISTS (
-              SELECT 1 FROM EQUIPMENTS e3
+              SELECT 1 FROM QLSHX10.EQUIPMENTS e3
               WHERE e3.INFRASTRUCTURE_ID = c.INFRASTRUCTURE_ID
                 AND e3.Code = c.Code
                 AND e3.IsDeleted = 0

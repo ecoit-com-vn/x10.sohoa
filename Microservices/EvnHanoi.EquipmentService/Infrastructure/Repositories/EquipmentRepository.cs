@@ -1682,6 +1682,14 @@ StatusTransition,
             _connection.Open();
 
         string? infrastructureId = null;
+        // true khi parentPmisCode CÓ giá trị nhưng không khớp được INFRASTRUCTURE nào — khác với
+        // parentPmisCode rỗng (không có cha, hợp lệ). Dùng để CHẶN insert thiết bị "mồ côi"
+        // (INFRASTRUCTURE_ID=NULL) ở nhánh tạo mới bên dưới — trước đây im lặng cho qua, khiến thiết
+        // bị "đồng bộ Thành công" nhưng biến mất khỏi mọi danh sách lọc theo INFRASTRUCTURE_ID (xem
+        // pmis_sync_equipment_orphan_null_infra_id). Nhánh UPDATE (existing != null) KHÔNG áp dụng guard
+        // này — vẫn giữ nguyên hành vi cũ (effectiveInfrastructureId fallback về InfrastructureId đã có),
+        // để không chặn việc cập nhật các trường khác khi chỉ riêng lượt này chưa khớp lại được cha.
+        var infraLookupFailed = false;
         var effectiveGridTypeId = gridTypeId;
         if (!string.IsNullOrWhiteSpace(parentPmisCode))
         {
@@ -1693,8 +1701,13 @@ StatusTransition,
             var infraRow = await _connection.QuerySingleOrDefaultAsync<InfraLookupRow>(
                 "SELECT Id, GRIDTYPEID AS GridTypeId FROM INFRASTRUCTURE WHERE UPPER(TRIM(PMIS_CODE)) = UPPER(TRIM(:PmisCode)) AND IsDeleted = 0",
                 new { PmisCode = parentPmisCode });
-            infrastructureId = infraRow?.Id;
-            effectiveGridTypeId ??= infraRow?.GridTypeId;
+            if (infraRow == null)
+                infraLookupFailed = true;
+            else
+            {
+                infrastructureId = infraRow.Id;
+                effectiveGridTypeId ??= infraRow.GridTypeId;
+            }
         }
 
         string? equipmentTypeId = null;
@@ -1880,6 +1893,18 @@ StatusTransition,
                 return FailDuplicateActiveCode(ex, "cập nhật thiết bị", code, pmisCode);
             }
             return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Ok(Guid.Parse(existing.Id!), false, true, Guid.Parse(equipmentTypeId));
+        }
+
+        // Thiết bị MỚI (chưa từng đồng bộ) mà không khớp được Trạm/Đường dây cha — KHÔNG tạo bản ghi
+        // "mồ côi" (INFRASTRUCTURE_ID=NULL, biến mất khỏi mọi danh sách lọc theo trạm/đường dây dù sync
+        // báo "Thành công"). Mirror đúng cảnh báo đã có ở tài liệu đính kèm (xem
+        // InternalPmisSyncController "Không tìm thấy đối tượng sở hữu tài liệu"). PMIS trả về TOÀN BỘ
+        // dữ liệu mỗi lượt (không phải delta) nên thiết bị này tự được thử lại ở lượt sau, không mất dữ
+        // liệu — chỉ trì hoãn tới khi trạm/đường dây cha khớp được.
+        if (infraLookupFailed)
+        {
+            return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
+                $"Không tìm thấy Trạm/Đường dây cha (mã PMIS '{parentPmisCode}') nên chưa thể lưu thiết bị — tránh tạo bản ghi không thuộc trạm/đường dây nào. Trạm/Đường dây có thể chưa đồng bộ tới, hoặc mã PMIS lệch định dạng — thử lại ở lượt sau.");
         }
 
         var newId = Guid.Parse(EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid());
