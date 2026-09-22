@@ -199,7 +199,11 @@ public static class DossierIndexSetup
                 { "statusName", new KeywordProperty() },
                 { "pendingAssignedRoles", new KeywordProperty() },
                 { "pendingAssigneeUserId", new KeywordProperty() },
-                { "currentHandlerName", new KeywordProperty() },
+                // currentHandlerName KHÔNG khai báo lại ở đây - đã có sẵn từ khi tạo index (dạng text
+                // kèm sub-field .keyword, xem BuildDossierIndexProperties) và không có truy vấn nào cần
+                // đổi sang keyword thuần. Elasticsearch không cho đổi kiểu 1 field đã tồn tại qua mapping
+                // update, nên khai báo lại ở đây chỉ khiến EnsureMappingUpdatedAsync luôn thất bại (400
+                // illegal_argument_exception) mỗi lần service khởi động.
                 { "workflowParticipantUserIds", new KeywordProperty() },
                 { "currentStepAllowEdit", new BooleanProperty() },
                 { "workflowInstanceStatus", new KeywordProperty() },
