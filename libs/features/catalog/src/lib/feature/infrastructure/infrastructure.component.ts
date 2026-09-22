@@ -143,10 +143,35 @@ export class InfrastructureComponent implements OnInit {
   childrenByLineId = signal<Map<string, any[]>>(new Map<string, any[]>());
   loadingChildLineIds = signal<Set<string>>(new Set<string>());
 
+  // Cùng điều kiện dùng trong loadItems() — tách thành computed để transmissionLineTree/toggleLineGroup
+  // dùng lại được, tránh lặp logic.
+  isLineRootView = computed(() => this.infraTypeId() === 2 && !this.searchKeyword().trim());
+
   transmissionLineTree = computed(() => {
     const list = this.items() || [];
-    const childrenMap = this.childrenByLineId();
-    return list.map(item => ({ ...item, children: childrenMap.get(item.id) || [] }));
+
+    if (this.isLineRootView()) {
+      // Trang mặc định (không tìm kiếm): chỉ đường trục, nhánh con tải lười qua toggleLineGroup.
+      const childrenMap = this.childrenByLineId();
+      return list.map(item => ({ ...item, children: childrenMap.get(item.id) || [] }));
+    }
+
+    // Đang tìm kiếm theo từ khoá: API trả phẳng (không rootOnly) nên 1 trang có thể chứa cả cha lẫn
+    // con khớp từ khoá — dựng cây ngay từ chính items() bằng parentId để không hiển thị phẳng khi cả
+    // 2 tình cờ cùng trang (đáng tin cậy ở đây vì tổng số kết quả khớp từ khoá thường nhỏ, khác với
+    // trang mặc định 14.000+ dòng). Nhánh con khớp từ khoá nhưng cha không khớp (không có trong trang
+    // này) vẫn hiển thị ở cấp gốc như cũ.
+    const map = new Map<string, any>();
+    list.forEach(item => map.set(item.id, { ...item, children: [] }));
+    const roots: any[] = [];
+    map.forEach(node => {
+      if (node.parentId && map.has(node.parentId)) {
+        map.get(node.parentId).children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+    return roots;
   });
 
   toggleLineGroup(lineId: string, event?: Event) {
@@ -163,10 +188,13 @@ export class InfrastructureComponent implements OnInit {
       return next;
     });
 
+    // Chỉ cần gọi API tải nhánh con ở trang mặc định (rootOnly) — khi đang tìm kiếm, transmissionLineTree
+    // đã tự gắn sẵn children thật từ chính items() (xem trên), gọi lại API ở đây chỉ tốn 1 request thừa
+    // vô ích vì kết quả sẽ bị bỏ qua (không được đọc ở nhánh tìm kiếm của transmissionLineTree).
     // Mở rộng lần đầu (chưa có trong cache, và chưa có lượt tải nào đang chạy dở — tránh bấm nhanh
     // mở/đóng/mở lại khi API còn đang tải làm gọi trùng) mới gọi API — thu gọn/mở lại sau đó dùng lại
     // cache, không gọi lại API mỗi lần bấm chevron.
-    if (!isExpanded && !this.childrenByLineId().has(lineId) && !this.loadingChildLineIds().has(lineId)) {
+    if (!isExpanded && this.isLineRootView() && !this.childrenByLineId().has(lineId) && !this.loadingChildLineIds().has(lineId)) {
       this.loadChildLines(lineId);
     }
   }
@@ -218,8 +246,19 @@ export class InfrastructureComponent implements OnInit {
     return branch.length > 0 ? branch : name;
   }
 
+  /** true nếu node có nhánh con - theo childLineCount backend trả về (trang mặc định, tải lười) HOẶC
+   * theo children đã gắn sẵn thật sự trong transmissionLineTree (trang tìm kiếm) - không phụ thuộc
+   * riêng childLineCount vì giá trị này chỉ có ý nghĩa ở trang mặc định (rootOnly). */
+  hasChildLines(node: any): boolean {
+    return (node.childLineCount ?? 0) > 0 || (node.children?.length ?? 0) > 0;
+  }
+
+  childLineCountDisplay(node: any): number {
+    return node.childLineCount || node.children?.length || 0;
+  }
+
   onParentLineRowClick(node: any) {
-    if ((node.childLineCount ?? 0) > 0) {
+    if (this.hasChildLines(node)) {
       this.toggleLineGroup(node.id);
     }
   }
@@ -872,7 +911,7 @@ export class InfrastructureComponent implements OnInit {
     // Đường dây: mặc định chỉ tải đường TRỤC (rootOnly=true) — nhánh con tải lười khi mở rộng (xem
     // toggleLineGroup). Khi đang tìm kiếm theo từ khoá thì bỏ rootOnly để không bỏ sót nhánh con có
     // tên khớp từ khoá nhưng đường trục cha lại không khớp — trả về danh sách phẳng như trước đây.
-    const isLineRootView = this.infraTypeId() === 2 && !this.searchKeyword().trim();
+    const isLineRootView = this.isLineRootView();
 
     this.infraService.getInfrastructures(
       this.infraTypeId(),
@@ -889,8 +928,19 @@ export class InfrastructureComponent implements OnInit {
           this.items.set(res.items || []);
           this.totalCount.set(res.totalCount || 0);
           // Dữ liệu trang đã đổi — cache nhánh con/trạng thái mở rộng của trang cũ không còn phù hợp.
-          this.expandedLineIds.set(new Set<string>());
           this.childrenByLineId.set(new Map<string, any[]>());
+
+          if (isLineRootView) {
+            this.expandedLineIds.set(new Set<string>());
+          } else {
+            // Đang tìm kiếm: transmissionLineTree tự gắn sẵn children thật từ items() (xem computed) —
+            // mở sẵn toàn bộ node có con ngay để người dùng thấy cây cha-con luôn, không cần bấm chevron
+            // (đúng như trải nghiệm mong đợi, giống cách /search tự mở node khớp từ khoá).
+            const rootIdsWithChildren = (res.items || [])
+              .filter((item: any) => (res.items || []).some((other: any) => other.parentId === item.id))
+              .map((item: any) => item.id);
+            this.expandedLineIds.set(new Set<string>(rootIdsWithChildren));
+          }
         }
       },
       error: () => {
