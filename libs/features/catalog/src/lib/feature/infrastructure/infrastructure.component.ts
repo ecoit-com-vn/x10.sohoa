@@ -134,75 +134,47 @@ export class InfrastructureComponent implements OnInit {
 
   // Transmission Line Tree Table Signals
   //
-  // LƯU Ý: KHÔNG tự gom cây cha-con bằng cách đối chiếu parentId trong PHẠM VI 1 TRANG dữ liệu như
-  // trước đây — với 14.000+ đường dây phân trang 10 dòng/trang, 1 đường trục và các nhánh con của nó
-  // hầu như luôn rơi vào 2 trang khác nhau nên cây gần như luôn hiển thị phẳng dù backend đã có đúng
-  // PARENT_ID. Cách đúng: trang chính chỉ tải đường trục (rootOnly=true, xem loadItems), nhánh con tải
-  // "lười" riêng qua API {id}/children đúng lúc người dùng bấm mở rộng — xem toggleLineGroup.
+  // Cùng cách màn "Tra cứu tìm kiếm đường dây" (/search/transmission-line) đang làm: KHÔNG lọc rootOnly
+  // ở backend nữa — luôn tải phẳng 1 trang (cha lẫn con lẫn lộn theo đúng thứ tự sắp xếp, sort theo mã
+  // nên cha và con thường đứng cạnh nhau), rồi tự dựng cây ngay từ items() bằng parentId. Không phụ
+  // thuộc childLineCount (field này hiện không đáng tin cậy - xem transmissionLineTree/hasChildLines).
+  // Đánh đổi: 1 trục và nhánh con của nó vẫn có thể rơi vào 2 trang khác nhau nếu cách xa nhau trong
+  // thứ tự sắp xếp — chấp nhận đánh đổi này để nhất quán với /search.
   expandedLineIds = signal<Set<string>>(new Set<string>());
-  childrenByLineId = signal<Map<string, any[]>>(new Map<string, any[]>());
-  loadingChildLineIds = signal<Set<string>>(new Set<string>());
 
   transmissionLineTree = computed(() => {
     const list = this.items() || [];
-    const childrenMap = this.childrenByLineId();
-    return list.map(item => ({ ...item, children: childrenMap.get(item.id) || [] }));
+    const map = new Map<string, any>();
+    list.forEach(item => map.set(item.id, { ...item, children: [] }));
+    const roots: any[] = [];
+    map.forEach(node => {
+      if (node.parentId && map.has(node.parentId)) {
+        map.get(node.parentId).children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+    return roots;
   });
 
   toggleLineGroup(lineId: string, event?: Event) {
     if (event) event.stopPropagation();
 
-    const isExpanded = this.expandedLineIds().has(lineId);
+    // Children đã được gắn sẵn từ items() của trang hiện tại (xem transmissionLineTree) — không cần
+    // gọi thêm API nào, chỉ cần bật/tắt hiển thị.
     this.expandedLineIds.update((prev) => {
       const next = new Set(prev);
-      if (isExpanded) {
+      if (next.has(lineId)) {
         next.delete(lineId);
       } else {
         next.add(lineId);
       }
       return next;
     });
-
-    // Mở rộng lần đầu (chưa có trong cache, và chưa có lượt tải nào đang chạy dở — tránh bấm nhanh
-    // mở/đóng/mở lại khi API còn đang tải làm gọi trùng) mới gọi API — thu gọn/mở lại sau đó dùng lại
-    // cache, không gọi lại API mỗi lần bấm chevron.
-    if (!isExpanded && !this.childrenByLineId().has(lineId) && !this.loadingChildLineIds().has(lineId)) {
-      this.loadChildLines(lineId);
-    }
-  }
-
-  private loadChildLines(lineId: string) {
-    this.loadingChildLineIds.update(prev => new Set(prev).add(lineId));
-    this.infraService.getChildLines(2, lineId).subscribe({
-      next: (children) => {
-        this.childrenByLineId.update(prev => new Map(prev).set(lineId, children || []));
-        this.loadingChildLineIds.update(prev => {
-          const next = new Set(prev);
-          next.delete(lineId);
-          return next;
-        });
-      },
-      error: () => {
-        this.loadingChildLineIds.update(prev => {
-          const next = new Set(prev);
-          next.delete(lineId);
-          return next;
-        });
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: 'Không tải được danh sách nhánh con.'
-        });
-      }
-    });
   }
 
   isLineExpanded(lineId: string): boolean {
     return this.expandedLineIds().has(lineId);
-  }
-
-  isLineChildrenLoading(lineId: string): boolean {
-    return this.loadingChildLineIds().has(lineId);
   }
 
   /// Nhánh con hiển thị CHỈ phần tên sau dấu "/" CUỐI CÙNG (khớp đúng cách backend tách tên cha —
@@ -218,8 +190,19 @@ export class InfrastructureComponent implements OnInit {
     return branch.length > 0 ? branch : name;
   }
 
+  /** children đã được gắn sẵn thật sự trong transmissionLineTree (từ parentId của chính trang hiện
+   * tại) - đây là nguồn duy nhất đáng tin cậy, không dùng childLineCount (backend trả về không chính
+   * xác cho danh sách phân trang). */
+  hasChildLines(node: any): boolean {
+    return (node.children?.length ?? 0) > 0;
+  }
+
+  childLineCountDisplay(node: any): number {
+    return node.children?.length || 0;
+  }
+
   onParentLineRowClick(node: any) {
-    if ((node.childLineCount ?? 0) > 0) {
+    if (this.hasChildLines(node)) {
       this.toggleLineGroup(node.id);
     }
   }
@@ -869,11 +852,9 @@ export class InfrastructureComponent implements OnInit {
   }
 
   loadItems() {
-    // Đường dây: mặc định chỉ tải đường TRỤC (rootOnly=true) — nhánh con tải lười khi mở rộng (xem
-    // toggleLineGroup). Khi đang tìm kiếm theo từ khoá thì bỏ rootOnly để không bỏ sót nhánh con có
-    // tên khớp từ khoá nhưng đường trục cha lại không khớp — trả về danh sách phẳng như trước đây.
-    const isLineRootView = this.infraTypeId() === 2 && !this.searchKeyword().trim();
-
+    // Đường dây: luôn tải phẳng (không rootOnly) — giống hệt /search/transmission-line — rồi tự dựng
+    // cây từ items() bằng parentId (xem transmissionLineTree). Không dùng childLineCount vì field này
+    // không đáng tin cậy.
     this.infraService.getInfrastructures(
       this.infraTypeId(),
       this.currentPage(),
@@ -882,15 +863,14 @@ export class InfrastructureComponent implements OnInit {
       this.searchStatus(),
       this.searchUnitId(),
       this.searchPersonalOnly(),
-      isLineRootView
+      false
     ).subscribe({
       next: (res) => {
         if (res) {
           this.items.set(res.items || []);
           this.totalCount.set(res.totalCount || 0);
-          // Dữ liệu trang đã đổi — cache nhánh con/trạng thái mở rộng của trang cũ không còn phù hợp.
+          // Mặc định thu gọn mọi node khi tải trang mới — người dùng tự bấm chevron để xem nhánh con.
           this.expandedLineIds.set(new Set<string>());
-          this.childrenByLineId.set(new Map<string, any[]>());
         }
       },
       error: () => {

@@ -80,6 +80,9 @@ export class DocumentManagementComponent implements OnInit {
   @ViewChild('scannerPanel') scannerPanel?: ScannerPanelComponent;
   @ViewChild('quickNewVersionFileInput') quickNewVersionFileInput?: ElementRef<HTMLInputElement>;
 
+  /** Kho tài liệu chỉ nhận PDF và ảnh — khớp whitelist backend (FileUploadService.ValidateDossierMimeType). */
+  readonly allowedUploadExtensions = ['.pdf', '.jpg', '.jpeg', '.png', '.tiff'];
+
   readonly UPLOAD_SOURCE = UPLOAD_SOURCE;
   scanInProgress = signal(false);
 
@@ -1099,6 +1102,17 @@ export class DocumentManagementComponent implements OnInit {
     const file = input.files?.[0];
     const doc = this.historyTargetDocument();
     if (!file || !doc) return;
+
+    const ext = file.name.includes('.') ? file.name.substring(file.name.lastIndexOf('.')).toLowerCase() : '';
+    if (!this.allowedUploadExtensions.includes(ext)) {
+      input.value = '';
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Tệp không hợp lệ',
+        detail: `Kho tài liệu chỉ nhận PDF và ảnh (${this.allowedUploadExtensions.join(', ')}).`,
+      });
+      return;
+    }
 
     const folderId = this.selectedFolder()?.id || doc.folderId || '';
     this.uploadingNewVersion.set(true);

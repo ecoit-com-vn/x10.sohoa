@@ -320,18 +320,14 @@
             <td>
               <div class="line-name-cell" [style.padding-left.px]="level * 24">
                 <i
-                  *ngIf="(node.childLineCount ?? 0) > 0 && !isLineChildrenLoading(node.id)"
+                  *ngIf="hasChildLines(node)"
                   class="pi chevron-icon"
                   [class.pi-angle-down]="!isLineExpanded(node.id)"
                   [class.pi-angle-up]="isLineExpanded(node.id)"
                   (click)="toggleLineGroup(node.id, $event)"
                 ></i>
-                <i
-                  *ngIf="isLineChildrenLoading(node.id)"
-                  class="pi pi-spin pi-spinner chevron-icon"
-                ></i>
                 <span
-                  *ngIf="(node.childLineCount ?? 0) === 0"
+                  *ngIf="!hasChildLines(node)"
                   class="chevron-placeholder"
                 ></span>
                 <i
@@ -363,11 +359,11 @@
                   </b>
                 </ng-template>
                 <span
-                  *ngIf="(node.childLineCount ?? 0) > 0"
+                  *ngIf="hasChildLines(node)"
                   class="child-count-badge"
-                  [title]="node.childLineCount + ' đường dây nhánh con'"
+                  [title]="childLineCountDisplay(node) + ' đường dây nhánh con'"
                 >
-                  {{ node.childLineCount }} nhánh
+                  {{ childLineCountDisplay(node) }} nhánh
                 </span>
               </div>
             </td>
