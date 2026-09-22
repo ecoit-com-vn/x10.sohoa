@@ -40,16 +40,31 @@ public class SyncHistoryRepository : ISyncHistoryRepository
         return id;
     }
 
-    public async Task CompleteAsync(string id, string status, int totalRecords, int successRecords, int failedRecords, string? errorMessage)
+    public async Task<bool> CompleteAsync(string id, string status, int totalRecords, int successRecords, int failedRecords, string? errorMessage)
     {
         EnsureOpen();
+        // Guard bằng STATUS = RUNNING: nếu SyncHistoryWatchdogJob đã chạy trước và đánh FAILED dòng này
+        // (vd. lượt chạy chỉ đang CHẬM chứ không thật sự treo, và job gốc vẫn sống, hoàn tất sau mốc 30
+        // phút), UPDATE ở đây sẽ khớp 0 dòng thay vì âm thầm ghi đè ngược kết quả thật của watchdog —
+        // tránh race condition "last-writer-wins" khiến admin thấy 1 lượt Failed tự nhảy lại Success mà
+        // không có cảnh báo nào. Trả về false để caller log lại tình huống này.
         const string sql = @"
             UPDATE SYNC_HISTORY
             SET STATUS = :Status, END_TIME = SYSTIMESTAMP,
                 TOTAL_RECORDS = :TotalRecords, SUCCESS_RECORDS = :SuccessRecords, FAILED_RECORDS = :FailedRecords,
                 ERROR_MESSAGE = :ErrorMessage
-            WHERE ID = :Id";
-        await _connection.ExecuteAsync(sql, new { Id = id, Status = status, TotalRecords = totalRecords, SuccessRecords = successRecords, FailedRecords = failedRecords, ErrorMessage = errorMessage });
+            WHERE ID = :Id AND STATUS = :RunningStatus";
+        var affected = await _connection.ExecuteAsync(sql, new
+        {
+            Id = id,
+            Status = status,
+            TotalRecords = totalRecords,
+            SuccessRecords = successRecords,
+            FailedRecords = failedRecords,
+            ErrorMessage = errorMessage,
+            RunningStatus = SyncHistoryStatus.Running
+        });
+        return affected > 0;
     }
 
     public async Task InsertDetailsAsync(IEnumerable<SyncHistoryDetail> details)

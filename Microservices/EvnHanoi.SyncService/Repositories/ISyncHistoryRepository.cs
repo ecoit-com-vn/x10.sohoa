@@ -5,7 +5,12 @@ namespace EvnHanoi.SyncService.Repositories;
 public interface ISyncHistoryRepository
 {
     Task<string> CreateAsync(SyncHistory history);
-    Task CompleteAsync(string id, string status, int totalRecords, int successRecords, int failedRecords, string? errorMessage);
+
+    /// <summary>Chỉ cập nhật khi dòng vẫn đang STATUS = RUNNING (guard chống ghi đè lượt đã bị
+    /// SyncHistoryWatchdogJob đánh FAILED trước đó — xem FailStaleRunningAsync). Trả về false nếu không
+    /// khớp dòng nào (đã bị watchdog/lời gọi khác finalize trước) — caller nên log cảnh báo khi false,
+    /// vì kết quả thật của lượt chạy này (total/success/failed/errorMessage) đã bị bỏ qua.</summary>
+    Task<bool> CompleteAsync(string id, string status, int totalRecords, int successRecords, int failedRecords, string? errorMessage);
     Task InsertDetailsAsync(IEnumerable<SyncHistoryDetail> details);
     Task<(IEnumerable<SyncHistory> Items, int TotalCount)> GetPagedAsync(string? objectType, int page, int pageSize);
     Task<(IEnumerable<SyncHistoryDetail> Items, int TotalCount)> GetDetailsPagedAsync(string syncHistoryId, int page, int pageSize);

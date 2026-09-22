@@ -140,3 +140,24 @@ public class UpsertPmisDocumentResult
     public bool WasSkippedAsExisting { get; set; }
     public string? ErrorMessage { get; set; }
 }
+
+/// <summary>Tạo 1 Đường dây THẬT đại diện cho 1 cấp "waypoint" trung gian mà PMIS không tự cung cấp bản
+/// ghi riêng (nhánh nhiều cấp không cố định, vd "A/Nhánh B/Nhánh C/Nhánh D" — PMIS chỉ có bản ghi cho lá
+/// D, không có cho waypoint B/C) — xem PmisSyncExecutionService.ResolveOrCreateParentChainAsync. Không
+/// đánh dấu "ảo": ghi vào INFRASTRUCTURE như 1 Đường dây bình thường, chỉ khác là PMIS_CODE để trống
+/// (không có mã PMIS thật) — admin có thể sửa như 1 Đường dây thường qua UI.</summary>
+public class CreateSyntheticLineRequest
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? UnitCode { get; set; }
+    public Guid? ParentInfrastructureId { get; set; } // null = waypoint này chính là trục gốc (PMIS cũng chưa từng gửi bản ghi trục gốc riêng)
+    public int? GridTypeId { get; set; } // mượn tạm từ tổ tiên thật gần nhất tìm được, xem ResolveOrCreateParentChainAsync
+}
+
+public class CreateSyntheticLineResult
+{
+    public bool Success { get; set; }
+    public Guid? InfrastructureId { get; set; }
+    public string? ErrorMessage { get; set; }
+}

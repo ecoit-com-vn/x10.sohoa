@@ -706,4 +706,55 @@ public class InfrastructureRepository : IInfrastructureRepository
                 ModifiedBy = "PMIS_SYNC"
             }));
     }
+
+    public async Task<Guid> CreateSyntheticLineAsync(string code, string name, string? unitCode, Guid? parentId, int? gridTypeId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        long? unitId = null;
+        if (!string.IsNullOrWhiteSpace(unitCode))
+        {
+            unitId = await _connection.QuerySingleOrDefaultAsync<long?>(
+                "SELECT UnitId FROM PMIS_UNIT_CODE_MAPPING WHERE PmisUnitCode = :Code AND IsDeleted = 0", new { Code = unitCode });
+        }
+
+        var newId = Guid.Parse(EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid());
+        var insertSql = $@"INSERT INTO INFRASTRUCTURE (
+                        {nameof(Infrastructure.Id)}, {nameof(Infrastructure.Code)}, {nameof(Infrastructure.Name)},
+                        INFRA_TYPE_ID, UNIT_ID, GRIDTYPEID, PARENT_ID, IS_ACTIVE,
+                        {nameof(Infrastructure.CreatedBy)}, {nameof(Infrastructure.CreatedDate)}, {nameof(Infrastructure.IsDeleted)}
+                    ) VALUES (
+                        :Id, :Code, :Name, 2, :UnitId, :GridTypeId, :ParentId, 1,
+                        :CreatedBy, SYSTIMESTAMP, 0
+                    )";
+
+        try
+        {
+            await _connection.ExecuteAsync(insertSql, new
+            {
+                Id = newId.ToString(),
+                Code = code,
+                Name = name,
+                UnitId = unitId,
+                GridTypeId = gridTypeId,
+                ParentId = parentId?.ToString(),
+                CreatedBy = "PMIS_SYNC (auto-waypoint)"
+            });
+            return newId;
+        }
+        catch (Exception ex) when (ex.Message.Contains("ORA-00001", StringComparison.OrdinalIgnoreCase))
+        {
+            // Race giữa nhiều tick LineParentBackfillJob (không dùng RedLock — xem comment ở job đó) cùng
+            // phát hiện 1 waypoint trung gian còn thiếu và cùng tạo — CODE tự sinh XÁC ĐỊNH theo tên
+            // waypoint nên 2 lần tạo cho ĐÚNG 1 waypoint luôn trùng CODE, UNIQUE INDEX (Migration0058)
+            // chặn lại đúng 1 lần — bên thua chỉ cần đọc lại bản ghi bên thắng vừa tạo, không phải lỗi thật.
+            var existingId = await _connection.QuerySingleOrDefaultAsync<string>(
+                $@"SELECT {nameof(Infrastructure.Id)} FROM INFRASTRUCTURE
+                   WHERE UPPER(TRIM({nameof(Infrastructure.Code)})) = UPPER(TRIM(:Code)) AND {nameof(Infrastructure.IsDeleted)} = 0",
+                new { Code = code });
+            if (existingId == null) throw;
+            return Guid.Parse(existingId);
+        }
+    }
 }
