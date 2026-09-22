@@ -805,6 +805,7 @@
         *ngIf="uploadMode() === 'web'"
         [folderId]="selectedFolder()?.id || ''"
         [maxFileSize]="500000000"
+        [allowedExtensions]="allowedUploadExtensions"
         (fileUploaded)="onFileUploaded($event)"
         (uploadError)="onUploadError($event)"
         (allUploadsFinished)="onAllUploadsFinished($event)"
@@ -818,6 +819,7 @@
         [hideDropZone]="true"
         [folderId]="selectedFolder()?.id || ''"
         [maxFileSize]="500000000"
+        [allowedExtensions]="allowedUploadExtensions"
         (fileUploaded)="onFileUploaded($event)"
         (uploadError)="onUploadError($event)"
         (allUploadsFinished)="onAllUploadsFinished($event)"
@@ -1157,6 +1159,7 @@
         <input
           #newVersionFileInput
           type="file"
+          [accept]="allowedUploadExtensions.join(',')"
           style="display: none"
           (change)="onUploadNewVersionSelected($event)"
         />
@@ -1181,6 +1184,7 @@
 <input
   #quickNewVersionFileInput
   type="file"
+  [accept]="allowedUploadExtensions.join(',')"
   style="display: none"
   (change)="onUploadNewVersionSelected($event)"
 />
