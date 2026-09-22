@@ -10,7 +10,7 @@ namespace EvnHanoi.SyncService.Services;
 public interface IPmisSyncExecutionService
 {
     Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncInfrastructureAsync(int infraTypeId, string syncHistoryId, IReadOnlyList<JsonElement> rawItems);
-    Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncEquipmentAsync(string syncHistoryId, IReadOnlyList<JsonElement> rawItems);
+    Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncEquipmentAsync(string syncHistoryId, IReadOnlyList<JsonElement> rawItems, string? parentPmisCodeFallback = null);
 
     /// <summary>Thử khớp lại cha/cấp điện áp cho các Đường dây ĐÃ đồng bộ từ trước còn thiếu — chạy ĐỘC LẬP
     /// từ job Quartz riêng (LineParentBackfillJob, tick định kỳ, KHÔNG chèn vào lượt đồng bộ Đường dây
