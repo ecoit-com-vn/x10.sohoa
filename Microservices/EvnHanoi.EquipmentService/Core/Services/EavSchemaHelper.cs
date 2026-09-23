@@ -62,4 +62,41 @@ public static class EavSchemaHelper
         value = default;
         return false;
     }
+
+    /// <summary>
+    /// Parse 1 chuỗi JSON object dạng "khoá → nhãn chuỗi" (vd. field PMIS "tenThongSoKyThuat":
+    /// {"I_DM":"Dòng điện định mức",...}) và gộp vào <paramref name="target"/> — dùng chung giữa
+    /// EquipmentController.GetPmisSpecKeys và InternalPmisSyncController.BuildAutoFormFieldsFromPmisSpec
+    /// (trước đây 2 nơi tự viết lại logic này, lệch nhau ở việc có nhận value non-string hay không).
+    /// Chỉ nhận value kiểu chuỗi khác rỗng (nhãn luôn là text) — value kiểu khác hoặc rỗng bị bỏ qua.
+    /// JSON không hợp lệ hoặc không phải object thì bỏ qua toàn bộ, không ném lỗi ra ngoài. Giữ nguyên
+    /// giá trị đã có trong <paramref name="target"/> nếu đã khác rỗng — cho phép gọi lặp lại nhiều dòng
+    /// (vd. gộp nhãn từ nhiều thiết bị cùng loại) mà dòng đọc trước luôn thắng.
+    /// </summary>
+    public static void MergeJsonStringLabelsInto(Dictionary<string, string?> target, string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object) return;
+
+            foreach (var property in doc.RootElement.EnumerateObject())
+            {
+                if (property.Value.ValueKind != JsonValueKind.String) continue;
+                var label = property.Value.GetString();
+                if (string.IsNullOrWhiteSpace(label)) continue;
+
+                if (!target.TryGetValue(property.Name, out var existing) || string.IsNullOrWhiteSpace(existing))
+                {
+                    target[property.Name] = label;
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // JSON nhãn không hợp lệ — bỏ qua, không làm hỏng luồng gọi (danh sách gợi ý/biểu mẫu tự tạo).
+        }
+    }
 }

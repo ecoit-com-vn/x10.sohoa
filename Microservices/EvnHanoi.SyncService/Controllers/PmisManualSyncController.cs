@@ -236,7 +236,8 @@ public class PmisManualSyncController : ControllerBase
                 MaDonVi = detail.MaDonVi,
                 NamSanXuat = detail.NamSanXuat,
                 MaQRCode = detail.MaQRCode,
-                ThongSoKyThuat = detail.ThongSoKyThuat
+                ThongSoKyThuat = detail.ThongSoKyThuat,
+                TenThongSoKyThuat = detail.TenThongSoKyThuat
             });
 
         string historyId;

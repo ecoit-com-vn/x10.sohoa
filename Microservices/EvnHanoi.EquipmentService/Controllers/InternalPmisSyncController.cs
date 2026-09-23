@@ -220,14 +220,25 @@ public class InternalPmisSyncController : ControllerBase
                 // Thông số kỹ thuật lưu riêng — KHÔNG ghi đè EQUIPMENTS.FormValues (dữ liệu người dùng chỉnh sửa nội bộ).
                 if (!string.IsNullOrWhiteSpace(item.ThongSoKyThuat))
                 {
-                    await _equipmentPmisSpecRepository.UpsertAsync(upsertResult.EquipmentId!.Value, item.ThongSoKyThuat, null);
+                    await _equipmentPmisSpecRepository.UpsertAsync(upsertResult.EquipmentId!.Value, item.ThongSoKyThuat, null, item.TenThongSoKyThuat);
                 }
 
                 // Tự động tạo biểu mẫu thông số kỹ thuật nếu loại thiết bị chưa có — sinh sẵn trường theo
                 // đúng khoá thongSoKyThuat PMIS thật, không tạo biểu mẫu rỗng (xem BuildAutoFormFieldsFromPmisSpec).
                 if (upsertResult.EquipmentTypeId is Guid equipmentTypeId && !string.IsNullOrWhiteSpace(item.ThongSoKyThuat))
                 {
-                    await EnsureAutoFormTemplateAsync(equipmentTypeId, item.ThongSoKyThuat);
+                    await EnsureAutoFormTemplateAsync(equipmentTypeId, item.ThongSoKyThuat, item.TenThongSoKyThuat);
+
+                    // Nhãn PMIS (tenThongSoKyThuat) là hằng số theo LOẠI thiết bị, không đổi theo từng
+                    // thiết bị — lưu 1 lần/loại vào EquipmentTypes.PmisFieldLabels (chỉ ghi khi còn rỗng,
+                    // xem SetPmisFieldLabelsIfEmptyAsync) để EquipmentController.GetPmisSpecKeys đọc
+                    // thẳng 1 dòng thay vì phải quét/gộp nhãn từ tối đa 50 dòng EQUIPMENT_PMIS_SPEC mỗi
+                    // lần gọi (review 2026-09-23) — EQUIPMENT_PMIS_SPEC.FieldLabels vẫn giữ nguyên riêng
+                    // theo từng thiết bị, phục vụ panel "So sánh với PMIS".
+                    if (!string.IsNullOrWhiteSpace(item.TenThongSoKyThuat))
+                    {
+                        await _equipmentTypeRepository.SetPmisFieldLabelsIfEmptyAsync(equipmentTypeId, item.TenThongSoKyThuat);
+                    }
                 }
 
                 // Thiết bị chưa có thông số nào (FORM_VALUES NULL — mới tạo, hoặc chưa ai nhập tay) thì lấy
@@ -384,7 +395,7 @@ public class InternalPmisSyncController : ControllerBase
     /// hoạt việc tạo, để panel so sánh có dữ liệu ngay, không cần Admin vào Form Builder tạo tay trước.
     /// Lỗi ở bước này CHỈ log cảnh báo — thiết bị đã lưu thành công trước đó, không bị ảnh hưởng.
     /// </summary>
-    private async Task EnsureAutoFormTemplateAsync(Guid equipmentTypeId, string thongSoKyThuatJson)
+    private async Task EnsureAutoFormTemplateAsync(Guid equipmentTypeId, string thongSoKyThuatJson, string? tenThongSoKyThuatJson)
     {
         try
         {
@@ -394,7 +405,7 @@ public class InternalPmisSyncController : ControllerBase
             var equipmentType = await _equipmentTypeRepository.GetByIdAsync(equipmentTypeId);
             if (equipmentType == null) return;
 
-            var fields = BuildAutoFormFieldsFromPmisSpec(thongSoKyThuatJson);
+            var fields = BuildAutoFormFieldsFromPmisSpec(thongSoKyThuatJson, tenThongSoKyThuatJson);
             if (fields == null) return; // JSON không hợp lệ hoặc không phải object — không tạo biểu mẫu rỗng vô nghĩa.
 
             await _eavFormTemplateService.CreateFormTemplateAsync(
@@ -417,15 +428,23 @@ public class InternalPmisSyncController : ControllerBase
 
     /// <summary>
     /// Sinh mảng JSON đúng shape FormField phía Form Builder (id/name/label/type/placeholder/required/
-    /// width/dataSourceType/selectAll/active/pmisFieldName) — 1 trường/khoá trong thongSoKyThuat, Label để
-    /// nguyên khoá PMIS (không tự "làm đẹp" tên, Admin có thể vào Form Builder đổi sau).
+    /// width/dataSourceType/selectAll/active/pmisFieldName) — 1 trường/khoá trong thongSoKyThuat. Label
+    /// ưu tiên nhãn tiếng Việt thật PMIS cung cấp (<paramref name="tenThongSoKyThuatJson"/>, field
+    /// "tenThongSoKyThuat", bổ sung 2026-09-23); nếu thiếu (null, JSON lỗi, hoặc khoá này chưa có nhãn
+    /// tương ứng) thì để nguyên khoá PMIS như trước đây — Admin vẫn có thể vào Form Builder đổi tay.
     /// </summary>
-    private static string? BuildAutoFormFieldsFromPmisSpec(string thongSoKyThuatJson)
+    private static string? BuildAutoFormFieldsFromPmisSpec(string thongSoKyThuatJson, string? tenThongSoKyThuatJson)
     {
         try
         {
             using var doc = JsonDocument.Parse(thongSoKyThuatJson);
             if (doc.RootElement.ValueKind != JsonValueKind.Object) return null;
+
+            // Dùng chung EavSchemaHelper.MergeJsonStringLabelsInto với EquipmentController.GetPmisSpecKeys
+            // thay vì tự viết lại logic parse nhãn (2 nơi từng lệch nhau ở việc có nhận value non-string
+            // hay không — nhãn PMIS luôn là chuỗi nên helper chỉ nhận string, không mất gì ở đây).
+            var labels = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            EavSchemaHelper.MergeJsonStringLabelsInto(labels, tenThongSoKyThuatJson);
 
             var fields = new List<object>();
             foreach (var property in doc.RootElement.EnumerateObject())
@@ -434,7 +453,7 @@ public class InternalPmisSyncController : ControllerBase
                 {
                     id = "f_" + Guid.NewGuid().ToString("N")[..7],
                     name = string.Empty,
-                    label = property.Name,
+                    label = labels.TryGetValue(property.Name, out var pmisLabel) ? pmisLabel : property.Name,
                     type = "text",
                     placeholder = string.Empty,
                     required = false,

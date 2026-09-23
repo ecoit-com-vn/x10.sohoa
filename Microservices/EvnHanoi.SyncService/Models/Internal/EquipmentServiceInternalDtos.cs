@@ -98,6 +98,10 @@ public class UpsertEquipmentFromPmisRequest
     public string? QrCodeBase64 { get; set; }
     public int? GridTypeId { get; set; }
     public string? ThongSoKyThuat { get; set; }
+
+    /// <summary>Nhãn tiếng Việt cho từng khoá của ThongSoKyThuat (PMIS bổ sung 2026-09-23) — lưu riêng
+    /// vào EQUIPMENT_PMIS_SPEC.FieldLabels.</summary>
+    public string? TenThongSoKyThuat { get; set; }
 }
 
 public class UpsertEquipmentFromPmisResult

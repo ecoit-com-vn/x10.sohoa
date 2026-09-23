@@ -139,6 +139,12 @@ public class UpsertEquipmentFromPmisRequest
 
     /// <summary>Chuỗi JSON thông số kỹ thuật — lưu riêng vào EQUIPMENT_PMIS_SPEC, không ghi đè FormValues.</summary>
     public string? ThongSoKyThuat { get; set; }
+
+    /// <summary>Chuỗi JSON nhãn tiếng Việt cho từng khoá của ThongSoKyThuat (PMIS bổ sung 2026-09-23,
+    /// field "tenThongSoKyThuat") — lưu riêng vào EQUIPMENT_PMIS_SPEC.FieldLabels, dùng để gợi ý nhãn
+    /// thật cho admin khi khai "Tên trường PMIS" trong Form Builder (xem
+    /// EquipmentController.GetPmisSpecKeys).</summary>
+    public string? TenThongSoKyThuat { get; set; }
 }
 
 public class UpsertEquipmentFromPmisResult
