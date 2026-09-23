@@ -34,6 +34,12 @@ public class PmisLineDto
     public string? TenDonVi { get; set; }
     public DateTime? NgayVanHanh { get; set; }
     public int? TrangThai { get; set; }
+
+    /// <summary>Mã Đường dây CHA (PMIS bổ sung 2026-09-23) — rỗng/null nghĩa là đường trục gốc, có giá
+    /// trị nghĩa là nhánh của đường dây có MaDuongDay tương ứng. Thay thế hẳn cách suy luận cũ (tách theo
+    /// dấu "/" cuối cùng trong TenDuongDay rồi so khớp tên) — PmisSyncExecutionService dùng field này trực
+    /// tiếp, EquipmentService tự tra Id theo PmisCode (xem InfrastructureRepository.UpsertFromPmisAsync).</summary>
+    public string? MaCha { get; set; }
 }
 
 /// <summary>Item — API 3 &amp; 5: Loại thiết bị (TBA hoặc đường dây).</summary>

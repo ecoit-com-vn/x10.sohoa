@@ -50,40 +50,6 @@ public class EquipmentServiceClient : IEquipmentServiceClient
         return await response.Content.ReadFromJsonAsync<List<SyncedInfrastructurePmisCode>>() ?? [];
     }
 
-    public async Task<List<LineNameIndexEntry>> GetLineNameIndexAsync()
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "internal/v1/infrastructure/line-name-index");
-        request.Headers.Add("X-Internal-Token", _internalToken);
-
-        var response = await _httpClient.SendAsync(request);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<List<LineNameIndexEntry>>() ?? [];
-    }
-
-    public async Task<List<LineNameIndexEntry>> GetLinesNeedingBackfillAsync()
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "internal/v1/infrastructure/lines-needing-backfill");
-        request.Headers.Add("X-Internal-Token", _internalToken);
-
-        var response = await _httpClient.SendAsync(request);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<List<LineNameIndexEntry>>() ?? [];
-    }
-
-    public async Task<int> BackfillLineParentsAsync(List<BackfillLineParentItem> items)
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Post, "internal/v1/infrastructure/backfill-line-parents")
-        {
-            Content = JsonContent.Create(new BackfillLineParentRequest { Items = items })
-        };
-        request.Headers.Add("X-Internal-Token", _internalToken);
-
-        var response = await _httpClient.SendAsync(request);
-        response.EnsureSuccessStatusCode();
-        var result = await response.Content.ReadFromJsonAsync<BackfillLineParentResult>();
-        return result?.UpdatedCount ?? 0;
-    }
-
     public async Task<List<UpsertPmisDocumentResult>> UpsertDocumentsAsync(List<UpsertPmisDocumentRequest> items)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "internal/v1/documents/upsert-from-pmis")

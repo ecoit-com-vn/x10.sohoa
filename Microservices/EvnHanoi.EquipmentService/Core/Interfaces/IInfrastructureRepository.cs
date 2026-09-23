@@ -39,26 +39,17 @@ public interface IInfrastructureRepository
     /// HasChanged=false, caller ghi ACTION_TYPE=SKIP) — tránh ghi đè/tăng ModifiedDate vô ích mỗi lần
     /// resync khi PMIS không có gì mới.
     /// </summary>
-    Task<(Guid Id, bool WasCreated, bool HasChanged)> UpsertFromPmisAsync(
+    /// <summary>parentPmisCode: mã PMIS của Đường dây CHA (field "maCha", chỉ có ý nghĩa với InfraTypeId=2)
+    /// — server tự SELECT INFRASTRUCTURE theo mã này để lấy Id + GridTypeId (mượn tạm cho nhánh không có
+    /// capDienAp riêng), giống hệt cách ParentPmisCode được resolve cho Thiết bị (xem
+    /// EquipmentRepository.UpsertFromPmisAsync). null/rỗng nghĩa là đường trục gốc.
+    /// ParentUnresolved (trả về) = true khi parentPmisCode CÓ giá trị nhưng KHÔNG khớp được (đường trục
+    /// chưa đồng bộ tới, mã sai, hoặc parentPmisCode tự trỏ về chính dòng này) — caller (SyncService) dùng
+    /// để ghi 1 dòng Warning thấy được trong "Lịch sử đồng bộ" thay vì âm thầm mãi mãi.</summary>
+    Task<(Guid Id, bool WasCreated, bool HasChanged, bool ParentUnresolved)> UpsertFromPmisAsync(
         int infraTypeId, string pmisCode, string code, string name, string? address, string? unitCode, DateTime? operationDate,
-        int? gridTypeId = null, bool isRootLine = false, Guid? parentInfrastructureId = null);
+        int? gridTypeId = null, string? parentPmisCode = null);
 
     /// <summary>Danh sách PmisCode đã đồng bộ (dùng cho auto-sync Thiết bị — lặp qua từng Trạm/Đường dây đã có để lấy thiết bị con).</summary>
     Task<IEnumerable<(string PmisCode, int InfraTypeId)>> GetSyncedPmisCodesAsync();
-
-    /// <summary>Toàn bộ Đường dây hiện có (Id + Name + mã đơn vị PMIS nếu tra được) — SyncService tải 1
-    /// lần/lượt đồng bộ Đường dây để tự tìm cha theo tên trong bộ nhớ, thay vì mỗi dòng tự query riêng.</summary>
-    Task<IEnumerable<EvnHanoi.EquipmentService.Core.DTOs.LineNameIndexEntry>> GetLineNameIndexAsync();
-
-    /// <summary>Các Đường dây ĐÃ tồn tại cần "khớp lại" bởi job Quartz riêng chạy nền định kỳ của
-    /// SyncService (LineParentBackfillJob, KHÔNG chèn vào lượt đồng bộ Đường dây nào) — gồm 2 trường hợp:
-    /// (1) tên có "/" (chắc chắn là nhánh) nhưng PARENT_ID còn NULL; (2) đã có PARENT_ID nhưng GRIDTYPEID
-    /// vẫn NULL — trả kèm ParentId/ParentGridTypeId (JOIN sẵn) để trường hợp (2) không cần resolve lại
-    /// theo tên.</summary>
-    Task<IEnumerable<EvnHanoi.EquipmentService.Core.DTOs.LineNameIndexEntry>> GetLinesNeedingBackfillAsync();
-
-    /// <summary>Cập nhật RIÊNG cột PARENT_ID cho NHIỀU Đường dây đã tồn tại cùng lúc (backfill) — không
-    /// đụng các field khác, khác UpdateAsync/UpsertFromPmisAsync vốn cần đủ dữ liệu PMIS gốc của dòng đó.
-    /// Trả về số dòng cập nhật thành công.</summary>
-    Task<int> UpdateParentIdsAsync(IReadOnlyList<(Guid Id, Guid ParentId, int? GridTypeId)> items);
 }

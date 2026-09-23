@@ -24,18 +24,10 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
     private const int DocumentMaxTotalRecords = PmisPaging.MaxTotalRecordsPerRun;
     private const int DocumentUpsertBatchSize = 20; // gửi theo lô, tránh 1 request base64 hoá hết cả nghìn tài liệu
 
-    // An toàn: tối đa số đường dây cập nhật PARENT_ID/lượt backfill — UpdateParentIdsAsync (EquipmentService)
-    // cập nhật TUẦN TỰ từng dòng qua Dapper (không phải 1 câu SQL gộp), nếu số "chưa xác định cha" lên tới
-    // hàng nghìn (từng xảy ra thật trên production do 1 bug khác khiến hầu hết đường dây tạm thời rơi vào
-    // trạng thái này) có thể mất hàng chục phút, khiến SyncHistoryWatchdogJob đánh rớt cả lượt vì treo
-    // RUNNING quá 30 phút thật sự. Phần vượt trần tự thử tiếp ở các lượt sau, không mất dữ liệu.
-    private const int MaxBackfillPerRun = 2000;
-
     // An toàn: giới hạn số lượt gọi PMIS THẬT (ChiTietThietBi + tải ảnh QR) trong 1 lượt đồng bộ Thiết bị —
     // mỗi lượt là 1 round-trip PMIS TUẦN TỰ (xem SyncEquipmentAsync), không giới hạn trước đây có thể khiến
     // 1 lượt xử lý hàng nghìn thiết bị TBA chạy quá lâu và bị SyncHistoryWatchdogJob đánh rớt vì treo
-    // RUNNING quá 30 phút — CÙNG lớp rủi ro đã xảy ra thật với backfill cha đường dây (xem MaxBackfillPerRun
-    // ở trên). Thiết bị vượt trần vẫn được lưu đầy đủ Code/Name/EquipmentTypeCode... chỉ thiếu
+    // RUNNING quá 30 phút. Thiết bị vượt trần vẫn được lưu đầy đủ Code/Name/EquipmentTypeCode... chỉ thiếu
     // ThongSoKyThuat/QR mới của lượt này — PMIS trả về TOÀN BỘ dữ liệu mỗi lượt (không phải delta) nên
     // thiết bị đó tự được enrich lại ở lượt sau, không mất dữ liệu.
     private const int MaxEquipmentDetailCallsPerRun = 500;
@@ -53,20 +45,6 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
     // hệ thống tự tạo EquipmentTypes mới cho 1 loại thiết bị lần đầu gặp (xem ResolveOrCreateEquipmentTypeIdAsync).
     private Dictionary<string, string>? _substationDeviceTypeNames;
     private Dictionary<string, string>? _lineDeviceTypeNames;
-
-    // Danh mục Đường dây hiện có (tên đã chuẩn hoá -> danh sách ứng viên [mã đơn vị PMIS, Id, GridTypeId
-    // hiện có]) — tải 1 lần/lượt đồng bộ Đường dây, KHÔNG tải lại theo từng dòng — dùng để tự tìm cha theo
-    // tên trong bộ nhớ thay vì mỗi dòng tự query DB riêng (xem ResolveParentLineIdAsync). Khoá bằng tên đã
-    // chuẩn hoá (NormalizeLineName) để không nhạy khoảng trắng thừa/khoảng trắng kép giữa dòng trục và
-    // dòng nhánh. GridTypeId đi kèm để nhánh có thể mượn tạm cấp điện áp của trục khi nhánh không có
-    // capDienAp riêng — PMIS không trả capDienAp cho phần lớn nhánh, chỉ trục mới luôn có.
-    private Dictionary<string, List<(string? PmisUnitCode, Guid Id, int? GridTypeId)>>? _lineNameIndex;
-
-    // Chỉ cảnh báo LOG 1 lần cho mỗi tên trục bị trùng thật sự (không phân biệt được bằng mã đơn vị) —
-    // tránh spam log khi 1 trục có nhiều nhánh con cùng gặp phải tình huống trùng tên đó. Đây là dấu hiệu
-    // dữ liệu PMIS có vấn đề thật (2 trục khác nhau trùng tên), khác với "chưa tìm thấy vì trục chưa đồng
-    // bộ tới trong lượt này" (tình huống tạm thời, tự hết sau 1-2 lượt, không cần log riêng mỗi tên).
-    private readonly HashSet<string> _warnedAmbiguousParentNames = new(StringComparer.OrdinalIgnoreCase);
 
     public PmisSyncExecutionService(
         IEquipmentServiceClient equipmentServiceClient, ISyncHistoryRepository syncHistoryRepository, IPmisClient pmisClient,
@@ -122,114 +100,6 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         }
     }
 
-    /// <summary>Luôn trả về Dictionary (rỗng nếu EquipmentService lỗi) — cùng lý do với LoadDeviceTypeNamesAsync:
-    /// rỗng thì chỉ thử tải đúng 1 lần/lượt, không lặp lại vô ích cho từng dòng đường dây tiếp theo.</summary>
-    private async Task<Dictionary<string, List<(string? PmisUnitCode, Guid Id, int? GridTypeId)>>> LoadLineNameIndexAsync()
-    {
-        try
-        {
-            var entries = await _equipmentServiceClient.GetLineNameIndexAsync();
-            var index = new Dictionary<string, List<(string?, Guid, int?)>>(StringComparer.OrdinalIgnoreCase);
-            foreach (var entry in entries)
-                AddLineToIndex(index, entry.Name, entry.PmisUnitCode, entry.Id, entry.GridTypeId);
-            return index;
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "PmisSyncExecutionService: lỗi khi tải danh mục Đường dây hiện có, bỏ qua việc gán cha-con đường dây cho cả lượt chạy này.");
-            return new Dictionary<string, List<(string?, Guid, int?)>>(StringComparer.OrdinalIgnoreCase);
-        }
-    }
-
-    /// <summary>Chuẩn hoá tên đường dây để so khớp: cắt khoảng trắng đầu/cuối và gộp khoảng trắng liên
-    /// tiếp ở giữa thành 1 dấu cách — tránh lệch do lỗi nhập liệu thường gặp (thừa dấu cách) giữa dòng
-    /// trục và phần tên nhánh tách ra từ chính nó. Null/rỗng trả về null.</summary>
-    private static string? NormalizeLineName(string? name)
-    {
-        if (string.IsNullOrWhiteSpace(name)) return null;
-        var collapsed = System.Text.RegularExpressions.Regex.Replace(name.Trim(), @"\s+", " ");
-        return collapsed.Length > 0 ? collapsed : null;
-    }
-
-    /// <summary>
-    /// Tự tìm Id đường dây CHA theo tên (đã tách sẵn bởi ResolveParentLineName), tra qua danh mục tải 1
-    /// lần/lượt đồng bộ (KHÔNG tự query DB — xem LoadLineNameIndexAsync). Trả về (IsRoot, ParentId,
-    /// ParentGridTypeId) — ParentGridTypeId là GRIDTYPEID hiện có của đường trục cha vừa khớp được, để
-    /// nhánh mượn tạm khi bản thân nhánh không có capDienAp riêng (xem BuildLineUpsertRequest):
-    /// - Tên không có "/" → (true, null, null) — chắc chắn là đường trục gốc, không có cha.
-    /// - Có "/" nhưng danh mục không có tên trục đó (trục chưa đồng bộ tới trong lượt này, hoặc lệch tên
-    ///   dù đã chuẩn hoá) → (false, null, null) — caller giữ nguyên PARENT_ID cũ, không xoá.
-    /// - Có "/" và khớp đúng 1 ứng viên (theo tên, hoặc theo tên + mã đơn vị nếu trùng tên nhiều nơi) →
-    ///   (false, Id đó, GridTypeId đó).
-    /// - Có "/" nhưng trùng tên ở ≥2 nơi KHÔNG phân biệt được bằng mã đơn vị (dữ liệu PMIS thật sự có tên
-    ///   trục trùng nhau) → (false, null, null) + cảnh báo 1 lần/tên trục, không đoán đại 1 trong số đó.
-    /// </summary>
-    private (bool IsRoot, Guid? ParentId, int? ParentGridTypeId) ResolveParentLineId(string? tenDuongDay, string? maDonVi)
-    {
-        var parentNameRaw = ResolveParentLineName(tenDuongDay);
-        if (parentNameRaw == null) return (true, null, null); // không có "/" -> chắc chắn là gốc
-
-        var normalized = NormalizeLineName(parentNameRaw);
-        if (normalized == null) return (false, null, null);
-
-        return TryMatchLineByName(normalized, maDonVi, out var id, out var gridTypeId)
-            ? (false, id, gridTypeId)
-            : (false, null, null); // trục chưa có trong danh mục lượt này — giữ nguyên PARENT_ID cũ, tự khớp đúng ở lượt sau
-    }
-
-    /// <summary>Tra 1 tên Đường dây (đã NormalizeLineName) trong <see cref="_lineNameIndex"/>, tự phân biệt
-    /// bằng mã đơn vị PMIS nếu trùng tên ở nhiều nơi — dùng bởi ResolveParentLineId (khớp cấp liền kề).</summary>
-    private bool TryMatchLineByName(string normalizedName, string? maDonVi, out Guid id, out int? gridTypeId)
-    {
-        id = default;
-        gridTypeId = null;
-        if (_lineNameIndex == null || !_lineNameIndex.TryGetValue(normalizedName, out var candidates)) return false;
-
-        if (candidates.Count == 1)
-        {
-            (_, id, gridTypeId) = candidates[0];
-            return true;
-        }
-
-        // Trùng tên ở nhiều nơi — thử phân biệt bằng mã đơn vị PMIS của chính dòng đang xử lý.
-        var sameUnit = candidates.Where(c => string.Equals(c.PmisUnitCode, maDonVi, StringComparison.OrdinalIgnoreCase)).ToList();
-        if (sameUnit.Count == 1)
-        {
-            (_, id, gridTypeId) = sameUnit[0];
-            return true;
-        }
-
-        if (_warnedAmbiguousParentNames.Add(normalizedName))
-        {
-            Log.Warning("PmisSyncExecutionService: tên đường trục '{ParentName}' trùng ở {Count} đường dây khác nhau, không phân biệt được bằng mã đơn vị — bỏ qua gán/tạo cha cho các nhánh tham chiếu tới tên này.",
-                normalizedName, candidates.Count);
-        }
-        return false;
-    }
-
-    /// <summary>Đưa 1 đường trục VỪA lưu thành công (trong CHÍNH lượt đồng bộ đang chạy) vào
-    /// <see cref="_lineNameIndex"/> ngay lập tức — để các nhánh tham chiếu tới nó xử lý SAU trong cùng
-    /// lượt (cùng trang hoặc trang kế tiếp) tìm thấy được ngay, KHÔNG phải đợi tới lượt chạy kế tiếp mới
-    /// tự khớp lại (xem SyncInfrastructureAsync — xử lý trục trước, nhánh sau, trong cùng 1 trang).</summary>
-    private void AddLineToIndex(string? name, string? unitCode, Guid id, int? gridTypeId)
-    {
-        if (_lineNameIndex != null) AddLineToIndex(_lineNameIndex, name, unitCode, id, gridTypeId);
-    }
-
-    /// <summary>Chèn (hoặc gộp thêm ứng viên nếu trùng tên) 1 dòng vào danh mục tra cứu đường dây theo
-    /// tên đã chuẩn hoá — dùng chung bởi LoadLineNameIndexAsync (tải cả danh mục 1 lần) và
-    /// AddLineToIndex (bổ sung từng dòng mới tạo giữa lượt chạy).</summary>
-    private static void AddLineToIndex(
-        Dictionary<string, List<(string? PmisUnitCode, Guid Id, int? GridTypeId)>> index,
-        string? name, string? unitCode, Guid id, int? gridTypeId)
-    {
-        var key = NormalizeLineName(name);
-        if (key == null) return;
-        if (!index.TryGetValue(key, out var candidates))
-            index[key] = candidates = [];
-        candidates.Add((unitCode, id, gridTypeId));
-    }
-
     /// <summary>Gửi 1 lô upsert Trạm/Đường dây — bắt lỗi RIÊNG cho lô này thay vì để văng ra ngoài, vì
     /// SyncInfrastructureAsync (đường dây) giờ gửi TỐI ĐA 2 lô/trang (trục, rồi nhánh — xem 2-pass bên
     /// dưới): nếu để lô nhánh lỗi (mất kết nối tạm thời) làm cả method throw, lô trục ĐÃ LƯU THÀNH CÔNG
@@ -254,11 +124,28 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         }
     }
 
-    /// <summary>parentGridTypeId: GRIDTYPEID hiện có của đường trục cha (null nếu là gốc, hoặc chưa xác
-    /// định được cha) — cho nhánh MƯỢN TẠM khi bản thân nhánh không có capDienAp riêng (PMIS không trả
-    /// field này cho phần lớn nhánh, chỉ trục mới luôn có). Không ảnh hưởng tới đường trục gốc thật (luôn
-    /// có capDienAp của chính nó) hay nhánh đã tự xác định được cấp điện áp riêng.</summary>
-    private static UpsertInfrastructureFromPmisRequest BuildLineUpsertRequest(PmisLineDto item, bool isRoot, Guid? parentId, int? parentGridTypeId) =>
+    /// <summary>Trả về mã PMIS của Đường dây CHA thật sự — null nếu đây là đường trục gốc. XÁC NHẬN BẰNG
+    /// DỮ LIỆU THẬT (gọi trực tiếp gateway PMIS 2026-09-23): field "maCha" của PMIS KHÔNG rỗng cho đường
+    /// trục gốc như tài liệu ngầm định — nó bằng ĐÚNG "maDonVi" (mã đơn vị) của chính dòng đó (vd 214/233
+    /// đường dây đơn vị HN02 có maCha="HN0200" trùng maDonVi="HN0200"), trong khi NHÁNH thật có maCha là mã
+    /// 1 Đường dây KHÁC (khác maDonVi). Nếu không chặn, InfrastructureRepository sẽ tự SELECT
+    /// INFRASTRUCTURE.PMIS_CODE = "HN0200" cho MỌI đường trục gốc — không bao giờ khớp (mã đơn vị không
+    /// phải PMIS_CODE của Trạm/Đường dây nào) — khiến toàn bộ trục gốc bị coi nhầm là "chưa xác định được
+    /// cha" (ParentUnresolved=true), cảnh báo giả tràn lan mỗi lượt đồng bộ.</summary>
+    private static string? ResolveParentLinePmisCode(PmisLineDto item)
+    {
+        var maCha = BlankToNull(item.MaCha)?.Trim();
+        if (maCha == null) return null;
+        var maDonVi = BlankToNull(item.MaDonVi)?.Trim();
+        return string.Equals(maCha, maDonVi, StringComparison.OrdinalIgnoreCase) ? null : maCha;
+    }
+
+    /// <summary>ParentPmisCode = ResolveParentLinePmisCode(item) — chỉ CHUYỂN TIẾP mã PMIS thô của đường
+    /// trục cha, KHÔNG tự tra Id/mượn GridTypeId ở đây nữa (khác BuildLineUpsertRequest cũ, vốn phải tự dò
+    /// theo tên qua _lineNameIndex trước khi PMIS có field "maCha" thật, 2026-09-23) — EquipmentService tự
+    /// SELECT theo PMIS_CODE khi lưu (giống hệt ParentPmisCode của Thiết bị), kể cả việc nhánh mượn tạm
+    /// GridTypeId của cha khi bản thân không có capDienAp riêng (xem InfrastructureRepository.UpsertFromPmisAsync).</summary>
+    private static UpsertInfrastructureFromPmisRequest BuildLineUpsertRequest(PmisLineDto item) =>
         new()
         {
             InfraTypeId = 2,
@@ -272,146 +159,13 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             Name = item.TenDuongDay,
             UnitCode = item.MaDonVi,
             OperationDate = item.NgayVanHanh,
-            GridTypeId = ResolveGridTypeId(item.CapDienAp) ?? parentGridTypeId,
-            IsRootLine = isRoot,
-            ParentInfrastructureId = parentId
+            GridTypeId = ResolveGridTypeId(item.CapDienAp),
+            ParentPmisCode = ResolveParentLinePmisCode(item)
         };
-
-    /// <summary>Xem IPmisSyncExecutionService.BackfillLineParentsAsync — chạy ĐỘC LẬP từ job Quartz riêng
-    /// (LineParentBackfillJob, tick định kỳ), KHÔNG còn chèn vào lượt đồng bộ Đường dây nào. Xử lý 2 loại
-    /// candidate từ GetLinesNeedingBackfillAsync: (1) chưa có cha — resolve theo tên qua _lineNameIndex
-    /// (như cũ); (2) đã có cha, chỉ thiếu GridTypeId — dùng THẲNG ParentId/ParentGridTypeId đã JOIN sẵn
-    /// trong DTO, KHÔNG resolve lại theo tên (tránh bị tính nhầm "chưa xác định được cha" nếu tên trùng/
-    /// đổi tên — cha vốn đã biết chắc). Chỉ tải _lineNameIndex khi thật sự có candidate loại (1) — loại (2)
-    /// không cần, tránh tải cả danh mục Đường dây vô ích mỗi tick khi không có gì cần resolve theo tên.</summary>
-    public async Task<(int WarningDelta, string? ErrorMessage)> BackfillLineParentsAsync()
-    {
-        List<LineNameIndexEntry> candidates;
-        try
-        {
-            candidates = await _equipmentServiceClient.GetLinesNeedingBackfillAsync();
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "PmisSyncExecutionService: lỗi khi tải danh sách Đường dây cần khớp lại cha/cấp điện áp, bỏ qua backfill lượt này.");
-            return (0, null);
-        }
-
-        if (candidates.Count == 0) return (0, null);
-
-        if (candidates.Any(c => c.ParentId == null))
-            _lineNameIndex ??= await LoadLineNameIndexAsync();
-
-        var toBackfill = new List<BackfillLineParentItem>();
-        var stillUnresolved = 0;
-        for (var i = 0; i < candidates.Count; i++)
-        {
-            // An toàn: dừng thu thập thêm nếu đã đạt trần/lượt — UpdateParentIdsAsync (EquipmentService)
-            // cập nhật TUẦN TỰ từng dòng (không phải 1 câu SQL gộp), nếu số lượng lên tới hàng nghìn (vd
-            // do 1 bug khác khiến hầu hết đường dây tạm thời bị coi là "chưa xác định cha") có thể mất rất
-            // lâu — từng khiến SyncHistoryWatchdogJob đánh rớt cả lượt vì treo RUNNING quá 30 phút thật sự
-            // trên production. Phần còn lại tự thử tiếp ở lượt sau (candidates vẫn còn PARENT_ID=null nên
-            // GetLinesNeedingBackfillAsync lượt sau vẫn thấy), không mất dữ liệu, chỉ trải đều ra nhiều lượt.
-            if (toBackfill.Count >= MaxBackfillPerRun)
-            {
-                // Chỉ đếm phần THẬT SỰ thuộc loại (1, chưa có cha) và có tên hợp lệ vào stillUnresolved —
-                // khớp đúng điều kiện continue ở loại (1) bên dưới. Loại (2, đã có cha) không được tính vào
-                // đây (dù còn tồn đọng), vì cha đã biết rõ, không phải "mồ côi" — trước đây cộng nhầm CẢ 2
-                // loại, làm thổi phồng số liệu cảnh báo khi vượt trần.
-                var remaining = candidates.Skip(i).Count(c => c.ParentId == null && ResolveParentLineName(c.Name) != null);
-                Log.Warning("PmisSyncExecutionService: backfill cha đường dây đạt trần {Max}/lượt, còn {Remaining} dòng sẽ thử tiếp ở lượt sau.", MaxBackfillPerRun, remaining);
-                stillUnresolved += remaining;
-                break;
-            }
-
-            var candidate = candidates[i];
-
-            if (candidate.ParentId != null)
-            {
-                // Loại (2): đã có cha — dùng thẳng ParentGridTypeId đã JOIN sẵn (GetLinesNeedingBackfillAsync),
-                // không resolve lại theo tên. Cha cũng chưa có GridTypeId thì chưa có gì để mượn — bỏ qua,
-                // tự thử lại lượt sau (KHÔNG cộng stillUnresolved, vì cha đã biết rõ, không phải "mồ côi").
-                // candidate.GridTypeId chắc chắn NULL ở đây — SQL của GetLinesNeedingBackfillAsync đã đảm
-                // bảo GRIDTYPEID IS NULL bất cứ khi nào PARENT_ID IS NOT NULL (2 nhánh OR loại trừ nhau).
-                if (candidate.ParentGridTypeId != null)
-                {
-                    toBackfill.Add(new BackfillLineParentItem
-                    {
-                        Id = candidate.Id,
-                        ParentInfrastructureId = candidate.ParentId.Value,
-                        GridTypeId = candidate.ParentGridTypeId
-                    });
-                }
-                continue;
-            }
-
-            // Loại (1): chưa có cha. GetLinesNeedingBackfillAsync lọc thô bằng "tên có chứa '/'" (SQL không
-            // thể tái hiện chính xác quy tắc ResolveParentLineName — tách theo dấu "/" CUỐI CÙNG) — 1 số
-            // tên như "/ABC" (dấu "/" duy nhất nằm ở VỊ TRÍ ĐẦU) qua đúng quy tắc đó lại được coi là GỐC
-            // (không có cha), không phải nhánh thật. Bỏ qua hẳn các trường hợp này thay vì tính là "chưa
-            // xác định được cha" — PARENT_ID=null với 1 dòng THẬT SỰ là gốc là đúng, không phải lỗi, không
-            // nên cảnh báo mãi mãi.
-            if (ResolveParentLineName(candidate.Name) == null) continue;
-
-            var (isRoot, parentId, parentGridTypeId) = ResolveParentLineId(candidate.Name, candidate.PmisUnitCode);
-            if (!isRoot && parentId is { } resolvedId)
-            {
-                // Mượn tạm GridTypeId của cha CHỈ khi nhánh này đang thiếu (candidate.GridTypeId từ
-                // GetLinesNeedingBackfillAsync) — không đoán đè lên giá trị nhánh đã tự có từ trước.
-                toBackfill.Add(new BackfillLineParentItem
-                {
-                    Id = candidate.Id,
-                    ParentInfrastructureId = resolvedId,
-                    GridTypeId = candidate.GridTypeId == null ? parentGridTypeId : null
-                });
-                continue;
-            }
-
-            // Không khớp được ĐÚNG cha ở cấp liền kề — nhánh nhiều cấp không cố định mà PMIS không tự
-            // cung cấp bản ghi cho waypoint trung gian (vd "A/Nhánh B/Nhánh C/Nhánh D" chỉ có bản ghi PMIS
-            // cho lá D). Chỉ mapping theo dữ liệu PMIS thật sự có — KHÔNG tự tạo thêm Đường dây cho các
-            // waypoint còn thiếu; giữ nguyên PARENT_ID cũ, tự khớp lại đúng ở lượt sau nếu PMIS bổ sung
-            // bản ghi cho waypoint đó.
-            stillUnresolved++;
-        }
-
-        var resolved = 0;
-        if (toBackfill.Count > 0)
-        {
-            try
-            {
-                resolved = await _equipmentServiceClient.BackfillLineParentsAsync(toBackfill);
-                // updatedCount có thể ÍT HƠN số đã gửi (vd dòng bị xoá/IsDeleted đúng lúc giữa lượt đọc
-                // GetLinesNeedingBackfillAsync và lượt UPDATE — UpdateParentIdsAsync lọc IsDeleted=0 nên âm
-                // thầm bỏ qua dòng đó) — phần chênh lệch vẫn phải tính là "chưa xác định được cha" thay vì
-                // biến mất khỏi mọi con số báo cáo (trước đây chỉ cộng stillUnresolved khi có exception).
-                if (resolved < toBackfill.Count) stillUnresolved += toBackfill.Count - resolved;
-            }
-            catch (Exception ex)
-            {
-                Log.Warning(ex, "PmisSyncExecutionService: lỗi khi gửi backfill PARENT_ID cho {Count} đường dây, sẽ tự thử lại ở lượt sau.", toBackfill.Count);
-                stillUnresolved += toBackfill.Count;
-            }
-        }
-
-        if (resolved > 0)
-            Log.Information("PmisSyncExecutionService: đã tự khớp lại cha cho {Count} đường dây đã đồng bộ từ trước (trước đó chưa xác định được cha).", resolved);
-
-        var errorMessage = stillUnresolved > 0
-            ? $"Đường dây: còn {stillUnresolved} nhánh đã đồng bộ từ trước vẫn chưa xác định được cha."
-            : null;
-
-        return (stillUnresolved, errorMessage);
-    }
 
     public async Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncInfrastructureAsync(
         int infraTypeId, string syncHistoryId, IReadOnlyList<JsonElement> rawItems)
     {
-        // Chỉ tải danh mục Đường dây khi thật sự đồng bộ Đường dây, 1 lần/lượt (Scoped: xuyên suốt các
-        // trang PMIS trong cùng 1 lần chạy tự động/thủ công) — xem LoadLineNameIndexAsync.
-        if (infraTypeId == 2)
-            _lineNameIndex ??= await LoadLineNameIndexAsync();
-
         List<UpsertInfrastructureFromPmisRequest> upsertRequests;
         List<UpsertInfrastructureFromPmisResult> results;
 
@@ -442,11 +196,14 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         }
         else
         {
-            // Đường dây: xử lý TRỤC (không có "/") trước, NHÁNH (có "/") sau — trong CÙNG 1 trang này.
-            // Trục vừa lưu thành công được đưa ngay vào _lineNameIndex (AddLineToIndex) để nhánh xử lý
-            // NGAY SAU trong cùng trang, hoặc ở trang kế tiếp trong cùng lượt (_lineNameIndex là field
-            // tồn tại xuyên suốt cả lượt chạy), tìm thấy cha luôn — không phải đợi lượt chạy sau. Vẫn
-            // build lại đúng theo THỨ TỰ GỐC của rawItems ở cuối để details/rawItems[i] bên dưới khớp chỉ số.
+            // Đường dây: xử lý TRỤC (ResolveParentLinePmisCode = null) trước, NHÁNH (có mã cha) sau — trong
+            // CÙNG 1 trang này, để 1 trục MỚI (chưa từng tồn tại) được INSERT xong trước khi nhánh của chính nó (nếu cùng trang)
+            // tới lượt — EquipmentService tự SELECT theo PMIS_CODE của item.ParentPmisCode ngay trong lúc
+            // xử lý nhánh (xem InfrastructureRepository.UpsertFromPmisAsync), nên chỉ cần đảm bảo THỨ TỰ
+            // gọi, không cần tự dò/cache Id nào ở tầng này nữa (khác trước 2026-09-23, khi còn phải tự tra
+            // theo tên qua _lineNameIndex). Nếu trục nằm ở TRANG SAU (hoặc lượt sau), nhánh vẫn tạm thời
+            // PARENT_ID=null/cũ và tự khớp đúng ở lượt đồng bộ kế tiếp (PMIS trả toàn bộ dữ liệu mỗi lượt).
+            // Vẫn build lại đúng theo THỨ TỰ GỐC của rawItems ở cuối để details/rawItems[i] bên dưới khớp chỉ số.
             var lineItems = new PmisLineDto[rawItems.Count];
             var rootIndices = new List<int>();
             var branchIndices = new List<int>();
@@ -454,7 +211,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             {
                 var item = rawItems[i].Deserialize<PmisLineDto>(JsonOptions)!;
                 lineItems[i] = item;
-                (ResolveParentLineName(item.TenDuongDay) == null ? rootIndices : branchIndices).Add(i);
+                (ResolveParentLinePmisCode(item) == null ? rootIndices : branchIndices).Add(i);
             }
 
             var requestsByIndex = new UpsertInfrastructureFromPmisRequest?[rawItems.Count];
@@ -462,34 +219,19 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
 
             if (rootIndices.Count > 0)
             {
-                var rootRequests = rootIndices.Select(i => BuildLineUpsertRequest(lineItems[i], isRoot: true, parentId: null, parentGridTypeId: null)).ToList();
+                var rootRequests = rootIndices.Select(i => BuildLineUpsertRequest(lineItems[i])).ToList();
                 var rootResults = await UpsertInfrastructureSafeAsync(rootRequests);
                 for (var k = 0; k < rootIndices.Count; k++)
                 {
                     var idx = rootIndices[k];
                     requestsByIndex[idx] = rootRequests[k];
                     resultsByIndex[idx] = rootResults[k];
-                    // CHỈ thêm khi WasCreated=true (trục THẬT SỰ mới, chưa từng có trong _lineNameIndex) —
-                    // PMIS trả về TOÀN BỘ dữ liệu mỗi lượt (không phải delta), nên 1 trục ĐÃ tồn tại từ
-                    // trước (WasCreated=false, chỉ update) sẽ được xử lý lại ở MỌI lượt sau; nếu vẫn thêm
-                    // vào đây sẽ tạo ứng viên TRÙNG với chính nó đã có sẵn từ LoadLineNameIndexAsync đầu
-                    // lượt, phá vỡ "candidates.Count == 1" trong ResolveParentLineId cho mọi nhánh của trục
-                    // đó — bug thật đã gặp, xem code-review.
-                    if (rootResults[k] is { Success: true, WasCreated: true, InfrastructureId: { } newId })
-                        AddLineToIndex(lineItems[idx].TenDuongDay, lineItems[idx].MaDonVi, newId, rootRequests[k].GridTypeId);
                 }
             }
 
             if (branchIndices.Count > 0)
             {
-                var branchRequests = new List<UpsertInfrastructureFromPmisRequest>(branchIndices.Count);
-                foreach (var idx in branchIndices)
-                {
-                    var item = lineItems[idx];
-                    var (isRoot, parentId, parentGridTypeId) = ResolveParentLineId(item.TenDuongDay, item.MaDonVi);
-                    branchRequests.Add(BuildLineUpsertRequest(item, isRoot, parentId, parentGridTypeId));
-                }
-
+                var branchRequests = branchIndices.Select(i => BuildLineUpsertRequest(lineItems[i])).ToList();
                 var branchResults = await UpsertInfrastructureSafeAsync(branchRequests);
                 for (var k = 0; k < branchIndices.Count; k++)
                 {
@@ -508,11 +250,20 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         var details = new List<SyncHistoryDetail>();
         var errors = new List<string>();
         var successCount = 0;
+        var parentUnresolvedWarnings = 0;
         for (var i = 0; i < results.Count; i++)
         {
             var result = results[i];
             if (result.Success) successCount++;
             else errors.Add($"{result.PmisCode}: {result.ErrorMessage}");
+
+            // ParentUnresolved: dòng Đường dây tự lưu THÀNH CÔNG nhưng maCha không khớp được đường trục
+            // nào (chưa đồng bộ tới, mã sai, hoặc tự trỏ về chính nó — xem
+            // InfrastructureRepository.UpsertFromPmisAsync) — ghi Warning thay vì Success để admin thấy
+            // ngay trong "Lịch sử đồng bộ", KHÔNG tính là Failed (bản thân dòng vẫn lưu đúng, chỉ riêng cha
+            // chưa xác định được, tự khớp lại ở lượt sau nếu do trục chưa đồng bộ tới).
+            var isParentUnresolved = result.Success && result.ParentUnresolved;
+            if (isParentUnresolved) parentUnresolvedWarnings++;
 
             details.Add(new SyncHistoryDetail
             {
@@ -522,9 +273,11 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 SourceName = upsertRequests[i].Name,
                 TargetId = result.InfrastructureId?.ToString(),
                 ActionType = !result.HasChanged ? SyncActionType.Skip : (result.WasCreated ? SyncActionType.Create : SyncActionType.Update),
-                Status = result.Success ? SyncDetailStatus.Success : SyncDetailStatus.Failed,
+                Status = !result.Success ? SyncDetailStatus.Failed : isParentUnresolved ? SyncDetailStatus.Warning : SyncDetailStatus.Success,
                 DataContent = rawItems[i].GetRawText(),
-                ErrorMessage = result.ErrorMessage
+                ErrorMessage = result.ErrorMessage ?? (isParentUnresolved
+                    ? $"Chưa xác định được đường dây cha (mã PMIS cha '{upsertRequests[i].ParentPmisCode}' chưa đồng bộ tới hoặc không hợp lệ) — tự khớp lại ở lượt đồng bộ kế tiếp."
+                    : null)
             });
         }
 
@@ -532,10 +285,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
 
         // Đồng bộ tài liệu đính kèm (API 8/9) cho từng Trạm/Đường dây vừa lưu thành công — lỗi ở bước này
         // CHỈ ghi cảnh báo, không ảnh hưởng successCount/errors ở trên (xem SyncDocumentsForOwnerAsync).
-        // KHÔNG đếm số đường dây "/" chưa xác định được cha ở NGAY ĐÂY — việc đó nay thuộc riêng
-        // LineParentBackfillJob (job Quartz chạy nền định kỳ, độc lập với lượt sync này, xem
-        // BackfillLineParentsAsync) để không đếm trùng — backfill là nơi DUY NHẤT báo số liệu cuối cùng.
-        var warnings = 0;
+        var warnings = parentUnresolvedWarnings;
         var docDetails = new List<SyncHistoryDetail>();
         for (var i = 0; i < results.Count; i++)
         {
@@ -981,21 +731,6 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             >= 1 => 2,
             _ => 3
         };
-    }
-
-    /// <summary>
-    /// Tách tên đường dây CHA từ tên đầy đủ, theo đúng quy ước đặt tên PMIS đang dùng thật:
-    /// "&lt;đường trục&gt;/Nhánh A/Nhánh B/Nhánh C" — mỗi cấp phân cách bởi ký tự "/", cha của 1 dòng là
-    /// phần tên đứng trước dấu "/" CUỐI CÙNG (không phải dấu "/" đầu tiên, để xử lý đúng nhiều cấp lồng
-    /// nhau: cha của "A/B/C" là "A/B", không phải "A"). Không có "/" → null (đường trục gốc, không có cha).
-    /// </summary>
-    internal static string? ResolveParentLineName(string? tenDuongDay)
-    {
-        if (string.IsNullOrWhiteSpace(tenDuongDay)) return null;
-        var lastSlash = tenDuongDay.LastIndexOf('/');
-        if (lastSlash <= 0) return null;
-        var parentName = tenDuongDay[..lastSlash].Trim();
-        return parentName.Length > 0 ? parentName : null;
     }
 
     /// <summary>

@@ -49,64 +49,13 @@ public class UpsertInfrastructureFromPmisRequest
     public DateTime? OperationDate { get; set; }
     public int? GridTypeId { get; set; } // Suy ra từ capDienAp (1 = Cao áp, 2 = Trung áp, 3 = Hạ áp) — xem PmisSyncExecutionService.ResolveGridTypeId
 
-    /// <summary>Chỉ có ý nghĩa với Đường dây (InfraTypeId=2): true nếu tên KHÔNG có dấu "/" (đường trục gốc,
-    /// chắc chắn không có cha — PARENT_ID phải xoá hẳn nếu trước đó có). Trạm biến áp luôn để false (không
-    /// đụng PARENT_ID, xem InfrastructureRepository.UpsertFromPmisAsync).</summary>
-    public bool IsRootLine { get; set; }
-
-    /// <summary>Id đường dây CHA đã được SyncService tự tra sẵn (so khớp tên đã chuẩn hoá + mã đơn vị PMIS
-    /// qua danh mục tải 1 lần/lượt đồng bộ — xem PmisSyncExecutionService.ResolveParentLineIdAsync) — null
-    /// nếu IsRootLine=true, hoặc có "/" nhưng chưa/không xác định được cha (đường trục chưa đồng bộ tới
-    /// trong lượt này, hoặc tên trục bị trùng ở nhiều nơi không phân biệt được) — trường hợp này giữ
-    /// nguyên PARENT_ID cũ, không xoá, tự khớp đúng ở lượt đồng bộ kế tiếp.</summary>
-    public Guid? ParentInfrastructureId { get; set; }
-}
-
-/// <summary>1 dòng danh mục Đường dây hiện có (Id + Tên gốc + mã đơn vị PMIS, nếu tra được) — SyncService
-/// tải 1 lần/lượt đồng bộ Đường dây (thay vì mỗi dòng tự query riêng) để tự tìm cha theo tên trong bộ nhớ.
-/// PmisUnitCode lấy ngược từ PMIS_UNIT_CODE_MAPPING (UnitId -> mã PMIS) — chỉ dùng để phân biệt khi trùng
-/// tên giữa nhiều đơn vị, không phải nguồn sự thật của UnitId (đã có UNIT_ID thật trên chính dòng đó).</summary>
-public class LineNameIndexEntry
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string? PmisUnitCode { get; set; }
-
-    /// <summary>GRIDTYPEID hiện có của chính dòng này (null nếu đường dây này chưa tự xác định được cấp
-    /// điện áp từ capDienAp của chính nó) — SyncService dùng để: (1) cho nhánh mượn tạm khi nhánh không
-    /// có capDienAp riêng (rất phổ biến — nhánh thường không khai báo lại cấp điện áp của trục), (2) biết
-    /// có cần backfill GridTypeId cho 1 dòng đang thiếu cha hay không (chỉ điền khi đang null, không đoán
-    /// đè lên giá trị đã có — xem PmisSyncExecutionService.ResolveGridTypeId).</summary>
-    public int? GridTypeId { get; set; }
-
-    /// <summary>Chỉ có giá trị khi dòng này được trả về bởi GetLinesNeedingBackfillAsync VÀ đã có cha
-    /// (PARENT_ID không NULL) — cho SyncService biết ngay ParentId THẬT (không cần resolve lại theo tên)
-    /// và GridTypeId hiện có của chính cha đó (ParentGridTypeId), để mượn thẳng khi chính dòng này thiếu
-    /// GridTypeId. Null với các dòng tải qua GetLineNameIndexAsync (không JOIN cột này).</summary>
-    public Guid? ParentId { get; set; }
-
-    /// <summary>Xem ParentId — GRIDTYPEID hiện có của dòng cha (null nếu cha cũng chưa có).</summary>
-    public int? ParentGridTypeId { get; set; }
-}
-
-/// <summary>Payload POST internal/v1/infrastructure/backfill-line-parents — cập nhật CHỈ cột PARENT_ID
-/// cho các Đường dây ĐÃ tồn tại từ trước (không đi qua toàn bộ luồng upsert-from-pmis — không có/không cần
-/// đủ dữ liệu PMIS khác như Code/Address/OperationDate để so sánh hasChanged) — dùng khi SyncService tự
-/// khớp lại cha cho các nhánh trước đó chưa xác định được, sau khi đường trục đã tồn tại (xem
-/// PmisSyncExecutionService.BackfillLineParentsAsync).</summary>
-public class BackfillLineParentRequest
-{
-    public List<BackfillLineParentItem> Items { get; set; } = [];
-}
-
-public class BackfillLineParentItem
-{
-    public Guid Id { get; set; }
-    public Guid ParentInfrastructureId { get; set; }
-
-    /// <summary>Cấp lưới điện mượn tạm từ đường trục cha, CHỈ khi dòng này đang GRIDTYPEID=NULL — null có
-    /// nghĩa là không cần cập nhật cột này (đã có giá trị riêng từ trước, hoặc cha cũng chưa có).</summary>
-    public int? GridTypeId { get; set; }
+    /// <summary>Chỉ có ý nghĩa với Đường dây (InfraTypeId=2): mã PMIS của đường dây CHA (field "maCha",
+    /// PMIS bổ sung 2026-09-23) — null/rỗng nghĩa là đường trục gốc (PARENT_ID phải xoá hẳn nếu trước đó
+    /// có). Server tự SELECT INFRASTRUCTURE theo PMIS_CODE này để lấy Id + GridTypeId (mượn tạm cho nhánh
+    /// không có capDienAp riêng) — xem InfrastructureRepository.UpsertFromPmisAsync. Không tìm thấy (đường
+    /// trục chưa đồng bộ tới) → giữ nguyên PARENT_ID cũ, không xoá, tự khớp đúng ở lượt đồng bộ kế tiếp
+    /// (PMIS trả toàn bộ dữ liệu mỗi lượt, không phải delta). Trạm biến áp luôn để null.</summary>
+    public string? ParentPmisCode { get; set; }
 }
 
 public class UpsertInfrastructureFromPmisResult
@@ -117,6 +66,12 @@ public class UpsertInfrastructureFromPmisResult
     public bool WasCreated { get; set; }
     public bool HasChanged { get; set; } = true;
     public string? ErrorMessage { get; set; }
+
+    /// <summary>true khi ParentPmisCode ("maCha") CÓ giá trị nhưng KHÔNG khớp được INFRASTRUCTURE nào
+    /// (đường trục chưa đồng bộ tới, mã sai, hoặc tự trỏ về chính dòng này) — chỉ có ý nghĩa với Đường dây.
+    /// SyncService dùng để ghi 1 dòng Warning trong "Lịch sử đồng bộ" (xem
+    /// InfrastructureRepository.UpsertFromPmisAsync).</summary>
+    public bool ParentUnresolved { get; set; }
 }
 
 /// <summary>Payload endpoint nội bộ POST /api/v1/equipment/internal/upsert-from-pmis (gọi bởi SyncService).</summary>
