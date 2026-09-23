@@ -45,8 +45,11 @@ public class PmisDeviceTypeDto
 
 /// <summary>
 /// Item — API 4: Thiết bị TBA. Schema THẬT khác hẳn thiết bị đường dây (không dùng chung field
-/// maTB/tenTB, không có maQRCode/thongSoKyThuat trong danh sách — phải gọi thêm ChiTietThietBi,
-/// xem PmisSyncExecutionService.SyncEquipmentAsync).
+/// maTB/tenTB) — vẫn KHÔNG có maQRCode trong danh sách (phải gọi thêm ChiTietThietBi lấy QR, xem
+/// PmisSyncExecutionService.SyncEquipmentAsync), nhưng PMIS đã bổ sung thêm thongSoKyThuat/
+/// tenThongSoKyThuat NGAY TRONG danh sách này (xác nhận bằng test thật 2026-09-23, trước đó API này
+/// không có 2 field này) — SyncEquipmentAsync vẫn giữ nguyên bước gọi ChiTietThietBi (còn cần cho QR)
+/// và ưu tiên đè bằng kết quả ChiTietThietBi khi gọi thành công, chỉ dùng giá trị ở đây làm dự phòng.
 /// </summary>
 public class PmisSubstationDeviceDto
 {
@@ -67,6 +70,14 @@ public class PmisSubstationDeviceDto
     public DateTime? NgayTao { get; set; }
     public int? TinhTrang { get; set; }
     public string? TenTinhTrang { get; set; }
+    public string? ThongSoKyThuat { get; set; }
+
+    /// <summary>Nhãn tiếng Việt cho từng khoá của <see cref="ThongSoKyThuat"/> (vd.
+    /// {"I_DM":"Dòng điện định mức"}) — cùng bộ khoá, chỉ khác value là nhãn thay vì số liệu. PMIS mới
+    /// bổ sung field này (2026-09-23), dùng để gợi ý nhãn thật cho admin khi khai "Tên trường PMIS"
+    /// trong Form Builder thay vì phải đoán ý nghĩa khoá UPPER_SNAKE — xem
+    /// EquipmentController.GetPmisSpecKeys.</summary>
+    public string? TenThongSoKyThuat { get; set; }
 }
 
 /// <summary>Item — API 6: Thiết bị đường dây.</summary>
@@ -87,6 +98,9 @@ public class PmisLineDeviceDto
     public int? NamSanXuat { get; set; }
     public string? TrangThai { get; set; }
     public string? ThongSoKyThuat { get; set; }
+
+    /// <summary>Xem ghi chú tại <see cref="PmisSubstationDeviceDto.TenThongSoKyThuat"/>.</summary>
+    public string? TenThongSoKyThuat { get; set; }
 }
 
 /// <summary>Item — API 7: Chi tiết thiết bị (dùng chung cho cả thiết bị TBA và đường dây).</summary>
@@ -105,6 +119,9 @@ public class PmisDeviceDetailDto
     public string? MaQRCode { get; set; }
     public string? TrangThai { get; set; }
     public string? ThongSoKyThuat { get; set; }
+
+    /// <summary>Xem ghi chú tại <see cref="PmisSubstationDeviceDto.TenThongSoKyThuat"/>.</summary>
+    public string? TenThongSoKyThuat { get; set; }
 }
 
 /// <summary>Item — API 8: Tài liệu thiết bị TBA.</summary>

@@ -7,6 +7,7 @@ using Dapper;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Interfaces;
+using EvnHanoi.Infrastructure.Database;
 
 namespace EvnHanoi.EquipmentService.Infrastructure.Repositories;
 
@@ -264,5 +265,32 @@ public class EquipmentTypeRepository : IEquipmentTypeRepository
 
         var result = await _connection.ExecuteAsync(sql, param);
         return result > 0;
+    }
+
+    public async Task<string?> GetPmisFieldLabelsAsync(Guid equipmentTypeId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var sql = "SELECT PmisFieldLabels FROM EquipmentTypes WHERE Id = :Id";
+        return await _connection.QuerySingleOrDefaultAsync<string?>(sql, new { Id = equipmentTypeId.ToString() });
+    }
+
+    public async Task<bool> SetPmisFieldLabelsIfEmptyAsync(Guid equipmentTypeId, string fieldLabelsJson)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"UPDATE EquipmentTypes
+                    SET PmisFieldLabels = :PmisFieldLabels, UpdatedAt = :UpdatedAt
+                    WHERE Id = :Id AND PmisFieldLabels IS NULL";
+
+        var affected = await _connection.ExecuteAsync(sql, new
+        {
+            Id = equipmentTypeId.ToString(),
+            PmisFieldLabels = OracleClob.Param(fieldLabelsJson),
+            UpdatedAt = DateTime.UtcNow
+        });
+        return affected > 0;
     }
 }

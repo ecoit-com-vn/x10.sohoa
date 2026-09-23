@@ -885,6 +885,7 @@ public partial class EquipmentController : ControllerBase
 
         var pmisSpec = await _equipmentPmisSpecRepository.GetByEquipmentIdAsync(id);
         var pmisFormValues = pmisSpec?.FormValues;
+        var pmisFieldLabels = pmisSpec?.FieldLabels;
         var pmisSyncedAt = pmisSpec?.SyncedAt;
 
         var fieldMappingWarnings = new List<object>();
@@ -920,17 +921,21 @@ public partial class EquipmentController : ControllerBase
             formSchema = dto.FormSchema,
             localFormValues = dto.FormValues,
             pmisFormValues,
+            pmisFieldLabels,
             pmisSyncedAt,
             fieldMappingWarnings
         });
     }
 
     /// <summary>
-    /// Danh sách khoá thông số kỹ thuật PMIS thật đã đồng bộ của 1 loại thiết bị (kèm giá trị mẫu và số
-    /// lần xuất hiện) — gợi ý cho admin khi khai "Tên trường PMIS" trong Form Builder, thay vì phải đoán
-    /// tên khoá. Khoá PMIS thật viết UPPER_SNAKE (DUNG_LUONG, TAN_SO...), khác hẳn tên đoán theo tài liệu.
-    /// [BypassDynamicPermission] vì người dùng Form Builder có quyền thiết kế biểu mẫu, không nhất thiết
-    /// có quyền xem thiết bị — giống các endpoint lookup khác trong controller này.
+    /// Danh sách khoá thông số kỹ thuật PMIS thật đã đồng bộ của 1 loại thiết bị (kèm giá trị mẫu, nhãn
+    /// tiếng Việt nếu có, và số lần xuất hiện) — gợi ý cho admin khi khai "Tên trường PMIS" trong Form
+    /// Builder, thay vì phải đoán tên khoá. Khoá PMIS thật viết UPPER_SNAKE (DUNG_LUONG, TAN_SO...), khác
+    /// hẳn tên đoán theo tài liệu. Nhãn (field "label") lấy từ EQUIPMENT_PMIS_SPEC.FieldLabels — do PMIS
+    /// tự cung cấp (field "tenThongSoKyThuat", bổ sung 2026-09-23), null với dữ liệu đồng bộ TRƯỚC khi có
+    /// field này (đã lưu FieldLabels=NULL từ trước). [BypassDynamicPermission] vì người dùng Form Builder
+    /// có quyền thiết kế biểu mẫu, không nhất thiết có quyền xem thiết bị — giống các endpoint lookup
+    /// khác trong controller này.
     /// </summary>
     [HttpGet("pmis-spec-keys")]
     [BypassDynamicPermission]
@@ -939,19 +944,42 @@ public partial class EquipmentController : ControllerBase
         if (equipmentTypeId == Guid.Empty)
             return BadRequest(new { message = "Thiếu loại thiết bị (equipmentTypeId)." });
 
-        var formValuesRows = await _equipmentPmisSpecRepository
+        var specRows = await _equipmentPmisSpecRepository
             .GetRecentFormValuesByEquipmentTypeAsync(equipmentTypeId, PmisSpecKeySampleRows);
 
         var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var samples = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        var labels = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var json in formValuesRows)
+        // Nhãn PMIS là hằng số theo LOẠI thiết bị (không đổi theo từng thiết bị) — ưu tiên đọc thẳng
+        // EquipmentTypes.PmisFieldLabels (1 dòng, do InternalPmisSyncController ghi 1 lần/loại — xem
+        // SetPmisFieldLabelsIfEmptyAsync) thay vì phải quét/gộp qua tối đa PmisSpecKeySampleRows dòng
+        // EQUIPMENT_PMIS_SPEC bên dưới mỗi lần gọi. Chỉ quét theo từng thiết bị (nhánh else) khi loại
+        // thiết bị CHƯA từng được ghi cột này (vd. dữ liệu đồng bộ từ trước khi có Migration0063).
+        var typeLevelLabelsJson = await _equipmentTypeRepository.GetPmisFieldLabelsAsync(equipmentTypeId);
+        var hasTypeLevelLabels = !string.IsNullOrWhiteSpace(typeLevelLabelsJson);
+        if (hasTypeLevelLabels)
         {
-            if (string.IsNullOrWhiteSpace(json)) continue;
+            EavSchemaHelper.MergeJsonStringLabelsInto(labels, typeLevelLabelsJson);
+        }
+
+        foreach (var (formValuesJson, fieldLabelsJson) in specRows)
+        {
+            // Nhãn đọc TRƯỚC (không phụ thuộc has-value của FormValues) — cùng bộ khoá với FormValues
+            // nên duyệt riêng cho đơn giản, không cần khớp thứ tự property giữa 2 JSON. Dùng chung
+            // EavSchemaHelper.MergeJsonStringLabelsInto với InternalPmisSyncController.
+            // BuildAutoFormFieldsFromPmisSpec thay vì tự viết lại logic parse (2 nơi từng lệch nhau ở
+            // việc có nhận value non-string hay không).
+            if (!hasTypeLevelLabels)
+            {
+                EavSchemaHelper.MergeJsonStringLabelsInto(labels, fieldLabelsJson);
+            }
+
+            if (string.IsNullOrWhiteSpace(formValuesJson)) continue;
 
             try
             {
-                using var doc = JsonDocument.Parse(json);
+                using var doc = JsonDocument.Parse(formValuesJson);
                 if (doc.RootElement.ValueKind != JsonValueKind.Object) continue;
 
                 foreach (var property in doc.RootElement.EnumerateObject())
@@ -973,15 +1001,22 @@ public partial class EquipmentController : ControllerBase
             }
         }
 
-        var items = counts
-            .OrderByDescending(pair => pair.Value)
-            .ThenBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(pair => new
+        // Hợp cả khoá chỉ xuất hiện trong FieldLabels (nhãn đọc được nhưng FormValues dòng đó lỗi JSON/
+        // rỗng) — trước đây chỉ duyệt counts.Keys (nguồn gốc từ FormValues) nên nhãn kiểu này bị bỏ sót
+        // hoàn toàn dù đã đọc được, dù dữ liệu 2 JSON thường cùng bộ khoá vì cùng 1 lần đồng bộ ghi ra.
+        var allKeys = new HashSet<string>(counts.Keys, StringComparer.OrdinalIgnoreCase);
+        allKeys.UnionWith(labels.Keys);
+
+        var items = allKeys
+            .Select(key => new
             {
-                key = pair.Key,
-                sampleValue = samples.TryGetValue(pair.Key, out var sample) ? sample : null,
-                count = pair.Value
-            });
+                key,
+                label = labels.TryGetValue(key, out var label) ? label : null,
+                sampleValue = samples.TryGetValue(key, out var sample) ? sample : null,
+                count = counts.TryGetValue(key, out var count) ? count : 0
+            })
+            .OrderByDescending(item => item.count)
+            .ThenBy(item => item.key, StringComparer.OrdinalIgnoreCase);
 
         return Ok(items);
     }

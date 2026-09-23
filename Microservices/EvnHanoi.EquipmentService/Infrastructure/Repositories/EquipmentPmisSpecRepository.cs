@@ -1,4 +1,5 @@
 using System.Data;
+using System.Linq;
 using Dapper;
 using EvnHanoi.EquipmentService.Core.Interfaces;
 using EvnHanoi.Infrastructure.Database;
@@ -14,7 +15,7 @@ public class EquipmentPmisSpecRepository : IEquipmentPmisSpecRepository
         _connection = connection;
     }
 
-    public async Task UpsertAsync(Guid equipmentId, string? formValuesJson, string? syncHistoryId)
+    public async Task UpsertAsync(Guid equipmentId, string? formValuesJson, string? syncHistoryId, string? fieldLabelsJson = null)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
@@ -27,52 +28,56 @@ public class EquipmentPmisSpecRepository : IEquipmentPmisSpecRepository
             ON (target.EquipmentId = src.EquipmentId)
             WHEN MATCHED THEN UPDATE SET
                 target.FormValues = :FormValues,
+                target.FieldLabels = :FieldLabels,
                 target.SyncedAt = SYSTIMESTAMP,
                 target.SyncHistoryId = :SyncHistoryId,
                 target.RowVersion = target.RowVersion + 1,
                 target.ModifiedBy = :ModifiedBy,
                 target.ModifiedDate = SYSTIMESTAMP
-            WHEN NOT MATCHED THEN INSERT (Id, EquipmentId, FormValues, SyncedAt, SyncHistoryId, CreatedBy)
-            VALUES (:Id, :EquipmentId, :FormValues, SYSTIMESTAMP, :SyncHistoryId, :ModifiedBy)",
+            WHEN NOT MATCHED THEN INSERT (Id, EquipmentId, FormValues, FieldLabels, SyncedAt, SyncHistoryId, CreatedBy)
+            VALUES (:Id, :EquipmentId, :FormValues, :FieldLabels, SYSTIMESTAMP, :SyncHistoryId, :ModifiedBy)",
             new
             {
                 Id = Guid.CreateVersion7().ToString(),
                 EquipmentId = equipmentId.ToString(),
                 FormValues = OracleClob.Param(formValuesJson),
+                FieldLabels = OracleClob.Param(fieldLabelsJson),
                 SyncHistoryId = syncHistoryId,
                 ModifiedBy = "PMIS_SYNC"
             });
     }
 
-    public async Task<(string? FormValues, DateTime? SyncedAt)?> GetByEquipmentIdAsync(Guid equipmentId)
+    public async Task<(string? FormValues, string? FieldLabels, DateTime? SyncedAt)?> GetByEquipmentIdAsync(Guid equipmentId)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
         var row = await _connection.QuerySingleOrDefaultAsync(
-            "SELECT FormValues, SyncedAt FROM EQUIPMENT_PMIS_SPEC WHERE EquipmentId = :EquipmentId",
+            "SELECT FormValues, FieldLabels, SyncedAt FROM EQUIPMENT_PMIS_SPEC WHERE EquipmentId = :EquipmentId",
             new { EquipmentId = equipmentId.ToString() });
 
         if (row == null) return null;
-        return ((string?)row.FORMVALUES, (DateTime?)row.SYNCEDAT);
+        return ((string?)row.FORMVALUES, (string?)row.FIELDLABELS, (DateTime?)row.SYNCEDAT);
     }
 
-    public async Task<IEnumerable<string?>> GetRecentFormValuesByEquipmentTypeAsync(Guid equipmentTypeId, int maxRows)
+    public async Task<IEnumerable<(string? FormValues, string? FieldLabels)>> GetRecentFormValuesByEquipmentTypeAsync(Guid equipmentTypeId, int maxRows)
     {
         if (_connection.State != ConnectionState.Open) _connection.Open();
 
         const string sql = @"
-            SELECT FormValues FROM (
-                SELECT s.FormValues AS FormValues
+            SELECT FormValues, FieldLabels FROM (
+                SELECT s.FormValues AS FormValues, s.FieldLabels AS FieldLabels
                 FROM EQUIPMENT_PMIS_SPEC s
                 JOIN EQUIPMENTS e ON e.Id = s.EquipmentId
                 WHERE s.IsDeleted = 0 AND e.IsDeleted = 0 AND e.EquipmentTypeId = :EquipmentTypeId
                 ORDER BY s.SyncedAt DESC
             ) WHERE ROWNUM <= :MaxRows";
 
-        return await _connection.QueryAsync<string?>(sql, new
+        var rows = await _connection.QueryAsync(sql, new
         {
             EquipmentTypeId = equipmentTypeId.ToString(),
             MaxRows = maxRows
         });
+
+        return rows.Select(r => ((string?)r.FORMVALUES, (string?)r.FIELDLABELS));
     }
 }
