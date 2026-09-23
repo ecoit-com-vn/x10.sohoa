@@ -9,6 +9,16 @@
       <button class="btn-back btn-small" (click)="goBack()" *ngIf="currentView() === 'edit'">
         <i class="pi pi-arrow-left"></i> Quay lại danh sách
       </button>
+      <button
+        class="btn-outlined"
+        type="button"
+        *ngIf="currentView() === 'list'"
+        (click)="exportEquipmentsToExcel()"
+        [disabled]="exportingList() || totalCount() === 0"
+      >
+        <i class="pi" [ngClass]="exportingList() ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i>
+        {{ exportingList() ? 'Đang xuất...' : 'Xuất Excel' }}
+      </button>
       <button class="btn-green" (click)="onAddNew()" *ngIf="canCreate() && currentView() === 'list'">
         <i class="pi pi-plus"></i> Thêm mới
       </button>
