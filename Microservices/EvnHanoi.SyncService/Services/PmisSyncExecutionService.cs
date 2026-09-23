@@ -819,16 +819,28 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             var endpointApiCode = isSubstationOrigin ? "SUBSTATION_DOCUMENT_LIST" : "LINE_DOCUMENT_LIST";
             var results = new List<UpsertPmisDocumentResult>();
             var requests = new List<UpsertPmisDocumentRequest>();
+            // Chi tiết riêng từng tài liệu (tên, loại, URL file thật, kích thước tải được) để đưa vào
+            // SyncHistoryDetail.DataContent — trước đây "Lịch sử đồng bộ" chỉ hiện mã/tên của TRẠM/ĐƯỜNG
+            // DÂY (owner) lặp lại y hệt cho mọi tài liệu, không cách nào phân biệt tài liệu nào với tài
+            // liệu nào, cũng không thấy được URL/kích thước file đã tải hay lỗi tải file thật sự (khác lỗi
+            // lưu bản ghi ở EquipmentService) — xem PmisSyncExecutionService.cs (feedback người dùng
+            // 2026-09-23: "thiếu log chi tiết cho api tải file vật lý").
+            var docInfoByCode = new Dictionary<string, (string? TenTaiLieu, string? LoaiTaiLieu, string? FileUrl, int? FileSizeBytes, string? FileDownloadError)>();
             foreach (var doc in items)
             {
                 if (string.IsNullOrWhiteSpace(doc.MaTaiLieu)) continue;
 
                 string? fileBase64 = null;
                 string? fileDownloadError = null;
+                int? fileSizeBytes = null;
                 if (!string.IsNullOrWhiteSpace(doc.File))
                 {
                     var (bytes, errorReason) = await _pmisClient.DownloadDocumentFileAsync(doc.File, endpointApiCode);
-                    if (bytes is { Length: > 0 }) fileBase64 = Convert.ToBase64String(bytes);
+                    if (bytes is { Length: > 0 })
+                    {
+                        fileBase64 = Convert.ToBase64String(bytes);
+                        fileSizeBytes = bytes.Length;
+                    }
                     else fileDownloadError = errorReason;
                 }
                 else
@@ -840,6 +852,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                     // bản ghi tài liệu này.
                     fileDownloadError = "PMIS không trả về URL file cho tài liệu này (trường \"File\" rỗng) — chưa từng thử tải.";
                 }
+
+                docInfoByCode[doc.MaTaiLieu] = (doc.TenTaiLieu, doc.LoaiTaiLieu, doc.File, fileSizeBytes, fileDownloadError);
 
                 requests.Add(new UpsertPmisDocumentRequest
                 {
@@ -877,18 +891,39 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             var warningCount = 0;
             foreach (var result in results)
             {
-                var isWarning = !result.Success;
+                docInfoByCode.TryGetValue(result.PmisDocumentCode, out var info);
+
+                // Tải file lỗi (info.FileDownloadError != null) vẫn có thể đi kèm result.Success=true phía
+                // EquipmentService (bản ghi tài liệu vẫn lưu được, chỉ thiếu file) — trước đây trường hợp
+                // này hiện "Thành công"/"---" y hệt 1 tài liệu tải file trót lọt, không ai biết file thật
+                // sự chưa có (chỉ lộ ra sau, khi bấm tải về mới báo "Tài liệu chưa có file"). Coi đây là
+                // Warning ngay từ lúc đồng bộ, không chờ tới lúc người dùng tự phát hiện.
+                var isWarning = !result.Success || info.FileDownloadError != null;
                 if (isWarning) warningCount++;
+
+                var dataContent = JsonSerializer.Serialize(new
+                {
+                    info.TenTaiLieu,
+                    info.LoaiTaiLieu,
+                    OwnerType = ownerType,
+                    OwnerPmisCode = ownerPmisCode,
+                    OwnerName = sourceName,
+                    FileUrl = info.FileUrl,
+                    FileSizeBytes = info.FileSizeBytes,
+                    Downloaded = info.FileSizeBytes != null,
+                    result.WasSkippedAsExisting
+                });
 
                 details.Add(new SyncHistoryDetail
                 {
                     SyncHistoryId = syncHistoryId,
                     SourceId = result.PmisDocumentCode,
-                    SourceCode = ownerPmisCode,
-                    SourceName = sourceName,
+                    SourceCode = result.PmisDocumentCode,
+                    SourceName = info.TenTaiLieu ?? result.PmisDocumentCode,
+                    DataContent = dataContent,
                     ActionType = SyncActionType.Skip,
                     Status = isWarning ? SyncDetailStatus.Warning : SyncDetailStatus.Success,
-                    ErrorMessage = result.ErrorMessage
+                    ErrorMessage = result.ErrorMessage ?? info.FileDownloadError
                 });
             }
             return (hitRecordCap ? warningCount + 1 : warningCount, details);
