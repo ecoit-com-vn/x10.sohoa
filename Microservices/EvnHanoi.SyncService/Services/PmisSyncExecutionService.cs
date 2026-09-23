@@ -587,9 +587,11 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             var item = raw.Deserialize<EquipmentSaveShape>(JsonOptions)!;
 
             // Thiết bị TBA (nhận diện bằng MaThietBi có giá trị — chỉ dạng thiết bị này mới có field
-            // này, xem PmisSubstationDeviceDto) không có sẵn ThongSoKyThuat/MaQRCode trong danh sách,
-            // khác thiết bị đường dây (đã có sẵn) — phải gọi thêm ChiTietThietBi (API 7) ngay tại đây,
-            // tự động trong lúc đồng bộ, không chờ người dùng bấm gì thêm.
+            // này, xem PmisSubstationDeviceDto) không có sẵn MaQRCode trong danh sách (ThongSoKyThuat/
+            // TenThongSoKyThuat thì đã có từ 2026-09-23, xem PmisSubstationDeviceDto) — vẫn phải gọi
+            // thêm ChiTietThietBi (API 7) ngay tại đây để lấy QR, tự động trong lúc đồng bộ, không chờ
+            // người dùng bấm gì thêm; tiện thể ChiTietThietBi cũng trả ThongSoKyThuat/TenThongSoKyThuat
+            // nên vẫn dùng luôn kết quả đó (ưu tiên dữ liệu mới nhất) thay vì giá trị đã có sẵn ở trên.
             var isSubstationDevice = !string.IsNullOrWhiteSpace(item.MaThietBi);
             // .Trim() — PMIS đôi khi trả mã kèm khoảng trắng thừa; PmisCode/ParentPmisCode dùng để SO KHỚP
             // (WHERE PMIS_CODE = ...) nên lệch 1 khoảng trắng cũng khiến hệ thống hiểu nhầm là thiết bị/trạm
@@ -598,6 +600,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             var maTB = (isSubstationDevice ? item.MaThietBi : item.MaTB)?.Trim() ?? string.Empty;
             var tenTB = isSubstationDevice ? item.TenThietBi! : item.TenTB;
             var thongSoKyThuat = item.ThongSoKyThuat;
+            var tenThongSoKyThuat = item.TenThongSoKyThuat;
             var maQRCode = item.MaQRCode;
 
             if (isSubstationDevice)
@@ -612,6 +615,13 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                             MaTBA = item.MaTBA
                         });
                         thongSoKyThuat = detail?.ThongSoKyThuat;
+                        // "?? tenThongSoKyThuat" (KHÔNG dùng "??=" — cố tình giữ so sánh tường minh): nếu
+                        // ChiTietThietBi gọi thành công nhưng bản thân field TenThongSoKyThuat rỗng (API 7
+                        // chưa được PMIS cập nhật đồng bộ với API 4/6, hoặc thiếu cho riêng thiết bị này),
+                        // KHÔNG được ghi đè mất giá trị đã có sẵn từ danh sách (item.TenThongSoKyThuat) —
+                        // EquipmentPmisSpecRepository.UpsertAsync ghi đè FieldLabels vô điều kiện mỗi lần
+                        // đồng bộ nên 1 lần ghi đè bằng null ở đây sẽ xoá mất nhãn tốt đã lưu từ trước.
+                        tenThongSoKyThuat = detail?.TenThongSoKyThuat ?? tenThongSoKyThuat;
                         maQRCode = detail?.MaQRCode;
                     }
                     catch (Exception ex)
@@ -670,7 +680,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 ManufactureYear = item.NamSanXuat,
                 QrCodeBase64 = qrCodeBase64,
                 GridTypeId = gridTypeId,
-                ThongSoKyThuat = thongSoKyThuat
+                ThongSoKyThuat = thongSoKyThuat,
+                TenThongSoKyThuat = tenThongSoKyThuat
             });
             // Dùng ĐÚNG resolvedParentPmisCode (không phải item.MaTBA/MaDuongDay thô) cho origins — nếu
             // không, đồng bộ tài liệu đính kèm (SyncDocumentsForOwnerAsync ngay dưới) vẫn nhận mã cha
@@ -819,16 +830,28 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             var endpointApiCode = isSubstationOrigin ? "SUBSTATION_DOCUMENT_LIST" : "LINE_DOCUMENT_LIST";
             var results = new List<UpsertPmisDocumentResult>();
             var requests = new List<UpsertPmisDocumentRequest>();
+            // Chi tiết riêng từng tài liệu (tên, loại, URL file thật, kích thước tải được) để đưa vào
+            // SyncHistoryDetail.DataContent — trước đây "Lịch sử đồng bộ" chỉ hiện mã/tên của TRẠM/ĐƯỜNG
+            // DÂY (owner) lặp lại y hệt cho mọi tài liệu, không cách nào phân biệt tài liệu nào với tài
+            // liệu nào, cũng không thấy được URL/kích thước file đã tải hay lỗi tải file thật sự (khác lỗi
+            // lưu bản ghi ở EquipmentService) — xem PmisSyncExecutionService.cs (feedback người dùng
+            // 2026-09-23: "thiếu log chi tiết cho api tải file vật lý").
+            var docInfoByCode = new Dictionary<string, (string? TenTaiLieu, string? LoaiTaiLieu, string? FileUrl, int? FileSizeBytes, string? FileDownloadError)>();
             foreach (var doc in items)
             {
                 if (string.IsNullOrWhiteSpace(doc.MaTaiLieu)) continue;
 
                 string? fileBase64 = null;
                 string? fileDownloadError = null;
+                int? fileSizeBytes = null;
                 if (!string.IsNullOrWhiteSpace(doc.File))
                 {
                     var (bytes, errorReason) = await _pmisClient.DownloadDocumentFileAsync(doc.File, endpointApiCode);
-                    if (bytes is { Length: > 0 }) fileBase64 = Convert.ToBase64String(bytes);
+                    if (bytes is { Length: > 0 })
+                    {
+                        fileBase64 = Convert.ToBase64String(bytes);
+                        fileSizeBytes = bytes.Length;
+                    }
                     else fileDownloadError = errorReason;
                 }
                 else
@@ -840,6 +863,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                     // bản ghi tài liệu này.
                     fileDownloadError = "PMIS không trả về URL file cho tài liệu này (trường \"File\" rỗng) — chưa từng thử tải.";
                 }
+
+                docInfoByCode[doc.MaTaiLieu] = (doc.TenTaiLieu, doc.LoaiTaiLieu, doc.File, fileSizeBytes, fileDownloadError);
 
                 requests.Add(new UpsertPmisDocumentRequest
                 {
@@ -877,18 +902,35 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             var warningCount = 0;
             foreach (var result in results)
             {
-                var isWarning = !result.Success;
+                docInfoByCode.TryGetValue(result.PmisDocumentCode, out var info);
+
+                // Tải file lỗi (info.FileDownloadError != null) vẫn có thể đi kèm result.Success=true phía
+                // EquipmentService (bản ghi tài liệu vẫn lưu được, chỉ thiếu file) — trước đây trường hợp
+                // này hiện "Thành công"/"---" y hệt 1 tài liệu tải file trót lọt, không ai biết file thật
+                // sự chưa có (chỉ lộ ra sau, khi bấm tải về mới báo "Tài liệu chưa có file"). Coi đây là
+                // Warning ngay từ lúc đồng bộ, không chờ tới lúc người dùng tự phát hiện.
+                var isWarning = !result.Success || info.FileDownloadError != null;
                 if (isWarning) warningCount++;
+
+                // Dùng ĐÚNG khoá TenTBA/TenDuongDay (không bịa khoá "OwnerName" mới) — đây là 2 khoá mà
+                // FE (getParentName) đã đọc sẵn từ dataContent của dòng Trạm/Đường dây/Thiết bị chính
+                // (item PMIS thô, xem dòng ~726/912 dưới), nên dòng tài liệu tái dùng đúng quy ước đó,
+                // FE không cần thêm nhánh đặc biệt nào cho riêng dòng tài liệu.
+                object dataContentObj = isSubstationOrigin
+                    ? new { info.TenTaiLieu, info.LoaiTaiLieu, OwnerType = ownerType, OwnerPmisCode = ownerPmisCode, TenTBA = sourceName, FileUrl = info.FileUrl, FileSizeBytes = info.FileSizeBytes, Downloaded = info.FileSizeBytes != null, result.WasSkippedAsExisting }
+                    : new { info.TenTaiLieu, info.LoaiTaiLieu, OwnerType = ownerType, OwnerPmisCode = ownerPmisCode, TenDuongDay = sourceName, FileUrl = info.FileUrl, FileSizeBytes = info.FileSizeBytes, Downloaded = info.FileSizeBytes != null, result.WasSkippedAsExisting };
+                var dataContent = JsonSerializer.Serialize(dataContentObj);
 
                 details.Add(new SyncHistoryDetail
                 {
                     SyncHistoryId = syncHistoryId,
                     SourceId = result.PmisDocumentCode,
-                    SourceCode = ownerPmisCode,
-                    SourceName = sourceName,
+                    SourceCode = result.PmisDocumentCode,
+                    SourceName = info.TenTaiLieu ?? result.PmisDocumentCode,
+                    DataContent = dataContent,
                     ActionType = SyncActionType.Skip,
                     Status = isWarning ? SyncDetailStatus.Warning : SyncDetailStatus.Success,
-                    ErrorMessage = result.ErrorMessage
+                    ErrorMessage = result.ErrorMessage ?? info.FileDownloadError
                 });
             }
             return (hitRecordCap ? warningCount + 1 : warningCount, details);
@@ -959,8 +1001,10 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
     /// <summary>
     /// Shape gộp — thiết bị TBA và đường dây có schema JSON THẬT khác nhau (xem
     /// PmisSubstationDeviceDto/PmisLineDeviceDto): thiết bị TBA dùng MaThietBi/TenThietBi, không có
-    /// MaQRCode/ThongSoKyThuat; thiết bị đường dây dùng MaTB/TenTB, có sẵn cả 2. Khai báo đủ field của
-    /// cả 2 phía (đều optional) rồi tự chọn nhánh đúng trong SyncEquipmentAsync theo MaThietBi có giá trị.
+    /// MaQRCode; thiết bị đường dây dùng MaTB/TenTB, có sẵn MaQRCode. Cả 2 phía đều đã có
+    /// ThongSoKyThuat/TenThongSoKyThuat ngay trong danh sách (PMIS bổ sung cho TBA từ 2026-09-23).
+    /// Khai báo đủ field của cả 2 phía (đều optional) rồi tự chọn nhánh đúng trong SyncEquipmentAsync
+    /// theo MaThietBi có giá trị.
     /// </summary>
     private class EquipmentSaveShape
     {
@@ -977,5 +1021,6 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         public int? NamSanXuat { get; set; }
         public string? MaQRCode { get; set; }
         public string? ThongSoKyThuat { get; set; }
+        public string? TenThongSoKyThuat { get; set; }
     }
 }

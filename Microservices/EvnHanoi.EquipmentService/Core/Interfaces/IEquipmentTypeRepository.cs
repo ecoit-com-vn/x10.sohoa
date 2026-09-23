@@ -18,4 +18,13 @@ public interface IEquipmentTypeRepository
     
     Task<IEnumerable<AttributeDefinition>> GetAttributeDefinitionsAsync(Guid equipmentTypeId);
     Task<bool> AddAttributeDefinitionAsync(AttributeDefinition attributeDefinition);
+
+    /// <summary>Nhãn tiếng Việt (JSON, field PMIS "tenThongSoKyThuat") đã lưu cho loại thiết bị này — null
+    /// nếu chưa từng ghi (xem <see cref="SetPmisFieldLabelsIfEmptyAsync"/>).</summary>
+    Task<string?> GetPmisFieldLabelsAsync(Guid equipmentTypeId);
+
+    /// <summary>Ghi PmisFieldLabels CHỈ KHI cột đang rỗng (giống EquipmentRepository.SetFormValuesIfEmptyAsync)
+    /// — nhãn PMIS là hằng số theo loại thiết bị nên chỉ cần lưu 1 lần, không cần ghi đè mỗi lần đồng bộ
+    /// từng thiết bị. Trả true nếu vừa ghi (trước đó rỗng), false nếu đã có sẵn (bỏ qua).</summary>
+    Task<bool> SetPmisFieldLabelsIfEmptyAsync(Guid equipmentTypeId, string fieldLabelsJson);
 }
