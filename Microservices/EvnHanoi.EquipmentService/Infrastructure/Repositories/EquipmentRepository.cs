@@ -364,10 +364,15 @@ public class EquipmentRepository : IEquipmentRepository
         // EquipmentSqlFilters.NotTransferredAway: loại các dòng "hồn ma" (StatusTransition=0, "Đã chuyển
         // TBA") đã bị thay thế bởi CloneForInfrastructureTransferAsync khi thiết bị chuyển Trạm/Đường dây —
         // dòng cũ vẫn IsDeleted=0 (chỉ IS_ACTIVE=0) và giữ nguyên INFRASTRUCTURE_ID cũ (không xoá dấu vết),
-        // nên nếu không lọc sẽ hiện SAI trong màn xem/tìm thiết bị thông thường (đã gặp thật: 1 trạm hiện
-        // toàn bộ thiết bị "Đã chuyển TBA" dù chỉ 1 số ít thật sự chuyển đi — do PMIS_CODE lệch chuẩn khiến
-        // hệ thống hiểu nhầm CẢ trạm đó đã đổi, xem Migration0060). KHÔNG lọc StatusTransition=1 ("Đã
-        // chuyển hồ sơ") — đó vẫn là thiết bị sống, xem EquipmentSqlFilters.NotTransferredAway.
+        // nên nếu không lọc sẽ hiện SAI trong màn xem/tìm thiết bị KHÔNG giới hạn theo 1 trạm cụ thể (trộn
+        // lẫn "hồn ma" của nhiều trạm khác nhau, dễ nhầm là thiết bị đang sống). KHÔNG lọc StatusTransition=1
+        // ("Đã chuyển hồ sơ") — đó vẫn là thiết bị sống, xem EquipmentSqlFilters.NotTransferredAway.
+        //
+        // NGOẠI LỆ: khi lọc theo ĐÚNG 1 infrastructureId cụ thể (tab "Thiết bị" của màn chi tiết 1
+        // Trạm/Đường dây) thì KHÔNG áp filter này — ngược lại, bản ghi "Đã chuyển TBA" ra khỏi đúng trạm
+        // đang xem lại là thứ người dùng CẦN thấy (để biết thiết bị đã rời trạm này đi đâu), không phải
+        // nhiễu cần loại bỏ. Trước đây áp filter vô điều kiện khiến thiết bị vừa chuyển đi biến mất hẳn
+        // khỏi danh sách thay vì hiển thị với badge "Đã chuyển TBA".
         var sqlBase = $@"FROM EQUIPMENTS e
                         LEFT JOIN EquipmentTypes et ON e.EquipmentTypeId = et.Id
                         LEFT JOIN GridTypes gt ON et.GridTypeId = gt.Id
@@ -375,8 +380,12 @@ public class EquipmentRepository : IEquipmentRepository
                         LEFT JOIN ORGANIZATION_UNIT u ON e.UnitId = u.Id
                         LEFT JOIN CATALOG es ON e.EQUIPMENT_STATUS_ID = es.Id
                         LEFT JOIN APP_USER usr ON e.CreatorId = usr.Id
-                        WHERE e.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("e")}";
+                        WHERE e.IsDeleted = 0";
 
+        if (!infrastructureId.HasValue)
+        {
+            sqlBase += $" AND {EquipmentSqlFilters.NotTransferredAway("e")}";
+        }
 
         var parameters = new DynamicParameters();
 
