@@ -14,7 +14,7 @@
     </div>
     <div
       class="toolbar-right"
-      *ngIf="canCreate() || currentView() === 'detail'"
+      *ngIf="canCreate() || currentView() === 'detail' || currentView() === 'list'"
       style="display: flex; align-items: center; gap: 8px"
     >
       <button
@@ -31,6 +31,16 @@
         "
       >
         <i class="pi pi-arrow-left"></i> Quay lại
+      </button>
+      <button
+        *ngIf="currentView() === 'list'"
+        class="btn-outlined"
+        type="button"
+        (click)="exportLinesToExcel()"
+        [disabled]="exportingList() || totalCount() === 0"
+      >
+        <i class="pi" [ngClass]="exportingList() ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i>
+        {{ exportingList() ? 'Đang xuất...' : 'Xuất Excel' }}
       </button>
       <button *ngIf="canCreate()" class="btn-green" (click)="onAddNew()">
         <i class="pi pi-plus"></i> Thêm mới
