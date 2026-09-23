@@ -139,11 +139,11 @@ public class PmisManualSyncController : ControllerBase
         }
 
         // Đồng bộ thủ công Đường dây: người dùng có thể chỉ chọn lưu 1 vài nhánh mà chưa chọn đúng đường
-        // trục của nó (hoặc trục đã có sẵn từ trước) — việc "tự khớp lại cha/cấp điện áp" cho các nhánh còn
-        // thiếu KHÔNG còn chạy inline ngay đây nữa, đã tách ra job Quartz riêng chạy nền định kỳ
-        // (LineParentBackfillJob, tick mỗi 5 phút — không phụ thuộc SyncConfig.IsEnabled của Đường dây),
-        // tránh kéo dài thời gian RUNNING của CHÍNH request save này khi số nhánh mồ côi tồn đọng nhiều
-        // (xem comment MaxBackfillPerRun trong PmisSyncExecutionService).
+        // trục của nó (hoặc trục đã có sẵn từ trước). Từ khi PMIS trả sẵn "maCha" (2026-09-23), cha được
+        // tra TRỰC TIẾP theo mã PMIS ngay trong chính request này (EquipmentService tự SELECT theo
+        // PMIS_CODE, xem InfrastructureRepository.UpsertFromPmisAsync) — chỉ "lỡ nhịp" khi trục CHƯA từng
+        // được đồng bộ tới, và tự khớp đúng ở lượt đồng bộ Đường dây kế tiếp (PMIS trả toàn bộ dữ liệu mỗi
+        // lượt, không phải delta) — không cần job nền riêng nào nữa.
 
         var finalStatus = successCount == 0
             ? SyncHistoryStatus.Failed
