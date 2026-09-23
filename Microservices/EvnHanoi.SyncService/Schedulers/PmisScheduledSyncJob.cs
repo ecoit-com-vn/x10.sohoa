@@ -286,11 +286,10 @@ public class PmisScheduledSyncJob : IJob
             if (HasHitSafetyCap(skip, "Đường dây", ref warnings)) break;
         }
 
-        // Việc "tự khớp lại cha/cấp điện áp" cho các Đường dây ĐÃ đồng bộ từ TRƯỚC (tên có "/" nhưng
-        // ParentInfrastructureId/GridTypeId còn thiếu) KHÔNG còn chạy inline ở đây — đã tách ra job Quartz
-        // riêng chạy nền định kỳ (LineParentBackfillJob), độc lập với lượt sync này, tránh kéo dài thời
-        // gian RUNNING của CHÍNH lượt sync Đường dây (xem comment MaxBackfillPerRun trong
-        // PmisSyncExecutionService — từng gây treo RUNNING quá 30 phút thật trên production).
+        // Cha (PARENT_ID) của mỗi Đường dây được tra TRỰC TIẾP theo mã PMIS "maCha" ngay trong lượt sync
+        // này (xem InfrastructureRepository.UpsertFromPmisAsync) — không cần job nền riêng nào để "khớp
+        // lại" nữa; chỉ "lỡ nhịp" khi trục CHƯA từng được đồng bộ tới, và tự khớp đúng ở lượt kế tiếp
+        // (PMIS trả toàn bộ dữ liệu mỗi lượt, không phải delta).
         return (total, success, failed, warnings, errors);
     }
 

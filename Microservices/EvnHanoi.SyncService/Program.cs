@@ -225,17 +225,6 @@ builder.Services.AddQuartz(q =>
         .WithIdentity("SyncHistoryWatchdogJob-trigger")
         .WithSimpleSchedule(x => x.WithIntervalInMinutes(5).RepeatForever())
     );
-
-    // Tự khớp lại ParentInfrastructureId/GridTypeId cho Đường dây/nhánh còn thiếu — tách riêng khỏi mọi
-    // lượt sync Đường dây (không còn chèn vào PmisScheduledSyncJob.RunLineAsync/PmisManualSyncController.Save),
-    // xem LineParentBackfillJob. Không cần RedLock (idempotent, xem comment trong chính job).
-    var lineParentBackfillJobKey = new JobKey("LineParentBackfillJob");
-    q.AddJob<LineParentBackfillJob>(opts => opts.WithIdentity(lineParentBackfillJobKey));
-    q.AddTrigger(opts => opts
-        .ForJob(lineParentBackfillJobKey)
-        .WithIdentity("LineParentBackfillJob-trigger")
-        .WithSimpleSchedule(x => x.WithIntervalInMinutes(5).RepeatForever())
-    );
 });
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 

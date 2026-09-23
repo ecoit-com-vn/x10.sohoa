@@ -1545,12 +1545,6 @@ StatusTransition,
         return await _connection.ExecuteScalarAsync<int>(sql, new { InfrastructureId = infrastructureId.ToString() });
     }
 
-    private class InfraLookupRow
-    {
-        public string? Id { get; set; }
-        public int? GridTypeId { get; set; }
-    }
-
     private class EquipmentCompareRow
     {
         public string? Id { get; set; }
@@ -1587,18 +1581,15 @@ StatusTransition,
         {
             // Thiết bị đường dây không có capDienAp riêng (chỉ thiết bị TBA có) — lấy GridTypeId của
             // Trạm/Đường dây cha làm phương án dự phòng khi không truyền sẵn (xem Migration0051/0052 +
-            // BAO_CAO_TEST_API_PMIS_GATEWAY_THAT.md).
-            // UPPER(TRIM(...)) — xem giải thích ở InfrastructureRepository.UpsertFromPmisAsync (chuẩn hoá
-            // so khớp PMIS_CODE để tránh tạo trùng INFRASTRUCTURE do mã lệch khoảng trắng/hoa-thường).
-            var infraRow = await _connection.QuerySingleOrDefaultAsync<InfraLookupRow>(
-                "SELECT Id, GRIDTYPEID AS GridTypeId FROM INFRASTRUCTURE WHERE UPPER(TRIM(PMIS_CODE)) = UPPER(TRIM(:PmisCode)) AND IsDeleted = 0",
-                new { PmisCode = parentPmisCode });
+            // BAO_CAO_TEST_API_PMIS_GATEWAY_THAT.md). Dùng chung InfrastructurePmisLookup với
+            // InfrastructureRepository.UpsertFromPmisAsync (cùng 1 câu SQL tra INFRASTRUCTURE theo PMIS_CODE).
+            var infraRow = await InfrastructurePmisLookup.ResolveByPmisCodeAsync(_connection, parentPmisCode);
             if (infraRow == null)
                 infraLookupFailed = true;
             else
             {
-                infrastructureId = infraRow.Id;
-                effectiveGridTypeId ??= infraRow.GridTypeId;
+                infrastructureId = infraRow.Value.Id;
+                effectiveGridTypeId ??= infraRow.Value.GridTypeId;
             }
         }
 

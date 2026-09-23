@@ -451,9 +451,9 @@ public class InfrastructureRepository : IInfrastructureRepository
         public string? ParentId { get; set; }
     }
 
-    public async Task<(Guid Id, bool WasCreated, bool HasChanged)> UpsertFromPmisAsync(
+    public async Task<(Guid Id, bool WasCreated, bool HasChanged, bool ParentUnresolved)> UpsertFromPmisAsync(
         int infraTypeId, string pmisCode, string code, string name, string? address, string? unitCode, DateTime? operationDate,
-        int? gridTypeId = null, bool isRootLine = false, Guid? parentInfrastructureId = null)
+        int? gridTypeId = null, string? parentPmisCode = null)
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
@@ -468,12 +468,49 @@ public class InfrastructureRepository : IInfrastructureRepository
                 "SELECT UnitId FROM PMIS_UNIT_CODE_MAPPING WHERE PmisUnitCode = :Code AND IsDeleted = 0", new { Code = unitCode });
         }
 
-        // Quan hệ cha-con giữa các Đường dây: cha đã được SyncService tự tra sẵn theo tên (qua danh mục
-        // tải 1 lần/lượt đồng bộ, xem PmisSyncExecutionService.ResolveParentLineIdAsync) — ở đây chỉ còn
-        // việc ÁP DỤNG giá trị đã tra, không tự query gì thêm (trước đây mỗi dòng tự SELECT tìm cha, tốn
-        // ~14000 round-trip DB cho 1 lượt đồng bộ đầy đủ — đã chuyển hẳn việc tra cứu sang tải 1 lần).
+        // Quan hệ cha-con giữa các Đường dây: SyncService giờ chỉ gửi THẲNG mã PMIS của cha (field "maCha"
+        // PMIS bổ sung 2026-09-23, xem UpsertInfrastructureFromPmisRequest.ParentPmisCode) — tự SELECT
+        // ngay tại đây, giống hệt cách ParentPmisCode được resolve cho Thiết bị (xem
+        // EquipmentRepository.UpsertFromPmisAsync). Trước 2026-09-23 phải tự tra theo TÊN qua 1 danh mục
+        // tải sẵn cả lượt đồng bộ (không có mã cha thật) — không còn cần thiết nữa.
         // Chỉ áp dụng cho Đường dây (infraTypeId = 2) — Trạm biến áp không có khái niệm này, không đụng PARENT_ID.
         var isLine = infraTypeId == 2;
+
+        // PMIS đôi khi tự trỏ maCha về chính mã của dòng đó (lỗi nhập liệu nguồn, cùng lớp lỗi với
+        // PMIS_CODE lệch khoảng trắng/hoa-thường đã gặp thật — xem Migration0060) — nếu không chặn, dòng
+        // này sẽ được gán làm CHA CỦA CHÍNH NÓ (PARENT_ID = Id của chính nó), khiến GetChildLinesAsync trả
+        // nó về như con của chính nó và nó biến mất khỏi danh sách gốc (rootOnly=true lọc PARENT_ID IS
+        // NULL). Coi trường hợp này như KHÔNG xác định được cha (parentInfrastructureId giữ null) — không
+        // tự "sửa" bằng cách bỏ qua field, để ParentUnresolved bên dưới vẫn báo cảnh báo cho admin biết.
+        var isSelfReferencingParent = isLine && !string.IsNullOrWhiteSpace(parentPmisCode) &&
+            string.Equals(parentPmisCode.Trim(), pmisCode?.Trim(), StringComparison.OrdinalIgnoreCase);
+
+        Guid? parentInfrastructureId = null;
+        int? parentGridTypeId = null;
+        if (isLine && !isSelfReferencingParent && !string.IsNullOrWhiteSpace(parentPmisCode))
+        {
+            // Không tìm thấy (đường trục chưa đồng bộ tới, hoặc chưa tồn tại) → giữ nguyên effectiveParentId
+            // cũ bên dưới (không xoá), tự khớp đúng ở lượt đồng bộ kế tiếp — PMIS trả toàn bộ dữ liệu mỗi
+            // lượt (không phải delta) nên không mất dấu.
+            var parentRow = await InfrastructurePmisLookup.ResolveByPmisCodeAsync(_connection, parentPmisCode);
+            if (parentRow != null)
+            {
+                parentInfrastructureId = Guid.Parse(parentRow.Value.Id);
+                parentGridTypeId = parentRow.Value.GridTypeId;
+            }
+        }
+
+        // true khi parentPmisCode CÓ giá trị nhưng không khớp được (hoặc bị chặn vì tự trỏ về chính nó) —
+        // khác với parentPmisCode rỗng (đường trục gốc thật, hợp lệ). Trả lên caller (SyncService) để ghi
+        // 1 dòng Warning thấy được trong "Lịch sử đồng bộ" thay vì âm thầm mãi mãi — trước đây có job Quartz
+        // riêng (LineParentBackfillJob, đã bỏ 2026-09-23 vì maCha giờ tra được thẳng, tự khớp lại mỗi lượt
+        // resync) báo cảnh báo này; giờ tính lại NGAY tại đây, mỗi lần upsert, không cần job riêng.
+        var parentUnresolved = isLine && !string.IsNullOrWhiteSpace(parentPmisCode) && parentInfrastructureId == null;
+
+        // Nhánh mượn tạm GridTypeId của cha khi bản thân không có capDienAp riêng (PMIS không trả field
+        // này cho phần lớn nhánh, chỉ trục mới luôn có) — KHÔNG ảnh hưởng trục gốc thật (isLine && cha rỗng)
+        // hay nhánh đã tự xác định được cấp điện áp riêng (gridTypeId đã có giá trị).
+        var borrowedGridTypeId = gridTypeId ?? parentGridTypeId;
 
         // UPPER(TRIM(...)) ở cả 2 bên: SyncService giờ đã tự Trim() trước khi gửi (xem PmisSyncExecutionService),
         // nhưng vẫn so khớp "lỏng" ở đây để dữ liệu CŨ đã lưu lệch chuẩn từ trước tự khớp lại đúng ngay ở lần
@@ -490,15 +527,15 @@ public class InfrastructureRepository : IInfrastructureRepository
 
         if (existing != null)
         {
-            var effectiveGridTypeId = gridTypeId ?? existing.GridTypeId; // giữ đúng ngữ nghĩa COALESCE của câu UPDATE cũ
+            var effectiveGridTypeId = borrowedGridTypeId ?? existing.GridTypeId; // giữ đúng ngữ nghĩa COALESCE của câu UPDATE cũ
 
-            // Với Đường dây: IsRootLine=true (tên hết dấu "/") nghĩa là PMIS đổi thành đường gốc thật sự
-            // → xoá hẳn PARENT_ID. Còn có "/" nhưng SyncService CHƯA tra được cha (ParentInfrastructureId
-            // null) là tình huống tạm thời — đường cha có thể chưa được đồng bộ tới trong lượt này — giữ
-            // nguyên PARENT_ID cũ, tự sửa đúng ở lượt kế tiếp. Trạm biến áp không có khái niệm này, giữ nguyên.
+            // Với Đường dây: parentPmisCode rỗng nghĩa là PMIS đổi thành đường gốc thật sự → xoá hẳn
+            // PARENT_ID. Còn có parentPmisCode nhưng KHÔNG khớp được INFRASTRUCTURE nào (đường trục chưa
+            // đồng bộ tới trong lượt này) là tình huống tạm thời — giữ nguyên PARENT_ID cũ, tự sửa đúng ở
+            // lượt kế tiếp. Trạm biến áp không có khái niệm này, giữ nguyên.
             string? effectiveParentId = !isLine
                 ? existing.ParentId
-                : isRootLine ? null : parentInfrastructureId?.ToString() ?? existing.ParentId;
+                : string.IsNullOrWhiteSpace(parentPmisCode) ? null : parentInfrastructureId?.ToString() ?? existing.ParentId;
 
             // Chỉ update khi có ít nhất 1 trường thay đổi thật — tránh ghi đè/tăng ModifiedDate vô ích
             // mỗi lần resync khi PMIS trả về y hệt dữ liệu đã lưu.
@@ -512,7 +549,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                 existing.ParentId != effectiveParentId;
 
             if (!hasChanged)
-                return (Guid.Parse(existing.Id), false, false);
+                return (Guid.Parse(existing.Id), false, false, parentUnresolved);
 
             var updateSql = $@"UPDATE INFRASTRUCTURE
                         SET {nameof(Infrastructure.Code)} = :Code,
@@ -535,11 +572,11 @@ public class InfrastructureRepository : IInfrastructureRepository
                 Address = address,
                 UnitId = unitId,
                 OperationDate = operationDate,
-                GridTypeId = gridTypeId,
+                GridTypeId = borrowedGridTypeId,
                 EffectiveParentId = effectiveParentId,
                 ModifiedBy = "PMIS_SYNC"
             });
-            return (Guid.Parse(existing.Id), false, true);
+            return (Guid.Parse(existing.Id), false, true, parentUnresolved);
         }
 
         var newId = Guid.Parse(EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid());
@@ -564,7 +601,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                 InfraTypeId = infraTypeId,
                 UnitId = unitId,
                 OperationDate = operationDate,
-                GridTypeId = gridTypeId,
+                GridTypeId = borrowedGridTypeId,
                 ParentId = isLine ? parentInfrastructureId?.ToString() : null,
                 PmisCode = pmisCode,
                 CreatedBy = "PMIS_SYNC"
@@ -580,7 +617,7 @@ public class InfrastructureRepository : IInfrastructureRepository
             throw new InvalidOperationException(
                 $"Không thể tạo mới Trạm/Đường dây: mã PMIS '{pmisCode}' đã được dùng cho 1 bản ghi khác đang hoạt động — có thể do 2 lượt đồng bộ chạy đồng thời, vui lòng đồng bộ lại.");
         }
-        return (newId, true, true);
+        return (newId, true, true, parentUnresolved);
     }
 
     private class SyncedPmisCodeRow
@@ -599,111 +636,4 @@ public class InfrastructureRepository : IInfrastructureRepository
         return rows.Select(r => (r.PmisCode, r.InfraTypeId));
     }
 
-    private class LineNameIndexRow
-    {
-        public string Id { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public string? PmisUnitCode { get; set; }
-        public int? GridTypeId { get; set; }
-        public string? ParentId { get; set; }
-        public int? ParentGridTypeId { get; set; }
-    }
-
-    public async Task<IEnumerable<EvnHanoi.EquipmentService.Core.DTOs.LineNameIndexEntry>> GetLineNameIndexAsync()
-    {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
-
-        // Lấy ngược mã đơn vị PMIS từ PMIS_UNIT_CODE_MAPPING (UnitId -> PmisUnitCode) chỉ để phân biệt khi
-        // trùng tên giữa nhiều đơn vị (xem PmisSyncExecutionService.ResolveParentLineIdAsync) — 1 UnitId có
-        // thể map từ nhiều mã PMIS khác nhau về lý thuyết, lấy tạm 1 mã bất kỳ (FETCH FIRST 1 ROW ONLY) là
-        // đủ dùng vì chỉ để gợi ý phân biệt, không phải nguồn sự thật. GridTypeId lấy kèm để SyncService cho
-        // nhánh mượn tạm cấp điện áp của trục khi nhánh không có capDienAp riêng (xem LineNameIndexEntry).
-        var rows = await _connection.QueryAsync<LineNameIndexRow>(
-            @"SELECT i.ID AS Id, i.NAME AS Name, i.GRIDTYPEID AS GridTypeId,
-                     (SELECT m.PmisUnitCode FROM PMIS_UNIT_CODE_MAPPING m
-                      WHERE m.UnitId = i.UNIT_ID AND m.IsDeleted = 0 FETCH FIRST 1 ROW ONLY) AS PmisUnitCode
-              FROM INFRASTRUCTURE i
-              WHERE i.INFRA_TYPE_ID = 2 AND i.ISDELETED = 0");
-
-        return rows.Select(r => new EvnHanoi.EquipmentService.Core.DTOs.LineNameIndexEntry
-        {
-            Id = Guid.Parse(r.Id),
-            Name = r.Name,
-            PmisUnitCode = r.PmisUnitCode,
-            GridTypeId = r.GridTypeId
-        });
-    }
-
-    /// <summary>Các Đường dây ĐÃ tồn tại (từ lượt đồng bộ trước) cần "khớp lại" bởi job Quartz chạy nền
-    /// riêng (LineParentBackfillJob, SyncService) — KHÔNG còn chèn vào lượt đồng bộ Đường dây nào — gồm
-    /// 2 trường hợp:
-    /// (1) tên có "/" (chắc chắn là nhánh) nhưng PARENT_ID còn NULL (đường trục lúc đồng bộ chưa tồn tại);
-    /// (2) đã có PARENT_ID nhưng GRIDTYPEID vẫn NULL (bản thân nhánh không có capDienAp riêng, lúc gán cha
-    /// trước đó cha cũng chưa có GridTypeId — giờ cha đã có, thử mượn lại).</summary>
-    public async Task<IEnumerable<EvnHanoi.EquipmentService.Core.DTOs.LineNameIndexEntry>> GetLinesNeedingBackfillAsync()
-    {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
-
-        // JOIN sẵn tới dòng cha (ParentId/ParentGridTypeId) — cho candidate loại (2) (đã có PARENT_ID,
-        // chỉ thiếu GRIDTYPEID) dùng THẲNG cấp điện áp của cha đã biết, không cần SyncService resolve lại
-        // theo tên (tránh bị tính nhầm "chưa xác định được cha" nếu tên trùng/đổi tên — xem
-        // PmisSyncExecutionService.BackfillLineParentsAsync).
-        var rows = await _connection.QueryAsync<LineNameIndexRow>(
-            @"SELECT i.ID AS Id, i.NAME AS Name, i.GRIDTYPEID AS GridTypeId,
-                     i.PARENT_ID AS ParentId, p.GRIDTYPEID AS ParentGridTypeId,
-                     (SELECT m.PmisUnitCode FROM PMIS_UNIT_CODE_MAPPING m
-                      WHERE m.UnitId = i.UNIT_ID AND m.IsDeleted = 0 FETCH FIRST 1 ROW ONLY) AS PmisUnitCode
-              FROM INFRASTRUCTURE i
-              LEFT JOIN INFRASTRUCTURE p ON p.ID = i.PARENT_ID AND p.ISDELETED = 0
-              WHERE i.INFRA_TYPE_ID = 2 AND i.ISDELETED = 0
-                AND (
-                    (i.PARENT_ID IS NULL AND INSTR(i.NAME, '/') > 0)
-                    OR (i.PARENT_ID IS NOT NULL AND i.GRIDTYPEID IS NULL)
-                )");
-
-        return rows.Select(r => new EvnHanoi.EquipmentService.Core.DTOs.LineNameIndexEntry
-        {
-            Id = Guid.Parse(r.Id),
-            Name = r.Name,
-            PmisUnitCode = r.PmisUnitCode,
-            GridTypeId = r.GridTypeId,
-            ParentId = r.ParentId != null ? Guid.Parse(r.ParentId) : null,
-            ParentGridTypeId = r.ParentGridTypeId
-        });
-    }
-
-    /// <summary>Cập nhật cột PARENT_ID (và GRIDTYPEID nếu có) cho NHIỀU Đường dây đã tồn tại cùng lúc —
-    /// dùng cho backfill (xem GetLinesNeedingBackfillAsync), khác <see cref="UpdateAsync"/>/UpsertFromPmisAsync
-    /// vốn cần đủ các field khác (Code/Address/OperationDate...) để so sánh hasChanged, không phù hợp khi
-    /// chỉ có Id + ParentId (+ GridTypeId mượn từ cha) mới tự tra được, không có lại toàn bộ dữ liệu PMIS
-    /// gốc của dòng đó. GridTypeId dùng COALESCE(GRIDTYPEID, :GridTypeId) — chỉ điền khi cột đang NULL,
-    /// không đoán đè lên giá trị đã có (an toàn với kiểu số, khác COALESCE trên cột CLOB từng gặp
-    /// ORA-00932). Gửi cả danh sách qua 1 lệnh Dapper (Execute nhận IEnumerable tham số) thay vì foreach +
-    /// await từng dòng ở tầng controller — Dapper vẫn thực thi tuần tự từng dòng ở tầng DB (không phải 1
-    /// câu SQL gộp/batch thật sự), lợi ích chính là gộp thành ĐÚNG 1 lần gọi HTTP SyncService→EquipmentService
-    /// thay vì N lần.</summary>
-    public async Task<int> UpdateParentIdsAsync(IReadOnlyList<(Guid Id, Guid ParentId, int? GridTypeId)> items)
-    {
-        if (items.Count == 0) return 0;
-
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
-
-        return await _connection.ExecuteAsync(
-            $@"UPDATE INFRASTRUCTURE
-               SET PARENT_ID = :ParentId,
-                   GRIDTYPEID = COALESCE(GRIDTYPEID, :GridTypeId),
-                   {nameof(Infrastructure.ModifiedBy)} = :ModifiedBy,
-                   {nameof(Infrastructure.ModifiedDate)} = SYSTIMESTAMP
-               WHERE {nameof(Infrastructure.Id)} = :Id AND {nameof(Infrastructure.IsDeleted)} = 0",
-            items.Select(i => new
-            {
-                Id = i.Id.ToString(),
-                ParentId = i.ParentId.ToString(),
-                GridTypeId = i.GridTypeId,
-                ModifiedBy = "PMIS_SYNC"
-            }));
-    }
 }
