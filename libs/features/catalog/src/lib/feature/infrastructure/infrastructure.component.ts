@@ -19,7 +19,7 @@ import { InfrastructureService } from '../../data-access/infrastructure.service'
 import { EquipmentService, EquipmentTransferHistoryDialogComponent } from '@sohoa.frontend/features/equipment';
 import { DossierDocumentService, DossierManagementService } from '@sohoa.frontend/features/dossier-management';
 import { forkJoin, of } from 'rxjs';
-import { catchError, finalize } from 'rxjs/operators';
+import { catchError, finalize, map, switchMap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-infrastructure',
@@ -881,6 +881,124 @@ export class InfrastructureComponent implements OnInit {
         });
       }
     });
+  }
+
+  exportingList = signal<boolean>(false);
+
+  private getGridTypeLabel(gridTypeId: any): string {
+    const id = Number(gridTypeId);
+    if (id === 1) return 'Cao áp';
+    if (id === 2) return 'Trung áp';
+    if (id === 3) return 'Hạ áp';
+    return '-';
+  }
+
+  /**
+   * Xuất Excel toàn bộ danh sách (Trạm biến áp hoặc Đường dây, tuỳ infraTypeId hiện tại) khớp bộ lọc
+   * hiện tại (không chỉ trang đang xem) — tải tuần tự nhiều trang (giống dossier-list.component.ts)
+   * rồi dựng file .xlsx phía trình duyệt, cùng cột đang hiển thị trên bảng danh sách.
+   */
+  exportLinesToExcel(): void {
+    if (this.exportingList()) return;
+
+    const infraTypeId = this.infraTypeId();
+    const isSubstation = infraTypeId === 1;
+    const exportPageSize = 500;
+    const keyword = this.searchKeyword();
+    const status = this.searchStatus();
+    const unitId = this.searchUnitId();
+    const personalOnly = this.searchPersonalOnly();
+
+    this.exportingList.set(true);
+    this.infraService.getInfrastructures(infraTypeId, 1, exportPageSize, keyword, status, unitId, personalOnly, false)
+      .pipe(
+        switchMap((firstPage) => {
+          const totalCount = firstPage?.totalCount || 0;
+          const pageCount = Math.ceil(totalCount / exportPageSize);
+          if (pageCount <= 1) return of(firstPage?.items || []);
+
+          const remainingPages = Array.from({ length: pageCount - 1 }, (_, index) =>
+            this.infraService.getInfrastructures(infraTypeId, index + 2, exportPageSize, keyword, status, unitId, personalOnly, false)
+          );
+          return forkJoin(remainingPages).pipe(
+            map((responses) => [
+              ...(firstPage?.items || []),
+              ...responses.flatMap((response) => response?.items || [])
+            ])
+          );
+        }),
+        finalize(() => this.exportingList.set(false))
+      )
+      .subscribe({
+        next: async (rows) => {
+          if (!rows.length) {
+            this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Không có dữ liệu để xuất.' });
+            return;
+          }
+
+          const worksheetRows = isSubstation
+            ? rows.map((row: any, index: number) => ({
+                'STT': index + 1,
+                'Mã Trạm': row.code || '',
+                'Tên Trạm': row.name || '',
+                'Ngày vận hành': row.operationDate ? new Date(row.operationDate).toLocaleDateString('vi-VN') : '-',
+                'Địa chỉ': row.address || '-',
+                'Đơn vị quản lý': row.organization?.name || row.unitName || 'Chưa phân bổ',
+                'Trạng thái': row.isActive === 1 || row.isActive === true ? 'Hoạt động' : 'Ngừng hoạt động'
+              }))
+            : rows.map((row: any, index: number) => ({
+                'STT': index + 1,
+                'Mã đường dây': row.code || '',
+                'Tên đường dây': row.name || '',
+                'Địa chỉ': row.address || '-',
+                'Loại lưới điện': this.getGridTypeLabel(row.gridTypeId),
+                'Đơn vị quản lý': row.organization?.name || row.unitName || 'Chưa phân bổ',
+                'Trạng thái': row.isActive === 1 || row.isActive === true ? 'Hoạt động' : 'Ngừng hoạt động'
+              }));
+
+          const XLSX = await import('xlsx');
+          const worksheet = XLSX.utils.json_to_sheet(worksheetRows);
+          worksheet['!cols'] = isSubstation
+            ? [
+                { wch: 6 },  // STT
+                { wch: 18 }, // Mã Trạm
+                { wch: 30 }, // Tên Trạm
+                { wch: 16 }, // Ngày vận hành
+                { wch: 24 }, // Địa chỉ
+                { wch: 28 }, // Đơn vị quản lý
+                { wch: 16 }  // Trạng thái
+              ]
+            : [
+                { wch: 6 },  // STT
+                { wch: 22 }, // Mã đường dây
+                { wch: 32 }, // Tên đường dây
+                { wch: 20 }, // Địa chỉ
+                { wch: 14 }, // Loại lưới điện
+                { wch: 28 }, // Đơn vị quản lý
+                { wch: 16 }  // Trạng thái
+              ];
+
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, worksheet, isSubstation ? 'Danh sách trạm biến áp' : 'Danh sách đường dây');
+
+          const blob = new Blob([XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${isSubstation ? 'DanhSachTramBienAp' : 'DanhSachDuongDay'}_${new Date().getTime()}.xlsx`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xuất file Excel thành công!' });
+        },
+        error: () => {
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể xuất file Excel.' });
+        }
+      });
   }
 
   onSearch() {

@@ -282,6 +282,7 @@ export class EquipmentComponent implements OnInit {
   // State lists
   items = signal<any[]>([]);
   totalCount = signal<number>(0);
+  exportingList = signal<boolean>(false);
 
 
   currentView = signal<'list' | 'add' | 'edit'>('list');
@@ -677,6 +678,103 @@ export class EquipmentComponent implements OnInit {
         });
       }
     });
+  }
+
+  exportEquipmentsToExcel(): void {
+    if (this.exportingList()) return;
+
+    const exportPageSize = 500;
+    const unitId = this.getEquipmentListUnitId();
+    const gridTypeId = this.searchGridTypeId() ? Number(this.searchGridTypeId()) : undefined;
+    const isActive = this.searchStatus() !== '' ? this.searchStatus() === '1' : undefined;
+    const code = this.searchCode();
+    const name = this.searchName();
+    const infrastructureId = this.searchInfrastructureId();
+    const equipmentTypeId = this.searchEquipmentTypeId();
+    const keyword = this.searchKeyword();
+
+    this.exportingList.set(true);
+    this.equipmentService.getEquipments(
+      1,
+      exportPageSize,
+      code,
+      name,
+      unitId,
+      infrastructureId,
+      gridTypeId,
+      equipmentTypeId,
+      isActive,
+      keyword
+    )
+      .pipe(
+        switchMap((firstPage) => {
+          const totalCount = firstPage?.totalCount || 0;
+          const pageCount = Math.ceil(totalCount / exportPageSize);
+          if (pageCount <= 1) return of(firstPage?.items || []);
+          const remainingPages = Array.from({ length: pageCount - 1 }, (_, index) =>
+            this.equipmentService.getEquipments(
+              index + 2,
+              exportPageSize,
+              code,
+              name,
+              unitId,
+              infrastructureId,
+              gridTypeId,
+              equipmentTypeId,
+              isActive,
+              keyword
+            )
+          );
+          return forkJoin(remainingPages).pipe(
+            map((responses) => [
+              ...(firstPage?.items || []),
+              ...responses.flatMap((response) => response?.items || [])
+            ])
+          );
+        }),
+        finalize(() => this.exportingList.set(false))
+      )
+      .subscribe({
+        next: async (rows: any[]) => {
+          if (!rows.length) {
+            this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Không có dữ liệu để xuất.' });
+            return;
+          }
+          const worksheetRows = rows.map((row: any, index: number) => ({
+            'STT': index + 1,
+            'Mã thiết bị': row.code || '',
+            'Tên thiết bị': row.name || '',
+            'Loại thiết bị': row.equipmentTypeName || '',
+            'Trạm/đường dây': row.infrastructureName || '',
+            'Đơn vị quản lý': row.unitName || '',
+            'Ngày tạo': row.createdAt ? new Date(row.createdAt).toLocaleDateString('vi-VN') : '',
+            'Người tạo': row.creator?.name || row.createdBy || '',
+            'Trạng thái': this.getEquipmentStatusLabel(row)
+          }));
+          const XLSX = await import('xlsx');
+          const worksheet = XLSX.utils.json_to_sheet(worksheetRows);
+          worksheet['!cols'] = [
+            { wch: 6 }, { wch: 18 }, { wch: 28 }, { wch: 20 }, { wch: 24 }, { wch: 24 }, { wch: 14 }, { wch: 18 }, { wch: 16 }
+          ];
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, worksheet, 'Danh sách thiết bị');
+          const blob = new Blob([XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `DanhSachThietBi_${new Date().getTime()}.xlsx`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xuất file Excel thành công!' });
+        },
+        error: () => {
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể xuất file Excel.' });
+        }
+      });
   }
 
   private buildOrgTree(units: any[]): any[] {
