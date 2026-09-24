@@ -31,7 +31,8 @@ public interface IDossierDocumentService
         string userId,
         long userUnitId,
         string? creatorName,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        List<Guid>? equipmentIds = null);
 
     Task<InitiateChunkedUploadResponse> InitiateChunkedUploadAsync(
         Guid dossierId,
@@ -283,13 +284,17 @@ public class DossierDocumentService : IDossierDocumentService
         string userId,
         long userUnitId,
         string? creatorName,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        List<Guid>? equipmentIds = null)
     {
         await _dossierService.EnsureCanEditFormDataAsync(dossierId);
         await EnsureActiveDocumentTypeAsync(documentTypeId);
 
         var result = await _fileUploadService.UploadFileToDossierDirectAsync(
             fileStream, fileName, mimeType, fileSize, dossierId, documentTypeId, uploadSource, userId, userUnitId, creatorName, cancellationToken);
+
+        if (equipmentIds is { Count: > 0 })
+            await _documentRepository.SetDocumentEquipmentsAsync(result.DocumentId, equipmentIds);
 
         await _dossierService.RecordDocumentListChangeAsync(
             dossierId, $"Upload trực tiếp: {fileName}", userId);
@@ -345,6 +350,9 @@ public class DossierDocumentService : IDossierDocumentService
 
         var result = await _fileUploadService.CompleteDossierChunkedUploadAsync(
             uploadId, dossierId, request, userId, userUnitId, creatorName, cancellationToken);
+
+        if (request.EquipmentIds is { Count: > 0 })
+            await _documentRepository.SetDocumentEquipmentsAsync(result.DocumentId, request.EquipmentIds);
 
         await _dossierService.RecordDocumentListChangeAsync(
             dossierId, $"Upload trực tiếp (chunked): {fileName}", userId);

@@ -759,6 +759,41 @@ public class DocumentRepository : IDocumentRepository
         return id;
     }
 
+    public async Task SetDocumentEquipmentsAsync(Guid documentId, IEnumerable<Guid> equipmentIds)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var ids = equipmentIds?.Distinct().ToArray() ?? Array.Empty<Guid>();
+
+        await _connection.ExecuteAsync(
+            "DELETE FROM DOCUMENT_EQUIPMENTS WHERE DocumentId = :DocumentId",
+            new { DocumentId = documentId.ToString() });
+
+        if (ids.Length == 0)
+            return;
+
+        var rows = ids.Select(equipmentId => new
+        {
+            DocumentId = documentId.ToString(),
+            EquipmentId = equipmentId.ToString()
+        });
+        await _connection.ExecuteAsync(
+            "INSERT INTO DOCUMENT_EQUIPMENTS (DocumentId, EquipmentId) VALUES (:DocumentId, :EquipmentId)",
+            rows);
+    }
+
+    public async Task<IEnumerable<Guid>> GetDocumentEquipmentIdsAsync(Guid documentId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var ids = await _connection.QueryAsync<string>(
+            "SELECT EquipmentId FROM DOCUMENT_EQUIPMENTS WHERE DocumentId = :DocumentId",
+            new { DocumentId = documentId.ToString() });
+        return ids.Select(Guid.Parse);
+    }
+
     public async Task<bool> UpdateDocumentAsync(Document document)
     {
         if (_connection.State != ConnectionState.Open)
@@ -1269,13 +1304,13 @@ public class DocumentRepository : IDocumentRepository
                 WHERE dv.IS_DELETED = 0
             ) latest ON latest.DOCUMENT_ID = d.ID
             LEFT JOIN (
-                SELECT de.DossierId,
+                SELECT de.DocumentId,
                        LISTAGG(e.NAME, ', ') WITHIN GROUP (ORDER BY e.NAME) AS EquipmentName
-                FROM DOSSIER_EQUIPMENTS de
+                FROM DOCUMENT_EQUIPMENTS de
                 INNER JOIN EQUIPMENTS e ON e.ID = de.EquipmentId
                     AND e.ISDELETED = 0
-                GROUP BY de.DossierId
-            ) equipment ON equipment.DossierId = d.DOSSIER_ID
+                GROUP BY de.DocumentId
+            ) equipment ON equipment.DocumentId = d.ID
             LEFT JOIN (
                 SELECT ID, DOCUMENT_VERSION_ID, PHASE, CURRENT_PAGE, TOTAL_PAGES, PROGRESS, STATUS, PROCESS_OPTION
                 FROM (

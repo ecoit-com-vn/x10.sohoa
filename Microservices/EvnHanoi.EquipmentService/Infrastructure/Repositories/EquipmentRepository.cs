@@ -540,7 +540,12 @@ public class EquipmentRepository : IEquipmentRepository
             parameters.Add("AuthorizedUnitIds", authorizedUnitIds.ToArray());
         }
 
-        if (filter.InfrastructureId.HasValue)
+        if (filter.InfrastructureIds is { Count: > 0 })
+        {
+            sqlBase += " AND e.INFRASTRUCTURE_ID IN :InfrastructureIds";
+            parameters.Add("InfrastructureIds", filter.InfrastructureIds.Select(i => i.ToString()).ToArray());
+        }
+        else if (filter.InfrastructureId.HasValue)
         {
             sqlBase += " AND e.INFRASTRUCTURE_ID = :InfrastructureId";
             parameters.Add("InfrastructureId", filter.InfrastructureId.Value.ToString());
