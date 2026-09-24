@@ -90,10 +90,12 @@ public class InfrastructureRepository : IInfrastructureRepository
                             p.CODE as {nameof(Infrastructure.ParentCode)},
                             it.NAME as {nameof(Infrastructure.InfraTypeName)},
                             u.NAME as {nameof(Infrastructure.UnitName)},
+                            i.{nameof(Infrastructure.PmisCode)},
+                            i.{nameof(Infrastructure.LastSyncedFromPmisAt)},
+                            (SELECT COUNT(1) FROM EQUIPMENTS eq WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)} AND eq.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("eq")}) AS {nameof(Infrastructure.EquipmentCount)},
                             u.Id as OrgId,
                             u.Code as OrgCode,
-                            u.Name as OrgName,
-                            (SELECT COUNT(1) FROM EQUIPMENTS eq WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)} AND eq.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("eq")}) AS {nameof(Infrastructure.EquipmentCount)}
+                            u.Name as OrgName
                      FROM INFRASTRUCTURE i
                      LEFT JOIN INFRASTRUCTURE p ON i.PARENT_ID = p.ID
                      LEFT JOIN INFRASTRUCTURE_TYPE it ON i.INFRA_TYPE_ID = it.ID
@@ -260,9 +262,8 @@ public class InfrastructureRepository : IInfrastructureRepository
                            p.CODE AS {nameof(Infrastructure.ParentCode)},
                            it.NAME AS {nameof(Infrastructure.InfraTypeName)},
                            u.NAME AS {nameof(Infrastructure.UnitName)},
-                           u.Id AS OrgId,
-                           u.Code AS OrgCode,
-                           u.Name AS OrgName,
+                           i.{nameof(Infrastructure.PmisCode)},
+                           i.{nameof(Infrastructure.LastSyncedFromPmisAt)},
                            (SELECT COUNT(1)
                               FROM EQUIPMENTS eq
                              WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)}
@@ -270,7 +271,10 @@ public class InfrastructureRepository : IInfrastructureRepository
                            (SELECT COUNT(1)
                               FROM INFRASTRUCTURE c
                              WHERE c.PARENT_ID = i.{nameof(Infrastructure.Id)}
-                               AND c.{nameof(Infrastructure.IsDeleted)} = 0) AS {nameof(Infrastructure.ChildLineCount)}
+                               AND c.{nameof(Infrastructure.IsDeleted)} = 0) AS {nameof(Infrastructure.ChildLineCount)},
+                           u.Id AS OrgId,
+                           u.Code AS OrgCode,
+                           u.Name AS OrgName
                    {sqlBase}
                     ORDER BY i.IS_ACTIVE DESC,
                              COALESCE(p.CODE, i.{nameof(Infrastructure.Code)}) ASC,
@@ -314,13 +318,15 @@ public class InfrastructureRepository : IInfrastructureRepository
                             i.IS_ACTIVE AS {nameof(Infrastructure.IsActive)},
                             i.PARENT_ID AS {nameof(Infrastructure.ParentId)},
                             u.NAME AS {nameof(Infrastructure.UnitName)},
-                            u.Id AS OrgId,
-                            u.Code AS OrgCode,
-                            u.Name AS OrgName,
+                            i.{nameof(Infrastructure.PmisCode)},
+                            i.{nameof(Infrastructure.LastSyncedFromPmisAt)},
                             (SELECT COUNT(1)
                                FROM EQUIPMENTS eq
                               WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)}
-                                AND eq.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("eq")}) AS {nameof(Infrastructure.EquipmentCount)}
+                                AND eq.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("eq")}) AS {nameof(Infrastructure.EquipmentCount)},
+                            u.Id AS OrgId,
+                            u.Code AS OrgCode,
+                            u.Name AS OrgName
                      FROM INFRASTRUCTURE i
                      LEFT JOIN ORGANIZATION_UNIT u ON i.UNIT_ID = u.Id
                      WHERE i.PARENT_ID = :ParentId AND i.{nameof(Infrastructure.IsDeleted)} = 0
