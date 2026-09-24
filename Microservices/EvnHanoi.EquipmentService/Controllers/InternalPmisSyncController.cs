@@ -94,7 +94,7 @@ public class InternalPmisSyncController : ControllerBase
             {
                 var (id, wasCreated, hasChanged, parentUnresolved) = await _infrastructureRepository.UpsertFromPmisAsync(
                     item.InfraTypeId, item.PmisCode, item.Code, item.Name, item.Address, item.UnitCode, item.OperationDate,
-                    item.GridTypeId, item.ParentPmisCode);
+                    item.GridTypeId, item.ParentPmisCode, item.CmisCode);
                 results.Add(new UpsertInfrastructureFromPmisResult
                 {
                     PmisCode = item.PmisCode,

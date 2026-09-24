@@ -96,6 +96,10 @@ public class UpsertInfrastructureFromPmisRequest
     /// trục chưa đồng bộ tới) → giữ nguyên PARENT_ID cũ, không xoá, tự khớp đúng ở lượt đồng bộ kế tiếp
     /// (PMIS trả toàn bộ dữ liệu mỗi lượt, không phải delta). Trạm biến áp luôn để null.</summary>
     public string? ParentPmisCode { get; set; }
+
+    /// <summary>Mã hệ thống CMIS (field "maCMIS", PMIS bổ sung 2026-09-24) — khác PMIS_CODE, chỉ lưu tham
+    /// khảo/hiển thị, không dùng làm khoá tra cứu.</summary>
+    public string? CmisCode { get; set; }
 }
 
 public class UpsertInfrastructureFromPmisResult

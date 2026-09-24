@@ -1,28 +1,11 @@
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Globalization;
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using Oracle.ManagedDataAccess.Client;
-using Dapper;
 
 class Program
 {
-    static string RemoveDiacritics(string? text)
-    {
-        if (string.IsNullOrEmpty(text)) return string.Empty;
-        text = text.Replace('đ', 'd').Replace('Đ', 'd');
-        var normalized = text.Normalize(NormalizationForm.FormD);
-        var sb = new StringBuilder();
-        foreach (var c in normalized)
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
-                sb.Append(c);
-        }
-        return sb.ToString().Normalize(NormalizationForm.FormC).ToLowerInvariant();
-    }
-
     static async Task Main()
     {
         string host = "192.168.1.199";
@@ -32,19 +15,55 @@ class Program
         string service = "orcl";
 
         string connStr = $"Data Source={host}:{port}/{service};User Id={user};Password={password};Pooling=false;";
-        try
-        {
-            using var conn = new OracleConnection(connStr);
-            conn.Open();
+        using var conn = new OracleConnection(connStr);
+        conn.Open();
 
-            var journal = await conn.QueryAsync(
-                "SELECT SCRIPTNAME, APPLIED FROM SCHEMAVERSIONS WHERE SCRIPTNAME LIKE '%006%' OR SCRIPTNAME LIKE '%0012%' OR SCRIPTNAME LIKE '%0013%' ORDER BY APPLIED");
-            foreach (var j in journal) Console.WriteLine($"Journal: {j.SCRIPTNAME} applied {j.APPLIED}");
-        }
-        catch (Exception ex)
+        var path = "/run/media/hataphu/data/sources/x10/sohoa/sohoa.backend/BuildingBlocks/EvnHanoi.Infrastructure/Migrations/Manual/EquipmentService_0067_AddNormalizedSearchColumnsToInfrastructure.sql";
+        var text = File.ReadAllText(path);
+
+        // Extract the 2 anonymous PL/SQL blocks (between "DECLARE" and the "END;\n/" terminator),
+        // same as sqlplus would execute them, skipping the sqlplus-only "SET SERVEROUTPUT ON" line
+        // and comments.
+        var blocks = new System.Collections.Generic.List<string>();
+        int idx = 0;
+        while (true)
         {
-            Console.WriteLine($"Error: {ex.Message}");
-            Console.WriteLine(ex.StackTrace);
+            int declareIdx = text.IndexOf("DECLARE", idx, StringComparison.Ordinal);
+            if (declareIdx < 0) break;
+            int slashIdx = text.IndexOf("\n/\n", declareIdx, StringComparison.Ordinal);
+            if (slashIdx < 0) slashIdx = text.IndexOf("\n/", declareIdx, StringComparison.Ordinal);
+            var block = text.Substring(declareIdx, slashIdx - declareIdx).TrimEnd();
+            blocks.Add(block);
+            idx = slashIdx + 2;
         }
+
+        Console.WriteLine($"Found {blocks.Count} anonymous PL/SQL block(s) to test.");
+
+        int blockNum = 1;
+        foreach (var block in blocks)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"== Executing block #{blockNum} (fixed syntax) ==");
+            try
+            {
+                using var cmd = new OracleCommand(block, conn) { BindByName = true };
+                cmd.CommandTimeout = 120;
+                await cmd.ExecuteNonQueryAsync();
+                Console.WriteLine($"  Block #{blockNum} EXECUTED SUCCESSFULLY (no PLS-00103 / syntax error).");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  Block #{blockNum} FAILED: {ex.Message}");
+            }
+            blockNum++;
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("== Sanity check: backfill completeness (idempotent, should be fully backfilled already) ==");
+        using var checkCmd = new OracleCommand(
+            "SELECT COUNT(*) AS TongSo, COUNT(NORMALIZED_CODE) AS DaBackfill FROM INFRASTRUCTURE", conn);
+        using var reader = await checkCmd.ExecuteReaderAsync();
+        if (await reader.ReadAsync())
+            Console.WriteLine($"  TongSo={reader.GetInt32(0)} DaBackfill={reader.GetInt32(1)}");
     }
 }
