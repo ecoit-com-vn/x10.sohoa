@@ -80,8 +80,9 @@ public class InfrastructureRepository : IInfrastructureRepository
                             p.CODE as {nameof(Infrastructure.ParentCode)},
                             it.NAME as {nameof(Infrastructure.InfraTypeName)},
                             u.NAME as {nameof(Infrastructure.UnitName)},
-                            i.{nameof(Infrastructure.PmisCode)},
-                            i.{nameof(Infrastructure.LastSyncedFromPmisAt)},
+                            i.PMIS_CODE as {nameof(Infrastructure.PmisCode)},
+                            i.LAST_SYNCED_FROM_PMIS_AT as {nameof(Infrastructure.LastSyncedFromPmisAt)},
+                            i.CMIS_CODE as {nameof(Infrastructure.CmisCode)},
                             (SELECT COUNT(1) FROM EQUIPMENTS eq WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)} AND eq.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("eq")}) AS {nameof(Infrastructure.EquipmentCount)},
                             u.Id as OrgId,
                             u.Code as OrgCode,
@@ -255,8 +256,9 @@ public class InfrastructureRepository : IInfrastructureRepository
                            p.CODE AS {nameof(Infrastructure.ParentCode)},
                            it.NAME AS {nameof(Infrastructure.InfraTypeName)},
                            u.NAME AS {nameof(Infrastructure.UnitName)},
-                           i.{nameof(Infrastructure.PmisCode)},
-                           i.{nameof(Infrastructure.LastSyncedFromPmisAt)},
+                           i.PMIS_CODE as {nameof(Infrastructure.PmisCode)},
+                           i.LAST_SYNCED_FROM_PMIS_AT as {nameof(Infrastructure.LastSyncedFromPmisAt)},
+                           i.CMIS_CODE as {nameof(Infrastructure.CmisCode)},
                            (SELECT COUNT(1)
                               FROM EQUIPMENTS eq
                              WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)}
@@ -311,8 +313,9 @@ public class InfrastructureRepository : IInfrastructureRepository
                             i.IS_ACTIVE AS {nameof(Infrastructure.IsActive)},
                             i.PARENT_ID AS {nameof(Infrastructure.ParentId)},
                             u.NAME AS {nameof(Infrastructure.UnitName)},
-                            i.{nameof(Infrastructure.PmisCode)},
-                            i.{nameof(Infrastructure.LastSyncedFromPmisAt)},
+                            i.PMIS_CODE as {nameof(Infrastructure.PmisCode)},
+                            i.LAST_SYNCED_FROM_PMIS_AT as {nameof(Infrastructure.LastSyncedFromPmisAt)},
+                            i.CMIS_CODE as {nameof(Infrastructure.CmisCode)},
                             (SELECT COUNT(1)
                                FROM EQUIPMENTS eq
                               WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)}
@@ -460,11 +463,12 @@ public class InfrastructureRepository : IInfrastructureRepository
         public DateTime? OperationDate { get; set; }
         public int? GridTypeId { get; set; }
         public string? ParentId { get; set; }
+        public string? CmisCode { get; set; }
     }
 
     public async Task<(Guid Id, bool WasCreated, bool HasChanged, bool ParentUnresolved)> UpsertFromPmisAsync(
         int infraTypeId, string pmisCode, string code, string name, string? address, string? unitCode, DateTime? operationDate,
-        int? gridTypeId = null, string? parentPmisCode = null)
+        int? gridTypeId = null, string? parentPmisCode = null, string? cmisCode = null)
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
@@ -531,7 +535,7 @@ public class InfrastructureRepository : IInfrastructureRepository
         var existing = await _connection.QuerySingleOrDefaultAsync<InfraCompareRow>(
             $@"SELECT {nameof(Infrastructure.Id)} AS Id, {nameof(Infrastructure.Code)} AS Code, {nameof(Infrastructure.Name)} AS Name,
                       {nameof(Infrastructure.Address)} AS Address, UNIT_ID AS UnitId, OPERATION_DATE AS OperationDate, GRIDTYPEID AS GridTypeId,
-                      PARENT_ID AS ParentId
+                      PARENT_ID AS ParentId, CMIS_CODE AS CmisCode
                FROM INFRASTRUCTURE
                WHERE UPPER(TRIM(PMIS_CODE)) = UPPER(TRIM(:PmisCode)) AND {nameof(Infrastructure.IsDeleted)} = 0",
             new { PmisCode = pmisCode });
@@ -557,7 +561,8 @@ public class InfrastructureRepository : IInfrastructureRepository
                 existing.UnitId != unitId ||
                 existing.OperationDate != operationDate ||
                 existing.GridTypeId != effectiveGridTypeId ||
-                existing.ParentId != effectiveParentId;
+                existing.ParentId != effectiveParentId ||
+                existing.CmisCode != cmisCode;
 
             if (!hasChanged)
                 return (Guid.Parse(existing.Id), false, false, parentUnresolved);
@@ -572,6 +577,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                             OPERATION_DATE = :OperationDate,
                             GRIDTYPEID = COALESCE(:GridTypeId, GRIDTYPEID),
                             PARENT_ID = :EffectiveParentId,
+                            CMIS_CODE = :CmisCode,
                             LAST_SYNCED_FROM_PMIS_AT = SYSTIMESTAMP,
                             {nameof(Infrastructure.ModifiedBy)} = :ModifiedBy,
                             {nameof(Infrastructure.ModifiedDate)} = SYSTIMESTAMP
@@ -589,6 +595,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                 OperationDate = operationDate,
                 GridTypeId = borrowedGridTypeId,
                 EffectiveParentId = effectiveParentId,
+                CmisCode = cmisCode,
                 ModifiedBy = "PMIS_SYNC"
             });
             return (Guid.Parse(existing.Id), false, true, parentUnresolved);
@@ -599,11 +606,11 @@ public class InfrastructureRepository : IInfrastructureRepository
                         {nameof(Infrastructure.Id)}, {nameof(Infrastructure.Code)}, {nameof(Infrastructure.Name)},
                         NORMALIZED_CODE, NORMALIZED_NAME,
                         {nameof(Infrastructure.Address)}, INFRA_TYPE_ID, UNIT_ID, OPERATION_DATE, GRIDTYPEID, PARENT_ID, IS_ACTIVE,
-                        PMIS_CODE, LAST_SYNCED_FROM_PMIS_AT,
+                        PMIS_CODE, CMIS_CODE, LAST_SYNCED_FROM_PMIS_AT,
                         {nameof(Infrastructure.CreatedBy)}, {nameof(Infrastructure.CreatedDate)}, {nameof(Infrastructure.IsDeleted)}
                     ) VALUES (
                         :Id, :Code, :Name, :NormalizedCode, :NormalizedName, :Address, :InfraTypeId, :UnitId, :OperationDate, :GridTypeId, :ParentId, 1,
-                        :PmisCode, SYSTIMESTAMP, :CreatedBy, SYSTIMESTAMP, 0
+                        :PmisCode, :CmisCode, SYSTIMESTAMP, :CreatedBy, SYSTIMESTAMP, 0
                     )";
 
         try
@@ -622,6 +629,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                 GridTypeId = borrowedGridTypeId,
                 ParentId = isLine ? parentInfrastructureId?.ToString() : null,
                 PmisCode = pmisCode,
+                CmisCode = cmisCode,
                 CreatedBy = "PMIS_SYNC"
             });
         }

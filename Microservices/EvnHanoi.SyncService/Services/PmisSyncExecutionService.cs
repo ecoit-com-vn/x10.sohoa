@@ -220,7 +220,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             UnitCode = item.MaDonVi,
             OperationDate = item.NgayVanHanh,
             GridTypeId = ResolveGridTypeId(item.CapDienAp),
-            ParentPmisCode = ResolveParentLinePmisCode(item)
+            ParentPmisCode = ResolveParentLinePmisCode(item),
+            CmisCode = item.MaCMIS
         };
 
     public async Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncInfrastructureAsync(
@@ -282,7 +283,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                     Address = item.DiaDiem,
                     UnitCode = item.MaDonVi,
                     OperationDate = item.NgayVanHanh,
-                    GridTypeId = ResolveGridTypeId(item.CapDienAp)
+                    GridTypeId = ResolveGridTypeId(item.CapDienAp),
+                    CmisCode = item.MaCMIS
                 };
             }).ToList();
 
