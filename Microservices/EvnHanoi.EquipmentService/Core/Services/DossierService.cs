@@ -532,9 +532,12 @@ public class DossierService : IDossierService
     }
 
     /// <summary>
-    /// Validate nhóm hồ sơ / loại hạ tầng / thiết bị. Trả về danh sách EquipmentIds đã chuẩn hóa (rỗng nếu không phải HS thiết bị).
+    /// Validate nhóm hồ sơ / loại hạ tầng. Trả về EquipmentIds đã chuẩn hóa để repository ghi vào
+    /// DOSSIER_EQUIPMENTS — null nghĩa là KHÔNG đụng tới liên kết thiết bị hiện có (thiết bị giờ gắn ở
+    /// cấp Tài liệu, không còn được quản lý qua form hồ sơ; null giữ nguyên dữ liệu cũ của các hồ sơ
+    /// thiết bị tạo trước khi bỏ tính năng này, tránh mất dữ liệu khi người dùng chỉ sửa thông tin khác).
     /// </summary>
-    private async Task<List<Guid>> ValidateAndNormalizeGroupAsync(
+    private async Task<List<Guid>?> ValidateAndNormalizeGroupAsync(
         int dossierGroupId,
         List<Guid>? infrastructureIds,
         List<Guid>? equipmentIds)
@@ -570,15 +573,12 @@ public class DossierService : IDossierService
             }
         }
 
-        var ids = equipmentIds?.Where(x => x != Guid.Empty).Distinct().ToList() ?? new List<Guid>();
-        if (group.IsEquipmentDossier)
-        {
-            if (ids.Count == 0)
-                throw new ArgumentException("Hồ sơ thiết bị bắt buộc chọn ít nhất một thiết bị.");
-            return ids;
-        }
+        // equipmentIds == null (client không gửi, trường hợp bình thường từ nay về sau) => giữ nguyên
+        // liên kết DOSSIER_EQUIPMENTS hiện có, không xoá/ghi đè gì cả.
+        if (equipmentIds == null)
+            return null;
 
-        return new List<Guid>();
+        return equipmentIds.Where(x => x != Guid.Empty).Distinct().ToList();
     }
 
     public async Task<bool> DeleteAsync(Guid id, string userId)
