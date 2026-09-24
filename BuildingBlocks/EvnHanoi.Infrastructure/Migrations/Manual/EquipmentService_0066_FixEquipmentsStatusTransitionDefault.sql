@@ -1,0 +1,62 @@
+-- ============================================================================
+-- BẢN SQL DỰ PHÒNG cho Migrations/EquipmentService/Migration0066_FixEquipmentsStatusTransitionDefault.cs
+-- ============================================================================
+-- KHÔNG chạy tự động — xem giải thích đầy đủ ở
+-- Migrations/Manual/SyncService_0003_AddRowVersionAndIsDeletedToSyncConfig.sql.
+--
+-- CÁCH CHẠY: sqlplus <user>/<pass>@<host>:1521/<service> @EquipmentService_0066_FixEquipmentsStatusTransitionDefault.sql
+-- Sau khi chạy tay, ghi journal:
+--   INSERT INTO SCHEMAVERSIONS (SCRIPTNAME, APPLIED)
+--   VALUES ('EvnHanoi.Infrastructure.Migrations.EquipmentService.Migration0066_FixEquipmentsStatusTransitionDefault.cs', SYSTIMESTAMP);
+--   COMMIT;
+--
+-- ⚠️ QUAN TRỌNG — ĐỌC TRƯỚC KHI CHẠY TRÊN BẤT KỲ MÔI TRƯỜNG NÀO (kể cả dev):
+-- Phát hiện LIVE trên Oracle dev (192.168.1.199) khi test batch-prefetch (audit PMIS 2026-09-24): cột
+-- EQUIPMENTS.STATUSTRANSITION hiện có DEFAULT '0' ở tầng DB, trong khi Migration0039 (migration gốc tạo
+-- cột này) khai báo ĐÚNG "NUMBER(1) NULL" KHÔNG DEFAULT — giá trị DEFAULT '0' hiện tại KHÔNG đến từ bất kỳ
+-- migration nào trong repo, nhiều khả năng bị ALTER tay ngoài luồng (không loại trừ khả năng PRODUCTION
+-- cũng bị chỉnh tương tự — NÊN KIỂM TRA TRƯỚC bằng câu SELECT ở mục "KIỂM TRA HIỆN TRẠNG" bên dưới, trên
+-- MỌI môi trường, trước khi quyết định chạy).
+--
+-- StatusTransition = 0 nghĩa là "Đã chuyển TBA" — NULL nghĩa là "chưa từng chuyển". Với DEFAULT '0' sai,
+-- MỌI thiết bị mới tạo qua đồng bộ PMIS (INSERT không set cột này) bị tự động coi là "đã chuyển đi":
+--   1. Biến mất khỏi mọi danh sách UI (EquipmentSqlFilters.NotTransferredAway lọc theo StatusTransition
+--      IS NULL) dù sync báo "Thành công".
+--   2. Lượt đồng bộ KẾ TIẾP cho cùng mã PMIS không tìm lại được bản ghi vừa tạo (tra cứu "existing" luôn
+--      có AND StatusTransition IS NULL) → tạo THÊM 1 bản ghi trùng — lặp lại vô hạn mỗi lượt.
+-- Rất có thể là 1 phần nguyên nhân "thiết bị đồng bộ về nhưng không hiển thị trên hệ thống" đã điều tra
+-- trên production (210.245.84.38) trước đó trong cùng đợt audit.
+--
+-- SCOPE: script này CHỈ sửa DEFAULT cho các lần INSERT SAU NÀY — KHÔNG backfill dữ liệu cũ đã bị ảnh
+-- hưởng (các dòng EQUIPMENTS hiện có StatusTransition=0 dù thực ra chưa từng chuyển TBA thật, lẫn với các
+-- dòng StatusTransition=0 là CHUYỂN TBA THẬT do nghiệp vụ). Backfill (nếu cần) phải làm RIÊNG, có điều
+-- kiện lọc cẩn thận phân biệt 2 loại trên (VD dựa ModifiedBy/thời điểm tạo trước/sau khi DEFAULT sai xuất
+-- hiện) — giống cách Migration0061 đã xử lý sự cố PMIS_CODE lệch chuẩn trước đó. KHÔNG tự backfill ở đây.
+--
+-- KIỂM TRA HIỆN TRẠNG trước khi chạy (chạy trên MỌI môi trường, kể cả production, để biết có bị ảnh
+-- hưởng không):
+--   SELECT column_name, data_default, nullable FROM all_tab_columns
+--   WHERE owner = 'QLSHX10' AND table_name = 'EQUIPMENTS' AND column_name = 'STATUSTRANSITION';
+--   -- Nếu DATA_DEFAULT trả về '0' (hoặc tương đương) → môi trường này bị ảnh hưởng, nên chạy script.
+--   -- Nếu NULL/rỗng → môi trường này đã đúng, script chạy vẫn an toàn (đặt lại đúng NULL, không đổi gì).
+--
+-- SCHEMA: tiền tố "QLSHX10." tường minh cho user không phải chủ schema (xem giải thích đầy đủ ở
+-- EquipmentService_0061_RestoreFalselyGhostedPmisEquipment.sql). Nếu kết nối THẲNG bằng user QLSHX10,
+-- tiền tố thừa nhưng vô hại.
+--
+-- ROLLBACK: KHÔNG có "giá trị DEFAULT cũ đúng" để khôi phục về — nếu thực sự cần rollback về DEFAULT '0'
+-- (không khuyến nghị, đây chính là giá trị SAI đang sửa):
+--   ALTER TABLE QLSHX10.EQUIPMENTS MODIFY (StatusTransition DEFAULT 0);
+--   DELETE FROM SCHEMAVERSIONS WHERE SCRIPTNAME LIKE '%0066_FixEquipmentsStatusTransitionDefault%';
+--   COMMIT;
+-- ============================================================================
+SET SERVEROUTPUT ON
+
+-- ALTER TABLE ... MODIFY DEFAULT tự thân đã idempotent (chạy lại nhiều lần không lỗi, KHÔNG đổi dữ liệu
+-- hiện có — chỉ ảnh hưởng INSERT sau này).
+ALTER TABLE QLSHX10.EQUIPMENTS MODIFY (StatusTransition DEFAULT NULL);
+
+-- KIỂM TRA SAU KHI CHẠY:
+-- SELECT column_name, data_default, nullable FROM all_tab_columns
+-- WHERE owner = 'QLSHX10' AND table_name = 'EQUIPMENTS' AND column_name = 'STATUSTRANSITION';
+-- -- DATA_DEFAULT phải là NULL/rỗng.

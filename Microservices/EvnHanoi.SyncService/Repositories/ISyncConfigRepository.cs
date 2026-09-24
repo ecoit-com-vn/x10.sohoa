@@ -15,6 +15,11 @@ public interface ISyncConfigRepository
     /// bước UpdateRunResultAsync ở nhánh catch).</summary>
     Task UpdateSyncCursorAsync(string objectType, string? cursor);
 
+    /// <summary>Ghi lại (hoặc xoá, nếu <paramref name="cursor"/> null) điểm "tiếp tục" RIÊNG cho việc xoay
+    /// vòng đồng bộ tài liệu đính kèm/ảnh QR — xem SyncConfig.DocumentSyncCursor. Độc lập với
+    /// UpdateSyncCursorAsync (cursor khác, mục đích khác).</summary>
+    Task UpdateDocumentSyncCursorAsync(string objectType, string? cursor);
+
     /// <summary>Đặt NEXT_SYNC_AT = ngay bây giờ cho các đối tượng đang BẬT — để PmisScheduledSyncJob (tick
     /// mỗi phút) tự nhận là "đã tới hạn" và chạy 1 lượt đồng bộ đầy đủ (chọn tất cả) sớm hơn lịch thường,
     /// KHÔNG tạo job/migration riêng. Dùng khi vừa thêm 1 ánh xạ đơn vị PMIS mới (xem

@@ -19,6 +19,11 @@ public interface IPmisDocumentRepository
     /// <summary>Cập nhật ObjectKey/FileSize cho 1 dòng đã có nhưng trước đó chưa tải được file.</summary>
     Task UpdateFileAsync(string id, string objectKey, long fileSize, string? syncHistoryId);
 
+    /// <summary>Sửa lại OwnerType/OwnerId cho 1 dòng đã có (kể cả đã có file) khi resolve lại ra chủ sở
+    /// hữu đúng hơn — KHÔNG đụng ObjectKey/FileSize. Dùng khi tài liệu bị gán nhầm cho INFRASTRUCTURE ở
+    /// lượt đồng bộ trước khi EQUIPMENT thật tồn tại (xem InternalPmisSyncController.UpsertDocumentsFromPmis).</summary>
+    Task UpdateOwnerAsync(string id, string ownerType, Guid ownerId);
+
     /// <summary>Đọc đầy đủ 1 dòng theo Id thật (khác GetByCodeAsync — tra theo mã PMIS, chỉ trả Id/ObjectKey)
     /// — dùng cho màn "Kho tài liệu PMIS" (xem chi tiết/tải về) và "Chọn từ kho PMIS" (kiểm tra quyền + copy vào hồ sơ).</summary>
     Task<PmisDocumentDetail?> GetByIdAsync(Guid id);

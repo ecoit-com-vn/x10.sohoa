@@ -12,6 +12,10 @@ public interface IEquipmentServiceClient
     Task<List<SyncedInfrastructurePmisCode>> GetSyncedInfrastructurePmisCodesAsync();
 
     Task<List<UpsertPmisDocumentResult>> UpsertDocumentsAsync(List<UpsertPmisDocumentRequest> items);
+
+    /// <summary>Số thiết bị bị đánh dấu "Đã chuyển TBA" bởi PMIS_SYNC trong <paramref name="sinceHours"/>
+    /// giờ gần đây — xem PmisReconciliationJob.</summary>
+    Task<int> GetRecentlyTransferredCountAsync(int sinceHours);
 }
 
 public class SyncedInfrastructurePmisCode

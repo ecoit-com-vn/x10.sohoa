@@ -1,5 +1,45 @@
 namespace EvnHanoi.EquipmentService.Core.DTOs;
 
+/// <summary>Các cột EQUIPMENTS cần để EquipmentRepository.UpsertFromPmisAsync so sánh "có gì thay đổi
+/// thật không" trước khi UPDATE — dùng cả ở đường tra 1-dòng cũ (không set NormalizedPmisCode) lẫn
+/// EquipmentUpsertPrefetch.ExistingByPmisCode (batch, có set NormalizedPmisCode làm key).</summary>
+public class EquipmentCompareRow
+{
+    public string? Id { get; set; }
+    public string? Name { get; set; }
+    public string? Code { get; set; }
+    public string? SerialNumber { get; set; }
+    public string? InfrastructureId { get; set; }
+    public int? ManufactureYear { get; set; }
+    public long? UnitId { get; set; }
+    public string? EquipmentTypeId { get; set; }
+    public long? EquipmentStatusId { get; set; }
+    public string? FormValues { get; set; }
+
+    /// <summary>UPPER(TRIM(PMIS_CODE)) — chỉ dùng làm KEY khi trả về theo lô trong
+    /// EquipmentUpsertPrefetch.ExistingByPmisCode, không dùng ở đường tra 1-dòng cũ.</summary>
+    public string? NormalizedPmisCode { get; set; }
+}
+
+/// <summary>Kết quả prefetch theo LÔ (1 trang PMIS) cho 4 lookup lặp lại per-item trong
+/// EquipmentRepository.UpsertFromPmisAsync — xem EquipmentRepository.PrefetchUpsertLookupsAsync. Truyền
+/// vào UpsertFromPmisAsync qua tham số <c>prefetch</c> để thay 4 round-trip DB/bản ghi bằng tra dictionary
+/// trong bộ nhớ; truyền null (mặc định) giữ nguyên hành vi cũ (tự SELECT riêng từng lookup) — dùng cho
+/// các caller xử lý 1 item lẻ (PmisManualSyncController.RefreshEquipment, hoặc bất kỳ nơi nào gọi trực
+/// tiếp không qua batch).</summary>
+public class EquipmentUpsertPrefetch
+{
+    /// <summary>Key: UPPER(TRIM(parentPmisCode)).</summary>
+    public Dictionary<string, (string Id, int? GridTypeId)> ParentByPmisCode { get; init; } = new();
+    /// <summary>Key: (PmisMaLoaiTB nguyên văn, GridTypeId) — PMIS_EQUIPMENT_TYPE_MAPPING là bảng nhỏ
+    /// (&lt;200 dòng), fetch TOÀN BỘ 1 lần rẻ hơn hẳn lọc theo composite key.</summary>
+    public Dictionary<(string Code, int GridTypeId), string> EquipmentTypeByCodeAndGrid { get; init; } = new();
+    /// <summary>Key: PmisUnitCode nguyên văn — PMIS_UNIT_CODE_MAPPING cũng bảng nhỏ, fetch toàn bộ.</summary>
+    public Dictionary<string, long> UnitIdByPmisCode { get; init; } = new();
+    /// <summary>Key: UPPER(TRIM(pmisCode)) của CHÍNH thiết bị.</summary>
+    public Dictionary<string, EquipmentCompareRow> ExistingByPmisCode { get; init; } = new();
+}
+
 public class EquipmentPmisUpsertResult
 {
     public bool Success { get; set; }
@@ -147,11 +187,16 @@ public class UpsertPmisDocumentResult
 }
 
 /// <summary>Kết quả tra PMIS_DOCUMENT theo mã — ObjectKey null nghĩa là lần trước lưu được metadata
-/// nhưng chưa tải được file (cần thử tải lại), khác với đã có file thật (bỏ qua hẳn).</summary>
+/// nhưng chưa tải được file (cần thử tải lại), khác với đã có file thật (bỏ qua hẳn).
+/// OwnerType/OwnerId đi kèm để caller so sánh với chủ sở hữu vừa resolve lại được (xem
+/// InternalPmisSyncController.UpsertDocumentsFromPmis) — tài liệu có thể đã bị gán nhầm cho
+/// INFRASTRUCTURE ở lượt đồng bộ trước khi thiết bị thật tồn tại.</summary>
 public class PmisDocumentLookup
 {
     public string Id { get; set; } = string.Empty;
     public string? ObjectKey { get; set; }
+    public string OwnerType { get; set; } = string.Empty;
+    public Guid OwnerId { get; set; }
 }
 
 /// <summary>1 dòng PMIS_DOCUMENT đầy đủ — dùng cho màn "Kho tài liệu PMIS" (đọc) và "Chọn từ kho PMIS"
