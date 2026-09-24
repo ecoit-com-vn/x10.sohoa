@@ -17,6 +17,10 @@ public class PmisSubstationDto
     public string? DiaDiem { get; set; }
     public DateTime? NgayVanHanh { get; set; }
     public int? TrangThai { get; set; }
+
+    /// <summary>Mã hệ thống CMIS (PMIS bổ sung 2026-09-24) — khác mã PMIS (MaTBA), chỉ lưu tham khảo/hiển
+    /// thị, không dùng làm khoá tra cứu. Xem pmis-api-responses/README.md.</summary>
+    public string? MaCMIS { get; set; }
 }
 
 /// <summary>Item — API 2: Danh sách đường dây.</summary>
@@ -40,6 +44,10 @@ public class PmisLineDto
     /// dấu "/" cuối cùng trong TenDuongDay rồi so khớp tên) — PmisSyncExecutionService dùng field này trực
     /// tiếp, EquipmentService tự tra Id theo PmisCode (xem InfrastructureRepository.UpsertFromPmisAsync).</summary>
     public string? MaCha { get; set; }
+
+    /// <summary>Mã hệ thống CMIS (PMIS bổ sung 2026-09-24) — khác mã PMIS (MaDuongDay), chỉ lưu tham
+    /// khảo/hiển thị, không dùng làm khoá tra cứu. Xem pmis-api-responses/README.md.</summary>
+    public string? MaCMIS { get; set; }
 }
 
 /// <summary>Item — API 3 &amp; 5: Loại thiết bị (TBA hoặc đường dây).</summary>

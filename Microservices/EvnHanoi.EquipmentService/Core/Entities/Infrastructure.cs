@@ -58,4 +58,7 @@ public class Infrastructure
     // Đồng bộ PMIS
     public string? PmisCode { get; set; }
     public DateTime? LastSyncedFromPmisAt { get; set; }
+
+    // Mã hệ thống CMIS (khác PMIS) — PMIS bổ sung 2026-09-24, chỉ lưu tham khảo/hiển thị.
+    public string? CmisCode { get; set; }
 }

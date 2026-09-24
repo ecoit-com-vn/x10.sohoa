@@ -48,7 +48,7 @@ public interface IInfrastructureRepository
     /// để ghi 1 dòng Warning thấy được trong "Lịch sử đồng bộ" thay vì âm thầm mãi mãi.</summary>
     Task<(Guid Id, bool WasCreated, bool HasChanged, bool ParentUnresolved)> UpsertFromPmisAsync(
         int infraTypeId, string pmisCode, string code, string name, string? address, string? unitCode, DateTime? operationDate,
-        int? gridTypeId = null, string? parentPmisCode = null);
+        int? gridTypeId = null, string? parentPmisCode = null, string? cmisCode = null);
 
     /// <summary>Danh sách PmisCode đã đồng bộ (dùng cho auto-sync Thiết bị — lặp qua từng Trạm/Đường dây đã có để lấy thiết bị con).</summary>
     Task<IEnumerable<(string PmisCode, int InfraTypeId)>> GetSyncedPmisCodesAsync();

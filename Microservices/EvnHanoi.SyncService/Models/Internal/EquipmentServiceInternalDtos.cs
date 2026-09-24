@@ -20,6 +20,10 @@ public class UpsertInfrastructureFromPmisRequest
     /// bị (UpsertEquipmentFromPmisRequest) — không cần SyncService tự tra sẵn Guid như trước (xem
     /// InfrastructureRepository.UpsertFromPmisAsync). Trạm biến áp luôn để null.</summary>
     public string? ParentPmisCode { get; set; }
+
+    /// <summary>Mã hệ thống CMIS (field "maCMIS", PMIS bổ sung 2026-09-24) — khác PMIS_CODE, chỉ lưu tham
+    /// khảo/hiển thị, không dùng làm khoá tra cứu.</summary>
+    public string? CmisCode { get; set; }
 }
 
 public class UpsertInfrastructureFromPmisResult
