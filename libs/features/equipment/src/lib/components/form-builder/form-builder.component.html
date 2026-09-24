@@ -302,7 +302,7 @@
                     placeholder="Key trong thongSoKyThuat PMIS trả về (vd: DUNG_LUONG)" />
                   <datalist id="pmisSpecKeyList">
                     <option *ngFor="let item of pmisSpecKeys()" [value]="item.key">
-                      {{ item.sampleValue }}
+                      {{ pmisSpecOptionText(item) }}
                     </option>
                   </datalist>
                   <small class="text-muted" *ngIf="pmisSpecKeys().length > 0">

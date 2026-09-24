@@ -105,6 +105,14 @@ export class FormBuilderComponent implements OnInit {
    */
   pmisSpecKeys = signal<PmisSpecKeyOption[]>([]);
 
+  /** Text hiển thị trong gợi ý datalist "Tên trường PMIS" — ưu tiên nhãn tiếng Việt PMIS cung cấp
+   * (field "tenThongSoKyThuat", bổ sung 2026-09-23), kèm giá trị mẫu để dễ đối chiếu; nếu chưa có nhãn
+   * (dữ liệu đồng bộ từ trước) thì chỉ hiện giá trị mẫu như trước đây. */
+  pmisSpecOptionText(item: PmisSpecKeyOption): string {
+    if (item.label && item.sampleValue) return `${item.label} (mẫu: ${item.sampleValue})`;
+    return item.label || item.sampleValue || '';
+  }
+
   filteredEquipmentTypes = computed(() => {
     const gridId = this.selectedGridTypeId();
     if (!gridId) {
