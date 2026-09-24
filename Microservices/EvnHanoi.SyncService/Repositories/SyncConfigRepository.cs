@@ -20,7 +20,7 @@ public class SyncConfigRepository : ISyncConfigRepository
             SELECT ID AS Id, OBJECT_TYPE AS ObjectType, FREQUENCY_VALUE AS FrequencyValue,
                    FREQUENCY_UNIT AS FrequencyUnit, IS_ENABLED AS IsEnabled,
                    LAST_SYNC_AT AS LastSyncAt, NEXT_SYNC_AT AS NextSyncAt, ROW_VERSION AS RowVersion,
-                   CONSECUTIVE_FAILURE_COUNT AS ConsecutiveFailureCount
+                   CONSECUTIVE_FAILURE_COUNT AS ConsecutiveFailureCount, SYNC_CURSOR AS SyncCursor
             FROM SYNC_CONFIG
             WHERE IS_DELETED = 0
             ORDER BY OBJECT_TYPE";
@@ -34,10 +34,19 @@ public class SyncConfigRepository : ISyncConfigRepository
             SELECT ID AS Id, OBJECT_TYPE AS ObjectType, FREQUENCY_VALUE AS FrequencyValue,
                    FREQUENCY_UNIT AS FrequencyUnit, IS_ENABLED AS IsEnabled,
                    LAST_SYNC_AT AS LastSyncAt, NEXT_SYNC_AT AS NextSyncAt, ROW_VERSION AS RowVersion,
-                   CONSECUTIVE_FAILURE_COUNT AS ConsecutiveFailureCount
+                   CONSECUTIVE_FAILURE_COUNT AS ConsecutiveFailureCount, SYNC_CURSOR AS SyncCursor
             FROM SYNC_CONFIG
             WHERE OBJECT_TYPE = :ObjectType AND IS_DELETED = 0";
         return await _connection.QuerySingleOrDefaultAsync<SyncConfig>(sql, new { ObjectType = objectType });
+    }
+
+    public async Task UpdateSyncCursorAsync(string objectType, string? cursor)
+    {
+        EnsureOpen();
+        const string sql = @"
+            UPDATE SYNC_CONFIG SET SYNC_CURSOR = :Cursor
+            WHERE OBJECT_TYPE = :ObjectType AND IS_DELETED = 0";
+        await _connection.ExecuteAsync(sql, new { ObjectType = objectType, Cursor = cursor });
     }
 
     public async Task<bool> UpdateAsync(string objectType, UpdateSyncConfigRequest request, string? modifiedBy)

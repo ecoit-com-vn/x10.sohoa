@@ -16,6 +16,12 @@ public class SyncConfig
     /// có 1 lượt chạy xong bình thường (kể cả Failed vì 0/n item thành công). Dùng để backoff tăng dần
     /// và quyết định khi nào cảnh báo admin — xem PmisScheduledSyncJob.</summary>
     public int ConsecutiveFailureCount { get; set; }
+
+    /// <summary>Điểm "tiếp tục" khi lượt trước dừng giữa chừng vì chạm giới hạn an toàn (xem
+    /// Migration0011_AddSyncCursorToSyncConfig) — SUBSTATION/TRANSMISSION_LINE: chuỗi số "skip"; EQUIPMENT:
+    /// mã PMIS của Trạm/Đường dây cha nơi ngân sách gọi PMIS thật bị dùng hết. NULL = lượt trước hoàn tất
+    /// trọn vẹn, lượt sau bắt đầu lại từ đầu.</summary>
+    public string? SyncCursor { get; set; }
 }
 
 public class UpdateSyncConfigRequest

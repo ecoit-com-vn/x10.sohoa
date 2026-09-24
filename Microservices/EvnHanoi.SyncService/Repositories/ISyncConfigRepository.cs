@@ -9,6 +9,12 @@ public interface ISyncConfigRepository
     Task<bool> UpdateAsync(string objectType, UpdateSyncConfigRequest request, string? modifiedBy);
     Task UpdateRunResultAsync(string objectType, DateTime lastSyncAt, DateTime? nextSyncAt, int consecutiveFailureCount);
 
+    /// <summary>Ghi lại (hoặc xoá, nếu <paramref name="cursor"/> null) điểm "tiếp tục" cho lượt đồng bộ tự
+    /// động kế tiếp của đối tượng này — xem SyncConfig.SyncCursor. Gọi riêng, KHÔNG gộp vào
+    /// UpdateRunResultAsync, vì cursor cần được ghi ngay cả khi lượt chạy Failed giữa chừng (trước khi tới
+    /// bước UpdateRunResultAsync ở nhánh catch).</summary>
+    Task UpdateSyncCursorAsync(string objectType, string? cursor);
+
     /// <summary>Đặt NEXT_SYNC_AT = ngay bây giờ cho các đối tượng đang BẬT — để PmisScheduledSyncJob (tick
     /// mỗi phút) tự nhận là "đã tới hạn" và chạy 1 lượt đồng bộ đầy đủ (chọn tất cả) sớm hơn lịch thường,
     /// KHÔNG tạo job/migration riêng. Dùng khi vừa thêm 1 ánh xạ đơn vị PMIS mới (xem

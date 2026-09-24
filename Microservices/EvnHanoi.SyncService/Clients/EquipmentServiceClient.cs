@@ -23,7 +23,7 @@ public class EquipmentServiceClient : IEquipmentServiceClient
         request.Headers.Add("X-Internal-Token", _internalToken);
 
         var response = await _httpClient.SendAsync(request);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessOrThrowWithBodyAsync(response);
         return await response.Content.ReadFromJsonAsync<List<UpsertInfrastructureFromPmisResult>>() ?? [];
     }
 
@@ -36,7 +36,7 @@ public class EquipmentServiceClient : IEquipmentServiceClient
         request.Headers.Add("X-Internal-Token", _internalToken);
 
         var response = await _httpClient.SendAsync(request);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessOrThrowWithBodyAsync(response);
         return await response.Content.ReadFromJsonAsync<List<UpsertEquipmentFromPmisResult>>() ?? [];
     }
 
@@ -46,7 +46,7 @@ public class EquipmentServiceClient : IEquipmentServiceClient
         request.Headers.Add("X-Internal-Token", _internalToken);
 
         var response = await _httpClient.SendAsync(request);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessOrThrowWithBodyAsync(response);
         return await response.Content.ReadFromJsonAsync<List<SyncedInfrastructurePmisCode>>() ?? [];
     }
 
@@ -59,7 +59,22 @@ public class EquipmentServiceClient : IEquipmentServiceClient
         request.Headers.Add("X-Internal-Token", _internalToken);
 
         var response = await _httpClient.SendAsync(request);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessOrThrowWithBodyAsync(response);
         return await response.Content.ReadFromJsonAsync<List<UpsertPmisDocumentResult>>() ?? [];
+    }
+
+    /// <summary>Thay cho response.EnsureSuccessStatusCode() trần — EquipmentService trả message JSON rõ
+    /// ràng khi lỗi (vd "Internal:Token chưa được cấu hình trên EquipmentService.", "Token nội bộ không hợp
+    /// lệ.") nhưng EnsureSuccessStatusCode() KHÔNG đọc body, chỉ ném "Response status code does not
+    /// indicate success: 401" chung chung — khiến 1 lỗi CẤU HÌNH TOÀN CỤC (token sai/thiếu, ảnh hưởng CẢ
+    /// LƯỢT đồng bộ) trông giống hệt lỗi dữ liệu của TỪNG bản ghi trên "Lịch sử đồng bộ", admin phải tự đoán
+    /// thay vì thấy thẳng nguyên nhân.</summary>
+    private static async Task EnsureSuccessOrThrowWithBodyAsync(HttpResponseMessage response)
+    {
+        if (response.IsSuccessStatusCode) return;
+        var body = await response.Content.ReadAsStringAsync();
+        throw new HttpRequestException(
+            $"EquipmentService trả {(int)response.StatusCode} {response.StatusCode}: {(string.IsNullOrWhiteSpace(body) ? "(không có nội dung)" : body)}",
+            inner: null, response.StatusCode);
     }
 }
