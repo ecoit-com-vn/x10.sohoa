@@ -631,8 +631,12 @@ public class InfrastructureRepository : IInfrastructureRepository
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
+        // ORDER BY PMIS_CODE — bắt buộc phải có thứ tự ỔN ĐỊNH và XÁC ĐỊNH (không phụ thuộc thứ tự vật lý
+        // ngẫu nhiên của full table scan): PmisScheduledSyncJob.RunEquipmentAsync dùng danh sách này để
+        // xoay vòng (rotate) ưu tiên ngân sách gọi PMIS thật (ChiTietThietBi/QR) theo SyncConfig.SyncCursor
+        // — nếu thứ tự không ổn định, việc xoay vòng vô nghĩa (có thể xoay tới đúng nhóm đã ưu tiên rồi).
         var rows = await _connection.QueryAsync<SyncedPmisCodeRow>(
-            $"SELECT PMIS_CODE AS PmisCode, INFRA_TYPE_ID AS InfraTypeId FROM INFRASTRUCTURE WHERE PMIS_CODE IS NOT NULL AND {nameof(Infrastructure.IsDeleted)} = 0");
+            $"SELECT PMIS_CODE AS PmisCode, INFRA_TYPE_ID AS InfraTypeId FROM INFRASTRUCTURE WHERE PMIS_CODE IS NOT NULL AND {nameof(Infrastructure.IsDeleted)} = 0 ORDER BY PMIS_CODE");
         return rows.Select(r => (r.PmisCode, r.InfraTypeId));
     }
 

@@ -6,15 +6,21 @@ namespace EvnHanoi.SyncService.Schedulers;
 
 /// <summary>
 /// Dọn các dòng SYNC_HISTORY bị kẹt ở RUNNING quá lâu. Xảy ra khi pod SyncService bị dừng đột ngột
-/// (crash/OOMKilled/rollout) đúng lúc PmisScheduledSyncJob đang chạy: RedLock tự nhả khoá sau tối đa
-/// 10 phút (xem PmisScheduledSyncJob) nên lượt kế tiếp vẫn chạy bình thường, nhưng dòng SYNC_HISTORY
-/// của lượt bị crash thì không còn ai gọi CompleteAsync — đứng ở RUNNING vĩnh viễn, làm sai lệch màn
-/// hình lịch sử đồng bộ. Cùng ngưỡng với OcrJobWatchdogService (EquipmentService): quét mỗi 5 phút,
-/// ngưỡng treo 30 phút — dài hơn hẳn TTL 10 phút của RedLock nên không đánh nhầm 1 lượt đang chạy thật.
+/// (crash/OOMKilled/rollout) đúng lúc PmisScheduledSyncJob đang chạy — dòng SYNC_HISTORY của lượt bị crash
+/// không còn ai gọi CompleteAsync, đứng ở RUNNING vĩnh viễn, làm sai lệch màn hình lịch sử đồng bộ.
+///
+/// Ngưỡng 60 phút KHÔNG còn dựa vào TTL RedLock (RedLockNet.SERedis tự động gia hạn khoá theo chu kỳ
+/// trong suốt thời gian tiến trình còn sống — xem comment tại RedLock trong PmisScheduledSyncJob — nên TTL
+/// không giới hạn thời lượng 1 lượt chạy hợp lệ, và trước đây lấy nó làm cơ sở chọn ngưỡng là SAI). Chọn
+/// độc lập: đủ RỘNG để không đánh FAILED oan 1 lượt Equipment hợp lệ đang chạy thật (lồng 2 vòng phân
+/// trang qua hàng chục nghìn Trạm/Đường dây cha, mỗi cha lại round-trip PMIS tuần tự — có thể mất hàng
+/// chục phút với khối lượng dữ liệu thật đã ghi nhận, xem PmisScheduledSyncJob.MaxTotalRecords), nhưng vẫn
+/// đủ HẸP để không để 1 lượt crash thật hiện RUNNING quá lâu trên màn hình. Cùng tần suất quét (5 phút) với
+/// OcrJobWatchdogService (EquipmentService).
 /// </summary>
 public class SyncHistoryWatchdogJob : IJob
 {
-    private static readonly TimeSpan StaleThreshold = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan StaleThreshold = TimeSpan.FromMinutes(60);
 
     private readonly ISyncHistoryRepository _repository;
 
