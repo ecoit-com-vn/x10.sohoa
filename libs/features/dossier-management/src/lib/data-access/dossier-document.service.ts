@@ -257,12 +257,14 @@ export class DossierDocumentService {
     dossierId: string,
     file: File,
     documentTypeId: string,
-    uploadSource = 3
+    uploadSource = 3,
+    equipmentIds?: string[]
   ): Observable<FileUploadResponse> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('documentTypeId', documentTypeId);
     formData.append('uploadSource', String(uploadSource));
+    (equipmentIds ?? []).forEach((id) => formData.append('equipmentIds', id));
     return this.http.post<FileUploadResponse>(`${this.dossierBase(dossierId)}/upload`, formData);
   }
 
@@ -294,11 +296,12 @@ export class DossierDocumentService {
     dossierId: string,
     uploadId: string,
     parts: Array<{ chunkNumber: number; eTag: string }>,
-    documentTypeId: string
+    documentTypeId: string,
+    equipmentIds?: string[]
   ): Observable<FileUploadResponse> {
     return this.http.post<FileUploadResponse>(
       `${this.dossierBase(dossierId)}/upload/chunked/${uploadId}/complete`,
-      { uploadId, parts, documentTypeId }
+      { uploadId, parts, documentTypeId, equipmentIds: equipmentIds ?? [] }
     );
   }
 
@@ -325,7 +328,8 @@ export class DossierDocumentService {
     file: File,
     documentTypeId: string,
     uploadSource = 3,
-    onProgress?: (progress: UploadProgress) => void
+    onProgress?: (progress: UploadProgress) => void,
+    equipmentIds?: string[]
   ): Promise<FileUploadResponse> {
     const uploadId = `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -340,7 +344,7 @@ export class DossierDocumentService {
 
       if (file.size <= this.DIRECT_UPLOAD_THRESHOLD) {
         const result = await firstValueFrom(
-          this.uploadFileDirect(dossierId, file, documentTypeId, uploadSource)
+          this.uploadFileDirect(dossierId, file, documentTypeId, uploadSource, equipmentIds)
         );
         onProgress?.({
           uploadId,
@@ -352,7 +356,7 @@ export class DossierDocumentService {
         return result;
       }
 
-      return await this.uploadChunked(dossierId, file, uploadId, documentTypeId, uploadSource, onProgress);
+      return await this.uploadChunked(dossierId, file, uploadId, documentTypeId, uploadSource, onProgress, equipmentIds);
     } catch (error: unknown) {
       const errorMsg = extractApiErrorMessage(error);
       onProgress?.({
@@ -373,7 +377,8 @@ export class DossierDocumentService {
     uploadId: string,
     documentTypeId: string,
     uploadSource: number,
-    onProgress?: (progress: UploadProgress) => void
+    onProgress?: (progress: UploadProgress) => void,
+    equipmentIds?: string[]
   ): Promise<FileUploadResponse> {
     const initResponse = await firstValueFrom(
       this.initiateChunkedUpload(dossierId, file.name, file.size)
@@ -408,7 +413,7 @@ export class DossierDocumentService {
     }
 
     const result = await firstValueFrom(
-      this.completeChunkedUpload(dossierId, uploadSessionId, parts, documentTypeId)
+      this.completeChunkedUpload(dossierId, uploadSessionId, parts, documentTypeId, equipmentIds)
     );
 
     onProgress?.({

@@ -29,6 +29,33 @@
       <p class="ocr-note" *ngIf="loadingDocTypes()"><i class="pi pi-spin pi-spinner"></i> Đang tải danh mục...</p>
     </section>
 
+    <section class="upload-step" *ngIf="infrastructureIds.length > 0">
+      <h4 class="step-title">Thiết bị liên quan</h4>
+      <p-multiSelect
+        [options]="equipmentOptions()"
+        [ngModel]="selectedEquipmentIds()"
+        (ngModelChange)="selectedEquipmentIds.set($event)"
+        optionLabel="name"
+        optionValue="id"
+        [filter]="true"
+        filterBy="name,code"
+        display="comma"
+        [maxSelectedLabels]="2"
+        selectedItemsLabel="{0} thiết bị đã chọn"
+        placeholder="-- Không gắn thiết bị --"
+        [loading]="loadingEquipments()"
+        [disabled]="submitting()"
+        appendTo="body"
+        styleClass="w-full"
+      >
+        <ng-template #item let-item>
+          <span>{{ item.name }}</span>
+          <small *ngIf="item.code"> ({{ item.code }})</small>
+        </ng-template>
+      </p-multiSelect>
+      <p class="ocr-note step-hint">Chỉ chọn được thiết bị thuộc Trạm/đường dây đã chọn của hồ sơ này. 1 tài liệu có thể gắn nhiều thiết bị.</p>
+    </section>
+
     <section class="upload-step ocr-step">
       <h4 class="step-title">Bước 2 — Xử lý OCR &amp; bóc tách</h4>
       <p class="ocr-note step-hint">
