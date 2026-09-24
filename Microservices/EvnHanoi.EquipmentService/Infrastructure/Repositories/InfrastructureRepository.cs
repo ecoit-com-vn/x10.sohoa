@@ -324,6 +324,10 @@ public class InfrastructureRepository : IInfrastructureRepository
                                FROM EQUIPMENTS eq
                               WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)}
                                 AND eq.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("eq")}) AS {nameof(Infrastructure.EquipmentCount)},
+                            (SELECT COUNT(1)
+                               FROM INFRASTRUCTURE c
+                              WHERE c.PARENT_ID = i.{nameof(Infrastructure.Id)}
+                                AND c.{nameof(Infrastructure.IsDeleted)} = 0) AS {nameof(Infrastructure.ChildLineCount)},
                             u.Id AS OrgId,
                             u.Code AS OrgCode,
                             u.Name AS OrgName

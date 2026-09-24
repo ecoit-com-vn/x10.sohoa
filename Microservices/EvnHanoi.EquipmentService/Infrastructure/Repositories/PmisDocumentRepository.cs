@@ -138,73 +138,163 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         return id;
     }
 
-    public async Task<IReadOnlyList<PmisDocumentCatalogNodeDto>> GetCatalogTreeAsync()
+    private const string UnassignedUnitNodeId = "unit_unassigned";
+
+    public async Task<IReadOnlyList<PmisDocumentCatalogNodeDto>> GetCatalogUnitsAsync(IEnumerable<long>? allowedUnitIds)
     {
         EnsureOpen();
 
-        var infraRows = (await _connection.QueryAsync<InfraCatalogRow>($@"
-            SELECT i.Id, i.Name, i.Code, i.INFRA_TYPE_ID AS InfraTypeId, i.UNIT_ID AS UnitId,
-                   (SELECT COUNT(1) FROM PMIS_DOCUMENT pd
-                      WHERE pd.OwnerType = 'INFRASTRUCTURE' AND pd.OwnerId = i.Id AND pd.IsDeleted = 0) AS DirectDocumentCount,
-                   (SELECT COUNT(1) FROM EQUIPMENTS e
-                      INNER JOIN PMIS_DOCUMENT pd2 ON pd2.OwnerType = 'EQUIPMENT' AND pd2.OwnerId = e.Id AND pd2.IsDeleted = 0
-                    WHERE e.INFRASTRUCTURE_ID = i.Id AND e.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("e")}) AS ChildEquipmentDocumentCount
-            FROM INFRASTRUCTURE i
-            WHERE i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0"))
-            .Where(r => r.DirectDocumentCount > 0 || r.ChildEquipmentDocumentCount > 0)
-            .ToList();
+        var allowedIdsList = allowedUnitIds?.ToList();
 
-        var nodes = new List<PmisDocumentCatalogNodeDto>();
-        if (infraRows.Count == 0) return nodes;
+        // QUAN TRỌNG: KHÔNG dùng EXISTS tương quan (correlated subquery) chạy lại cho từng dòng
+        // ORGANIZATION_UNIT — INFRASTRUCTURE.UNIT_ID không có index (chỉ là FK, Oracle không tự tạo index
+        // cho FK) nên mỗi lần kiểm tra sẽ full-scan INFRASTRUCTURE 1 lần nữa, nhân với số dòng
+        // ORGANIZATION_UNIT (kể cả đơn vị không có dữ liệu) → chậm dù kết quả cuối chỉ vài chục đơn vị.
+        // Dùng đúng kỹ thuật GROUP BY 1 lần rồi JOIN như GetCatalogUnitChildrenAsync/GetCatalogTreeAsync
+        // cũ (xem lịch sử 504 timeout) — chỉ 1 lượt full-scan duy nhất trên mỗi bảng.
+        // EquipmentSqlFilters.NotTransferredAway — loại thiết bị "hồn ma" chuyển TBA khỏi việc quyết định
+        // 1 Đơn vị có "còn thiết bị có tài liệu PMIS" hay không (xem GetPagedAsync để biết đầy đủ lý do).
+        var unitsSql = $@"
+            SELECT DISTINCT ou.Id, ou.Name
+            FROM ORGANIZATION_UNIT ou
+            INNER JOIN INFRASTRUCTURE i ON i.UNIT_ID = ou.Id AND i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0
+            LEFT JOIN (
+                SELECT OwnerId
+                FROM PMIS_DOCUMENT
+                WHERE OwnerType = 'INFRASTRUCTURE' AND IsDeleted = 0
+                GROUP BY OwnerId
+            ) direct_doc ON direct_doc.OwnerId = i.Id
+            LEFT JOIN (
+                SELECT e.INFRASTRUCTURE_ID AS InfrastructureId
+                FROM EQUIPMENTS e
+                INNER JOIN PMIS_DOCUMENT pd ON pd.OwnerType = 'EQUIPMENT' AND pd.OwnerId = e.Id AND pd.IsDeleted = 0
+                WHERE e.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("e")}
+                GROUP BY e.INFRASTRUCTURE_ID
+            ) child_doc ON child_doc.InfrastructureId = i.Id
+            WHERE (direct_doc.OwnerId IS NOT NULL OR child_doc.InfrastructureId IS NOT NULL)";
 
-        var infraIds = infraRows.Select(r => r.Id).ToHashSet();
-        var equipmentRows = (await _connection.QueryAsync<EquipmentCatalogRow>($@"
-            SELECT e.Id, e.Name, e.Code, e.INFRASTRUCTURE_ID AS InfrastructureId,
-                   (SELECT COUNT(1) FROM PMIS_DOCUMENT pd
-                      WHERE pd.OwnerType = 'EQUIPMENT' AND pd.OwnerId = e.Id AND pd.IsDeleted = 0) AS DocumentCount
-            FROM EQUIPMENTS e
-            WHERE e.PMIS_CODE IS NOT NULL AND e.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("e")}
-              AND EXISTS (SELECT 1 FROM PMIS_DOCUMENT pd
-                          WHERE pd.OwnerType = 'EQUIPMENT' AND pd.OwnerId = e.Id AND pd.IsDeleted = 0)"))
-            .Where(r => r.InfrastructureId != null && infraIds.Contains(r.InfrastructureId!))
-            .ToList();
-
-        var unitIds = infraRows.Where(r => r.UnitId.HasValue).Select(r => r.UnitId!.Value).Distinct().ToList();
-        var units = unitIds.Count == 0
-            ? new List<UnitCatalogRow>()
-            : (await _connection.QueryAsync<UnitCatalogRow>(
-                "SELECT Id, Name FROM ORGANIZATION_UNIT WHERE Id IN :UnitIds", new { UnitIds = unitIds })).ToList();
-
-        foreach (var unit in units)
+        var unitsParameters = new DynamicParameters();
+        if (allowedIdsList != null)
         {
-            nodes.Add(new PmisDocumentCatalogNodeDto { Id = $"unit_{unit.Id}", Name = unit.Name, ParentId = null, NodeType = "unit" });
+            unitsSql += " AND ou.Id IN :AllowedUnitIds";
+            unitsParameters.Add("AllowedUnitIds", allowedIdsList.Count > 0 ? allowedIdsList : new List<long> { -1 });
         }
+
+        var units = (await _connection.QueryAsync<UnitCatalogRow>(unitsSql, unitsParameters)).ToList();
+
+        var nodes = units
+            .Select(u => new PmisDocumentCatalogNodeDto { Id = $"unit_{u.Id}", Name = u.Name, ParentId = null, NodeType = "unit" })
+            .ToList();
 
         // Trạm/Đường dây chưa xác định được đơn vị (PMIS_UNIT_CODE_MAPPING thiếu mã đơn vị) — KHÔNG bỏ
         // qua (sẽ làm mất luôn thiết bị/tài liệu con khỏi cây, không có cách nào khác để tìm thấy), gom
         // vào 1 node "đơn vị" tạm ở gốc cây để vẫn duyệt/xem/chọn được, kèm gợi ý cho admin đi sửa mapping.
-        const string unassignedUnitId = "unit_unassigned";
-        var hasUnassigned = infraRows.Any(r => !r.UnitId.HasValue);
+        // Cùng kỹ thuật GROUP BY + JOIN ở trên, chỉ đổi điều kiện UNIT_ID IS NULL — không phải correlated.
+        // CHỈ hiện với quản trị hệ thống (allowedIdsList null) — các bản ghi này chưa thuộc đơn vị nào nên
+        // người dùng thường không có "đơn vị" nào để được coi là chủ sở hữu.
+        var hasUnassigned = allowedIdsList == null && await _connection.ExecuteScalarAsync<int>($@"
+            SELECT CASE WHEN EXISTS (
+                SELECT 1
+                FROM INFRASTRUCTURE i
+                LEFT JOIN (
+                    SELECT OwnerId
+                    FROM PMIS_DOCUMENT
+                    WHERE OwnerType = 'INFRASTRUCTURE' AND IsDeleted = 0
+                    GROUP BY OwnerId
+                ) direct_doc ON direct_doc.OwnerId = i.Id
+                LEFT JOIN (
+                    SELECT e.INFRASTRUCTURE_ID AS InfrastructureId
+                    FROM EQUIPMENTS e
+                    INNER JOIN PMIS_DOCUMENT pd ON pd.OwnerType = 'EQUIPMENT' AND pd.OwnerId = e.Id AND pd.IsDeleted = 0
+                    WHERE e.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("e")}
+                    GROUP BY e.INFRASTRUCTURE_ID
+                ) child_doc ON child_doc.InfrastructureId = i.Id
+                WHERE i.UNIT_ID IS NULL AND i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0
+                  AND (direct_doc.OwnerId IS NOT NULL OR child_doc.InfrastructureId IS NOT NULL)
+            ) THEN 1 ELSE 0 END
+            FROM DUAL") > 0;
+
         if (hasUnassigned)
         {
             nodes.Add(new PmisDocumentCatalogNodeDto
             {
-                Id = unassignedUnitId,
+                Id = UnassignedUnitNodeId,
                 Name = "(Chưa xác định đơn vị — kiểm tra PMIS_UNIT_CODE_MAPPING)",
                 ParentId = null,
                 NodeType = "unit"
             });
         }
 
+        return nodes;
+    }
+
+    public async Task<IReadOnlyList<PmisDocumentCatalogNodeDto>> GetCatalogUnitChildrenAsync(string unitNodeId)
+    {
+        EnsureOpen();
+
+        long? unitId = null;
+        if (!string.Equals(unitNodeId, UnassignedUnitNodeId, StringComparison.OrdinalIgnoreCase))
+        {
+            var rawId = unitNodeId.StartsWith("unit_", StringComparison.OrdinalIgnoreCase) ? unitNodeId["unit_".Length..] : unitNodeId;
+            if (!long.TryParse(rawId, out var parsedUnitId))
+                return Array.Empty<PmisDocumentCatalogNodeDto>();
+            unitId = parsedUnitId;
+        }
+
+        // Giữ nguyên cách đếm tài liệu bằng GROUP BY 1 lần rồi LEFT/INNER JOIN (xem lịch sử 504 timeout ở
+        // GetCatalogTreeAsync cũ), chỉ thêm điều kiện lọc theo đúng 1 đơn vị (UnitId) để không còn phải
+        // quét toàn bộ INFRASTRUCTURE/EQUIPMENTS của mọi đơn vị trong 1 lần gọi.
+        var infraRows = (await _connection.QueryAsync<InfraCatalogRow>($@"
+            SELECT i.Id, i.Name, i.Code, i.INFRA_TYPE_ID AS InfraTypeId, i.UNIT_ID AS UnitId,
+                   NVL(direct_doc.DocCount, 0) AS DirectDocumentCount,
+                   NVL(child_doc.DocCount, 0) AS ChildEquipmentDocumentCount
+            FROM INFRASTRUCTURE i
+            LEFT JOIN (
+                SELECT OwnerId, COUNT(1) AS DocCount
+                FROM PMIS_DOCUMENT
+                WHERE OwnerType = 'INFRASTRUCTURE' AND IsDeleted = 0
+                GROUP BY OwnerId
+            ) direct_doc ON direct_doc.OwnerId = i.Id
+            LEFT JOIN (
+                SELECT e.INFRASTRUCTURE_ID AS InfrastructureId, COUNT(1) AS DocCount
+                FROM EQUIPMENTS e
+                INNER JOIN PMIS_DOCUMENT pd ON pd.OwnerType = 'EQUIPMENT' AND pd.OwnerId = e.Id AND pd.IsDeleted = 0
+                WHERE e.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("e")}
+                GROUP BY e.INFRASTRUCTURE_ID
+            ) child_doc ON child_doc.InfrastructureId = i.Id
+            WHERE i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0
+              AND (direct_doc.DocCount IS NOT NULL OR child_doc.DocCount IS NOT NULL)
+              AND ((:UnitId IS NULL AND i.UNIT_ID IS NULL) OR i.UNIT_ID = :UnitId)",
+            new { UnitId = unitId }))
+            .ToList();
+
+        var nodes = new List<PmisDocumentCatalogNodeDto>();
+        if (infraRows.Count == 0) return nodes;
+
+        // {EquipmentSqlFilters.NotTransferredAway()} — đây chính là các dòng EQUIPMENT sẽ hiện làm node
+        // con bấm được trong cây "Kho tài liệu PMIS", quan trọng nhất phải loại "hồn ma" (xem GetPagedAsync).
+        var infraIds = infraRows.Select(r => r.Id).ToList();
+        var equipmentRows = (await _connection.QueryAsync<EquipmentCatalogRow>($@"
+            SELECT e.Id, e.Name, e.Code, e.INFRASTRUCTURE_ID AS InfrastructureId, doc.DocCount AS DocumentCount
+            FROM EQUIPMENTS e
+            INNER JOIN (
+                SELECT OwnerId, COUNT(1) AS DocCount
+                FROM PMIS_DOCUMENT
+                WHERE OwnerType = 'EQUIPMENT' AND IsDeleted = 0
+                GROUP BY OwnerId
+            ) doc ON doc.OwnerId = e.Id
+            WHERE e.PMIS_CODE IS NOT NULL AND e.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("e")}
+              AND e.INFRASTRUCTURE_ID IN :InfraIds",
+            new { InfraIds = infraIds }))
+            .ToList();
+
         foreach (var infra in infraRows)
         {
-            var parentUnitNodeId = infra.UnitId.HasValue ? $"unit_{infra.UnitId}" : unassignedUnitId;
-
             nodes.Add(new PmisDocumentCatalogNodeDto
             {
                 Id = $"infra_{infra.Id}",
                 Name = string.IsNullOrEmpty(infra.Code) ? infra.Name : $"{infra.Name} ({infra.Code})",
-                ParentId = parentUnitNodeId,
+                ParentId = unitNodeId,
                 NodeType = infra.InfraTypeId == 1 ? "substation" : "line",
                 DocumentCount = infra.DirectDocumentCount
             });
@@ -251,6 +341,73 @@ public class PmisDocumentRepository : IPmisDocumentRepository
                OFFSET :Skip ROWS FETCH NEXT :Take ROWS ONLY", parameters);
 
         return (rows.Select(ToDetail), totalCount);
+    }
+
+    public async Task<long?> GetOwnerUnitIdAsync(string ownerType, Guid ownerId)
+    {
+        EnsureOpen();
+
+        var sql = ownerType switch
+        {
+            "INFRASTRUCTURE" => "SELECT UNIT_ID FROM INFRASTRUCTURE WHERE Id = :OwnerId AND IsDeleted = 0",
+            "EQUIPMENT" => "SELECT UnitId FROM EQUIPMENTS WHERE Id = :OwnerId AND IsDeleted = 0",
+            _ => null
+        };
+        if (sql == null) return null;
+
+        return await _connection.QuerySingleOrDefaultAsync<long?>(sql, new { OwnerId = ownerId.ToString() });
+    }
+
+    public async Task<IReadOnlyList<PmisInfrastructureLookupDto>> SearchInfrastructuresAsync(IEnumerable<long>? allowedUnitIds)
+    {
+        EnsureOpen();
+
+        var allowedIdsList = allowedUnitIds?.ToList();
+
+        var sql = $@"
+            SELECT i.Id, i.Name, i.Code, i.INFRA_TYPE_ID AS InfraTypeId, i.UNIT_ID AS UnitId, ou.Name AS UnitName,
+                   NVL(direct_doc.DocCount, 0) AS DirectDocumentCount
+            FROM INFRASTRUCTURE i
+            LEFT JOIN ORGANIZATION_UNIT ou ON ou.Id = i.UNIT_ID
+            LEFT JOIN (
+                SELECT OwnerId, COUNT(1) AS DocCount
+                FROM PMIS_DOCUMENT
+                WHERE OwnerType = 'INFRASTRUCTURE' AND IsDeleted = 0
+                GROUP BY OwnerId
+            ) direct_doc ON direct_doc.OwnerId = i.Id
+            LEFT JOIN (
+                SELECT e.INFRASTRUCTURE_ID AS InfrastructureId, COUNT(1) AS DocCount
+                FROM EQUIPMENTS e
+                INNER JOIN PMIS_DOCUMENT pd ON pd.OwnerType = 'EQUIPMENT' AND pd.OwnerId = e.Id AND pd.IsDeleted = 0
+                WHERE e.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("e")}
+                GROUP BY e.INFRASTRUCTURE_ID
+            ) child_doc ON child_doc.InfrastructureId = i.Id
+            WHERE i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0
+              AND (direct_doc.DocCount IS NOT NULL OR child_doc.DocCount IS NOT NULL)";
+
+        var parameters = new DynamicParameters();
+        if (allowedIdsList != null)
+        {
+            // Không phải quản trị hệ thống: chỉ thấy Trạm/Đường dây thuộc đơn vị được phép, loại luôn các
+            // bản ghi chưa xác định đơn vị (UNIT_ID NULL sẽ không khớp IN nên tự động bị loại).
+            sql += " AND i.UNIT_ID IN :AllowedUnitIds";
+            parameters.Add("AllowedUnitIds", allowedIdsList.Count > 0 ? allowedIdsList : new List<long> { -1 });
+        }
+
+        sql += " ORDER BY i.Name";
+
+        var rows = await _connection.QueryAsync<InfraLookupRow>(sql, parameters);
+
+        return rows.Select(r => new PmisInfrastructureLookupDto
+        {
+            Id = $"infra_{r.Id}",
+            Name = string.IsNullOrEmpty(r.Code) ? r.Name : $"{r.Name} ({r.Code})",
+            Code = r.Code,
+            NodeType = r.InfraTypeId == 1 ? "substation" : "line",
+            DocumentCount = r.DirectDocumentCount,
+            UnitNodeId = r.UnitId.HasValue ? $"unit_{r.UnitId}" : UnassignedUnitNodeId,
+            UnitName = r.UnitName ?? "(Chưa xác định đơn vị)"
+        }).ToList();
     }
 
     private static PmisDocumentDetail ToDetail(PmisDocumentRow row) => new()
@@ -305,6 +462,17 @@ public class PmisDocumentRepository : IPmisDocumentRepository
     {
         public long Id { get; set; }
         public string Name { get; set; } = string.Empty;
+    }
+
+    private class InfraLookupRow
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Code { get; set; }
+        public int InfraTypeId { get; set; }
+        public long? UnitId { get; set; }
+        public string? UnitName { get; set; }
+        public int DirectDocumentCount { get; set; }
     }
 
     private void EnsureOpen()

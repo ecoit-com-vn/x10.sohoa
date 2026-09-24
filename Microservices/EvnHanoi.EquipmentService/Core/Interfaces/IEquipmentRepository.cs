@@ -32,6 +32,18 @@ public interface IEquipmentRepository
     Task<bool> CreateAsync(Equipment equipment);
     Task<bool> CloneForInfrastructureTransferAsync(Equipment sourceEquipment, Equipment replacementEquipment);
     Task<Equipment?> GetDetailTransferTargetAsync(Equipment sourceEquipment);
+    /// <summary>
+    /// Lịch sử di chuyển (đổi Trạm/Đường dây quản lý) của thiết bị, gộp theo <paramref name="equipmentCode"/>
+    /// vì mỗi lần "Chuyển thiết bị" tạo bản ghi EQUIPMENTS mới (Id đổi), chỉ Code là bất biến qua các lần
+    /// chuyển. Sắp xếp theo TransferredAt giảm dần (mới nhất lên đầu).
+    /// </summary>
+    Task<(IEnumerable<EquipmentTransferHistoryDto> Items, int TotalCount)> GetTransferHistoryAsync(
+        string equipmentCode,
+        Guid? infrastructureId,
+        DateTime? fromDate,
+        DateTime? toDate,
+        int page,
+        int pageSize);
     Task<IReadOnlyList<Guid>> CloneDossiersAndDocumentsForDetailTransferAsync(Equipment sourceEquipment, Equipment replacementEquipment);
     Task<bool> UpdateAsync(Equipment equipment);
     Task<bool> ConfirmAsync(Guid id, string modifiedBy);

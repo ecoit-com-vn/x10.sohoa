@@ -1,5 +1,6 @@
 using Minio;
 using Minio.DataModel.Args;
+using Minio.Exceptions;
 using EvnHanoi.Infrastructure.Utils;
 
 namespace EvnHanoi.EquipmentService.Core.Services;
@@ -595,8 +596,27 @@ public class FileStorageService : IFileStorageService
 
     private async Task EnsureBucketAsync(string bucket, CancellationToken cancellationToken)
     {
-        var beArgs = new BucketExistsArgs().WithBucket(bucket);
-        if (!await _minioClient.BucketExistsAsync(beArgs, cancellationToken))
+        bool exists;
+        try
+        {
+            var beArgs = new BucketExistsArgs().WithBucket(bucket);
+            exists = await _minioClient.BucketExistsAsync(beArgs, cancellationToken);
+        }
+        catch (AccessDeniedException)
+        {
+            // Policy MinIO của tài khoản service thường chỉ cấp quyền ở mức object (GetObject/PutObject
+            // trên "bucket/*"), thiếu quyền ở mức bucket (ListBucket/HeadBucket trên chính "bucket") - lỗi
+            // Access Denied này KHÔNG có nghĩa là bucket không tồn tại, chỉ là không kiểm tra được. Bucket
+            // nghiệp vụ trong môi trường đã chạy production chắc chắn đã được tạo sẵn từ trước, nên coi
+            // như đã tồn tại và bỏ qua bước tạo mới thay vì chặn toàn bộ upload - nếu bucket THẬT SỰ chưa
+            // tồn tại, request sẽ tự thất bại ngay sau đó ở bước PutObject với lỗi rõ ràng hơn (NoSuchBucket).
+            _logger.LogWarning(
+                "Không kiểm tra được bucket MinIO '{Bucket}' tồn tại hay chưa (Access Denied ở BucketExistsAsync - có thể policy thiếu quyền ListBucket/HeadBucket ở mức bucket). Giả định bucket đã tồn tại và tiếp tục upload.",
+                bucket);
+            return;
+        }
+
+        if (!exists)
         {
             var mbArgs = new MakeBucketArgs().WithBucket(bucket);
             await _minioClient.MakeBucketAsync(mbArgs, cancellationToken);
