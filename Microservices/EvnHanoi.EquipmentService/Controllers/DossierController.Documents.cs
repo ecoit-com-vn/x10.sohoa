@@ -164,6 +164,7 @@ public abstract partial class DossierControllerBase
         [FromForm] IFormFile file,
         [FromForm] Guid documentTypeId,
         [FromForm] int uploadSource = 3,
+        [FromForm] List<Guid>? equipmentIds = null,
         CancellationToken cancellationToken = default)
     {
         if (file == null || file.Length == 0)
@@ -186,7 +187,8 @@ public abstract partial class DossierControllerBase
                 UserId,
                 GetUserUnitId(),
                 UserFullName,
-                cancellationToken);
+                cancellationToken,
+                equipmentIds);
             HttpContext.SetAudit(id.ToString(), file.FileName, $"Upload tài liệu vào hồ sơ {id}: {file.FileName}", "DOCUMENT", AuditActions.Import, AuditLogGroups.Business);
             return Ok(result);
         }

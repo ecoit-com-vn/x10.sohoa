@@ -49,6 +49,8 @@ public record CompleteChunkedUploadRequest
     public string UploadId { get; set; } = string.Empty;
     public List<UploadChunkRequest> Parts { get; set; } = new();
     public Guid? DocumentTypeId { get; set; }
+    /// <summary>Thiết bị được phân loại cho tài liệu này (1 tài liệu có thể gắn nhiều thiết bị).</summary>
+    public List<Guid>? EquipmentIds { get; set; }
 }
 
 /// <summary>
