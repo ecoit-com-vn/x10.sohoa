@@ -224,8 +224,44 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         };
 
     public async Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncInfrastructureAsync(
-        int infraTypeId, string syncHistoryId, IReadOnlyList<JsonElement> rawItems)
+        int infraTypeId, string syncHistoryId, IReadOnlyList<JsonElement> rawItemsRaw, bool syncDocuments = true)
     {
+        // Cô lập lỗi Deserialize THEO TỪNG BẢN GHI — TRƯỚC ĐÂY 1 bản ghi dị dạng (kiểu dữ liệu PMIS trả
+        // sai, vd số bị trả dạng chuỗi) ném JsonException thẳng ra khỏi TOÀN BỘ trang (khỏi cả .Select()
+        // lẫn vòng for bên dưới), khiến CẢ TRANG bị PushPageAsync ở PmisScheduledSyncJob bắt và đánh Failed
+        // hết — kể cả các bản ghi hợp lệ khác cùng trang — và vì phân trang dùng skip cố định, lỗi này LẶP
+        // LẠI Y HỆT mỗi lượt đồng bộ tiếp theo, "khoá" cả trang vĩnh viễn. Giờ lọc bỏ đúng bản ghi lỗi ra
+        // khỏi rawItems TRƯỚC khi xử lý, ghi 1 SyncHistoryDetail Failed riêng cho nó, các bản ghi còn lại
+        // trong trang xử lý bình thường.
+        var rawItems = new List<JsonElement>(rawItemsRaw.Count);
+        var deserializeFailedDetails = new List<SyncHistoryDetail>();
+        var deserializeFailedErrors = new List<string>();
+        foreach (var raw in rawItemsRaw)
+        {
+            try
+            {
+                _ = infraTypeId == 1 ? raw.Deserialize<PmisSubstationDto>(JsonOptions) : (object?)raw.Deserialize<PmisLineDto>(JsonOptions);
+                rawItems.Add(raw);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "SyncInfrastructureAsync: bỏ qua 1 bản ghi {InfraType} không đọc được (JSON dị dạng/lệch kiểu dữ liệu).", infraTypeId == 1 ? "Trạm biến áp" : "Đường dây");
+                deserializeFailedErrors.Add($"1 bản ghi {(infraTypeId == 1 ? "Trạm biến áp" : "Đường dây")} không đọc được: {SyncErrorFormatter.FormatShort(ex)}");
+                deserializeFailedDetails.Add(new SyncHistoryDetail
+                {
+                    SyncHistoryId = syncHistoryId,
+                    SourceId = null,
+                    SourceCode = "(không đọc được)",
+                    SourceName = null,
+                    TargetId = null,
+                    ActionType = SyncActionType.Skip,
+                    Status = SyncDetailStatus.Failed,
+                    DataContent = raw.GetRawText(),
+                    ErrorMessage = $"Không đọc được dữ liệu JSON từ PMIS: {SyncErrorFormatter.FormatShort(ex)}"
+                });
+            }
+        }
+
         List<UpsertInfrastructureFromPmisRequest> upsertRequests;
         List<UpsertInfrastructureFromPmisResult> results;
 
@@ -305,10 +341,14 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             results = resultsByIndex.Select(r => r!).ToList();
         }
 
-        if (upsertRequests.Count == 0) return (0, 0, 0, []);
+        if (upsertRequests.Count == 0)
+        {
+            if (deserializeFailedDetails.Count > 0) await _syncHistoryRepository.InsertDetailsAsync(deserializeFailedDetails);
+            return (0, deserializeFailedDetails.Count, 0, deserializeFailedErrors);
+        }
 
-        var details = new List<SyncHistoryDetail>();
-        var errors = new List<string>();
+        var details = new List<SyncHistoryDetail>(deserializeFailedDetails);
+        var errors = new List<string>(deserializeFailedErrors);
         var successCount = 0;
         var parentUnresolvedWarnings = 0;
         for (var i = 0; i < results.Count; i++)
@@ -345,28 +385,34 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
 
         // Đồng bộ tài liệu đính kèm (API 8/9) cho từng Trạm/Đường dây vừa lưu thành công — lỗi ở bước này
         // CHỈ ghi cảnh báo, không ảnh hưởng successCount/errors ở trên (xem SyncDocumentsForOwnerAsync).
+        // syncDocuments=false (luồng AUTO/PmisScheduledSyncJob): BỎ QUA hẳn ở đây, chạy pass riêng có
+        // rotation sau khi phân trang chính xong — xem SyncDocumentsForInfrastructureOwnerAsync +
+        // PmisScheduledSyncJob.SyncDocumentsRotatingAsync. Luồng Manual giữ nguyên hành vi cũ (inline).
         var warnings = parentUnresolvedWarnings;
-        var docDetails = new List<SyncHistoryDetail>();
-        for (var i = 0; i < results.Count; i++)
+        if (syncDocuments)
         {
-            if (!results[i].Success) continue;
-            var req = upsertRequests[i];
-            var isSubstationOrigin = req.InfraTypeId == 1;
-            var (w, d) = await SyncDocumentsForOwnerAsync(
-                ownerType: "INFRASTRUCTURE",
-                ownerPmisCode: req.PmisCode,
-                sourceName: req.Name,
-                isSubstationOrigin: isSubstationOrigin,
-                maTBA: isSubstationOrigin ? req.PmisCode : null,
-                maDuongDay: isSubstationOrigin ? null : req.PmisCode,
-                maTB: null,
-                syncHistoryId: syncHistoryId);
-            warnings += w;
-            docDetails.AddRange(d);
+            var docDetails = new List<SyncHistoryDetail>();
+            for (var i = 0; i < results.Count; i++)
+            {
+                if (!results[i].Success) continue;
+                var req = upsertRequests[i];
+                var isSubstationOrigin = req.InfraTypeId == 1;
+                var (w, d) = await SyncDocumentsForOwnerAsync(
+                    ownerType: "INFRASTRUCTURE",
+                    ownerPmisCode: req.PmisCode,
+                    sourceName: req.Name,
+                    isSubstationOrigin: isSubstationOrigin,
+                    maTBA: isSubstationOrigin ? req.PmisCode : null,
+                    maDuongDay: isSubstationOrigin ? null : req.PmisCode,
+                    maTB: null,
+                    syncHistoryId: syncHistoryId);
+                warnings += w;
+                docDetails.AddRange(d);
+            }
+            if (docDetails.Count > 0) await _syncHistoryRepository.InsertDetailsAsync(docDetails);
         }
-        if (docDetails.Count > 0) await _syncHistoryRepository.InsertDetailsAsync(docDetails);
 
-        return (successCount, results.Count - successCount, warnings, errors);
+        return (successCount, (results.Count - successCount) + deserializeFailedDetails.Count, warnings, errors);
     }
 
     /// <summary>Trả false (và log cảnh báo đúng 1 lần khi chạm trần) nếu đã đạt <see cref="MaxEquipmentDetailCallsPerRun"/>
@@ -392,9 +438,41 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         // Song song 1:1 với upsertRequests — giữ lại ngữ cảnh gốc (TBA hay đường dây, mã cha) để đồng bộ
         // tài liệu đính kèm (API 8/9) đúng đối tượng sau khi thiết bị đã lưu thành công.
         var origins = new List<(bool IsSubstationOrigin, string? MaTBA, string? MaDuongDay, string MaTB)>();
+        // Song song 1:1 với upsertRequests/origins (KHÔNG phải rawItems gốc nữa) — dùng để lấy lại
+        // DataContent khi ghi SyncHistoryDetail bên dưới, sau khi đã lọc bỏ các bản ghi lỗi Deserialize.
+        var validRawItems = new List<JsonElement>();
+        // Cô lập lỗi Deserialize THEO TỪNG THIẾT BỊ — cùng lý do với SyncInfrastructureAsync: TRƯỚC ĐÂY 1
+        // thiết bị có dữ liệu PMIS dị dạng ném JsonException ra khỏi CẢ foreach, làm cả trang bị đánh
+        // Failed hết và lặp lại y hệt mỗi lượt (skip cố định). Giờ bỏ qua đúng thiết bị lỗi, ghi Detail
+        // Failed riêng, các thiết bị còn lại trong trang xử lý bình thường.
+        var deserializeFailedDetails = new List<SyncHistoryDetail>();
+        var deserializeFailedErrors = new List<string>();
         foreach (var raw in rawItems)
         {
-            var item = raw.Deserialize<EquipmentSaveShape>(JsonOptions)!;
+            EquipmentSaveShape item;
+            try
+            {
+                item = raw.Deserialize<EquipmentSaveShape>(JsonOptions)!;
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "SyncEquipmentAsync: bỏ qua 1 bản ghi Thiết bị không đọc được (JSON dị dạng/lệch kiểu dữ liệu).");
+                deserializeFailedErrors.Add($"1 bản ghi Thiết bị không đọc được: {SyncErrorFormatter.FormatShort(ex)}");
+                deserializeFailedDetails.Add(new SyncHistoryDetail
+                {
+                    SyncHistoryId = syncHistoryId,
+                    SourceId = null,
+                    SourceCode = "(không đọc được)",
+                    SourceName = null,
+                    TargetId = null,
+                    ActionType = SyncActionType.Skip,
+                    Status = SyncDetailStatus.Failed,
+                    DataContent = raw.GetRawText(),
+                    ErrorMessage = $"Không đọc được dữ liệu JSON từ PMIS: {SyncErrorFormatter.FormatShort(ex)}"
+                });
+                continue;
+            }
+            validRawItems.Add(raw);
 
             // Thiết bị TBA (nhận diện bằng MaThietBi có giá trị — chỉ dạng thiết bị này mới có field
             // này, xem PmisSubstationDeviceDto) không có sẵn MaQRCode trong danh sách (ThongSoKyThuat/
@@ -503,12 +581,16 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 maTB));
         }
 
-        if (upsertRequests.Count == 0) return (0, 0, 0, []);
+        if (upsertRequests.Count == 0)
+        {
+            if (deserializeFailedDetails.Count > 0) await _syncHistoryRepository.InsertDetailsAsync(deserializeFailedDetails);
+            return (0, deserializeFailedDetails.Count, 0, deserializeFailedErrors);
+        }
 
         var results = await UpsertEquipmentSafeAsync(upsertRequests);
 
-        var details = new List<SyncHistoryDetail>();
-        var errors = new List<string>();
+        var details = new List<SyncHistoryDetail>(deserializeFailedDetails);
+        var errors = new List<string>(deserializeFailedErrors);
         var successCount = 0;
         for (var i = 0; i < results.Count; i++)
         {
@@ -525,7 +607,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 TargetId = result.EquipmentId?.ToString(),
                 ActionType = !result.HasChanged ? SyncActionType.Skip : (result.WasCreated ? SyncActionType.Create : SyncActionType.Update),
                 Status = result.Success ? SyncDetailStatus.Success : SyncDetailStatus.Failed,
-                DataContent = rawItems[i].GetRawText(),
+                DataContent = validRawItems[i].GetRawText(),
                 ErrorMessage = result.ErrorMessage
             });
         }
@@ -555,7 +637,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         }
         if (docDetails.Count > 0) await _syncHistoryRepository.InsertDetailsAsync(docDetails);
 
-        return (successCount, results.Count - successCount, warnings, errors);
+        return (successCount, (results.Count - successCount) + deserializeFailedDetails.Count, warnings, errors);
     }
 
     /// <summary>
@@ -565,6 +647,26 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
     /// tạo dòng SyncHistoryDetail trạng thái Warning — không throw ra ngoài, không được cộng vào
     /// successCount/errors của bản ghi chính (Trạm/Đường dây/Thiết bị đã lưu xong trước khi gọi hàm này).
     /// </summary>
+    /// <summary>Wrapper công khai cho <see cref="SyncDocumentsForOwnerAsync"/> — dùng bởi
+    /// PmisScheduledSyncJob.SyncDocumentsRotatingAsync (pass riêng có rotation, xem
+    /// IPmisSyncExecutionService.SyncDocumentsForInfrastructureOwnerAsync). Chỉ có "mã PMIS + loại" (không
+    /// có tên) vì nguồn dữ liệu là InfrastructureRepository.GetSyncedPmisCodesAsync (rẻ, không SELECT tên)
+    /// — SourceName trong SyncHistoryDetail dùng tạm chính mã PMIS.</summary>
+    public Task<(int Warnings, List<SyncHistoryDetail> Details)> SyncDocumentsForInfrastructureOwnerAsync(
+        string ownerPmisCode, int infraTypeId, string syncHistoryId)
+    {
+        var isSubstationOrigin = infraTypeId == 1;
+        return SyncDocumentsForOwnerAsync(
+            ownerType: "INFRASTRUCTURE",
+            ownerPmisCode: ownerPmisCode,
+            sourceName: ownerPmisCode,
+            isSubstationOrigin: isSubstationOrigin,
+            maTBA: isSubstationOrigin ? ownerPmisCode : null,
+            maDuongDay: isSubstationOrigin ? null : ownerPmisCode,
+            maTB: null,
+            syncHistoryId: syncHistoryId);
+    }
+
     private async Task<(int Warning, List<SyncHistoryDetail> Details)> SyncDocumentsForOwnerAsync(
         string ownerType, string ownerPmisCode, string sourceName, bool isSubstationOrigin,
         string? maTBA, string? maDuongDay, string? maTB, string syncHistoryId)

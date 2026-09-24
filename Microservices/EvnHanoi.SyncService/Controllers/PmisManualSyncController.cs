@@ -7,6 +7,7 @@ using EvnHanoi.SyncService.Repositories;
 using EvnHanoi.SyncService.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RedLockNet;
 using Serilog;
 
 namespace EvnHanoi.SyncService.Controllers;
@@ -25,17 +26,20 @@ public class PmisManualSyncController : ControllerBase
     private readonly IPmisSyncExecutionService _executionService;
     private readonly ISyncConfigRepository _syncConfigRepository;
     private readonly ISyncHistoryRepository _syncHistoryRepository;
+    private readonly IDistributedLockFactory _lockFactory;
 
     public PmisManualSyncController(
         IInteractivePmisClient pmisClient,
         IPmisSyncExecutionService executionService,
         ISyncConfigRepository syncConfigRepository,
-        ISyncHistoryRepository syncHistoryRepository)
+        ISyncHistoryRepository syncHistoryRepository,
+        IDistributedLockFactory lockFactory)
     {
         _pmisClient = pmisClient;
         _executionService = executionService;
         _syncConfigRepository = syncConfigRepository;
         _syncHistoryRepository = syncHistoryRepository;
+        _lockFactory = lockFactory;
     }
 
     [HttpPost("{objectType}/search")]
@@ -74,6 +78,21 @@ public class PmisManualSyncController : ControllerBase
             return BadRequest(new { message = "Đối tượng đồng bộ không hợp lệ." });
         if (request.Items.Count == 0)
             return BadRequest(new { message = "Chưa chọn bản ghi nào để đồng bộ." });
+
+        // Dùng CHUNG khoá RedLock "sync:lock:pmis:{objectType}" với PmisScheduledSyncJob (Auto) — TRƯỚC
+        // ĐÂY đồng bộ thủ công hoàn toàn không khoá gì, race THẬT với Auto/Manual khác cùng objectType đã
+        // từng xảy ra (xem comment bắt ORA-00001 ở InfrastructureRepository.UpsertFromPmisAsync và
+        // EquipmentRepository.UpsertFromPmisAsync — "Race THẬT giữa 2 lượt sync đồng thời"). UNIQUE
+        // constraint ở DB chặn được INSERT trùng (item đó tự đánh Failed, tự sửa đúng ở lượt sau), nhưng
+        // KHÔNG chặn được UPDATE-UPDATE race (lost update) — khoá ở đây chặn tận gốc cả 2 loại race.
+        // TTL/wait/retry giống hệt Auto để hành vi nhất quán (RedLockNet.SERedis tự gia hạn khoá, xem
+        // comment tại PmisScheduledSyncJob.RunIfDueAsync).
+        await using var redLock = await _lockFactory.CreateLockAsync(
+            $"sync:lock:pmis:{normalizedType}", TimeSpan.FromMinutes(10), TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(1));
+        if (!redLock.IsAcquired)
+        {
+            return Conflict(new { message = $"Đối tượng {normalizedType} đang được đồng bộ ở nơi khác (tự động hoặc 1 phiên thủ công khác) — vui lòng thử lại sau ít phút." });
+        }
 
         string historyId;
         try
@@ -152,7 +171,7 @@ public class PmisManualSyncController : ControllerBase
             historyId, finalStatus, request.Items.Count, successCount, failedCount,
             errors.Count > 0 ? string.Join("; ", errors.Take(5)) : null);
         if (!completedOk)
-            Log.Warning("PmisManualSyncController.Save: hoàn tất với kết quả thật ({Status}, success={Success}/{Total}) nhưng syncHistoryId={SyncHistoryId} đã bị SyncHistoryWatchdogJob đánh FAILED trước đó (chạy quá 30 phút) — giữ nguyên FAILED của watchdog, bỏ kết quả thật này.", finalStatus, successCount, request.Items.Count, historyId);
+            Log.Warning("PmisManualSyncController.Save: hoàn tất với kết quả thật ({Status}, success={Success}/{Total}) nhưng syncHistoryId={SyncHistoryId} đã bị SyncHistoryWatchdogJob đánh FAILED trước đó (chạy quá ngưỡng an toàn, xem SyncHistoryWatchdogJob.StaleThreshold) — giữ nguyên FAILED của watchdog, bỏ kết quả thật này.", finalStatus, successCount, request.Items.Count, historyId);
 
         return Ok(new PmisManualSaveResponse
         {

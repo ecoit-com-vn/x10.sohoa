@@ -20,8 +20,11 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         // KHÔNG lọc IsDeleted: PmisDocumentCode có UQ_PMIS_DOCUMENT_CODE (không loại trừ dòng đã xoá
         // mềm) — nếu lọc IsDeleted=0 ở đây, 1 dòng đã xoá mềm sẽ "vô hình", khiến InsertAsync sau đó
         // đụng đúng constraint này (giống lỗi đã sửa ở EquipmentRepository.ResolveOrCreateEquipmentTypeIdAsync).
+        // OwnerType/OwnerId lấy kèm để caller so sánh với chủ sở hữu resolve lại được (xem
+        // InternalPmisSyncController.UpsertDocumentsFromPmis — sửa owner sai do đồng bộ trước khi thiết
+        // bị thật tồn tại, không chỉ dựa vào Id/ObjectKey như trước).
         return await _connection.QuerySingleOrDefaultAsync<PmisDocumentLookup>(
-            "SELECT Id, ObjectKey FROM PMIS_DOCUMENT WHERE PmisDocumentCode = :Code",
+            "SELECT Id, ObjectKey, OwnerType, OwnerId FROM PMIS_DOCUMENT WHERE PmisDocumentCode = :Code",
             new { Code = pmisDocumentCode });
     }
 
@@ -93,6 +96,24 @@ public class PmisDocumentRepository : IPmisDocumentRepository
             ObjectKey = objectKey,
             FileSize = fileSize,
             SyncHistoryId = syncHistoryId
+        });
+    }
+
+    public async Task UpdateOwnerAsync(string id, string ownerType, Guid ownerId)
+    {
+        EnsureOpen();
+        // Sửa lại chủ sở hữu 1 dòng đã lưu (kể cả đã có file) khi lượt đồng bộ NÀY resolve ra được chủ
+        // đúng hơn (vd EQUIPMENT thật vừa được tạo ở 1 lượt Equipment sync trước đó) — KHÔNG đụng
+        // ObjectKey/FileSize, chỉ sửa owner (xem InternalPmisSyncController.UpsertDocumentsFromPmis).
+        const string sql = @"
+            UPDATE PMIS_DOCUMENT
+            SET OwnerType = :OwnerType, OwnerId = :OwnerId, ModifiedBy = 'PMIS_SYNC', ModifiedDate = SYSTIMESTAMP
+            WHERE Id = :Id";
+        await _connection.ExecuteAsync(sql, new
+        {
+            Id = id,
+            OwnerType = ownerType,
+            OwnerId = ownerId.ToString()
         });
     }
 

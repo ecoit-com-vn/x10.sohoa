@@ -1667,24 +1667,81 @@ StatusTransition,
         return await _connection.ExecuteScalarAsync<int>(sql, new { InfrastructureId = infrastructureId.ToString() });
     }
 
-    private class EquipmentCompareRow
+    private class PmisEquipmentTypeMappingRow
     {
-        public string? Id { get; set; }
-        public string? Name { get; set; }
-        public string? Code { get; set; }
-        public string? SerialNumber { get; set; }
-        public string? InfrastructureId { get; set; }
-        public int? ManufactureYear { get; set; }
-        public long? UnitId { get; set; }
-        public string? EquipmentTypeId { get; set; }
-        public long? EquipmentStatusId { get; set; }
-        public string? FormValues { get; set; }
+        public string PmisMaLoaiTB { get; set; } = string.Empty;
+        public int GridTypeId { get; set; }
+        public string EquipmentTypeId { get; set; } = string.Empty;
+    }
+
+    private class PmisUnitCodeMappingRow
+    {
+        public string PmisUnitCode { get; set; } = string.Empty;
+        public long UnitId { get; set; }
+    }
+
+    /// <summary>Prefetch 4 lookup lặp lại của UpsertFromPmisAsync cho CẢ 1 LÔ (thường 1 trang PMIS, ~100
+    /// bản ghi) trong 4 round-trip DB CỐ ĐỊNH thay vì tới 4×N round-trip (N = số bản ghi) — audit hiệu năng
+    /// PMIS 2026-09-24 xác định đây là điểm N+1 lớn nhất trong toàn luồng đồng bộ. KHÔNG đổi business logic
+    /// nào, chỉ đổi NGUỒN DỮ LIỆU cho 4 lookup — UpsertFromPmisAsync vẫn tự quyết định mọi nhánh rẽ (chuyển
+    /// TBA, orphan guard, so sánh coreFieldsChanged...) y hệt trước đây.</summary>
+    public async Task<EquipmentUpsertPrefetch> PrefetchUpsertLookupsAsync(
+        IReadOnlyList<(string PmisCode, string? ParentPmisCode, string? UnitCode)> items)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var parentCodes = items
+            .Select(i => i.ParentPmisCode)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c!.Trim().ToUpperInvariant())
+            .Distinct()
+            .ToList();
+        var parentByCode = await InfrastructurePmisLookup.ResolveManyByPmisCodesAsync(_connection, parentCodes);
+
+        var typeMappingRows = await _connection.QueryAsync<PmisEquipmentTypeMappingRow>(
+            "SELECT PmisMaLoaiTB, GridTypeId, EquipmentTypeId FROM PMIS_EQUIPMENT_TYPE_MAPPING WHERE IsDeleted = 0");
+        var typeByCodeAndGrid = new Dictionary<(string, int), string>();
+        foreach (var row in typeMappingRows) typeByCodeAndGrid[(row.PmisMaLoaiTB, row.GridTypeId)] = row.EquipmentTypeId;
+
+        var unitMappingRows = await _connection.QueryAsync<PmisUnitCodeMappingRow>(
+            "SELECT PmisUnitCode, UnitId FROM PMIS_UNIT_CODE_MAPPING WHERE IsDeleted = 0");
+        var unitByCode = new Dictionary<string, long>();
+        foreach (var row in unitMappingRows) unitByCode[row.PmisUnitCode] = row.UnitId;
+
+        var equipmentCodes = items
+            .Select(i => i.PmisCode)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c.Trim().ToUpperInvariant())
+            .Distinct()
+            .ToList();
+        var existingByCode = new Dictionary<string, EquipmentCompareRow>();
+        if (equipmentCodes.Count > 0)
+        {
+            var rows = await _connection.QueryAsync<EquipmentCompareRow>(
+                @"SELECT Id, Name, Code, SerialNumber, INFRASTRUCTURE_ID AS InfrastructureId,
+                         MANUFACTURE_YEAR AS ManufactureYear, UnitId, EquipmentTypeId,
+                         EQUIPMENT_STATUS_ID AS EquipmentStatusId, FORM_VALUES AS FormValues,
+                         UPPER(TRIM(PMIS_CODE)) AS NormalizedPmisCode
+                  FROM EQUIPMENTS WHERE UPPER(TRIM(PMIS_CODE)) IN :Codes AND IsDeleted = 0 AND StatusTransition IS NULL",
+                new { Codes = equipmentCodes });
+            foreach (var row in rows) existingByCode[row.NormalizedPmisCode!] = row;
+        }
+
+        return new EquipmentUpsertPrefetch
+        {
+            ParentByPmisCode = parentByCode,
+            EquipmentTypeByCodeAndGrid = typeByCodeAndGrid,
+            UnitIdByPmisCode = unitByCode,
+            ExistingByPmisCode = existingByCode
+        };
     }
 
     public async Task<EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult> UpsertFromPmisAsync(
         string pmisCode, string code, string name, string? serialNumber,
         string equipmentTypeCode, string? parentPmisCode, string? unitCode,
-        int? manufactureYear, string? qrCodeBase64, int? gridTypeId = null, string? equipmentTypeName = null)
+        int? manufactureYear, string? qrCodeBase64, int? gridTypeId = null, string? equipmentTypeName = null,
+        EquipmentUpsertPrefetch? prefetch = null)
     {
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
@@ -1705,7 +1762,9 @@ StatusTransition,
             // Trạm/Đường dây cha làm phương án dự phòng khi không truyền sẵn (xem Migration0051/0052 +
             // BAO_CAO_TEST_API_PMIS_GATEWAY_THAT.md). Dùng chung InfrastructurePmisLookup với
             // InfrastructureRepository.UpsertFromPmisAsync (cùng 1 câu SQL tra INFRASTRUCTURE theo PMIS_CODE).
-            var infraRow = await InfrastructurePmisLookup.ResolveByPmisCodeAsync(_connection, parentPmisCode);
+            (string Id, int? GridTypeId)? infraRow = prefetch != null
+                ? (prefetch.ParentByPmisCode.TryGetValue(parentPmisCode.Trim().ToUpperInvariant(), out var prefetchedParent) ? prefetchedParent : null)
+                : await InfrastructurePmisLookup.ResolveByPmisCodeAsync(_connection, parentPmisCode);
             if (infraRow == null)
                 infraLookupFailed = true;
             else
@@ -1718,10 +1777,12 @@ StatusTransition,
         string? equipmentTypeId = null;
         if (effectiveGridTypeId != null)
         {
-            equipmentTypeId = await _connection.QuerySingleOrDefaultAsync<string?>(
-                @"SELECT EquipmentTypeId FROM PMIS_EQUIPMENT_TYPE_MAPPING
-                  WHERE PmisMaLoaiTB = :Code AND GridTypeId = :GridTypeId AND IsDeleted = 0",
-                new { Code = equipmentTypeCode, GridTypeId = effectiveGridTypeId });
+            equipmentTypeId = prefetch != null
+                ? (prefetch.EquipmentTypeByCodeAndGrid.TryGetValue((equipmentTypeCode, effectiveGridTypeId.Value), out var prefetchedType) ? prefetchedType : null)
+                : await _connection.QuerySingleOrDefaultAsync<string?>(
+                    @"SELECT EquipmentTypeId FROM PMIS_EQUIPMENT_TYPE_MAPPING
+                      WHERE PmisMaLoaiTB = :Code AND GridTypeId = :GridTypeId AND IsDeleted = 0",
+                    new { Code = equipmentTypeCode, GridTypeId = effectiveGridTypeId });
         }
 
         if (equipmentTypeId == null)
@@ -1749,18 +1810,22 @@ StatusTransition,
         long? unitId = null;
         if (!string.IsNullOrWhiteSpace(unitCode))
         {
-            unitId = await _connection.QuerySingleOrDefaultAsync<long?>(
-                "SELECT UnitId FROM PMIS_UNIT_CODE_MAPPING WHERE PmisUnitCode = :Code AND IsDeleted = 0", new { Code = unitCode });
+            unitId = prefetch != null
+                ? (prefetch.UnitIdByPmisCode.TryGetValue(unitCode, out var prefetchedUnit) ? prefetchedUnit : null)
+                : await _connection.QuerySingleOrDefaultAsync<long?>(
+                    "SELECT UnitId FROM PMIS_UNIT_CODE_MAPPING WHERE PmisUnitCode = :Code AND IsDeleted = 0", new { Code = unitCode });
         }
 
         // UPPER(TRIM(...)) — cùng lý do với lookup cha ở trên (chuẩn hoá so khớp PMIS_CODE của CHÍNH thiết
         // bị này, tránh Oracle không tìm thấy dòng đã lưu chỉ vì lệch khoảng trắng/hoa-thường).
-        var existing = await _connection.QuerySingleOrDefaultAsync<EquipmentCompareRow>(
-            @"SELECT Id, Name, Code, SerialNumber, INFRASTRUCTURE_ID AS InfrastructureId,
-                     MANUFACTURE_YEAR AS ManufactureYear, UnitId, EquipmentTypeId,
-                     EQUIPMENT_STATUS_ID AS EquipmentStatusId, FORM_VALUES AS FormValues
-              FROM EQUIPMENTS WHERE UPPER(TRIM(PMIS_CODE)) = UPPER(TRIM(:PmisCode)) AND IsDeleted = 0 AND StatusTransition IS NULL",
-            new { PmisCode = pmisCode });
+        var existing = prefetch != null
+            ? (prefetch.ExistingByPmisCode.TryGetValue(pmisCode.Trim().ToUpperInvariant(), out var prefetchedExisting) ? prefetchedExisting : null)
+            : await _connection.QuerySingleOrDefaultAsync<EquipmentCompareRow>(
+                @"SELECT Id, Name, Code, SerialNumber, INFRASTRUCTURE_ID AS InfrastructureId,
+                         MANUFACTURE_YEAR AS ManufactureYear, UnitId, EquipmentTypeId,
+                         EQUIPMENT_STATUS_ID AS EquipmentStatusId, FORM_VALUES AS FormValues
+                  FROM EQUIPMENTS WHERE UPPER(TRIM(PMIS_CODE)) = UPPER(TRIM(:PmisCode)) AND IsDeleted = 0 AND StatusTransition IS NULL",
+                new { PmisCode = pmisCode });
 
         if (existing != null)
         {
@@ -1977,6 +2042,16 @@ StatusTransition,
             ModifiedBy = "PMIS_SYNC"
         });
         return affected > 0;
+    }
+
+    public async Task<int> CountRecentlyTransferredAsync(DateTime sinceUtc)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"SELECT COUNT(1) FROM EQUIPMENTS
+                    WHERE StatusTransition = 0 AND ModifiedBy = 'PMIS_SYNC' AND ModifiedDate >= :SinceUtc";
+        return await _connection.ExecuteScalarAsync<int>(sql, new { SinceUtc = sinceUtc });
     }
 
     /// <summary>
