@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
+using Dapper;
 using Elastic.Clients.Elasticsearch;
 using Elastic.Clients.Elasticsearch.Core.Search;
 using Elastic.Clients.Elasticsearch.QueryDsl;
@@ -15,10 +17,12 @@ namespace EvnHanoi.NotificationService.Repositories
     {
         private const int ExportPageSize = 1000;
         private readonly ElasticsearchClient _elasticsearchClient;
+        private readonly IDbConnection _dbConnection;
 
-        public AuditLogRepository(ElasticsearchClient elasticsearchClient)
+        public AuditLogRepository(ElasticsearchClient elasticsearchClient, IDbConnection dbConnection)
         {
             _elasticsearchClient = elasticsearchClient;
+            _dbConnection = dbConnection;
         }
 
         public async Task<(long Total, IReadOnlyList<AuditLogItemDto> Logs)> GetAuditLogsAsync(
@@ -34,6 +38,12 @@ namespace EvnHanoi.NotificationService.Repositories
             string? logGroup = null,
             IReadOnlyList<string>? unitIds = null)
         {
+            if (string.Equals(logGroup, AuditLogGroups.Sso, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(logGroup, "SSO", StringComparison.OrdinalIgnoreCase))
+            {
+                return await GetSsoLoginHistoryAsync(page, pageSize, keyword, action, userName, fromDate, toDate, unitIds);
+            }
+
             var response = await SearchAsync(page, pageSize, keyword, action, resourceType, serviceName, userName, fromDate, toDate, logGroup, unitIds);
 
             if (!response.IsValidResponse)
@@ -141,6 +151,14 @@ namespace EvnHanoi.NotificationService.Repositories
             string? logGroup = null,
             IReadOnlyList<string>? unitIds = null)
         {
+            if (string.Equals(logGroup, AuditLogGroups.Sso, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(logGroup, "SSO", StringComparison.OrdinalIgnoreCase))
+            {
+                var (_, ssoLogs) = await GetSsoLoginHistoryAsync(
+                    1, maxRows, keyword, action, userName, fromDate, toDate, unitIds);
+                return ssoLogs;
+            }
+
             var all = new List<AuditLogItemDto>();
             var page = 1;
 
@@ -167,6 +185,21 @@ namespace EvnHanoi.NotificationService.Repositories
 
         public async Task<long> DeleteAuditLogsAsync(DateTime fromDate, DateTime toDate, string? username, string? userId)
         {
+            long ssoDeletedCount = 0;
+            try
+            {
+                if (_dbConnection.State != ConnectionState.Open)
+                    _dbConnection.Open();
+
+                ssoDeletedCount = await _dbConnection.ExecuteAsync(
+                    "UPDATE SSO_LOGIN_HISTORY SET IS_DELETED = 1 WHERE LOGIN_AT >= :FromDate AND LOGIN_AT <= :ToDate AND IS_DELETED = 0",
+                    new { FromDate = fromDate, ToDate = toDate });
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Soft delete SSO_LOGIN_HISTORY by date range failed.");
+            }
+
             var searchResponse = await _elasticsearchClient.CountAsync(c => c
                 .Indices($"{AuditMessaging.IndexPrefix}-*")
                 .Query(q => q.Bool(b =>
@@ -180,8 +213,8 @@ namespace EvnHanoi.NotificationService.Repositories
 
             long count = searchResponse.Count;
             Log.Warning(
-                "[AUDIT PURGE] SuperAdmin {Username} (ID: {UserId}) đã yêu cầu Soft Delete {Count} nhật ký từ {FromDate} đến {ToDate}.",
-                username, userId, count, fromDate, toDate);
+                "[AUDIT PURGE] SuperAdmin {Username} (ID: {UserId}) đã yêu cầu Soft Delete {Count} nhật ký (và {SsoCount} SSO) từ {FromDate} đến {ToDate}.",
+                username, userId, count, ssoDeletedCount, fromDate, toDate);
 
             if (count > 0)
             {
@@ -206,7 +239,7 @@ namespace EvnHanoi.NotificationService.Repositories
                 }
             }
 
-            return count;
+            return count + ssoDeletedCount;
         }
 
         public async Task<long> DeleteAuditLogsByIdsAsync(IReadOnlyList<string> ids, string? username, string? userId)
@@ -222,6 +255,30 @@ namespace EvnHanoi.NotificationService.Repositories
 
             if (distinctIds.Count == 0)
                 return 0;
+
+            long ssoDeletedCount = 0;
+            try
+            {
+                var ssoIds = distinctIds
+                    .Select(id => long.TryParse(id, out var numId) ? (long?)numId : null)
+                    .Where(id => id.HasValue)
+                    .Select(id => id!.Value)
+                    .ToList();
+
+                if (ssoIds.Count > 0)
+                {
+                    if (_dbConnection.State != ConnectionState.Open)
+                        _dbConnection.Open();
+
+                    ssoDeletedCount = await _dbConnection.ExecuteAsync(
+                        "UPDATE SSO_LOGIN_HISTORY SET IS_DELETED = 1 WHERE ID IN :Ids AND IS_DELETED = 0",
+                        new { Ids = ssoIds });
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Soft delete SSO_LOGIN_HISTORY by IDs failed.");
+            }
 
             const int maxBatch = 500;
             if (distinctIds.Count > maxBatch)
@@ -256,8 +313,8 @@ namespace EvnHanoi.NotificationService.Repositories
 
             long count = countResponse.Count;
             Log.Warning(
-                "[AUDIT PURGE] User {Username} (ID: {UserId}) đã yêu cầu Soft Delete {Count} nhật ký theo danh sách ID.",
-                username, userId, count);
+                "[AUDIT PURGE] User {Username} (ID: {UserId}) đã yêu cầu Soft Delete {Count} nhật ký (và {SsoCount} SSO) theo danh sách ID.",
+                username, userId, count, ssoDeletedCount);
 
             if (count > 0)
             {
@@ -279,7 +336,7 @@ namespace EvnHanoi.NotificationService.Repositories
                 }
             }
 
-            return count;
+            return count + ssoDeletedCount;
         }
 
         public async Task<IReadOnlyList<AuditLogIndexMetadata>> GetAuditLogIndexMetadataAsync(
@@ -647,14 +704,25 @@ namespace EvnHanoi.NotificationService.Repositories
 
         private static AuditLogItemDto MapToDto(AuditLogDocument doc, string? documentId = null)
         {
+            var actionName = AuditVietnameseLabels.ActionLabels.TryGetValue(doc.Action ?? string.Empty, out var actLabel)
+                ? actLabel
+                : doc.Action;
+            var resourceTypeName = !string.IsNullOrWhiteSpace(doc.ResourceType) &&
+                                   AuditVietnameseLabels.ResourceTypeLabels.TryGetValue(doc.ResourceType, out var resLabel)
+                ? resLabel
+                : doc.ResourceType;
+
             return new AuditLogItemDto
             {
                 Id = !string.IsNullOrWhiteSpace(documentId) ? documentId : doc.Id,
                 Action = doc.Action,
+                ActionName = actionName,
                 UserName = doc.UserName,
+                FullName = !string.IsNullOrWhiteSpace(doc.ActorFullName) ? doc.ActorFullName : doc.UserName,
                 Timestamp = doc.OccurredAt == default ? DateTime.UtcNow : doc.OccurredAt,
                 Details = doc.Details,
                 ResourceType = doc.ResourceType,
+                ResourceTypeName = resourceTypeName,
                 ResourceId = doc.ResourceId,
                 ResourceName = doc.ResourceName,
                 ServiceName = doc.ServiceName,
@@ -666,6 +734,151 @@ namespace EvnHanoi.NotificationService.Repositories
                 ActorUnitName = doc.ActorUnitName,
                 ActorFullName = doc.ActorFullName
             };
+        }
+
+        private async Task<(long Total, IReadOnlyList<AuditLogItemDto> Logs)> GetSsoLoginHistoryAsync(
+            int page,
+            int pageSize,
+            string? keyword = null,
+            string? action = null,
+            string? userName = null,
+            DateTime? fromDate = null,
+            DateTime? toDate = null,
+            IReadOnlyList<string>? unitIds = null)
+        {
+            if (_dbConnection.State != ConnectionState.Open)
+            {
+                _dbConnection.Open();
+            }
+
+            var whereClauses = new List<string> { "h.IS_DELETED = 0" };
+            var parameters = new DynamicParameters();
+
+            if (!string.IsNullOrWhiteSpace(userName))
+            {
+                whereClauses.Add("UPPER(h.USERNAME) = UPPER(:UserName)");
+                parameters.Add("UserName", userName.Trim());
+            }
+
+            if (!string.IsNullOrWhiteSpace(action))
+            {
+                whereClauses.Add("h.ACTION = :Action");
+                parameters.Add("Action", action.Trim());
+            }
+
+            if (fromDate.HasValue)
+            {
+                whereClauses.Add("h.LOGIN_AT >= :FromDate");
+                parameters.Add("FromDate", fromDate.Value);
+            }
+
+            if (toDate.HasValue)
+            {
+                whereClauses.Add("h.LOGIN_AT <= :ToDate");
+                parameters.Add("ToDate", toDate.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                whereClauses.Add("(UPPER(h.USERNAME) LIKE :Keyword OR UPPER(h.FULL_NAME) LIKE :Keyword OR UPPER(DBMS_LOB.SUBSTR(h.DETAILS, 2000, 1)) LIKE :Keyword OR UPPER(h.IP_ADDRESS) LIKE :Keyword)");
+                parameters.Add("Keyword", $"%{keyword.Trim().ToUpperInvariant()}%");
+            }
+
+            if (unitIds != null && unitIds.Count > 0)
+            {
+                var validUnitIds = unitIds
+                    .Select(u => long.TryParse(u, out var id) ? (long?)id : null)
+                    .Where(id => id.HasValue)
+                    .Select(id => id!.Value)
+                    .ToList();
+
+                if (validUnitIds.Count > 0)
+                {
+                    whereClauses.Add("u.OrganizationUnitId IN :UnitIds");
+                    parameters.Add("UnitIds", validUnitIds);
+                }
+            }
+
+            var whereSql = string.Join(" AND ", whereClauses);
+
+            var countSql = $@"
+                SELECT COUNT(1)
+                FROM SSO_LOGIN_HISTORY h
+                LEFT JOIN APP_USER u ON h.USER_ID = u.ID
+                WHERE {whereSql}";
+
+            var total = await _dbConnection.ExecuteScalarAsync<long>(countSql, parameters);
+
+            var offset = Math.Max(0, (page - 1) * pageSize);
+            parameters.Add("Offset", offset);
+            parameters.Add("PageSize", pageSize);
+
+            var querySql = $@"
+                SELECT 
+                    h.ID,
+                    h.USER_ID,
+                    h.USERNAME,
+                    h.FULL_NAME,
+                    h.ACTION,
+                    h.RESOURCE_TYPE,
+                    h.RESOURCE_NAME,
+                    h.LOGIN_AT,
+                    h.DETAILS,
+                    h.IP_ADDRESS,
+                    h.STATUS_CODE,
+                    h.IS_SUCCESS,
+                    h.CREATED_AT
+                FROM SSO_LOGIN_HISTORY h
+                LEFT JOIN APP_USER u ON h.USER_ID = u.ID
+                WHERE {whereSql}
+                ORDER BY h.LOGIN_AT DESC
+                OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
+
+            var rows = await _dbConnection.QueryAsync<SsoLoginHistoryRecord>(querySql, parameters);
+
+            var logs = rows.Select(MapSsoRecordToDto).ToList();
+            return (total, logs);
+        }
+
+        private static AuditLogItemDto MapSsoRecordToDto(SsoLoginHistoryRecord row)
+        {
+            return new AuditLogItemDto
+            {
+                Id = row.ID.ToString(),
+                Action = row.ACTION ?? "SSO_LOGIN",
+                ActionName = "Đăng nhập SSO",
+                UserName = row.USERNAME,
+                FullName = !string.IsNullOrWhiteSpace(row.FULL_NAME) ? row.FULL_NAME : row.USERNAME,
+                Timestamp = DateTime.SpecifyKind(row.LOGIN_AT, DateTimeKind.Utc),
+                Details = row.DETAILS,
+                ResourceType = row.RESOURCE_TYPE ?? "SSO",
+                ResourceTypeName = "Xác thực SSO",
+                ResourceId = row.USER_ID,
+                ResourceName = !string.IsNullOrWhiteSpace(row.RESOURCE_NAME) ? row.RESOURCE_NAME : "Cổng SSO EVNHANOI",
+                ServiceName = "IdentityService",
+                StatusCode = row.STATUS_CODE,
+                HttpMethod = "POST",
+                RequestPath = "/api/v1/auth/sso-login",
+                LogGroup = AuditLogGroups.Sso,
+                ActorFullName = row.FULL_NAME
+            };
+        }
+
+        private sealed class SsoLoginHistoryRecord
+        {
+            public long ID { get; set; }
+            public string? USER_ID { get; set; }
+            public string USERNAME { get; set; } = string.Empty;
+            public string? FULL_NAME { get; set; }
+            public string? ACTION { get; set; }
+            public string? RESOURCE_TYPE { get; set; }
+            public string? RESOURCE_NAME { get; set; }
+            public DateTime LOGIN_AT { get; set; }
+            public string? DETAILS { get; set; }
+            public string? IP_ADDRESS { get; set; }
+            public int? STATUS_CODE { get; set; }
+            public int IS_SUCCESS { get; set; }
+            public DateTime CREATED_AT { get; set; }
         }
     }
 }

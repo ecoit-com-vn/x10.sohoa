@@ -92,7 +92,9 @@ public class AuthController : ControllerBase
             var validationData = await _ssoClient.ValidateTicketAsync(ticket, cancellationToken);
             var user = await _ssoAccountService.ValidateExistingAccountAsync(validationData);
             var claims = await BuildUserClaimsAsync(user);
-            return Ok(CreateTokenResponse(user, claims));
+            var tokenResponse = CreateTokenResponse(user, claims);
+            await SaveSsoLoginHistoryAsync(user, cancellationToken);
+            return Ok(tokenResponse);
         }
         catch (SsoException ex)
         {
@@ -102,6 +104,32 @@ public class AuthController : ControllerBase
         {
             return StatusCode(500, new { code = "SSO-ERROR", message = $"Lỗi xác thực hệ thống: {ex.Message}" });
         }
+    }
+
+    private async Task SaveSsoLoginHistoryAsync(User user, CancellationToken cancellationToken)
+    {
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        // Use the resolved application account so history matches the user directory.
+        var loginAt = DateTime.UtcNow;
+        await _connection.ExecuteAsync(new CommandDefinition(@"
+            INSERT INTO SSO_LOGIN_HISTORY
+                (USER_ID, USERNAME, FULL_NAME, ACTION, RESOURCE_TYPE, RESOURCE_NAME,
+                 LOGIN_AT, DETAILS, IP_ADDRESS, STATUS_CODE, IS_SUCCESS, IS_DELETED, CREATED_AT)
+            VALUES
+                (:UserId, :Username, :FullName, 'SSO_LOGIN', 'SSO', :ResourceName,
+                 :LoginAt, :Details, :IpAddress, 200, 1, 0, :LoginAt)",
+            new
+            {
+                UserId = user.Id,
+                user.Username,
+                user.FullName,
+                ResourceName = "Cổng SSO EVNHANOI",
+                LoginAt = loginAt,
+                Details = $"Đăng nhập SSO thành công: {user.Username}",
+                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
+            },
+            cancellationToken: cancellationToken));
     }
 
     [AllowAnonymous]
