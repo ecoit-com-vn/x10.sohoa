@@ -51,7 +51,9 @@ import {
   DigitizationProcessOption,
   DigitizationExtractionScope,
 } from '../../data-access/dossier-document.service';
+import { DossierManagementService } from '../../data-access/dossier-management.service';
 import { OcrMode } from '../../utils/dossier-digitization.util';
+import { MultiSelectModule } from 'primeng/multiselect';
 
 
 
@@ -71,7 +73,7 @@ interface UploadedFileItem {
 
   standalone: true,
 
-  imports: [CommonModule, FormsModule, DialogModule, ButtonModule, FileUploadZoneComponent, ScannerPanelComponent],
+  imports: [CommonModule, FormsModule, DialogModule, ButtonModule, MultiSelectModule, FileUploadZoneComponent, ScannerPanelComponent],
 
   templateUrl: './dossier-direct-upload-dialog.component.html',
 
@@ -82,6 +84,7 @@ interface UploadedFileItem {
 export class DossierDirectUploadDialogComponent implements OnInit {
 
   private dossierDocumentService = inject(DossierDocumentService);
+  private dossierManagementService = inject(DossierManagementService);
   private messageService = inject(MessageService);
 
   /** Hồ sơ chỉ nhận file PDF và ảnh (JPG/PNG/TIFF) — khớp với whitelist mime-type backend đang cho phép
@@ -95,6 +98,9 @@ export class DossierDirectUploadDialogComponent implements OnInit {
 
 
   @Input({ required: true }) dossierId!: string;
+
+  /** Trạm/đường dây đã chọn của hồ sơ — dùng để giới hạn danh sách thiết bị có thể gắn vào tài liệu. */
+  @Input() infrastructureIds: string[] = [];
 
   @Input() visible = false;
 
@@ -119,6 +125,11 @@ export class DossierDirectUploadDialogComponent implements OnInit {
   loadingDocTypes = signal(false);
 
   selectedDocumentTypeId = signal('');
+
+  /** Thiết bị để phân loại tài liệu — chỉ chọn được thiết bị thuộc Trạm/đường dây đã chọn của hồ sơ. */
+  equipmentOptions = signal<{ id: string; code: string; name: string }[]>([]);
+  loadingEquipments = signal(false);
+  selectedEquipmentIds = signal<string[]>([]);
 
   uploadedFiles = signal<UploadedFileItem[]>([]);
 
@@ -209,7 +220,9 @@ export class DossierDirectUploadDialogComponent implements OnInit {
 
       this.uploadSource,
 
-      onProgress
+      onProgress,
+
+      this.selectedEquipmentIds()
 
     );
 
@@ -221,6 +234,30 @@ export class DossierDirectUploadDialogComponent implements OnInit {
 
     this.loadDocumentTypes();
 
+    this.loadEquipments();
+
+  }
+
+  private loadEquipments(): void {
+    if (!this.infrastructureIds?.length) {
+      this.equipmentOptions.set([]);
+      return;
+    }
+    this.loadingEquipments.set(true);
+    this.dossierManagementService
+      .getEquipmentLookup({ infrastructureIds: this.infrastructureIds, pageSize: 200 })
+      .pipe(finalize(() => this.loadingEquipments.set(false)))
+      .subscribe({
+        next: (res: any) => {
+          const items = res?.items ?? res ?? [];
+          this.equipmentOptions.set(
+            items.map((eq: any) => ({ id: eq.id, code: eq.code, name: eq.name }))
+          );
+        },
+        error: () => {
+          this.equipmentOptions.set([]);
+        },
+      });
   }
 
 
@@ -343,6 +380,8 @@ export class DossierDirectUploadDialogComponent implements OnInit {
 
     this.selectedDocumentTypeId.set('');
 
+    this.selectedEquipmentIds.set([]);
+
     this.uploadZone?.clearQueuedUploads();
 
     if (this.documentTypes().length === 0) {
@@ -350,6 +389,8 @@ export class DossierDirectUploadDialogComponent implements OnInit {
       this.loadDocumentTypes();
 
     }
+
+    this.loadEquipments();
 
   }
 

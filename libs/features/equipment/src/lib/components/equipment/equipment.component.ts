@@ -530,7 +530,6 @@ export class EquipmentComponent implements OnInit {
         });
       } else {
         this.currentView.set('list');
-        this.applyLoggedInUserUnitFilter();
         this.loadItems();
       }
     });
@@ -828,17 +827,15 @@ export class EquipmentComponent implements OnInit {
     }
   }
 
-  private applyLoggedInUserUnitFilter(): void {
-    const userUnitId = this.authService.getUserUnitId();
-    if (userUnitId) {
-      this.searchUnitId.set(String(userUnitId));
-    }
-  }
-
+  /**
+   * KHÔNG ép cứng theo đơn vị đăng nhập — màn này không có ô lọc "Đơn vị" trên UI để người dùng gỡ
+   * lại, nên nếu ép cứng thì tài khoản thuộc đơn vị cấp cao (vd. Tổng công ty) sẽ VĨNH VIỄN chỉ thấy
+   * thiết bị gán trực tiếp cho đơn vị đó, mất hết thiết bị của các đơn vị con — vì backend
+   * GetPagedAsync so khớp unitId CHÍNH XÁC (không tính đơn vị con) khi có truyền unitId. Khi không
+   * truyền unitId, backend đã tự lọc đúng theo toàn bộ cây đơn vị được phép xem
+   * (GetAllowedUnitIdsAsync), nên chỉ cần dùng searchUnitId khi có nơi khác trong code chủ động set nó.
+   */
   private getEquipmentListUnitId(): number | undefined {
-    const userUnitId = this.authService.getUserUnitId();
-    if (userUnitId) return userUnitId;
-
     const selectedUnitId = this.searchUnitId();
     return selectedUnitId ? Number(selectedUnitId) : undefined;
   }
@@ -1112,7 +1109,6 @@ export class EquipmentComponent implements OnInit {
     this.searchGridTypeId.set('');
     this.searchEquipmentTypeId.set('');
     this.searchStatus.set('');
-    this.applyLoggedInUserUnitFilter();
     this.currentPage.set(1);
     this.loadItems();
   }
