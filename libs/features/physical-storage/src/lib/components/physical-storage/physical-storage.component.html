@@ -5,7 +5,16 @@
     <div class="toolbar-left">
       <wf-breadcrumb />
     </div>
-    <div class="toolbar-right">
+    <div class="toolbar-right" style="display: flex; align-items: center; gap: 8px;">
+      <button class="btn-outlined btn-small" (click)="downloadImportTemplate()" title="Tải file mẫu import Excel">
+        <i class="pi pi-download"></i> Tải mẫu Excel
+      </button>
+      <button class="btn-outlined btn-small" (click)="importFileInput.click()" [disabled]="importing()">
+        <i class="pi" [ngClass]="importing() ? 'pi-spin pi-spinner' : 'pi-upload'"></i>
+        {{ importing() ? 'Đang nhập...' : 'Nhập từ Excel' }}
+      </button>
+      <input #importFileInput type="file" accept=".xlsx" hidden
+        (change)="onImportFileSelected($event, importFileInput)" />
       <ng-container [ngSwitch]="activeTab()">
         <button *ngSwitchCase="'0'" class="btn-green btn-small" (click)="showDialog('shelf')">
           <i class="pi pi-plus"></i> Thêm kệ mới
@@ -329,15 +338,14 @@
   styleClass="evn-dialog-custom">
   <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 10px;">
 
-    <div class="form-group">
-      <label class="form-label">Mã định danh <span class="required">*</span></label>
-      <input type="text" class="wf-input w-full" [ngModel]="currentData().code"
-        (ngModelChange)="onStorageCodeChange($event)"
-        placeholder="Ví dụ: K03, T05, H10..." maxlength="50" pattern="[A-Za-z0-9_-]*"
-        autocomplete="off" [disabled]="saving()" />
-      <span class="field-error" *ngIf="codeValidationError()">
-        {{ codeValidationError() }}
-      </span>
+    <div class="form-group" *ngIf="isEdit()">
+      <label class="form-label">Mã định danh</label>
+      <input type="text" class="wf-input w-full" [ngModel]="currentData().code" disabled
+        autocomplete="off" />
+      <small class="text-muted">Mã do hệ thống tự sinh, không thể chỉnh sửa.</small>
+    </div>
+    <div class="form-group" *ngIf="!isEdit()">
+      <small class="text-muted">Mã sẽ được hệ thống tự động sinh theo quy tắc {{ '{' }}Mã đơn vị{{ '}' }}_{{ currentType() === 'shelf' ? 'KE' : (currentType() === 'floor' ? 'TANG' : 'HOP') }}{{ '{' }}Số thứ tự{{ '}' }} khi lưu.</small>
     </div>
 
     <div class="form-group">
@@ -422,6 +430,43 @@
         Lưu
       </button>
     </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog kết quả Import Excel -->
+<p-dialog [visible]="showImportResultDialog()" (visibleChange)="showImportResultDialog.set($event)"
+  header="Kết quả import Excel" [modal]="true" [style]="{ width: '600px' }" styleClass="evn-dialog-custom">
+  <div *ngIf="importResult() as res" style="display: flex; flex-direction: column; gap: 12px;">
+    <div style="display: flex; gap: 16px;">
+      <span>Đã tạo <b>{{ res.shelvesCreated }}</b> kệ</span>
+      <span>Đã tạo <b>{{ res.floorsCreated }}</b> tầng</span>
+      <span>Đã tạo <b>{{ res.boxesCreated }}</b> hộp</span>
+    </div>
+    <div *ngIf="res.errors.length > 0">
+      <b>{{ res.errors.length }} dòng lỗi:</b>
+      <div class="wf-table-wrap" style="max-height: 300px; overflow-y: auto; margin-top: 8px;">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th>Sheet</th>
+              <th style="width: 70px;">Dòng</th>
+              <th>Lý do</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let err of res.errors">
+              <td>{{ err.sheet }}</td>
+              <td>{{ err.row }}</td>
+              <td>{{ err.reason }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div *ngIf="res.errors.length === 0" class="text-muted">Không có lỗi nào.</div>
+  </div>
+  <ng-template pTemplate="footer">
+    <button class="btn-save btn-small" (click)="showImportResultDialog.set(false)">Đóng</button>
   </ng-template>
 </p-dialog>
 
