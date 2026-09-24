@@ -75,6 +75,24 @@ END;
 -- COLLECT/FORALL theo lô 2000 dòng, idempotent (chỉ nhắm dòng NORMALIZED_CODE còn NULL). An toàn chạy lại
 -- nếu bị ngắt giữa chừng.
 DECLARE
+    -- LƯU Ý: trong PL/SQL, phần khai báo (declare section) KHÔNG cho phép khai báo TYPE/biến/CURSOR sau
+    -- khi đã khai báo 1 subprogram (FUNCTION/PROCEDURE) — mọi FUNCTION/PROCEDURE lồng bắt buộc phải nằm
+    -- CUỐI CÙNG trong declare section, ngay trước BEGIN. Đặt FUNCTION remove_diacritics lên trước TYPE/biến
+    -- (như bản cũ) gây lỗi thật khi chạy tay qua sqlplus: "PLS-00103: Encountered the symbol "TYPE" when
+    -- expecting one of the following: begin function pragma procedure" — đã fix bằng cách đưa TYPE/biến/
+    -- CURSOR lên trước, FUNCTION xuống cuối.
+    TYPE t_id_tab IS TABLE OF INFRASTRUCTURE.ID%TYPE;
+    TYPE t_code_tab IS TABLE OF INFRASTRUCTURE.CODE%TYPE;
+    TYPE t_name_tab IS TABLE OF INFRASTRUCTURE.NAME%TYPE;
+
+    v_ids t_id_tab;
+    v_codes t_code_tab;
+    v_names t_name_tab;
+    v_norm_codes t_code_tab;
+    v_norm_names t_name_tab;
+
+    CURSOR c_pending IS SELECT ID, CODE, NAME FROM INFRASTRUCTURE WHERE NORMALIZED_CODE IS NULL;
+
     FUNCTION remove_diacritics(p_text IN VARCHAR2) RETURN VARCHAR2 IS
         v_result VARCHAR2(4000) := NVL(p_text, ' ');
     BEGIN
@@ -93,18 +111,6 @@ DECLARE
         v_result := REPLACE(v_result, 'ỳ', 'y'); v_result := REPLACE(v_result, 'ý', 'y'); v_result := REPLACE(v_result, 'ỷ', 'y'); v_result := REPLACE(v_result, 'ỹ', 'y'); v_result := REPLACE(v_result, 'ỵ', 'y');
         RETURN LOWER(v_result);
     END;
-
-    TYPE t_id_tab IS TABLE OF INFRASTRUCTURE.ID%TYPE;
-    TYPE t_code_tab IS TABLE OF INFRASTRUCTURE.CODE%TYPE;
-    TYPE t_name_tab IS TABLE OF INFRASTRUCTURE.NAME%TYPE;
-
-    v_ids t_id_tab;
-    v_codes t_code_tab;
-    v_names t_name_tab;
-    v_norm_codes t_code_tab;
-    v_norm_names t_name_tab;
-
-    CURSOR c_pending IS SELECT ID, CODE, NAME FROM INFRASTRUCTURE WHERE NORMALIZED_CODE IS NULL;
 BEGIN
     OPEN c_pending;
     LOOP
