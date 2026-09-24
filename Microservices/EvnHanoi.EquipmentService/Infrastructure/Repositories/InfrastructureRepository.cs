@@ -37,16 +37,6 @@ public class InfrastructureRepository : IInfrastructureRepository
         ("đ","d")
     };
 
-    private static string BuildUnaccentSql(string columnExpr)
-    {
-        var result = columnExpr;
-        foreach (var (from, to) in VietnameseDiacriticsMap)
-        {
-            result = $"REPLACE({result}, '{from}', '{to}')";
-        }
-        return result;
-    }
-
     private static string RemoveDiacritics(string text)
     {
         if (string.IsNullOrEmpty(text)) return text;
@@ -147,17 +137,17 @@ public class InfrastructureRepository : IInfrastructureRepository
                      LEFT JOIN INFRASTRUCTURE p ON i.PARENT_ID = p.ID
                      LEFT JOIN INFRASTRUCTURE_TYPE it ON i.INFRA_TYPE_ID = it.ID
                      LEFT JOIN ORGANIZATION_UNIT u ON i.UNIT_ID = u.Id
-                     WHERE LOWER(i.{nameof(Infrastructure.Code)}) = :Code AND i.{nameof(Infrastructure.IsDeleted)} = 0";
+                     WHERE UPPER(TRIM(i.{nameof(Infrastructure.Code)})) = :Code AND i.{nameof(Infrastructure.IsDeleted)} = 0";
 
         var result = await _connection.QueryAsync<Infrastructure, OrganizationDto, Infrastructure>(
-            sql, 
+            sql,
             (infra, org) => {
                 if (org != null && org.Id > 0) {
                     infra.Organization = org;
                 }
                 return infra;
             },
-            new { Code = code.ToLower().Trim() },
+            new { Code = code.ToUpper().Trim() },
             splitOn: "OrgId"
         );
         return result.FirstOrDefault();
@@ -199,9 +189,12 @@ public class InfrastructureRepository : IInfrastructureRepository
 
         if (!string.IsNullOrEmpty(keyword))
         {
-            var codeExpr = BuildUnaccentSql($"LOWER(i.{nameof(Infrastructure.Code)})");
-            var nameExpr = BuildUnaccentSql($"LOWER(i.{nameof(Infrastructure.Name)})");
-            sqlBase += $" AND ({codeExpr} LIKE :Keyword OR {nameExpr} LIKE :Keyword)";
+            // So khớp trên NORMALIZED_CODE/NORMALIZED_NAME (ghi sẵn lúc upsert/tạo/sửa, xem
+            // Migration0067_AddNormalizedSearchColumnsToInfrastructure) thay vì tính 268 REPLACE() lồng
+            // nhau runtime qua BuildUnaccentSql — giảm CPU/dòng đáng kể (audit hiệu năng PMIS 2026-09-24).
+            // Vẫn LIKE '%...%' wildcard đầu nên KHÔNG dùng được B-tree index, vẫn full scan — đây chỉ là
+            // tối ưu chi phí/dòng, không giải quyết gốc (xem comment đầy đủ trong migration).
+            sqlBase += " AND (i.NORMALIZED_CODE LIKE :Keyword OR i.NORMALIZED_NAME LIKE :Keyword)";
             parameters.Add("Keyword", $"%{RemoveDiacritics(keyword.ToLower().Trim())}%");
         }
 
@@ -363,6 +356,8 @@ public class InfrastructureRepository : IInfrastructureRepository
                         {nameof(Infrastructure.Id)},
                         {nameof(Infrastructure.Code)},
                         {nameof(Infrastructure.Name)},
+                        NORMALIZED_CODE,
+                        NORMALIZED_NAME,
                         {nameof(Infrastructure.Address)},
                         PARENT_ID,
                         INFRA_TYPE_ID,
@@ -374,13 +369,15 @@ public class InfrastructureRepository : IInfrastructureRepository
                         {nameof(Infrastructure.CreatedDate)},
                         {nameof(Infrastructure.IsDeleted)}
                     )
-                    VALUES (:Id, :Code, :Name, :Address, :ParentId, :InfraTypeId, :UnitId, :GridTypeId, :OperationDate, :IsActive, :CreatedBy, :CreatedDate, :IsDeleted)";
+                    VALUES (:Id, :Code, :Name, :NormalizedCode, :NormalizedName, :Address, :ParentId, :InfraTypeId, :UnitId, :GridTypeId, :OperationDate, :IsActive, :CreatedBy, :CreatedDate, :IsDeleted)";
 
         var param = new
         {
             Id = infrastructure.Id.ToString(),
             infrastructure.Code,
             infrastructure.Name,
+            NormalizedCode = RemoveDiacritics(infrastructure.Code.ToLowerInvariant()),
+            NormalizedName = RemoveDiacritics(infrastructure.Name.ToLowerInvariant()),
             infrastructure.Address,
             ParentId = infrastructure.ParentId.HasValue ? infrastructure.ParentId.Value.ToString() : null,
             infrastructure.InfraTypeId,
@@ -405,6 +402,8 @@ public class InfrastructureRepository : IInfrastructureRepository
         var sql = $@"UPDATE INFRASTRUCTURE
                     SET {nameof(Infrastructure.Code)} = :Code,
                         {nameof(Infrastructure.Name)} = :Name,
+                        NORMALIZED_CODE = :NormalizedCode,
+                        NORMALIZED_NAME = :NormalizedName,
                         {nameof(Infrastructure.Address)} = :Address,
                         PARENT_ID = :ParentId,
                         INFRA_TYPE_ID = :InfraTypeId,
@@ -421,6 +420,8 @@ public class InfrastructureRepository : IInfrastructureRepository
             Id = infrastructure.Id.ToString(),
             infrastructure.Code,
             infrastructure.Name,
+            NormalizedCode = RemoveDiacritics(infrastructure.Code.ToLowerInvariant()),
+            NormalizedName = RemoveDiacritics(infrastructure.Name.ToLowerInvariant()),
             infrastructure.Address,
             ParentId = infrastructure.ParentId.HasValue ? infrastructure.ParentId.Value.ToString() : null,
             infrastructure.InfraTypeId,
@@ -564,6 +565,8 @@ public class InfrastructureRepository : IInfrastructureRepository
             var updateSql = $@"UPDATE INFRASTRUCTURE
                         SET {nameof(Infrastructure.Code)} = :Code,
                             {nameof(Infrastructure.Name)} = :Name,
+                            NORMALIZED_CODE = :NormalizedCode,
+                            NORMALIZED_NAME = :NormalizedName,
                             {nameof(Infrastructure.Address)} = :Address,
                             UNIT_ID = :UnitId,
                             OPERATION_DATE = :OperationDate,
@@ -579,6 +582,8 @@ public class InfrastructureRepository : IInfrastructureRepository
                 Id = existing.Id,
                 Code = code,
                 Name = name,
+                NormalizedCode = RemoveDiacritics(code.ToLowerInvariant()),
+                NormalizedName = RemoveDiacritics(name.ToLowerInvariant()),
                 Address = address,
                 UnitId = unitId,
                 OperationDate = operationDate,
@@ -592,11 +597,12 @@ public class InfrastructureRepository : IInfrastructureRepository
         var newId = Guid.Parse(EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid());
         var insertSql = $@"INSERT INTO INFRASTRUCTURE (
                         {nameof(Infrastructure.Id)}, {nameof(Infrastructure.Code)}, {nameof(Infrastructure.Name)},
+                        NORMALIZED_CODE, NORMALIZED_NAME,
                         {nameof(Infrastructure.Address)}, INFRA_TYPE_ID, UNIT_ID, OPERATION_DATE, GRIDTYPEID, PARENT_ID, IS_ACTIVE,
                         PMIS_CODE, LAST_SYNCED_FROM_PMIS_AT,
                         {nameof(Infrastructure.CreatedBy)}, {nameof(Infrastructure.CreatedDate)}, {nameof(Infrastructure.IsDeleted)}
                     ) VALUES (
-                        :Id, :Code, :Name, :Address, :InfraTypeId, :UnitId, :OperationDate, :GridTypeId, :ParentId, 1,
+                        :Id, :Code, :Name, :NormalizedCode, :NormalizedName, :Address, :InfraTypeId, :UnitId, :OperationDate, :GridTypeId, :ParentId, 1,
                         :PmisCode, SYSTIMESTAMP, :CreatedBy, SYSTIMESTAMP, 0
                     )";
 
@@ -607,6 +613,8 @@ public class InfrastructureRepository : IInfrastructureRepository
                 Id = newId.ToString(),
                 Code = code,
                 Name = name,
+                NormalizedCode = RemoveDiacritics(code.ToLowerInvariant()),
+                NormalizedName = RemoveDiacritics(name.ToLowerInvariant()),
                 Address = address,
                 InfraTypeId = infraTypeId,
                 UnitId = unitId,

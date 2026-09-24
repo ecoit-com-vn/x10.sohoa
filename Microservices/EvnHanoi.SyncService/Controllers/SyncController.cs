@@ -1,3 +1,4 @@
+using EvnHanoi.SyncService.Models;
 using EvnHanoi.SyncService.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -26,9 +27,13 @@ public class SyncController : ControllerBase
     {
         _logger.LogInformation("Received request to trigger PMIS Sync immediately.");
 
-        // 1. Trigger the Quartz job
+        // 1. Trigger cả 3 Quartz job (từ khi tách JobKey riêng theo objectType — xem Program.cs — không
+        // còn 1 JobKey duy nhất xử lý cả 3 loại nữa).
         var scheduler = await _schedulerFactory.GetScheduler();
-        await scheduler.TriggerJob(new JobKey("PmisSyncJob"));
+        foreach (var objectType in new[] { SyncObjectType.Substation, SyncObjectType.TransmissionLine, SyncObjectType.Equipment })
+        {
+            await scheduler.TriggerJob(new JobKey($"PmisSyncJob-{objectType}"));
+        }
 
         // 2. Trigger the Background Worker (PmisSyncWorker)
         _triggerService.TriggerSync();
