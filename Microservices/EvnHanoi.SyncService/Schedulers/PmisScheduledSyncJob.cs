@@ -17,7 +17,14 @@ namespace EvnHanoi.SyncService.Schedulers;
 /// mỗi đối tượng (Trạm/Đường dây/Thiết bị) đang bật và đã tới hạn (NextSyncAt &lt;= now hoặc chưa
 /// từng chạy), khoá RedLock riêng theo đối tượng rồi đồng bộ toàn bộ (phân trang) — "chọn tất cả",
 /// khác với đồng bộ thủ công (người dùng tự chọn qua checkbox).
+///
+/// [DisallowConcurrentExecution]: phòng thủ chiều sâu, KHÔNG phải cơ chế chính chống chạy trùng (đó là
+/// RedLock theo objectType — bảo vệ cả liên-pod lẫn trong-1-pod, xem comment tại nơi tạo redLock bên dưới).
+/// Chặn Quartz tự khởi 1 Execute() MỚI đè lên Execute() đang chạy trong CÙNG 1 pod nếu 1 lượt tick (hiếm
+/// khi, nhưng có thể) mất hơn 1 phút — tránh lãng phí round-trip DB kiểm tra isDue/lock 2 lần cùng lúc,
+/// dù không có tác dụng phụ sai lệch dữ liệu nếu thiếu (RedLock đã đủ để bảo vệ đúng).
 /// </summary>
+[DisallowConcurrentExecution]
 public class PmisScheduledSyncJob : IJob
 {
     // An toàn: tối đa bản ghi/đối tượng (hoặc /cha, ở Thiết bị)/lần chạy — tính theo TỔNG SỐ BẢN GHI,
@@ -61,13 +68,29 @@ public class PmisScheduledSyncJob : IJob
 
     /// <summary>Kiểm tra + xử lý (log Warning, tăng warnings) khi 1 vòng phân trang chạm giới hạn an toàn
     /// tổng số bản ghi — dùng chung cho cả 3 vòng lặp Trạm biến áp/Đường dây/Thiết bị bên dưới, tránh lặp
-    /// lại y hệt 1 khối code chỉ khác mỗi nhãn đối tượng.</summary>
-    private static bool HasHitSafetyCap(int skip, string entityLabel, ref int warnings)
+    /// lại y hệt 1 khối code chỉ khác mỗi nhãn đối tượng. NHẬN <paramref name="processedThisRun"/> (số bản
+    /// ghi ĐÃ XỬ LÝ TRONG LƯỢT NÀY, không phải vị trí "skip" tuyệt đối) — kể từ khi có cơ chế resume
+    /// (SyncConfig.SyncCursor), 1 lượt có thể BẮT ĐẦU từ 1 skip đã lớn sẵn (tiếp tục lượt trước), nên so
+    /// sánh skip tuyệt đối với trần sẽ khiến lượt resume dừng ngay lập tức dù chưa xử lý được bản ghi nào.</summary>
+    private static bool HasHitSafetyCap(int processedThisRun, string entityLabel, ref int warnings)
     {
-        if (skip < MaxTotalRecords) return false;
-        Log.Warning("PmisScheduledSyncJob: {Entity} đã đạt giới hạn an toàn {Max} bản ghi/lượt chạy, dừng lại dù PMIS có thể còn dữ liệu (skip={Skip}) — sẽ tiếp tục ở lượt sau.", entityLabel, MaxTotalRecords, skip);
+        if (processedThisRun < MaxTotalRecords) return false;
+        Log.Warning("PmisScheduledSyncJob: {Entity} đã đạt giới hạn an toàn {Max} bản ghi/lượt chạy, dừng lại dù PMIS có thể còn dữ liệu (đã xử lý {Processed} bản ghi lượt này) — sẽ tiếp tục ở lượt sau.", entityLabel, MaxTotalRecords, processedThisRun);
         warnings++;
         return true;
+    }
+
+    /// <summary>Xoay vòng danh sách Trạm/Đường dây cha để BẮT ĐẦU ngay sau <paramref name="cursor"/> (mã
+    /// PMIS của cha nơi lượt trước dùng hết ngân sách gọi PMIS thật) thay vì luôn bắt đầu lại từ đầu danh
+    /// sách mỗi lượt — nếu không, các cha ở cuối danh sách sẽ không bao giờ được ưu tiên ngân sách (xem
+    /// PmisSyncExecutionService.MaxEquipmentDetailCallsPerRun). Cursor không còn tồn tại (cha đã bị xoá
+    /// giữa 2 lượt) hoặc null/rỗng → giữ nguyên thứ tự gốc, bắt đầu lại từ đầu.</summary>
+    private static List<SyncedInfrastructurePmisCode> RotateParentsByCursor(List<SyncedInfrastructurePmisCode> parents, string? cursor)
+    {
+        if (string.IsNullOrEmpty(cursor)) return parents;
+        var idx = parents.FindIndex(p => p.PmisCode == cursor);
+        if (idx < 0 || idx + 1 >= parents.Count) return parents;
+        return parents.Skip(idx + 1).Concat(parents.Take(idx + 1)).ToList();
     }
 
     /// <summary>Số bản ghi/trang admin đã cấu hình cho apiCode này qua "Cấu hình kết nối API" — mặc định
@@ -100,6 +123,13 @@ public class PmisScheduledSyncJob : IJob
         var isDue = config.NextSyncAt == null || config.NextSyncAt <= now;
         if (!isDue) return;
 
+        // 10 phút ở đây KHÔNG phải trần thời lượng tối đa của 1 lượt chạy — RedLockNet.SERedis tự động gia
+        // hạn (background keepalive timer, xem RedLockNet.SERedis nguồn: StartAutoExtendTimer) đều đặn
+        // trong suốt thời gian object `redLock` này còn sống (tới khi DisposeAsync ở cuối using), miễn tiến
+        // trình KHÔNG bị crash và Redis vẫn kết nối được — 1 lượt chạy hợp lệ dù kéo dài hàng chục phút vẫn
+        // giữ được khoá liên tục, không có 2 lượt chạy trùng cho CÙNG objectType. TimeSpan này chỉ là thời
+        // gian sống của MỖI lần gia hạn (nếu tiến trình crash giữa chừng, khoá tự hết hạn sau tối đa từng
+        // này thời gian — không kẹt vĩnh viễn).
         await using var redLock = await _lockFactory.CreateLockAsync(
             $"sync:lock:pmis:{objectType}", TimeSpan.FromMinutes(10), TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(1));
         if (!redLock.IsAcquired)
@@ -124,15 +154,19 @@ public class PmisScheduledSyncJob : IJob
         {
             (total, success, failed, warnings, errors) = objectType switch
             {
-                SyncObjectType.Substation => await RunSubstationAsync(historyId),
-                SyncObjectType.TransmissionLine => await RunLineAsync(historyId),
-                SyncObjectType.Equipment => await RunEquipmentAsync(historyId),
+                SyncObjectType.Substation => await RunSubstationAsync(config, historyId),
+                SyncObjectType.TransmissionLine => await RunLineAsync(config, historyId),
+                SyncObjectType.Equipment => await RunEquipmentAsync(config, historyId),
                 _ => (0, 0, 0, 0, [])
             };
 
+            // errors.Count > 0 giờ LUÔN kéo status xuống ít nhất Warning, bất kể total/success — TRƯỚC ĐÂY
+            // chỉ xét khi total == 0, nên 1 trang PMIS lỗi giữa chừng (Substation/Line "break" phân trang,
+            // hoặc Equipment bỏ qua 1 cha lỗi) sau khi đã có ≥1 bản ghi lưu thành công sẽ rơi vào status
+            // SUCCESS dù phần lớn dữ liệu lượt này chưa hề được lấy — bug thật đã gặp (xem code review).
             var status = (total > 0 && success == 0) || (total == 0 && errors.Count > 0)
                 ? SyncHistoryStatus.Failed
-                : (warnings > 0 ? SyncHistoryStatus.Warning : SyncHistoryStatus.Success);
+                : (warnings > 0 || errors.Count > 0 ? SyncHistoryStatus.Warning : SyncHistoryStatus.Success);
             var completed = await _syncHistoryRepository.CompleteAsync(historyId, status, total, success, failed,
                 errors.Count > 0 ? string.Join("; ", errors.Take(5)) : null);
             if (!completed)
@@ -208,12 +242,15 @@ public class PmisScheduledSyncJob : IJob
         }
     }
 
-    private async Task<(int Total, int Success, int Failed, int Warnings, List<string> Errors)> RunSubstationAsync(string historyId)
+    private async Task<(int Total, int Success, int Failed, int Warnings, List<string> Errors)> RunSubstationAsync(SyncConfig config, string historyId)
     {
         var pageSize = await GetPageSizeAsync("SUBSTATION_LIST");
         int total = 0, success = 0, failed = 0, warnings = 0;
         var errors = new List<string>();
-        var skip = 0;
+        // Tiếp tục từ vị trí lượt TRƯỚC dừng lại vì chạm trần an toàn (nếu có) thay vì luôn bắt đầu lại từ
+        // 0 — xem SyncConfig.SyncCursor + Migration0011. Không có cursor (lượt trước hoàn tất trọn vẹn,
+        // hoặc lượt trước lỗi gọi PMIS mà không chạm trần) → bắt đầu từ đầu như cũ.
+        var skip = int.TryParse(config.SyncCursor, out var resumeSkip) && resumeSkip > 0 ? resumeSkip : 0;
         while (true)
         {
             PmisListResponse<PmisSubstationDto> result;
@@ -225,10 +262,12 @@ public class PmisScheduledSyncJob : IJob
             {
                 // Lỗi khi GỌI PMIS (khác lỗi khi lưu — đã cách ly riêng ở PushPageAsync) — không để lỗi
                 // 1 trang làm mất kết quả các trang TRƯỚC đã lưu thành công; dừng phân trang tại đây,
-                // các trang sau coi như chưa kịp lấy, sẽ tự thử lại ở lượt đồng bộ kế tiếp.
+                // các trang sau coi như chưa kịp lấy, sẽ tự thử lại ở lượt đồng bộ kế tiếp. KHÔNG đụng
+                // SyncCursor ở đây — đây là lỗi TẠM THỜI (PMIS gián đoạn), không phải chạm trần an toàn;
+                // giữ nguyên cursor đang có (có thể null, có thể đang dở từ lượt hit-cap trước đó).
                 Log.Error(ex, "PmisScheduledSyncJob: lỗi khi lấy danh sách Trạm biến áp (skip={Skip}).", skip);
                 errors.Add($"Trạm biến áp skip={skip}: {SyncErrorFormatter.FormatShort(ex)}");
-                break;
+                return (total, success, failed, warnings, errors);
             }
 
             var pageItems = result.Items.Select(i => JsonSerializer.SerializeToElement(i)).ToList();
@@ -241,21 +280,32 @@ public class PmisScheduledSyncJob : IJob
             warnings += pageWarnings;
             errors.AddRange(pageErrors);
 
-            if (result.Items.Count < pageSize || total >= result.Total) break;
+            // So sánh theo VỊ TRÍ TUYỆT ĐỐI (skip + số bản ghi vừa lấy) với result.Total, KHÔNG phải biến
+            // `total` (chỉ đếm số bản ghi ĐÃ XỬ LÝ TRONG LƯỢT NÀY) — vì lượt này có thể BẮT ĐẦU từ 1 skip
+            // đã khác 0 (resume), nên `total` không còn phản ánh đúng vị trí trong toàn bộ danh sách PMIS.
+            if (result.Items.Count < pageSize || skip + pageItems.Count >= result.Total)
+            {
+                // Quét trọn tới hết danh sách (từ vị trí resume trở đi) — coi là 1 vòng hoàn tất, xoá cursor
+                // để lượt sau bắt đầu lại từ đầu danh sách.
+                await _syncConfigRepository.UpdateSyncCursorAsync(SyncObjectType.Substation, null);
+                return (total, success, failed, warnings, errors);
+            }
             skip += pageSize;
 
-            if (HasHitSafetyCap(skip, "Trạm biến áp", ref warnings)) break;
+            if (HasHitSafetyCap(total, "Trạm biến áp", ref warnings))
+            {
+                await _syncConfigRepository.UpdateSyncCursorAsync(SyncObjectType.Substation, skip.ToString());
+                return (total, success, failed, warnings, errors);
+            }
         }
-
-        return (total, success, failed, warnings, errors);
     }
 
-    private async Task<(int Total, int Success, int Failed, int Warnings, List<string> Errors)> RunLineAsync(string historyId)
+    private async Task<(int Total, int Success, int Failed, int Warnings, List<string> Errors)> RunLineAsync(SyncConfig config, string historyId)
     {
         var pageSize = await GetPageSizeAsync("LINE_LIST");
         int total = 0, success = 0, failed = 0, warnings = 0;
         var errors = new List<string>();
-        var skip = 0;
+        var skip = int.TryParse(config.SyncCursor, out var resumeSkip) && resumeSkip > 0 ? resumeSkip : 0;
         while (true)
         {
             PmisListResponse<PmisLineDto> result;
@@ -267,7 +317,7 @@ public class PmisScheduledSyncJob : IJob
             {
                 Log.Error(ex, "PmisScheduledSyncJob: lỗi khi lấy danh sách Đường dây (skip={Skip}).", skip);
                 errors.Add($"Đường dây skip={skip}: {SyncErrorFormatter.FormatShort(ex)}");
-                break;
+                return (total, success, failed, warnings, errors);
             }
 
             var pageItems = result.Items.Select(i => JsonSerializer.SerializeToElement(i)).ToList();
@@ -280,28 +330,40 @@ public class PmisScheduledSyncJob : IJob
             warnings += pageWarnings;
             errors.AddRange(pageErrors);
 
-            if (result.Items.Count < pageSize || total >= result.Total) break;
+            if (result.Items.Count < pageSize || skip + pageItems.Count >= result.Total)
+            {
+                await _syncConfigRepository.UpdateSyncCursorAsync(SyncObjectType.TransmissionLine, null);
+                return (total, success, failed, warnings, errors);
+            }
             skip += pageSize;
 
-            if (HasHitSafetyCap(skip, "Đường dây", ref warnings)) break;
-        }
+            if (HasHitSafetyCap(total, "Đường dây", ref warnings))
+            {
+                await _syncConfigRepository.UpdateSyncCursorAsync(SyncObjectType.TransmissionLine, skip.ToString());
+                return (total, success, failed, warnings, errors);
+            }
 
-        // Cha (PARENT_ID) của mỗi Đường dây được tra TRỰC TIẾP theo mã PMIS "maCha" ngay trong lượt sync
-        // này (xem InfrastructureRepository.UpsertFromPmisAsync) — không cần job nền riêng nào để "khớp
-        // lại" nữa; chỉ "lỡ nhịp" khi trục CHƯA từng được đồng bộ tới, và tự khớp đúng ở lượt kế tiếp
-        // (PMIS trả toàn bộ dữ liệu mỗi lượt, không phải delta).
-        return (total, success, failed, warnings, errors);
+            // Cha (PARENT_ID) của mỗi Đường dây được tra TRỰC TIẾP theo mã PMIS "maCha" ngay trong lượt sync
+            // này (xem InfrastructureRepository.UpsertFromPmisAsync) — không cần job nền riêng nào để "khớp
+            // lại" nữa; chỉ "lỡ nhịp" khi trục CHƯA từng được đồng bộ tới, và tự khớp đúng ở lượt kế tiếp
+            // (PMIS trả toàn bộ dữ liệu mỗi lượt, không phải delta).
+        }
     }
 
-    private async Task<(int Total, int Success, int Failed, int Warnings, List<string> Errors)> RunEquipmentAsync(string historyId)
+    private async Task<(int Total, int Success, int Failed, int Warnings, List<string> Errors)> RunEquipmentAsync(SyncConfig config, string historyId)
     {
         // Thiết bị không có API "lấy tất cả" — phải lặp theo từng Trạm/Đường dây đã đồng bộ trước đó
         // (module 3) để lấy thiết bị con, đúng theo 2 API riêng biệt của tài liệu PMIS.
-        var parents = await _equipmentServiceClient.GetSyncedInfrastructurePmisCodesAsync();
+        // Xoay vòng theo SyncConfig.SyncCursor (mã PMIS cha nơi lượt trước dùng hết ngân sách gọi PMIS
+        // thật ChiTietThietBi/QR — xem PmisSyncExecutionService.EquipmentDetailBudgetExhausted) để mỗi lượt
+        // ưu tiên ngân sách cho 1 nhóm cha KHÁC nhau, tránh các cha cuối danh sách không bao giờ được enrich
+        // (GetSyncedInfrastructurePmisCodesAsync giờ đã ORDER BY ổn định, cần thiết để xoay vòng có ý nghĩa).
+        var parents = RotateParentsByCursor(await _equipmentServiceClient.GetSyncedInfrastructurePmisCodesAsync(), config.SyncCursor);
         var substationDevicePageSize = await GetPageSizeAsync("SUBSTATION_DEVICE_LIST");
         var lineDevicePageSize = await GetPageSizeAsync("LINE_DEVICE_LIST");
         int total = 0, success = 0, failed = 0, warnings = 0;
         var errors = new List<string>();
+        string? budgetExhaustedAtParent = null;
 
         foreach (var parent in parents)
         {
@@ -363,7 +425,17 @@ public class PmisScheduledSyncJob : IJob
 
                 if (HasHitSafetyCap(skip, $"Thiết bị cha={parent.PmisCode}", ref warnings)) break;
             }
+
+            // Ghi nhận cha ĐẦU TIÊN (theo thứ tự đã xoay vòng) mà ngân sách gọi PMIS thật cạn ngay sau khi
+            // xử lý xong — mọi cha SAU nó trong lượt này chắc chắn không còn ngân sách để enrich
+            // ThongSoKyThuat/QR. Lượt sau sẽ xoay vòng bắt đầu NGAY SAU cha này, ưu tiên đúng nhóm bị bỏ lỡ.
+            if (budgetExhaustedAtParent == null && _executionService.EquipmentDetailBudgetExhausted)
+                budgetExhaustedAtParent = parent.PmisCode;
         }
+
+        // null nếu ngân sách KHÔNG BAO GIỜ cạn trong lượt này (mọi cha đều được enrich đầy đủ) — xoá cursor,
+        // lượt sau bắt đầu lại từ đầu danh sách (thứ tự gốc, không cần ưu tiên ai).
+        await _syncConfigRepository.UpdateSyncCursorAsync(SyncObjectType.Equipment, budgetExhaustedAtParent);
 
         return (total, success, failed, warnings, errors);
     }

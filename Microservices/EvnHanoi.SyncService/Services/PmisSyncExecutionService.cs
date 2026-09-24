@@ -24,14 +24,51 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
     private const int DocumentMaxTotalRecords = PmisPaging.MaxTotalRecordsPerRun;
     private const int DocumentUpsertBatchSize = 20; // gửi theo lô, tránh 1 request base64 hoá hết cả nghìn tài liệu
 
+    // An toàn: tối đa số LẦN GỌI SyncDocumentsForOwnerAsync (1 lần/Trạm/Đường dây/Thiết bị vừa lưu thành
+    // công) trong 1 lượt đồng bộ — mỗi lần lại tự phân trang + tải file PMIS TUẦN TỰ (xem
+    // SyncDocumentsForOwnerAsync), không có trần trước đây có thể khiến 1 lượt có hàng chục nghìn bản ghi
+    // thành công chạy RẤT lâu chỉ để đồng bộ tài liệu đính kèm. Owner vượt trần bị BỎ QUA hẳn tài liệu ở
+    // lượt này (không gọi PMIS) — PmisScheduledSyncJob coi việc chạm trần này TƯƠNG ĐƯƠNG với chạm giới hạn
+    // an toàn chính (HasHitSafetyCap), dừng hẳn phân trang tại đó và lưu lại vị trí vào SyncConfig.SyncCursor
+    // để lượt sau tiếp tục đúng từ owner đó — không ower nào bị bỏ sót vĩnh viễn.
+    private const int MaxDocumentSyncCallsPerRun = 2000;
+    private int _documentSyncCallsThisRun;
+
+    /// <summary>true nếu lượt này đã dừng đồng bộ tài liệu đính kèm vì chạm <see cref="MaxDocumentSyncCallsPerRun"/>
+    /// — PmisScheduledSyncJob đọc cờ này sau mỗi trang để quyết định có nên dừng hẳn phân trang (giống
+    /// HasHitSafetyCap) hay không, dù bản thân trang đó vẫn còn dữ liệu.</summary>
+    public bool DocumentSyncBudgetExhausted => _documentSyncCallsThisRun >= MaxDocumentSyncCallsPerRun;
+
+    private bool TryConsumeDocumentSyncCallBudget()
+    {
+        if (_documentSyncCallsThisRun >= MaxDocumentSyncCallsPerRun) return false;
+        _documentSyncCallsThisRun++;
+        if (_documentSyncCallsThisRun == MaxDocumentSyncCallsPerRun)
+        {
+            Log.Warning("PmisSyncExecutionService: đồng bộ tài liệu đính kèm đạt trần {Max} owner/lượt này — dừng lại, sẽ tự tiếp tục ở lượt sau (xem SyncConfig.SyncCursor).", MaxDocumentSyncCallsPerRun);
+        }
+        return true;
+    }
+
     // An toàn: giới hạn số lượt gọi PMIS THẬT (ChiTietThietBi + tải ảnh QR) trong 1 lượt đồng bộ Thiết bị —
     // mỗi lượt là 1 round-trip PMIS TUẦN TỰ (xem SyncEquipmentAsync), không giới hạn trước đây có thể khiến
     // 1 lượt xử lý hàng nghìn thiết bị TBA chạy quá lâu và bị SyncHistoryWatchdogJob đánh rớt vì treo
-    // RUNNING quá 30 phút. Thiết bị vượt trần vẫn được lưu đầy đủ Code/Name/EquipmentTypeCode... chỉ thiếu
-    // ThongSoKyThuat/QR mới của lượt này — PMIS trả về TOÀN BỘ dữ liệu mỗi lượt (không phải delta) nên
-    // thiết bị đó tự được enrich lại ở lượt sau, không mất dữ liệu.
+    // RUNNING quá lâu. Thiết bị vượt trần vẫn được lưu đầy đủ Code/Name/EquipmentTypeCode... chỉ thiếu
+    // ThongSoKyThuat/QR mới của lượt này. LƯU Ý: ngân sách này dùng CHUNG cho CẢ LƯỢT RunEquipmentAsync
+    // (tất cả Trạm/Đường dây cha), KHÔNG reset theo từng cha — nếu danh sách cha luôn duyệt cùng 1 thứ tự
+    // mỗi lượt (đã đúng như vậy trước khi sửa), các cha ở cuối danh sách sẽ KHÔNG BAO GIỜ nhận được ngân
+    // sách, trái với PMIS trả TOÀN BỘ dữ liệu mỗi lượt tưởng như "tự enrich lại ở lượt sau" — không hề tự
+    // enrich vì luôn hết ngân sách ở đúng nhóm cha đầu danh sách. Đã sửa bằng cơ chế XOAY VÒNG (rotate)
+    // danh sách cha theo SyncConfig.SyncCursor (xem PmisScheduledSyncJob.RunEquipmentAsync +
+    // EquipmentDetailBudgetExhausted bên dưới) — mỗi lượt ưu tiên ngân sách cho nhóm cha KHÁC nhau, đảm bảo
+    // mọi thiết bị cuối cùng đều được enrich qua nhiều lượt chạy.
     private const int MaxEquipmentDetailCallsPerRun = 500;
     private int _equipmentDetailCallsThisRun;
+
+    /// <summary>true nếu lượt này đã dùng hết ngân sách gọi PMIS thật cho Thiết bị (ChiTietThietBi/QR) —
+    /// PmisScheduledSyncJob dùng để biết TỪ CHA NÀO trở đi trong lượt này không còn được enrich, làm điểm
+    /// bắt đầu xoay vòng ưu tiên cho lượt kế tiếp (xem SyncConfig.SyncCursor).</summary>
+    public bool EquipmentDetailBudgetExhausted => _equipmentDetailCallsThisRun >= MaxEquipmentDetailCallsPerRun;
 
     private readonly IEquipmentServiceClient _equipmentServiceClient;
     private readonly ISyncHistoryRepository _syncHistoryRepository;
@@ -116,6 +153,29 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         {
             Log.Warning(ex, "PmisSyncExecutionService: lỗi gửi 1 lô Trạm/Đường dây ({Count} bản ghi) sang EquipmentService — đánh dấu cả lô này thất bại, không ảnh hưởng các lô khác trong cùng trang.", requests.Count);
             return requests.Select(r => new UpsertInfrastructureFromPmisResult
+            {
+                PmisCode = r.PmisCode,
+                Success = false,
+                ErrorMessage = $"Lỗi gửi lô: {ex.Message}"
+            }).ToList();
+        }
+    }
+
+    /// <summary>Cùng lý do với UpsertInfrastructureSafeAsync — trước đây SyncEquipmentAsync gọi thẳng
+    /// _equipmentServiceClient.UpsertEquipmentAsync không qua wrapper nào: nếu lỗi (mất kết nối, 401 do
+    /// Internal:Token sai cấu hình...), exception văng ra TRƯỚC khi ghi bất kỳ SyncHistoryDetail nào cho lô
+    /// này — khác Infrastructure (luôn có dòng Failed/item để tra), khiến "Lịch sử chi tiết" trống trơn cho
+    /// cả lô, giảm khả năng truy vết dù lỗi vẫn được cô lập đúng ở tầng trang/lượt (PushPageAsync/Save).</summary>
+    private async Task<List<UpsertEquipmentFromPmisResult>> UpsertEquipmentSafeAsync(List<UpsertEquipmentFromPmisRequest> requests)
+    {
+        try
+        {
+            return await _equipmentServiceClient.UpsertEquipmentAsync(requests);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "PmisSyncExecutionService: lỗi gửi 1 lô Thiết bị ({Count} bản ghi) sang EquipmentService — đánh dấu cả lô này thất bại, không ảnh hưởng các lô khác trong cùng trang.", requests.Count);
+            return requests.Select(r => new UpsertEquipmentFromPmisResult
             {
                 PmisCode = r.PmisCode,
                 Success = false,
@@ -445,7 +505,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
 
         if (upsertRequests.Count == 0) return (0, 0, 0, []);
 
-        var results = await _equipmentServiceClient.UpsertEquipmentAsync(upsertRequests);
+        var results = await UpsertEquipmentSafeAsync(upsertRequests);
 
         var details = new List<SyncHistoryDetail>();
         var errors = new List<string>();
@@ -510,6 +570,25 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         string? maTBA, string? maDuongDay, string? maTB, string syncHistoryId)
     {
         var details = new List<SyncHistoryDetail>();
+
+        // Đạt trần MaxDocumentSyncCallsPerRun — bỏ qua HẲN owner này (không gọi PMIS), caller
+        // (PmisScheduledSyncJob) sẽ dừng phân trang tại đây và lưu SyncConfig.SyncCursor để tiếp tục đúng
+        // owner này ở lượt sau, không mất dữ liệu.
+        if (!TryConsumeDocumentSyncCallBudget())
+        {
+            details.Add(new SyncHistoryDetail
+            {
+                SyncHistoryId = syncHistoryId,
+                SourceId = ownerPmisCode,
+                SourceCode = ownerPmisCode,
+                SourceName = sourceName,
+                ActionType = SyncActionType.Skip,
+                Status = SyncDetailStatus.Warning,
+                ErrorMessage = $"Chưa đồng bộ tài liệu đính kèm — lượt này đã đạt trần {MaxDocumentSyncCallsPerRun} owner, sẽ tự tiếp tục ở lượt sau."
+            });
+            return (1, details);
+        }
+
         try
         {
             var pageSize = await GetPageSizeAsync(isSubstationOrigin ? "SUBSTATION_DOCUMENT_LIST" : "LINE_DOCUMENT_LIST");
