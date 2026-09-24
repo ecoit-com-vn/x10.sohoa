@@ -99,7 +99,7 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
           <div class="form-group" style="flex: 1 1 240px; min-width: 220px;">
             <label class="form-label">Nhóm hồ sơ <span class="required">*</span></label>
             <p-select
-              [options]="dossierGroups()"
+              [options]="selectableDossierGroups()"
               [(ngModel)]="dossier.dossierGroupId"
               (ngModelChange)="onDossierGroupChange($event)"
               optionLabel="name"
@@ -234,39 +234,6 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
           </div>
         </div>
 
-        <div class="form-group" *ngIf="isEquipmentDossier()">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <label class="form-label" style="margin: 0;">Thiết bị liên quan <span class="required">*</span></label>
-            <button type="button" (click)="openAddEquipmentDialog()" class="btn-outlined btn-small">
-              <i class="pi pi-plus"></i> Thêm
-            </button>
-          </div>
-
-          <div *ngIf="selectedEquipments().length === 0" style="padding: 16px; background: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 8px; text-align: center; color: #9ca3af; font-size: 0.85rem;">
-            Bắt buộc chọn ít nhất một thiết bị.
-          </div>
-
-          <div *ngIf="selectedEquipments().length > 0" class="wf-table-wrap" style="max-height: 280px; overflow-y: auto;">
-            <table class="wf-table">
-              <thead>
-                <tr>
-                  <th>Mã TB</th>
-                  <th>Tên TB</th>
-                  <th style="width: 50px; text-align: center;"></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let eq of selectedEquipments()">
-                  <td>{{ eq.equipmentCode || eq.code }}</td>
-                  <td>{{ eq.equipmentName || eq.name }}</td>
-                  <td style="text-align: center;">
-                    <button type="button" (click)="removeEquipment(eq)" class="act-btn act-delete" title="Bỏ thiết bị"><i class="pi pi-times"></i></button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
 
       <!-- ================================================================ -->
@@ -500,7 +467,6 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
         <app-dossier-documents-tab
           [dossierId]="dossierId!"
           [infrastructureIds]="dossier.infrastructureIds || []"
-          [equipmentIds]="pmisPickerEquipmentIds()"
           [canEdit]="true"
           [kindId]="kindIdSignal()"
           [menuScope]="'creator'"
@@ -645,51 +611,6 @@ import { normalizeDossierKindId } from '../../utils/dossier-permission.util';
       </ng-template>
     </p-dialog>
 
-    <!-- Dialog Thêm Thiết Bị -->
-    <p-dialog [(visible)]="showEquipmentDialog" header="Chọn thiết bị" [modal]="true" [style]="{width: '800px'}" styleClass="evn-dialog-no-modal" appendTo="body">
-      <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-        <input type="text" class="wf-input" style="flex: 1;" placeholder="Tìm theo mã, tên thiết bị..." [(ngModel)]="equipmentKeyword" (keyup.enter)="searchEquipments()">
-        <button class="btn-tim" (click)="searchEquipments()"><i class="pi pi-search"></i> Tìm</button>
-      </div>
-
-      <div class="wf-table-wrap" style="max-height: 384px; overflow-y: auto;">
-        <table class="wf-table">
-          <thead>
-            <tr>
-              <th class="col-chk">Chọn</th>
-              <th>Mã TB</th>
-              <th>Tên TB</th>
-              <th>Trạm/ĐZ</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngIf="searchingEquipments()">
-              <td colspan="4" class="empty-cell"><i class="pi pi-spin pi-spinner"></i> Đang tìm...</td>
-            </tr>
-            <ng-container *ngFor="let eq of equipmentSearchResults()">
-              <tr style="cursor: pointer;" (click)="toggleDialogEquipmentSelection(eq)">
-                <td class="col-chk">
-                  <input type="checkbox" [checked]="isDialogEquipmentSelected(eq)" (click)="$event.stopPropagation()"
-                         (change)="toggleDialogEquipmentSelection(eq)"
-                         style="width: 15px; height: 15px; accent-color: #002D72; cursor: pointer;">
-                </td>
-                <td>{{ eq.code }}</td>
-                <td>{{ eq.name }}</td>
-                <td>{{ eq.infrastructureName || '-' }}</td>
-              </tr>
-            </ng-container>
-            <tr *ngIf="!searchingEquipments() && equipmentSearchResults().length === 0">
-              <td colspan="4" class="empty-cell">Không tìm thấy thiết bị phù hợp.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <ng-template pTemplate="footer">
-        <button class="btn-cancel btn-small" (click)="closeEquipmentDialog()"><i class="pi pi-times"></i> Đóng</button>
-        <button class="btn-save btn-small" (click)="confirmEquipmentSelection()"><i class="pi pi-check"></i> Lưu</button>
-      </ng-template>
-    </p-dialog>
   `,
   styles: [`
     .w-full { width: 100%; }
@@ -879,13 +800,6 @@ export class DossierFormComponent implements OnInit {
     boxCode: null as string | null,
   };
 
-  selectedEquipments = signal<any[]>([]);
-  /** Dùng để lọc "Chọn từ kho PMIS" — chỉ hiện đúng tài liệu của Thiết bị hồ sơ này đã gắn. */
-  pmisPickerEquipmentIds = computed(() =>
-    this.selectedEquipments()
-      .map((e: any) => e.equipmentId ?? e.EquipmentId)
-      .filter((id: unknown): id is string => !!id)
-  );
   formGridTypeId = signal<number | null>(null);
   /** Signal để computed nhóm hồ sơ / IsEquipmentDossier cập nhật khi đổi select. */
   dossierGroupIdSignal = signal<number | null>(null);
@@ -965,11 +879,18 @@ export class DossierFormComponent implements OnInit {
     return this.dossierGroups().find(g => Number(g.id ?? g.Id) === Number(id)) ?? null;
   });
 
-  isEquipmentDossier = computed(() => {
-    const g = this.selectedDossierGroup();
-    if (!g) return false;
-    const flag = g.isEquipmentDossier ?? g.IsEquipmentDossier;
-    return flag === true || flag === 1 || flag === '1';
+  /**
+   * Combobox "Nhóm hồ sơ" bỏ 2 nhóm thiết bị (Hồ sơ thiết bị của trạm/đường dây) — thiết bị giờ được
+   * phân loại ở cấp Tài liệu đính kèm, không còn chọn ở cấp Hồ sơ. Vẫn giữ lại nhóm hiện tại của hồ sơ
+   * đang sửa trong danh sách (dù là nhóm thiết bị cũ) để field không bị trống khi mở hồ sơ cũ.
+   */
+  selectableDossierGroups = computed(() => {
+    const currentId = this.dossierGroupIdSignal();
+    return this.dossierGroups().filter(g => {
+      const flag = g.isEquipmentDossier ?? g.IsEquipmentDossier;
+      const isEquipmentGroup = flag === true || flag === 1 || flag === '1';
+      return !isEquipmentGroup || Number(g.id ?? g.Id) === Number(currentId);
+    });
   });
 
   infrastructureFieldLabel = computed(() => {
@@ -999,14 +920,6 @@ export class DossierFormComponent implements OnInit {
     const found = this.dossierTypes().find(t => t.id === this.dossier.dossierTypeId);
     return found?.name ?? '';
   });
-
-  // Dialog State
-  showEquipmentDialog = false;
-  equipmentKeyword = '';
-  equipmentSearchResults = signal<any[]>([]);
-  searchingEquipments = signal<boolean>(false);
-  /** Lựa chọn tạm trong popup — chỉ áp dụng vào hồ sơ khi bấm Lưu. */
-  dialogSelectedEquipments = signal<any[]>([]);
 
   private readonly destroyRef = inject(DestroyRef);
   /** Danh sách trạm/đường dây mặc định (chưa lọc theo từ khóa) — dùng để khôi phục khi xóa ô tìm kiếm. */
@@ -1289,7 +1202,6 @@ export class DossierFormComponent implements OnInit {
           }
           this.formGridTypeId.set(this.dossier.gridTypeId);
           this.dossierGroupIdSignal.set(this.dossier.dossierGroupId);
-          this.selectedEquipments.set(res.equipments ?? res.Equipments ?? []);
 
           const typeId = res.dossierTypeId ?? res.DossierTypeId;
           const formId = res.formId ?? res.FormId;
@@ -1331,7 +1243,6 @@ export class DossierFormComponent implements OnInit {
         .map(inf => inf.id ?? inf.Id);
       this.dossier.infrastructureIds = this.dossier.infrastructureIds.filter(id => allowed.includes(id));
       this.dossier.infrastructureId = this.dossier.infrastructureIds[0] ?? null;
-      this.selectedEquipments.set([]);
     }
   }
 
@@ -1345,11 +1256,6 @@ export class DossierFormComponent implements OnInit {
       this.dossier.infrastructureIds = this.dossier.infrastructureIds.filter(id => allowedIds.includes(id));
       this.dossier.infrastructureId = this.dossier.infrastructureIds[0] ?? null;
     }
-
-    if (!this.isEquipmentDossier()) {
-      this.selectedEquipments.set([]);
-    }
-
   }
 
   onInfrastructureChange(selectedIds: any) {
@@ -1357,9 +1263,6 @@ export class DossierFormComponent implements OnInit {
     const ids: string[] = Array.isArray(selectedIds) ? selectedIds : (selectedIds ? [selectedIds] : []);
     this.dossier.infrastructureIds = ids;
     this.dossier.infrastructureId = ids[0] ?? null;
-
-    // Đổi trạm/đường dây -> clear danh sách thiết bị đã chọn
-    this.selectedEquipments.set([]);
 
     // Sinh lại Mã hồ sơ/Tiêu đề hồ sơ theo trạm/đường dây mới chọn (nếu Loại hồ sơ đã được chọn
     // trước đó — tryAutoGenerateDossierValues() tự bỏ qua khi chưa có biểu mẫu/Loại hồ sơ).
@@ -1610,7 +1513,6 @@ export class DossierFormComponent implements OnInit {
     if (this.dossier.dossierGroupId == null) return false;
     // Bắt buộc chọn Trạm/Đường dây khi tạo mới và khi chỉnh sửa hồ sơ.
     if (!this.dossier.infrastructureIds || this.dossier.infrastructureIds.length === 0) return false;
-    if (this.isEquipmentDossier() && this.selectedEquipments().length === 0) return false;
     return true;
   }
 
@@ -1785,8 +1687,6 @@ export class DossierFormComponent implements OnInit {
         detail = 'Vui lòng chọn loại hồ sơ';
       } else if (!this.dossier.infrastructureIds || this.dossier.infrastructureIds.length === 0) {
         detail = 'Vui lòng chọn trạm/đường dây';
-      } else if (this.isEquipmentDossier() && this.selectedEquipments().length === 0) {
-        detail = 'Hồ sơ thiết bị bắt buộc chọn ít nhất một thiết bị';
       }
       this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail });
       return;
@@ -1806,9 +1706,6 @@ export class DossierFormComponent implements OnInit {
       gridTypeId: this.dossier.gridTypeId != null ? Number(this.dossier.gridTypeId) : null,
       statusId: this.usePublishApi && !this.isEditMode() ? 6 : undefined,
       publishStatusId: this.usePublishApi && !this.isEditMode() ? 1 : undefined,
-      equipmentIds: this.isEquipmentDossier()
-        ? this.selectedEquipments().map(e => e.equipmentId || e.id)
-        : [],
       formDataJson: this.dynamicFields().length > 0
         ? serializeFormDataForSchema(this.dynamicFields(), this.toSerializableFormData())
         : undefined,
@@ -1865,72 +1762,6 @@ export class DossierFormComponent implements OnInit {
 
   onCancel() {
     this.cancel.emit();
-  }
-
-  // ===== Equipment Logic =====
-
-  openAddEquipmentDialog() {
-    this.dialogSelectedEquipments.set(this.selectedEquipments().map(eq => ({ ...eq })));
-    this.showEquipmentDialog = true;
-    this.equipmentKeyword = '';
-    this.searchEquipments();
-  }
-
-  closeEquipmentDialog() {
-    this.showEquipmentDialog = false;
-    this.dialogSelectedEquipments.set([]);
-  }
-
-  confirmEquipmentSelection() {
-    this.selectedEquipments.set(this.dialogSelectedEquipments().map(eq => ({ ...eq })));
-    this.closeEquipmentDialog();
-  }
-
-  searchEquipments() {
-    this.searchingEquipments.set(true);
-    this.service.getEquipmentLookup({
-      keyword: this.equipmentKeyword,
-      infrastructureId: this.dossier.infrastructureId || undefined,
-      gridTypeId: this.dossier.gridTypeId || undefined,
-      pageSize: 50
-    }).subscribe({
-      next: (res: any) => {
-        this.equipmentSearchResults.set(res.items || []);
-        this.searchingEquipments.set(false);
-      },
-      error: (err: any) => {
-        this.searchingEquipments.set(false);
-      }
-    });
-  }
-
-  isDialogEquipmentSelected(eq: any): boolean {
-    return this.dialogSelectedEquipments().some(s => (s.equipmentId || s.id) === eq.id);
-  }
-
-  toggleDialogEquipmentSelection(eq: any) {
-    const currentList = [...this.dialogSelectedEquipments()];
-    const index = currentList.findIndex(s => (s.equipmentId || s.id) === eq.id);
-
-    if (index >= 0) {
-      currentList.splice(index, 1);
-    } else {
-      currentList.push({
-        equipmentId: eq.id,
-        id: eq.id,
-        equipmentCode: eq.code,
-        code: eq.code,
-        equipmentName: eq.name,
-        name: eq.name,
-        infrastructureName: eq.infrastructureName
-      });
-    }
-    this.dialogSelectedEquipments.set(currentList);
-  }
-
-  removeEquipment(eq: any) {
-    const eqId = eq.equipmentId || eq.id;
-    this.selectedEquipments.set(this.selectedEquipments().filter(s => (s.equipmentId || s.id) !== eqId));
   }
 
   trackByFieldKey(_index: number, field: EavField): string {

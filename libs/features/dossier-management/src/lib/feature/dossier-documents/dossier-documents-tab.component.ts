@@ -124,10 +124,10 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
   private lastSignalRDossierId: string | null = null;
 
   @Input({ required: true }) dossierId!: string;
-  /** Trạm/Đường dây + Thiết bị hồ sơ đã gắn — dùng để lọc "Chọn từ kho PMIS" chỉ hiện đúng tài liệu
-   * thuộc các đối tượng này, tránh chọn nhầm tài liệu của Trạm/Đường dây/Thiết bị khác. */
+  /** Trạm/Đường dây hồ sơ đã gắn — dùng để lọc "Chọn từ kho PMIS" chỉ hiện đúng tài liệu thuộc các
+   * Trạm/Đường dây này (và thiết bị thuộc chúng), tránh chọn nhầm tài liệu của đối tượng khác. Cũng
+   * dùng để giới hạn danh sách thiết bị chọn được khi "Thêm mới tài liệu". */
   @Input() infrastructureIds: string[] = [];
-  @Input() equipmentIds: string[] = [];
   @Input() canEdit = false;
   @Input() canUpload = false;
   @Input() kindId = 2;
