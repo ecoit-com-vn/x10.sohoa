@@ -29,6 +29,9 @@ export interface EavFormTemplate {
 
 export interface PmisSpecKeyOption {
   key: string;
+  /** Nhãn tiếng Việt do PMIS cung cấp (field "tenThongSoKyThuat", bổ sung 2026-09-23) — null với dữ liệu
+   * đồng bộ trước khi có field này. */
+  label: string | null;
   sampleValue: string | null;
   count: number;
 }

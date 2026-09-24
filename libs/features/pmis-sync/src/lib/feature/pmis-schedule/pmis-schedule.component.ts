@@ -15,6 +15,7 @@ import {
   SyncHistoryDetail,
 } from '../../data-access/pmis-history.service';
 import { formatUtcDate } from '../../data-access/date-format.util';
+import { getParentName as resolveParentName } from '../../data-access/sync-history-detail.util';
 
 interface EditForm {
   objectType: string;
@@ -208,19 +209,9 @@ export class PmisScheduleComponent implements OnInit {
     return formatUtcDate(value);
   }
 
-  /**
-   * Tên trạm biến áp/đường dây mà thiết bị trực thuộc — đọc từ dataContent (JSON gốc PMIS trả về).
-   * Backend serialize RawData bằng PascalCase (TenTBA/TenDuongDay) nên tra cứu phải không phân biệt hoa/thường.
-   */
+  /** Xem sync-history-detail.util.ts — trích xuất ra util chung, dùng lại y hệt ở pmis-manual-sync. */
   getParentName(dataContent: string | null | undefined): string {
-    if (!dataContent) return '---';
-    try {
-      const obj = JSON.parse(dataContent);
-      const key = Object.keys(obj).find((k) => k.toLowerCase() === 'tentba' || k.toLowerCase() === 'tenduongday');
-      return (key && obj[key]) || '---';
-    } catch {
-      return '---';
-    }
+    return resolveParentName(dataContent);
   }
 
   private showError(error: any, fallback: string): void {
