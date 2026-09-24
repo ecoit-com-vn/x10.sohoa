@@ -8,7 +8,7 @@ namespace EvnHanoi.EquipmentService.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class PhysicalStorageController : ControllerBase
+public partial class PhysicalStorageController : ControllerBase
 {
     private readonly IPhysicalStorageRepository _repository;
 
@@ -46,6 +46,12 @@ public class PhysicalStorageController : ControllerBase
         var scope = await ResolveUnitScopeAsync(shelf.UnitId);
         if (scope.Forbidden || (scope.UnitIds != null && !scope.UnitIds.Contains(shelf.UnitId.Value)))
             return Forbid();
+
+        // Mã tự động sinh theo quy tắc {Mã đơn vị}_KE{Số thứ tự} — bỏ qua Mã client gửi lên (nếu có).
+        var generatedCode = await _repository.GenerateNextShelfCodeAsync(shelf.UnitId.Value);
+        if (generatedCode == null)
+            return BadRequest(new { message = "Không thể sinh mã kệ: đơn vị chưa có Mã đơn vị." });
+        shelf.Code = generatedCode;
 
         var id = await _repository.CreateShelfAsync(shelf);
         shelf.Id = id;
@@ -96,6 +102,22 @@ public class PhysicalStorageController : ControllerBase
     [HttpPost("floors")]
     public async Task<IActionResult> CreateFloor([FromBody] PhysicalFloor floor)
     {
+        var shelf = await _repository.GetShelfByIdAsync(floor.ShelfId);
+        if (shelf == null)
+            return BadRequest(new { message = "Kệ lưu trữ không tồn tại." });
+        if (shelf.UnitId is null or <= 0)
+            return BadRequest(new { message = "Kệ lưu trữ chưa được gán đơn vị." });
+
+        var scope = await ResolveUnitScopeAsync(shelf.UnitId);
+        if (scope.Forbidden || (scope.UnitIds != null && !scope.UnitIds.Contains(shelf.UnitId.Value)))
+            return Forbid();
+
+        // Mã tự động sinh theo quy tắc {Mã đơn vị}_TANG{Số thứ tự} — bỏ qua Mã client gửi lên (nếu có).
+        var generatedCode = await _repository.GenerateNextFloorCodeAsync(shelf.UnitId.Value);
+        if (generatedCode == null)
+            return BadRequest(new { message = "Không thể sinh mã tầng: đơn vị chưa có Mã đơn vị." });
+        floor.Code = generatedCode;
+
         var id = await _repository.CreateFloorAsync(floor);
         floor.Id = id;
         return CreatedAtAction(nameof(GetFloorById), new { id }, floor);
@@ -138,6 +160,24 @@ public class PhysicalStorageController : ControllerBase
     [HttpPost("boxes")]
     public async Task<IActionResult> CreateBox([FromBody] PhysicalBox box)
     {
+        var floor = await _repository.GetFloorByIdAsync(box.FloorId);
+        if (floor == null)
+            return BadRequest(new { message = "Tầng kệ không tồn tại." });
+
+        var shelf = await _repository.GetShelfByIdAsync(floor.ShelfId);
+        if (shelf == null || shelf.UnitId is null or <= 0)
+            return BadRequest(new { message = "Tầng kệ chưa được gán đơn vị hợp lệ." });
+
+        var scope = await ResolveUnitScopeAsync(shelf.UnitId);
+        if (scope.Forbidden || (scope.UnitIds != null && !scope.UnitIds.Contains(shelf.UnitId.Value)))
+            return Forbid();
+
+        // Mã tự động sinh theo quy tắc {Mã đơn vị}_HOP{Số thứ tự} — bỏ qua Mã client gửi lên (nếu có).
+        var generatedCode = await _repository.GenerateNextBoxCodeAsync(shelf.UnitId.Value);
+        if (generatedCode == null)
+            return BadRequest(new { message = "Không thể sinh mã hộp: đơn vị chưa có Mã đơn vị." });
+        box.Code = generatedCode;
+
         var id = await _repository.CreateBoxAsync(box);
         box.Id = id;
         return CreatedAtAction(nameof(GetBoxById), new { id }, box);

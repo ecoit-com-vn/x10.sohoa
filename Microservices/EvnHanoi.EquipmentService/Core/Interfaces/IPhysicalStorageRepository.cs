@@ -26,4 +26,17 @@ public interface IPhysicalStorageRepository
     Task<long> CreateBoxAsync(PhysicalBox box);
     Task<bool> UpdateBoxAsync(PhysicalBox box);
     Task<bool> DeleteBoxAsync(long id);
+
+    // Sinh mã tự động: {Mã đơn vị}_KE/TANG/HOP{Số thứ tự} — số thứ tự tính riêng theo từng đơn vị,
+    // gộp qua mọi kệ/tầng thuộc đơn vị đó (không phải riêng theo từng kệ/tầng cha).
+    Task<string?> GetUnitCodeAsync(long unitId);
+    Task<long?> FindUnitIdByCodeAsync(string code);
+    Task<string?> GenerateNextShelfCodeAsync(long unitId);
+    Task<string?> GenerateNextFloorCodeAsync(long unitId);
+    Task<string?> GenerateNextBoxCodeAsync(long unitId);
+
+    // Dùng cho import Excel: đối chiếu Kệ/Tầng cha bằng Tên (vì Mã do hệ thống tự sinh, người
+    // nhập không biết trước Mã của 1 Kệ/Tầng vừa được tạo trong cùng file import).
+    Task<long?> FindShelfIdByUnitAndNameAsync(long unitId, string name);
+    Task<long?> FindFloorIdByShelfAndNameAsync(long shelfId, string name);
 }
