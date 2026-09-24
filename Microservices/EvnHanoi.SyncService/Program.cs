@@ -3,6 +3,7 @@ using EvnHanoi.Infrastructure.Logging;
 using EvnHanoi.Infrastructure.Security;
 using EvnHanoi.Infrastructure.Audit;
 using EvnHanoi.SyncService.Clients;
+using EvnHanoi.SyncService.Models;
 using EvnHanoi.SyncService.Repositories;
 using EvnHanoi.SyncService.Schedulers;
 using EvnHanoi.SyncService.Security;
@@ -183,18 +184,29 @@ builder.Services.AddHttpClient("CA", client =>
 #pragma warning restore EXTEXP0001
 
 // 5. Quartz Scheduler — PmisScheduledSyncJob thay PmisSyncScheduler cũ (chỉ log, chưa lưu gì).
-// Tick mỗi phút, tự kiểm tra SYNC_CONFIG của từng đối tượng để biết có tới hạn hay không — giữ
-// nguyên JobKey "PmisSyncJob" để endpoint POST /api/v1/sync/trigger-now (SyncController) không
-// cần đổi.
+// Tick mỗi phút, tự kiểm tra SYNC_CONFIG của từng đối tượng để biết có tới hạn hay không.
+//
+// 3 JobKey RIÊNG (PmisSyncJob-Substation/TransmissionLine/Equipment) dùng CHUNG 1 class
+// PmisScheduledSyncJob, mỗi JobDetail mang đúng 1 SyncObjectType qua JobDataMap — KHÔNG còn 1 JobKey
+// duy nhất lặp cả 3 loại trong 1 Execute() như trước. Lý do: [DisallowConcurrentExecution] scope theo
+// JobKey, nên trước đây nếu Thiết bị chạy nhiều giờ (dữ liệu lớn), nó chặn luôn Execute() mới của CHÍNH
+// JobKey đó — khiến Trạm/Đường dây (xử lý SAU Thiết bị trong cùng vòng lặp cũ) bị đói theo lịch suốt
+// thời gian đó dù đã tới hạn từ lâu. Tách JobKey khiến 3 loại độc lập hoàn toàn về lịch chạy, khớp với
+// RedLock vốn đã tách theo objectType (sync:lock:pmis:{objectType}) từ trước.
 builder.Services.AddQuartz(q =>
 {
-    var jobKey = new JobKey("PmisSyncJob");
-    q.AddJob<PmisScheduledSyncJob>(opts => opts.WithIdentity(jobKey));
-    q.AddTrigger(opts => opts
-        .ForJob(jobKey)
-        .WithIdentity("PmisSyncJob-trigger")
-        .WithSimpleSchedule(x => x.WithIntervalInMinutes(1).RepeatForever())
-    );
+    foreach (var objectType in new[] { SyncObjectType.Substation, SyncObjectType.TransmissionLine, SyncObjectType.Equipment })
+    {
+        var jobKey = new JobKey($"PmisSyncJob-{objectType}");
+        q.AddJob<PmisScheduledSyncJob>(opts => opts
+            .WithIdentity(jobKey)
+            .UsingJobData(PmisScheduledSyncJob.ObjectTypeDataKey, objectType));
+        q.AddTrigger(opts => opts
+            .ForJob(jobKey)
+            .WithIdentity($"PmisSyncJob-{objectType}-trigger")
+            .WithSimpleSchedule(x => x.WithIntervalInMinutes(1).RepeatForever())
+        );
+    }
 
     // Dọn PMIS_API_CALL_LOG (lịch sử gọi PMIS thật) cũ hơn 30 ngày — bảng có thể phình rất nhanh vì
     // mỗi trang trong 1 lượt đồng bộ là 1 dòng log, xem PmisApiCallLogCleanupJob.
@@ -224,6 +236,16 @@ builder.Services.AddQuartz(q =>
         .ForJob(syncHistoryWatchdogJobKey)
         .WithIdentity("SyncHistoryWatchdogJob-trigger")
         .WithSimpleSchedule(x => x.WithIntervalInMinutes(5).RepeatForever())
+    );
+
+    // Đối chiếu nhẹ 1 lần/ngày (đối chiếu mã PMIS thiếu do phân trang lệch + đếm thiết bị chuyển TBA gần
+    // đây) — KHÔNG tự sửa gì, chỉ log cảnh báo cho admin, xem PmisReconciliationJob.
+    var reconciliationJobKey = new JobKey("PmisReconciliationJob");
+    q.AddJob<PmisReconciliationJob>(opts => opts.WithIdentity(reconciliationJobKey));
+    q.AddTrigger(opts => opts
+        .ForJob(reconciliationJobKey)
+        .WithIdentity("PmisReconciliationJob-trigger")
+        .WithSimpleSchedule(x => x.WithIntervalInHours(24).RepeatForever())
     );
 });
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);

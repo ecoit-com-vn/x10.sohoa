@@ -66,6 +66,19 @@ public class InternalPmisSyncController : ControllerBase
         return Ok(rows.Select(r => new { pmisCode = r.PmisCode, infraTypeId = r.InfraTypeId }));
     }
 
+    /// <summary>Đếm thiết bị bị đánh dấu "Đã chuyển TBA" bởi PMIS_SYNC trong <paramref name="sinceHours"/>
+    /// giờ gần đây — dùng bởi PmisReconciliationJob (SyncService) làm compensating check nhẹ cho khả năng
+    /// mất EquipmentTbaTransferredEvent (xem EquipmentRepository.CountRecentlyTransferredAsync).</summary>
+    [HttpGet("equipment/recently-transferred-count")]
+    public async Task<IActionResult> GetRecentlyTransferredCount(
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken, [FromQuery] int sinceHours = 24)
+    {
+        if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
+
+        var count = await _equipmentRepository.CountRecentlyTransferredAsync(DateTime.UtcNow.AddHours(-sinceHours));
+        return Ok(new { count });
+    }
+
     [HttpPost("infrastructure/upsert-from-pmis")]
     public async Task<IActionResult> UpsertInfrastructureFromPmis(
         [FromHeader(Name = "X-Internal-Token")] string? internalToken,
@@ -114,6 +127,21 @@ public class InternalPmisSyncController : ControllerBase
         if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
         if (items is null || items.Count == 0) return BadRequest(new { message = "Danh sách rỗng." });
 
+        // Prefetch 4 lookup lặp lại (cha, loại thiết bị, đơn vị, bản ghi đã tồn tại) cho CẢ TRANG trong 3-4
+        // round-trip DB cố định thay vì tới 4×N — audit hiệu năng PMIS 2026-09-24, xem
+        // EquipmentRepository.PrefetchUpsertLookupsAsync. Lỗi ở bước này (hiếm — DB tạm gián đoạn) không
+        // chặn cả request: rơi về prefetch=null, mỗi item tự SELECT riêng như trước (chậm hơn nhưng đúng).
+        EquipmentUpsertPrefetch? prefetch = null;
+        try
+        {
+            prefetch = await _equipmentRepository.PrefetchUpsertLookupsAsync(
+                items.Select(i => (i.PmisCode, i.ParentPmisCode, i.UnitCode)).ToList());
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "InternalPmisSyncController: lỗi khi prefetch lookup cho lô {Count} thiết bị — rơi về tra từng bản ghi riêng lẻ (chậm hơn).", items.Count);
+        }
+
         var results = new List<UpsertEquipmentFromPmisResult>();
         foreach (var item in items)
         {
@@ -122,7 +150,8 @@ public class InternalPmisSyncController : ControllerBase
                 var upsertResult = await _equipmentRepository.UpsertFromPmisAsync(
                     item.PmisCode, item.Code, item.Name, item.SerialNumber,
                     item.EquipmentTypeCode, item.ParentPmisCode, item.UnitCode,
-                    item.ManufactureYear, item.QrCodeBase64, item.GridTypeId, item.EquipmentTypeName);
+                    item.ManufactureYear, item.QrCodeBase64, item.GridTypeId, item.EquipmentTypeName,
+                    prefetch);
 
                 if (!upsertResult.Success)
                 {
@@ -257,21 +286,14 @@ public class InternalPmisSyncController : ControllerBase
             try
             {
                 var existing = await _pmisDocumentRepository.GetByCodeAsync(item.PmisDocumentCode);
-                if (existing != null && !string.IsNullOrEmpty(existing.ObjectKey))
-                {
-                    results.Add(new UpsertPmisDocumentResult
-                    {
-                        PmisDocumentCode = item.PmisDocumentCode,
-                        Success = true,
-                        WasSkippedAsExisting = true
-                    });
-                    continue;
-                }
 
                 // Ưu tiên gán theo ĐÚNG thiết bị nếu tài liệu có kèm mã thiết bị (DeviceCode) — kể cả khi
                 // gọi từ lượt đồng bộ cấp Trạm/Đường dây (item.OwnerType="INFRASTRUCTURE" ở đây chỉ là
                 // giá trị mặc định/dự phòng). Thiết bị chưa tồn tại (chưa đồng bộ tới) thì rơi về đúng
                 // OwnerType/OwnerPmisCode ban đầu — KHÔNG bỏ qua tài liệu, tránh mất dữ liệu.
+                // LUÔN resolve lại (kể cả khi item đã tồn tại + đã có file) — thiết bị thật có thể vừa
+                // được tạo ở 1 lượt Equipment sync SAU lượt đã gán tài liệu này cho INFRASTRUCTURE, nên
+                // không thể chỉ tin owner đã lưu trước đó (xem so sánh bên dưới).
                 var ownerType = item.OwnerType;
                 var ownerId = string.IsNullOrWhiteSpace(item.DeviceCode)
                     ? null
@@ -283,6 +305,26 @@ public class InternalPmisSyncController : ControllerBase
                 else
                 {
                     ownerId = await _pmisDocumentRepository.ResolveOwnerIdAsync(item.OwnerType, item.OwnerPmisCode);
+                }
+
+                if (existing != null && !string.IsNullOrEmpty(existing.ObjectKey))
+                {
+                    // Owner đã resolve lại khác với owner đang lưu (đặc biệt: đang là INFRASTRUCTURE
+                    // nhưng giờ đã khớp được EQUIPMENT thật) — sửa lại 2 cột này, KHÔNG cần tải lại file.
+                    if (ownerId != null &&
+                        (!string.Equals(existing.OwnerType, ownerType, StringComparison.OrdinalIgnoreCase) ||
+                         existing.OwnerId != ownerId.Value))
+                    {
+                        await _pmisDocumentRepository.UpdateOwnerAsync(existing.Id, ownerType, ownerId.Value);
+                    }
+
+                    results.Add(new UpsertPmisDocumentResult
+                    {
+                        PmisDocumentCode = item.PmisDocumentCode,
+                        Success = true,
+                        WasSkippedAsExisting = true
+                    });
+                    continue;
                 }
 
                 if (ownerId == null)

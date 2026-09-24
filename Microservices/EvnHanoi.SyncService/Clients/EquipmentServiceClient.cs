@@ -50,6 +50,22 @@ public class EquipmentServiceClient : IEquipmentServiceClient
         return await response.Content.ReadFromJsonAsync<List<SyncedInfrastructurePmisCode>>() ?? [];
     }
 
+    public async Task<int> GetRecentlyTransferredCountAsync(int sinceHours)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"internal/v1/equipment/recently-transferred-count?sinceHours={sinceHours}");
+        request.Headers.Add("X-Internal-Token", _internalToken);
+
+        var response = await _httpClient.SendAsync(request);
+        await EnsureSuccessOrThrowWithBodyAsync(response);
+        var result = await response.Content.ReadFromJsonAsync<RecentlyTransferredCountResponse>();
+        return result?.Count ?? 0;
+    }
+
+    private class RecentlyTransferredCountResponse
+    {
+        public int Count { get; set; }
+    }
+
     public async Task<List<UpsertPmisDocumentResult>> UpsertDocumentsAsync(List<UpsertPmisDocumentRequest> items)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "internal/v1/documents/upsert-from-pmis")
