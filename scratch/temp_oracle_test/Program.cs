@@ -1,28 +1,11 @@
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Globalization;
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using Oracle.ManagedDataAccess.Client;
-using Dapper;
 
 class Program
 {
-    static string RemoveDiacritics(string? text)
-    {
-        if (string.IsNullOrEmpty(text)) return string.Empty;
-        text = text.Replace('đ', 'd').Replace('Đ', 'd');
-        var normalized = text.Normalize(NormalizationForm.FormD);
-        var sb = new StringBuilder();
-        foreach (var c in normalized)
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
-                sb.Append(c);
-        }
-        return sb.ToString().Normalize(NormalizationForm.FormC).ToLowerInvariant();
-    }
-
     static async Task Main()
     {
         string host = "192.168.1.199";
@@ -32,54 +15,55 @@ class Program
         string service = "orcl";
 
         string connStr = $"Data Source={host}:{port}/{service};User Id={user};Password={password};Pooling=false;";
-        try
-        {
-            using var conn = new OracleConnection(connStr);
-            conn.Open();
+        using var conn = new OracleConnection(connStr);
+        conn.Open();
 
-            // Replicate InfrastructureRepository.GetByIdAsync's EXACT current SQL (post-fix) against a
-            // real row to prove no ORA-00904 remains and Dapper splitOn multi-mapping still works.
-            var realId = await conn.QuerySingleOrDefaultAsync<string>("SELECT ID FROM INFRASTRUCTURE WHERE ROWNUM <= 1");
-            Console.WriteLine("Testing GetByIdAsync-equivalent SQL against real Id=" + realId);
-            var sql = @"SELECT i.Id,
-                            i.Code,
-                            i.Name,
-                            i.Address,
-                            i.UNIT_ID as UnitId,
-                            i.GRIDTYPEID as GridTypeId,
-                            i.OPERATION_DATE as OperationDate,
-                            i.IS_ACTIVE as IsActive,
-                            i.CreatedBy,
-                            i.CreatedDate,
-                            i.ModifiedBy,
-                            i.ModifiedDate,
-                            i.PARENT_ID as ParentId,
-                            p.NAME as ParentName,
-                            p.CODE as ParentCode,
-                            it.NAME as InfraTypeName,
-                            u.NAME as UnitName,
-                            i.PMIS_CODE as PmisCode,
-                            i.LAST_SYNCED_FROM_PMIS_AT as LastSyncedFromPmisAt,
-                            i.CMIS_CODE as CmisCode,
-                            u.Id as OrgId,
-                            u.Code as OrgCode,
-                            u.Name as OrgName
-                     FROM INFRASTRUCTURE i
-                     LEFT JOIN INFRASTRUCTURE p ON i.PARENT_ID = p.ID
-                     LEFT JOIN INFRASTRUCTURE_TYPE it ON i.INFRA_TYPE_ID = it.ID
-                     LEFT JOIN ORGANIZATION_UNIT u ON i.UNIT_ID = u.Id
-                     WHERE i.Id = :Id AND i.IsDeleted = 0";
+        var path = "/run/media/hataphu/data/sources/x10/sohoa/sohoa.backend/BuildingBlocks/EvnHanoi.Infrastructure/Migrations/Manual/EquipmentService_0067_AddNormalizedSearchColumnsToInfrastructure.sql";
+        var text = File.ReadAllText(path);
+
+        // Extract the 2 anonymous PL/SQL blocks (between "DECLARE" and the "END;\n/" terminator),
+        // same as sqlplus would execute them, skipping the sqlplus-only "SET SERVEROUTPUT ON" line
+        // and comments.
+        var blocks = new System.Collections.Generic.List<string>();
+        int idx = 0;
+        while (true)
+        {
+            int declareIdx = text.IndexOf("DECLARE", idx, StringComparison.Ordinal);
+            if (declareIdx < 0) break;
+            int slashIdx = text.IndexOf("\n/\n", declareIdx, StringComparison.Ordinal);
+            if (slashIdx < 0) slashIdx = text.IndexOf("\n/", declareIdx, StringComparison.Ordinal);
+            var block = text.Substring(declareIdx, slashIdx - declareIdx).TrimEnd();
+            blocks.Add(block);
+            idx = slashIdx + 2;
+        }
+
+        Console.WriteLine($"Found {blocks.Count} anonymous PL/SQL block(s) to test.");
+
+        int blockNum = 1;
+        foreach (var block in blocks)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"== Executing block #{blockNum} (fixed syntax) ==");
             try
             {
-                var row = await conn.QueryFirstOrDefaultAsync(sql, new { Id = realId });
-                Console.WriteLine("GetByIdAsync-equivalent SQL WORKS. Sample row: PmisCode=" + row?.PMISCODE + " CmisCode=" + row?.CMISCODE + " Code=" + row?.CODE);
+                using var cmd = new OracleCommand(block, conn) { BindByName = true };
+                cmd.CommandTimeout = 120;
+                await cmd.ExecuteNonQueryAsync();
+                Console.WriteLine($"  Block #{blockNum} EXECUTED SUCCESSFULLY (no PLS-00103 / syntax error).");
             }
-            catch (Exception ex) { Console.WriteLine("GetByIdAsync-equivalent SQL FAILS: " + ex.Message); }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  Block #{blockNum} FAILED: {ex.Message}");
+            }
+            blockNum++;
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error: {ex.Message}");
-            Console.WriteLine(ex.StackTrace);
-        }
+
+        Console.WriteLine();
+        Console.WriteLine("== Sanity check: backfill completeness (idempotent, should be fully backfilled already) ==");
+        using var checkCmd = new OracleCommand(
+            "SELECT COUNT(*) AS TongSo, COUNT(NORMALIZED_CODE) AS DaBackfill FROM INFRASTRUCTURE", conn);
+        using var reader = await checkCmd.ExecuteReaderAsync();
+        if (await reader.ReadAsync())
+            Console.WriteLine($"  TongSo={reader.GetInt32(0)} DaBackfill={reader.GetInt32(1)}");
     }
 }
