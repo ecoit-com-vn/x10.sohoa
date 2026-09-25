@@ -43,7 +43,7 @@
           optionValue="id"
           placeholder="-- Tất cả trạm/đường dây --"
           [filter]="true"
-          filterBy="name,code"
+          filterBy="name,code,displayLabel"
           filterPlaceholder="Tìm theo mã hoặc tên..."
           (onFilter)="onInfrastructureFilter($event)"
           [virtualScroll]="true"
