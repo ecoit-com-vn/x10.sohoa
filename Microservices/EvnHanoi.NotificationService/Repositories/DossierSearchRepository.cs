@@ -272,11 +272,17 @@ public class DossierSearchRepository : IDossierSearchRepository
 
             if (!string.IsNullOrWhiteSpace(keyword))
             {
+                // Operator.And: Match m\u1eb7c \u0111\u1ecbnh c\u1ee7a ES d\u00f9ng operator OR gi\u1eefa c\u00e1c token \u2014 v\u1edbi field text \u0111\u00e3
+                // ph\u00e2n t\u00edch (tokenize theo d\u1ea5u ch\u1ea5m/kho\u1ea3ng tr\u1eafng), 1 t\u1eeb kh\u00f3a d\u1ea1ng m\u00e3 h\u1ed3 s\u01a1 nhi\u1ec1u \u0111o\u1ea1n nh\u01b0
+                // "HN011.E22.HSG.003" b\u1ecb t\u00e1ch th\u00e0nh c\u00e1c token r\u1eddi ("hn011","e22","hsg","003"); do c\u00e1c token
+                // ng\u1eafn (s\u1ed1 th\u1ee9 t\u1ef1, m\u00e3 \u0111\u01a1n v\u1ecb, vi\u1ebft t\u1eaft lo\u1ea1i h\u1ed3 s\u01a1...) l\u1eb7p l\u1ea1i r\u1ea5t nhi\u1ec1u gi\u1eefa c\u00e1c h\u1ed3 s\u01a1 kh\u00e1c
+                // nhau, OR kh\u1edbp g\u1ea7n nh\u01b0 TO\u00c0N B\u1ed8 d\u1eef li\u1ec7u thay v\u00ec \u0111\u00fang 1 h\u1ed3 s\u01a1 \u2014 tr\u00f4ng nh\u01b0 t\u00ecm ki\u1ebfm "ra all d\u1eef
+                // li\u1ec7u". \u00c9p Operator.And \u0111\u1ec3 b\u1eaft bu\u1ed9c kh\u1edbp \u0110\u1ee6 m\u1ecdi token c\u1ee7a t\u1eeb kh\u00f3a m\u1edbi t\u00ednh l\u00e0 match.
                 mustQueries.Add(new QueryDescriptor<DossierEsDocument>().Bool(bb => bb
                     .MinimumShouldMatch(1)
                     .Should(
-                        sh => sh.Match(mq => mq.Field(DossierEsFieldNames.DossierCode).Query(keyword)),
-                        sh => sh.Match(mq => mq.Field(DossierEsFieldNames.DossierTitle).Query(keyword)),
+                        sh => sh.Match(mq => mq.Field(DossierEsFieldNames.DossierCode).Query(keyword).Operator(Operator.And)),
+                        sh => sh.Match(mq => mq.Field(DossierEsFieldNames.DossierTitle).Query(keyword).Operator(Operator.And)),
                         sh => sh.Nested(n => n
                             .Path(p => p.FormFields)
                             .Query(nq => nq.Bool(nb => nb.Must(
@@ -290,7 +296,8 @@ public class DossierSearchRepository : IDossierSearchRepository
                                         .ToArray()))),
                                 mq => mq.Match(m => m
                                     .Field("formFields.textValue")
-                                    .Query(keyword)))))
+                                    .Query(keyword)
+                                    .Operator(Operator.And)))))
                         ),
                         sh => sh.Nested(n => n
                             .Path(p => p.FormFields)
@@ -304,7 +311,8 @@ public class DossierSearchRepository : IDossierSearchRepository
                                     }.Select(FieldValue.String).ToArray()))),
                                 mq => mq.Match(m => m
                                     .Field("formFields.textValue")
-                                    .Query(keyword)))))
+                                    .Query(keyword)
+                                    .Operator(Operator.And)))))
                         ),
                         sh => sh.Nested(n => n
                             .Path(p => p.CatalogFields)
@@ -314,7 +322,8 @@ public class DossierSearchRepository : IDossierSearchRepository
                                     .Value("M\u00e3 h\u1ed3 s\u01a1")),
                                 mq => mq.Match(m => m
                                     .Field("catalogFields.value")
-                                    .Query(keyword)))))
+                                    .Query(keyword)
+                                    .Operator(Operator.And)))))
                         ),
                         sh => sh.Nested(n => n
                             .Path(p => p.CatalogFields)
@@ -324,7 +333,8 @@ public class DossierSearchRepository : IDossierSearchRepository
                                     .Value("Ti\u00eau \u0111\u1ec1 h\u1ed3 s\u01a1")),
                                 mq => mq.Match(m => m
                                     .Field("catalogFields.value")
-                                    .Query(keyword)))))
+                                    .Query(keyword)
+                                    .Operator(Operator.And)))))
                         )
                     )
                 ));
