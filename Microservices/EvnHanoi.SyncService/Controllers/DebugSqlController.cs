@@ -80,7 +80,7 @@ public class DebugSqlController : ControllerBase
             var startedAt = DateTime.UtcNow;
             var rows = (await _connection.QueryAsync(
                     wrappedSql,
-                    new { __maxRows = maxRows },
+                    new { MaxRows = maxRows },
                     commandTimeout: CommandTimeoutSeconds))
                 .Select(row => (IDictionary<string, object>)row)
                 .ToList();
@@ -159,7 +159,11 @@ public class DebugSqlController : ControllerBase
             return false;
         }
 
-        wrappedSql = $"SELECT * FROM ({trimmed}) WHERE ROWNUM <= :__maxRows";
+        // Bind variable Oracle BẮT BUỘC bắt đầu bằng chữ cái (giống quy tắc định danh thường) — ":__maxRows"
+        // (2 dấu gạch dưới đầu) từng khiến MỌI câu SELECT lỗi "ORA-00911: invalid character", kể cả
+        // "SELECT 1 FROM DUAL" đơn giản nhất — phát hiện thật khi test endpoint lần đầu qua ApiGateway
+        // (2026-09-28), trước đó endpoint chưa từng được gọi thật với Oracle.
+        wrappedSql = $"SELECT * FROM ({trimmed}) WHERE ROWNUM <= :MaxRows";
         error = null;
         return true;
     }
