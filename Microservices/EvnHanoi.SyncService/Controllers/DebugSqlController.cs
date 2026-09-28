@@ -10,16 +10,23 @@ using Microsoft.AspNetCore.Mvc;
 namespace EvnHanoi.SyncService.Controllers;
 
 /// <summary>
-/// CHỈ DÙNG ĐỂ GỠ LỖI TRÊN STAGING — KHÔNG BẬT Ở PRODUCTION.
+/// CHỈ DÙNG ĐỂ GỠ LỖI TRÊN STAGING/UAT — KHÔNG ĐƯỢC SET "DebugSql:SecretKey" Ở PRODUCTION.
 /// Cho phép chạy 1 câu SELECT tùy ý để soi dữ liệu khi debug, không đi qua JWT/DynamicPermission
-/// ([BypassDynamicPermission], đặt ngoài "/api/v1/..." nên không lộ route qua ApiGateway) — thay vào đó
-/// bắt buộc khớp mã bí mật cấu hình ở "DebugSql:SecretKey" (đọc qua biến môi trường
-/// DebugSql__SecretKey trên staging, KHÔNG commit giá trị thật vào appsettings*.json).
-/// Chỉ chấp nhận đúng 1 câu SELECT/WITH, chặn các từ khóa DML/DDL, và luôn giới hạn số dòng trả về
-/// bằng ROWNUM để tránh kéo cả bảng lớn.
+/// ([BypassDynamicPermission]) — thay vào đó bắt buộc khớp mã bí mật cấu hình ở "DebugSql:SecretKey"
+/// (đọc qua biến môi trường DebugSql__SecretKey trên staging, KHÔNG commit giá trị thật vào
+/// appsettings*.json). Chỉ chấp nhận đúng 1 câu SELECT/WITH, chặn các từ khóa DML/DDL, và luôn giới hạn
+/// số dòng trả về bằng ROWNUM để tránh kéo cả bảng lớn.
+///
+/// Route đặt dưới "api/v1/sync/..." (khớp "sync-route" trong ApiGateway appsettings.json,
+/// Path "/api/v1/sync/{**catch-all}") ĐỂ GỌI ĐƯỢC TỪ NGOÀI qua ApiGateway/ingress — trước đây route nằm
+/// ở "internal/v1/debug-sql" (chỉ gọi được từ trong cluster) — đổi theo yêu cầu 2026-09-28 vì cần debug
+/// dữ liệu PMIS sync trên môi trường không có kubectl/SSH. HỆ QUẢ BẢO MẬT: endpoint chạy SELECT tuỳ ý
+/// lên DB thật giờ lộ ra internet công khai, chỉ còn được bảo vệ bởi mã bí mật (không JWT, không giới
+/// hạn số lần thử) — do đó CHỈ ĐƯỢC set biến DebugSql__SecretKey trên UAT, KHÔNG BAO GIỜ set trên
+/// production (thiếu biến này thì action luôn trả 503, an toàn mặc định).
 /// </summary>
 [ApiController]
-[Route("internal/v1/debug-sql")]
+[Route("api/v1/sync/debug-sql")]
 [BypassDynamicPermission]
 public class DebugSqlController : ControllerBase
 {
