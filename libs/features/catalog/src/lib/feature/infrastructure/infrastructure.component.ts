@@ -851,10 +851,13 @@ export class InfrastructureComponent implements OnInit {
     this.onFieldChange('unitId');
   }
 
+  isLoadingList = signal<boolean>(false);
+
   loadItems() {
     // Đường dây: luôn tải phẳng (không rootOnly) — giống hệt /search/transmission-line — rồi tự dựng
     // cây từ items() bằng parentId (xem transmissionLineTree). Không dùng childLineCount vì field này
     // không đáng tin cậy.
+    this.isLoadingList.set(true);
     this.infraService.getInfrastructures(
       this.infraTypeId(),
       this.currentPage(),
@@ -864,7 +867,7 @@ export class InfrastructureComponent implements OnInit {
       this.searchUnitId(),
       this.searchPersonalOnly(),
       false
-    ).subscribe({
+    ).pipe(finalize(() => this.isLoadingList.set(false))).subscribe({
       next: (res) => {
         if (res) {
           this.items.set(res.items || []);

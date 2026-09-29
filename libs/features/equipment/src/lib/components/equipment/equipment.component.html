@@ -65,7 +65,7 @@
                 background-color: #ffffff !important;
                 border-radius: 6px;
               " placeholder="Nhập từ khóa tìm kiếm" [ngModel]="searchKeyword()"
-              (ngModelChange)="searchKeyword.set($event); onSearch()" (keyup.enter)="onSearch()" />
+              (ngModelChange)="onKeywordChange($event)" (keyup.enter)="onSearch()" />
           </div>
 
           <!-- Cột 2: Trạm / đường dây -->
@@ -170,6 +170,18 @@
               </tr>
             </thead>
             <tbody>
+              <tr *ngIf="isLoadingList()">
+                <td colspan="10" class="empty-row" style="padding: 0;">
+                  <div *ngFor="let row of [1,2,3,4,5]"
+                    style="display: flex; gap: 10px; padding: 12px; border-bottom: 1px solid #f1f5f9;">
+                    <div class="skeleton-shimmer" style="height: 16px; flex: 1; border-radius: 4px;"></div>
+                    <div class="skeleton-shimmer" style="height: 16px; flex: 2; border-radius: 4px;"></div>
+                    <div class="skeleton-shimmer" style="height: 16px; flex: 1.5; border-radius: 4px;"></div>
+                    <div class="skeleton-shimmer" style="height: 16px; flex: 1.5; border-radius: 4px;"></div>
+                  </div>
+                </td>
+              </tr>
+              <ng-container *ngIf="!isLoadingList()">
               <tr *ngFor="let item of paginatedItems(); let i = index">
                 <td class="col-stt text-muted">
                   {{ (currentPage() - 1) * pageSize() + i + 1 }}
@@ -217,6 +229,7 @@
                   <div>Không tìm thấy thiết bị nào phù hợp.</div>
                 </td>
               </tr>
+              </ng-container>
             </tbody>
           </table>
         </div>
