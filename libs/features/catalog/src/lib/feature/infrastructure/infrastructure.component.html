@@ -193,7 +193,18 @@
             </ng-container>
           </thead>
           <tbody>
-            <ng-container *ngIf="infraTypeId() === 1">
+            <tr *ngIf="isLoadingList()">
+              <td colspan="9" class="empty-row" style="padding: 0;">
+                <div *ngFor="let row of [1,2,3,4,5]"
+                  style="display: flex; gap: 10px; padding: 12px; border-bottom: 1px solid #f1f5f9;">
+                  <div class="skeleton-shimmer" style="height: 16px; flex: 1; border-radius: 4px;"></div>
+                  <div class="skeleton-shimmer" style="height: 16px; flex: 2; border-radius: 4px;"></div>
+                  <div class="skeleton-shimmer" style="height: 16px; flex: 1.5; border-radius: 4px;"></div>
+                  <div class="skeleton-shimmer" style="height: 16px; flex: 1.5; border-radius: 4px;"></div>
+                </div>
+              </td>
+            </tr>
+            <ng-container *ngIf="!isLoadingList() && infraTypeId() === 1">
               <tr *ngFor="let item of paginatedItems(); let i = index">
                 <td class="col-stt text-muted">
                   {{ (currentPage() - 1) * pageSize() + i + 1 }}
@@ -283,12 +294,12 @@
                 </td>
               </tr>
             </ng-container>
-            <ng-container *ngIf="infraTypeId() === 2">
+            <ng-container *ngIf="!isLoadingList() && infraTypeId() === 2">
               <ng-container
                 *ngTemplateOutlet="lineRowsTpl; context: { $implicit: transmissionLineTree(), level: 0 }"
               ></ng-container>
             </ng-container>
-            <tr *ngIf="items().length === 0">
+            <tr *ngIf="!isLoadingList() && items().length === 0">
               <td
                 colspan="9"
                 class="empty-row"
