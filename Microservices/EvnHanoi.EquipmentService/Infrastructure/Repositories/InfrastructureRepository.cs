@@ -170,10 +170,11 @@ public class InfrastructureRepository : IInfrastructureRepository
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
+        // Không join p (INFRASTRUCTURE cha)/it (INFRASTRUCTURE_TYPE)/u (ORGANIZATION_UNIT) ở đây — cả 3
+        // đều KHÔNG tham gia điều kiện WHERE nào (filter dùng thẳng i.INFRA_TYPE_ID/i.UNIT_ID, không qua
+        // alias join), chỉ phục vụ hiển thị cột/ORDER BY ở câu SELECT phân trang. Tách riêng để COUNT(1)
+        // không phải join thêm 3 bảng vô ích trên mỗi lần tải danh sách (xem selectOnlyJoins bên dưới).
         var sqlBase = $@"FROM INFRASTRUCTURE i
-                          LEFT JOIN INFRASTRUCTURE p ON i.PARENT_ID = p.ID
-                          LEFT JOIN INFRASTRUCTURE_TYPE it ON i.INFRA_TYPE_ID = it.ID
-                          LEFT JOIN ORGANIZATION_UNIT u ON i.UNIT_ID = u.Id
                           WHERE i.{nameof(Infrastructure.IsDeleted)} = 0 AND i.INFRA_TYPE_ID = :InfraTypeId";
 
         var parameters = new DynamicParameters();
@@ -237,6 +238,16 @@ public class InfrastructureRepository : IInfrastructureRepository
         var countSql = $"SELECT COUNT(1) {sqlBase}";
         var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
 
+        // Chỉ cần cho câu SELECT hiển thị (tên cha/loại hạ tầng/đơn vị) + ORDER BY theo mã cha — không
+        // tham gia lọc, nên KHÔNG có trong sqlBase (dùng cho COUNT).
+        const string selectOnlyJoins = @"
+                          LEFT JOIN INFRASTRUCTURE p ON i.PARENT_ID = p.ID
+                          LEFT JOIN INFRASTRUCTURE_TYPE it ON i.INFRA_TYPE_ID = it.ID
+                          LEFT JOIN ORGANIZATION_UNIT u ON i.UNIT_ID = u.Id";
+        var selectSqlBase = sqlBase.Replace(
+            $"WHERE i.{nameof(Infrastructure.IsDeleted)} = 0",
+            $"{selectOnlyJoins}\n                          WHERE i.{nameof(Infrastructure.IsDeleted)} = 0");
+
         var selectSql = $@"SELECT i.{nameof(Infrastructure.Id)},
                            i.{nameof(Infrastructure.Code)},
                            i.{nameof(Infrastructure.Name)},
@@ -270,7 +281,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                            u.Id AS OrgId,
                            u.Code AS OrgCode,
                            u.Name AS OrgName
-                   {sqlBase}
+                   {selectSqlBase}
                     ORDER BY i.IS_ACTIVE DESC,
                              COALESCE(p.CODE, i.{nameof(Infrastructure.Code)}) ASC,
                              CASE WHEN i.PARENT_ID IS NULL THEN 0 ELSE 1 END ASC,

@@ -21,9 +21,13 @@
 -- sống, CẢ 2 biểu thức đều NULL, Oracle bỏ qua khoá toàn NULL trong unique index nên hồn ma/đã xoá không
 -- còn chặn nhau, còn trùng thật (2 thiết bị đang sống) vẫn bị chặn đúng như thiết kế.
 --
+-- SCHEMA: tiền tố "QLSHX10." tường minh cho user không phải chủ schema (xem giải thích đầy đủ ở
+-- EquipmentService_0061_RestoreFalselyGhostedPmisEquipment.sql). Nếu kết nối THẲNG bằng user QLSHX10,
+-- tiền tố thừa nhưng vô hại.
+--
 -- ROLLBACK thủ công (chỉ chạy được nếu không còn hồn ma nào đang trùng slot với dòng sống):
---   DROP INDEX UX_EQUIPMENTS_ACTIVE_INFRA_CODE;
---   ALTER TABLE EQUIPMENTS ADD CONSTRAINT UQ_EQUIPMENTS_INFRA_CODE UNIQUE (INFRASTRUCTURE_ID, CODE);
+--   DROP INDEX QLSHX10.UX_EQUIPMENTS_ACTIVE_INFRA_CODE;
+--   ALTER TABLE QLSHX10.EQUIPMENTS ADD CONSTRAINT UQ_EQUIPMENTS_INFRA_CODE UNIQUE (INFRASTRUCTURE_ID, CODE);
 --   DELETE FROM SCHEMAVERSIONS WHERE SCRIPTNAME LIKE '%0059_FixEquipmentsInfraCodeUnique%';
 --   COMMIT;
 -- ============================================================================
@@ -36,7 +40,7 @@ DECLARE
     duplicate_count NUMBER;
 BEGIN
     SELECT COUNT(*) INTO duplicate_count FROM (
-        SELECT INFRASTRUCTURE_ID, CODE FROM EQUIPMENTS
+        SELECT INFRASTRUCTURE_ID, CODE FROM QLSHX10.EQUIPMENTS
         WHERE ISDELETED = 0 AND STATUSTRANSITION IS NULL
           AND INFRASTRUCTURE_ID IS NOT NULL AND CODE IS NOT NULL
         GROUP BY INFRASTRUCTURE_ID, CODE HAVING COUNT(*) > 1
@@ -52,22 +56,23 @@ DECLARE
     v_exists NUMBER;
 BEGIN
     SELECT COUNT(*) INTO v_exists
-    FROM user_constraints
-    WHERE constraint_name = 'UQ_EQUIPMENTS_INFRA_CODE'
-      AND table_name = 'EQUIPMENTS';
+    FROM ALL_CONSTRAINTS
+    WHERE OWNER = 'QLSHX10'
+      AND CONSTRAINT_NAME = 'UQ_EQUIPMENTS_INFRA_CODE'
+      AND TABLE_NAME = 'EQUIPMENTS';
 
     IF v_exists > 0 THEN
-        EXECUTE IMMEDIATE 'ALTER TABLE EQUIPMENTS DROP CONSTRAINT UQ_EQUIPMENTS_INFRA_CODE';
+        EXECUTE IMMEDIATE 'ALTER TABLE QLSHX10.EQUIPMENTS DROP CONSTRAINT UQ_EQUIPMENTS_INFRA_CODE';
         DBMS_OUTPUT.PUT_LINE('Da bo constraint UQ_EQUIPMENTS_INFRA_CODE.');
     ELSE
         DBMS_OUTPUT.PUT_LINE('Constraint UQ_EQUIPMENTS_INFRA_CODE khong ton tai — bo qua.');
     END IF;
 
-    SELECT COUNT(*) INTO v_exists FROM user_indexes WHERE index_name = 'UX_EQUIPMENTS_ACTIVE_INFRA_CODE';
+    SELECT COUNT(*) INTO v_exists FROM ALL_INDEXES WHERE OWNER = 'QLSHX10' AND INDEX_NAME = 'UX_EQUIPMENTS_ACTIVE_INFRA_CODE';
 
     IF v_exists = 0 THEN
         EXECUTE IMMEDIATE '
-            CREATE UNIQUE INDEX UX_EQUIPMENTS_ACTIVE_INFRA_CODE ON EQUIPMENTS (
+            CREATE UNIQUE INDEX QLSHX10.UX_EQUIPMENTS_ACTIVE_INFRA_CODE ON QLSHX10.EQUIPMENTS (
                 CASE WHEN ISDELETED = 0 AND STATUSTRANSITION IS NULL THEN INFRASTRUCTURE_ID END,
                 CASE WHEN ISDELETED = 0 AND STATUSTRANSITION IS NULL THEN CODE END
             )';
@@ -79,5 +84,5 @@ END;
 /
 
 -- KIỂM TRA: chỉ còn PK + unique index mới, không còn UQ_EQUIPMENTS_INFRA_CODE.
--- SELECT constraint_name, constraint_type FROM user_constraints WHERE table_name = 'EQUIPMENTS';
--- SELECT index_name, uniqueness FROM user_indexes WHERE table_name = 'EQUIPMENTS';
+-- SELECT constraint_name, constraint_type FROM all_constraints WHERE owner = 'QLSHX10' AND table_name = 'EQUIPMENTS';
+-- SELECT index_name, uniqueness FROM all_indexes WHERE owner = 'QLSHX10' AND table_name = 'EQUIPMENTS';

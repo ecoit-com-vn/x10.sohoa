@@ -86,6 +86,37 @@ public class EquipmentDto
     public int? ParentInfraTypeId { get; set; }
 }
 
+/// <summary>
+/// DTO rút gọn cho GetPagedAsync (danh sách phân trang /api/v1/equipment) — chỉ các trường thật sự hiển
+/// thị trên table (Id/Code/Name/EquipmentTypeName/InfrastructureName/UnitName/GridTypeId/IsActive/
+/// StatusTransition/audit/Creator). Bỏ EquipmentTypeCode, InfrastructureCode, GridTypeName,
+/// EquipmentStatusId/Name, ManufactureYear — các trường này chỉ dùng ở màn chi tiết
+/// (GetDtoByIdAsync/EquipmentDto), không tham gia câu SELECT/JOIN của danh sách nữa (đã xác nhận qua
+/// grep toàn bộ equipment.component.ts/html + libs/features/search — các trường này chỉ đọc từ
+/// currentItem(), không phải từ item của bảng danh sách).
+/// </summary>
+public class EquipmentListItemDto
+{
+    public Guid Id { get; set; }
+    public Guid EquipmentTypeId { get; set; }
+    public string EquipmentTypeName { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public Guid? InfrastructureId { get; set; }
+    public string InfrastructureName { get; set; } = string.Empty;
+    public long? UnitId { get; set; }
+    public string UnitName { get; set; } = string.Empty;
+    public int? GridTypeId { get; set; }
+    public bool IsActive { get; set; }
+    public int? StatusTransition { get; set; }
+    public CreatorInfoDto? Creator { get; set; }
+
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public string? ModifiedBy { get; set; }
+    public DateTime? ModifiedDate { get; set; }
+}
+
 public class EquipmentTypeDto
 {
     public Guid Id { get; set; }
