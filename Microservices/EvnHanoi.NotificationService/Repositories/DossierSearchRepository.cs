@@ -44,7 +44,10 @@ public class DossierSearchRepository : IDossierSearchRepository
 
         var items = response.Documents.Select(doc => MapToListItem(doc, bhsCatalogs)).ToList();
         items = FilterItemsForTab(items, filter);
-        var totalCount = await CountAsync(filter, keyword);
+        // response.Total đã có sẵn nhờ TrackTotalHits(true) ở câu query phân trang phía trên — trước đây
+        // vẫn bắn thêm 1 câu query ES riêng (CountAsync) chỉ để lấy lại đúng con số này, nhân đôi số lần
+        // gọi Elasticsearch trên MỖI lần tải trang (cả 3 tab màn Xuất bản hồ sơ dùng chung hàm này).
+        var totalCount = (int)response.Total;
         return (items, totalCount);
     }
 
@@ -56,28 +59,52 @@ public class DossierSearchRepository : IDossierSearchRepository
 
         if (DossierMenuScopes.IsPublisher(scope))
         {
-            counts.PendingPublish = await CountAsync(CloneForTab(filter, DossierListTabs.PendingPublish), keyword);
-            counts.Published = await CountAsync(CloneForTab(filter, DossierListTabs.Published), keyword);
-            counts.Unpublished = await CountAsync(CloneForTab(filter, DossierListTabs.Unpublished), keyword);
+            // Task.WhenAll thay vì await tuần tự từng cái — 3 câu query ES độc lập nhau, chạy song song
+            // giảm ~3 lần độ trễ so với gọi lần lượt (cùng cách default branch bên dưới đã làm).
+            var publisherTasks = new[]
+            {
+                CountAsync(CloneForTab(filter, DossierListTabs.PendingPublish), keyword),
+                CountAsync(CloneForTab(filter, DossierListTabs.Published), keyword),
+                CountAsync(CloneForTab(filter, DossierListTabs.Unpublished), keyword),
+            };
+            var publisherResults = await Task.WhenAll(publisherTasks);
+            counts.PendingPublish = publisherResults[0];
+            counts.Published = publisherResults[1];
+            counts.Unpublished = publisherResults[2];
             return counts;
         }
 
         if (DossierMenuScopes.IsCreator(scope))
         {
-            counts.Draft = await CountAsync(CloneForTab(filter, DossierListTabs.Draft), keyword);
+            var creatorTasks = new[]
+            {
+                CountAsync(CloneForTab(filter, DossierListTabs.Draft), keyword),
+                CountAsync(CloneForTab(filter, DossierListTabs.InProgress), keyword),
+                CountAsync(CloneForTab(filter, DossierListTabs.Completed), keyword),
+                CountAsync(CloneForTab(filter, DossierListTabs.Returned), keyword),
+            };
+            var creatorResults = await Task.WhenAll(creatorTasks);
+            counts.Draft = creatorResults[0];
             counts.PendingAction = 0;
-            counts.InProgress = await CountAsync(CloneForTab(filter, DossierListTabs.InProgress), keyword);
-            counts.Completed = await CountAsync(CloneForTab(filter, DossierListTabs.Completed), keyword);
-            counts.Returned = await CountAsync(CloneForTab(filter, DossierListTabs.Returned), keyword);
+            counts.InProgress = creatorResults[1];
+            counts.Completed = creatorResults[2];
+            counts.Returned = creatorResults[3];
             return counts;
         }
 
         if (DossierMenuScopes.IsApprover(scope))
         {
+            var approverTasks = new[]
+            {
+                CountAsync(CloneForTab(filter, DossierListTabs.PendingAction), keyword),
+                CountAsync(CloneForTab(filter, DossierListTabs.InProgress), keyword),
+                CountAsync(CloneForTab(filter, DossierListTabs.Completed), keyword),
+            };
+            var approverResults = await Task.WhenAll(approverTasks);
             counts.Draft = 0;
-            counts.PendingAction = await CountAsync(CloneForTab(filter, DossierListTabs.PendingAction), keyword);
-            counts.InProgress = await CountAsync(CloneForTab(filter, DossierListTabs.InProgress), keyword);
-            counts.Completed = await CountAsync(CloneForTab(filter, DossierListTabs.Completed), keyword);
+            counts.PendingAction = approverResults[0];
+            counts.InProgress = approverResults[1];
+            counts.Completed = approverResults[2];
             counts.Returned = 0;
             return counts;
         }

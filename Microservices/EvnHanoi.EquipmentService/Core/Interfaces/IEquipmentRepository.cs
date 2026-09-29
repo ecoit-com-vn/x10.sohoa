@@ -16,7 +16,7 @@ public interface IEquipmentRepository
     Task<(IEnumerable<EquipmentExternalDto> Items, int TotalCount)> GetExternalListAsync(PmisEquipmentListRequestDto filter);
     Task<(IEnumerable<EquipmentDetailListDto> Items, int TotalCount)> GetExternalListWithItemsAsync(PmisEquipmentListRequestDto filter);
     Task<IEnumerable<Equipment>> GetAllAsync(IEnumerable<long>? unitIds = null);
-    Task<(IEnumerable<EquipmentDto> Items, int TotalCount)> GetPagedAsync(
+    Task<(IEnumerable<EquipmentListItemDto> Items, int TotalCount)> GetPagedAsync(
         int page, 
         int pageSize, 
         string? keyword,
