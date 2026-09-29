@@ -680,6 +680,9 @@ export class DossierPublishComponent implements OnInit {
     this.selectedDossierIds.set(new Set());
     const dossierTypeId = this.filterDossierTypeId();
 
+    // Backend (DossierSearchRepository.ConfigureQuery) đã lọc theo dossierTypeId ngay trong câu query
+    // Elasticsearch — không cần tải 1000 dòng rồi tự lọc/phân trang lại phía client (cách cũ, chỉ tổ tốn
+    // băng thông + CPU trình duyệt vô ích và phá vỡ phân trang thật của server).
     this.publishService.getPaged({
       tab: this.activeTab() as DossierListTab,
       keyword: this.searchKeyword(),
@@ -687,25 +690,11 @@ export class DossierPublishComponent implements OnInit {
       infrastructureId: this.filterInfrastructureId() || undefined,
       equipmentId: this.filterEquipmentId() || undefined,
       page: this.currentPage(),
-      pageSize: dossierTypeId ? 1000 : this.pageSize()
+      pageSize: this.pageSize()
     }).subscribe({
       next: (res) => {
-        const sourceItems = res.items || [];
-        const matchingItems = dossierTypeId
-          ? sourceItems.filter((item: any) =>
-              String(item.dossierTypeId ?? item.DossierTypeId ?? '').toLowerCase()
-              === String(dossierTypeId).toLowerCase()
-            )
-          : sourceItems;
-
-        if (dossierTypeId) {
-          const start = (this.currentPage() - 1) * this.pageSize();
-          this.items.set(matchingItems.slice(start, start + this.pageSize()));
-          this.totalCount.set(matchingItems.length);
-        } else {
-          this.items.set(matchingItems);
-          this.totalCount.set(res.totalCount || 0);
-        }
+        this.items.set(res.items || []);
+        this.totalCount.set(res.totalCount || 0);
         this.loading.set(false);
       },
       error: () => {
@@ -730,6 +719,7 @@ export class DossierPublishComponent implements OnInit {
     const baseFilter = {
       tab: this.activeTab() as DossierListTab,
       keyword: this.searchKeyword(),
+      dossierTypeId: dossierTypeId || undefined,
       infrastructureId: this.filterInfrastructureId() || undefined,
       equipmentId: this.filterEquipmentId() || undefined,
     };
@@ -753,14 +743,7 @@ export class DossierPublishComponent implements OnInit {
         finalize(() => this.exporting.set(false))
       )
       .subscribe({
-        next: async (allItems: any[]) => {
-          const items = dossierTypeId
-            ? allItems.filter((item: any) =>
-                String(item.dossierTypeId ?? item.DossierTypeId ?? '').toLowerCase()
-                === String(dossierTypeId).toLowerCase()
-              )
-            : allItems;
-
+        next: async (items: any[]) => {
           if (!items.length) {
             this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Không có dữ liệu để xuất.' });
             return;
