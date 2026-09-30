@@ -763,41 +763,29 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             var endpointApiCode = isSubstationOrigin ? "SUBSTATION_DOCUMENT_LIST" : "LINE_DOCUMENT_LIST";
             var results = new List<UpsertPmisDocumentResult>();
             var requests = new List<UpsertPmisDocumentRequest>();
-            // Chi tiết riêng từng tài liệu (tên, loại, URL file thật, kích thước tải được) để đưa vào
+            // Chi tiết riêng từng tài liệu (tên, loại, URL file thật, trạng thái tải file) để đưa vào
             // SyncHistoryDetail.DataContent — trước đây "Lịch sử đồng bộ" chỉ hiện mã/tên của TRẠM/ĐƯỜNG
             // DÂY (owner) lặp lại y hệt cho mọi tài liệu, không cách nào phân biệt tài liệu nào với tài
             // liệu nào, cũng không thấy được URL/kích thước file đã tải hay lỗi tải file thật sự (khác lỗi
             // lưu bản ghi ở EquipmentService) — xem PmisSyncExecutionService.cs (feedback người dùng
             // 2026-09-23: "thiếu log chi tiết cho api tải file vật lý").
-            var docInfoByCode = new Dictionary<string, (string? TenTaiLieu, string? LoaiTaiLieu, string? FileUrl, int? FileSizeBytes, string? FileDownloadError)>();
+            var docInfoByCode = new Dictionary<string, (string? TenTaiLieu, string? LoaiTaiLieu, string? FileUrl, string? FileDownloadError)>();
             foreach (var doc in items)
             {
                 if (string.IsNullOrWhiteSpace(doc.MaTaiLieu)) continue;
 
-                string? fileBase64 = null;
+                // Pha đồng bộ DANH SÁCH KHÔNG tải file vật lý nữa — chỉ gửi URL để EquipmentService lưu
+                // (FILE_STATUS=PENDING), job nền PmisDocumentFileDownloadJob tải dần sau, có thử lại theo
+                // backoff. Nhờ vậy 1 file PMIS chậm/treo không còn chặn cả lượt đồng bộ danh sách.
                 string? fileDownloadError = null;
-                int? fileSizeBytes = null;
-                if (!string.IsNullOrWhiteSpace(doc.File))
+                if (string.IsNullOrWhiteSpace(doc.File))
                 {
-                    var (bytes, errorReason) = await _pmisClient.DownloadDocumentFileAsync(doc.File, endpointApiCode);
-                    if (bytes is { Length: > 0 })
-                    {
-                        fileBase64 = Convert.ToBase64String(bytes);
-                        fileSizeBytes = bytes.Length;
-                    }
-                    else fileDownloadError = errorReason;
-                }
-                else
-                {
-                    // Phân biệt rõ với trường hợp CÓ URL nhưng tải lỗi (fileDownloadError ở trên, có
-                    // "Nguyên nhân: HTTP 404/timeout/..." cụ thể) — ở đây PMIS trả về tài liệu này nhưng
-                    // KHÔNG kèm URL file (trường "File" rỗng/null), nên SyncService chưa từng gọi HTTP.
-                    // Không phải lỗi kết nối phía hệ thống này — khả năng cao PMIS chưa đính kèm file cho
-                    // bản ghi tài liệu này.
-                    fileDownloadError = "PMIS không trả về URL file cho tài liệu này (trường \"File\" rỗng) — chưa từng thử tải.";
+                    // PMIS trả về tài liệu này nhưng KHÔNG kèm URL file (trường "File" rỗng/null) — chưa có gì
+                    // để tải; khả năng cao PMIS chưa đính kèm file cho bản ghi tài liệu này.
+                    fileDownloadError = "PMIS không trả về URL file cho tài liệu này (trường \"File\" rỗng) — chưa có file để tải.";
                 }
 
-                docInfoByCode[doc.MaTaiLieu] = (doc.TenTaiLieu, doc.LoaiTaiLieu, doc.File, fileSizeBytes, fileDownloadError);
+                docInfoByCode[doc.MaTaiLieu] = (doc.TenTaiLieu, doc.LoaiTaiLieu, doc.File, fileDownloadError);
 
                 requests.Add(new UpsertPmisDocumentRequest
                 {
@@ -807,7 +795,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                     DocumentName = doc.TenTaiLieu,
                     DocumentType = doc.LoaiTaiLieu,
                     FileName = doc.TenTaiLieu ?? doc.MaTaiLieu,
-                    FileBase64 = fileBase64,
+                    FileUrl = string.IsNullOrWhiteSpace(doc.File) ? null : doc.File,
+                    FileSourceApi = endpointApiCode,
                     FileDownloadError = fileDownloadError,
                     SyncHistoryId = syncHistoryId,
                     // Đồng bộ cấp Trạm/Đường dây (maTB tham số = null, không lọc) PMIS trả về CẢ tài liệu
@@ -850,8 +839,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 // (item PMIS thô, xem dòng ~726/912 dưới), nên dòng tài liệu tái dùng đúng quy ước đó,
                 // FE không cần thêm nhánh đặc biệt nào cho riêng dòng tài liệu.
                 object dataContentObj = isSubstationOrigin
-                    ? new { info.TenTaiLieu, info.LoaiTaiLieu, OwnerType = ownerType, OwnerPmisCode = ownerPmisCode, TenTBA = sourceName, FileUrl = info.FileUrl, FileSizeBytes = info.FileSizeBytes, Downloaded = info.FileSizeBytes != null, result.WasSkippedAsExisting }
-                    : new { info.TenTaiLieu, info.LoaiTaiLieu, OwnerType = ownerType, OwnerPmisCode = ownerPmisCode, TenDuongDay = sourceName, FileUrl = info.FileUrl, FileSizeBytes = info.FileSizeBytes, Downloaded = info.FileSizeBytes != null, result.WasSkippedAsExisting };
+                    ? new { info.TenTaiLieu, info.LoaiTaiLieu, OwnerType = ownerType, OwnerPmisCode = ownerPmisCode, TenTBA = sourceName, FileUrl = info.FileUrl, FileDownload = info.FileUrl != null ? "PENDING" : "NO_URL", result.WasSkippedAsExisting }
+                    : new { info.TenTaiLieu, info.LoaiTaiLieu, OwnerType = ownerType, OwnerPmisCode = ownerPmisCode, TenDuongDay = sourceName, FileUrl = info.FileUrl, FileDownload = info.FileUrl != null ? "PENDING" : "NO_URL", result.WasSkippedAsExisting };
                 var dataContent = JsonSerializer.Serialize(dataContentObj);
 
                 details.Add(new SyncHistoryDetail

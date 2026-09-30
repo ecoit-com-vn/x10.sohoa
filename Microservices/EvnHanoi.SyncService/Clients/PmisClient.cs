@@ -143,8 +143,8 @@ public class PmisClient : IPmisClient
             // Dùng Format (đầy đủ: lớp vỏ bọc Polly + nguyên nhân gốc, tối đa 1900 ký tự) thay vì
             // FormatShort (chỉ nguyên nhân gốc, tối đa 300 ký tự) — ErrorReason ở đây không bị nối chung
             // với lỗi khác (khác PmisScheduledSyncJob.PushPageAsync nối nhiều dòng bằng "; "), nên không
-            // cần rút ngắn; đích đến là 1 cột ERROR_MESSAGE NVARCHAR2(2000) riêng của đúng 1 tài liệu này
-            // (xem InternalPmisSyncController.BuildFileDownloadFailedMessage) — admin cần thấy rõ HTTP
+            // cần rút ngắn; đích đến là cột FILE_LAST_ERROR NVARCHAR2(2000) riêng của đúng 1 tài liệu này
+            // (cột FILE_LAST_ERROR của PMIS_DOCUMENT, qua attach-file) — admin cần thấy rõ HTTP
             // status/host lỗi thật (404, timeout, DNS...) ngay trên UI thay vì chỉ 1 câu chung chung.
             return (null, SyncErrorFormatter.Format(ex));
         }
