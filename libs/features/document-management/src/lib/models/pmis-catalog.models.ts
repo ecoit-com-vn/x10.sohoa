@@ -24,6 +24,10 @@ export interface PmisDocumentItem {
   syncedAt: string;
   /** true nếu do người dùng tự upload thủ công (khi đồng bộ tự động lỗi), false nếu đến từ đồng bộ PMIS thật. */
   isManual: boolean;
+  /** Trạng thái tải file vật lý từ PMIS: NO_URL (PMIS không kèm file) | PENDING (chờ tải) | DONE | FAILED (lỗi, sẽ thử lại thưa). */
+  fileStatus: 'NO_URL' | 'PENDING' | 'DONE' | 'FAILED';
+  /** Lý do tải file lỗi gần nhất, nếu có. */
+  fileLastError: string | null;
 }
 
 export interface PmisCatalogDocumentsResponse {
