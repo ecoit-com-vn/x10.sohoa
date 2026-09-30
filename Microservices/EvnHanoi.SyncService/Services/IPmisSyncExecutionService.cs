@@ -17,8 +17,11 @@ public interface IPmisSyncExecutionService
     /// sách mỗi lượt (số lượng owner do phân trang PMIS quyết định, không rotate được như Equipment).
     /// Mặc định true (giữ nguyên hành vi cũ) cho luồng Manual (PmisManualSyncController.Save) — số lượng
     /// nhỏ do người dùng tự chọn, không có vấn đề rotation.</summary>
-    Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncInfrastructureAsync(int infraTypeId, string syncHistoryId, IReadOnlyList<JsonElement> rawItems, bool syncDocuments = true);
-    Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncEquipmentAsync(string syncHistoryId, IReadOnlyList<JsonElement> rawItems, string? parentPmisCodeFallback = null);
+    /// <summary><paramref name="inc"/> != null (chỉ PmisScheduledSyncJob khi bật đồng bộ tăng dần): bỏ qua bản ghi
+    /// KHÔNG ĐỔI so với lần đẩy thành công gần nhất (ghi vào <see cref="IncrementalContext.UnchangedCodes"/>) và
+    /// điền <see cref="IncrementalContext.ToSave"/> cho các bản ghi đẩy thành công — caller tự ghi PMIS_SYNC_STATE.</summary>
+    Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncInfrastructureAsync(int infraTypeId, string syncHistoryId, IReadOnlyList<JsonElement> rawItems, bool syncDocuments = true, IncrementalContext? inc = null);
+    Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncEquipmentAsync(string syncHistoryId, IReadOnlyList<JsonElement> rawItems, string? parentPmisCodeFallback = null, IncrementalContext? inc = null);
 
     /// <summary>Đồng bộ tài liệu đính kèm cho ĐÚNG 1 Trạm/Đường dây theo mã PMIS — dùng bởi
     /// PmisScheduledSyncJob.SyncDocumentsRotatingAsync (pass riêng, có rotation qua
