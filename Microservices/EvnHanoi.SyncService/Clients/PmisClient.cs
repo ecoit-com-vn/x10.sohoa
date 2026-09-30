@@ -131,7 +131,7 @@ public class PmisClient : IPmisClient
             }
 
             // Key RIÊNG với hậu tố ":File" — endpointApiCode ở đây chỉ dùng để lấy header cấu hình, còn
-            // request thật sự gọi tới fileUrl động (server lưu trữ tài liệu), khác hẳn API danh sách
+            // request thật sự gọi tới requestUrl (fileUrl động đã chuẩn hoá về gateway), khác hẳn API danh sách
             // (SendCoreAsync dùng key "{httpClientName}:{apiCode}" không hậu tố cho endpoint.Url cố định
             // của chính apiCode đó). Nếu dùng chung key, tải file lỗi 5 lần (server lưu trữ tài liệu sập)
             // sẽ mở luôn circuit của API danh sách tài liệu dù bản thân API đó vẫn gọi PMIS bình thường.

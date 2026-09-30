@@ -17,6 +17,8 @@ internal static class PmisFileUrlResolver
     public static string Resolve(string fileUrl, Uri? gatewayBase, string? endpointUrl)
     {
         var raw = fileUrl.Trim();
+        // "//host/path" (scheme-relative): trên Linux Uri.TryCreate(Absolute) hiểu nhầm thành đường dẫn file://.
+        if (raw.StartsWith("//", StringComparison.Ordinal)) raw = "https:" + raw;
         var authority = UsableAuthority(gatewayBase) ?? UsableAuthority(endpointUrl);
 
         if (Uri.TryCreate(raw, UriKind.Absolute, out var abs) && (abs.Scheme == Uri.UriSchemeHttp || abs.Scheme == Uri.UriSchemeHttps))
