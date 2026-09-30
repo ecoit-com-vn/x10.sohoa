@@ -2101,10 +2101,10 @@ public class DocumentRepository : IDocumentRepository
             countParams.Add("Keyword", $"%{filter.Keyword}%");
 
         var countSql = $@"
-            SELECT COUNT(*) 
-            FROM DOCUMENTS d 
+            SELECT COUNT(*)
+            FROM DOCUMENTS d
             {dossierJoin}
-            INNER JOIN DOSSIER_EQUIPMENTS de ON d.DOSSIER_ID = de.DossierId
+            INNER JOIN DOCUMENT_EQUIPMENTS de ON de.DocumentId = d.ID
             INNER JOIN DOCUMENT_TYPES dt ON {DocumentTypeActiveJoin}
             WHERE {aliasedWhere}";
         var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, countParams);
@@ -2138,7 +2138,7 @@ public class DocumentRepository : IDocumentRepository
                 ext.STATUS AS ExtractionStatus
             FROM DOCUMENTS d
             {dossierJoin}
-            INNER JOIN DOSSIER_EQUIPMENTS de ON d.DOSSIER_ID = de.DossierId
+            INNER JOIN DOCUMENT_EQUIPMENTS de ON de.DocumentId = d.ID
             {DocumentCreatorJoin}
             INNER JOIN DOCUMENT_TYPES dt ON {DocumentTypeActiveJoin}
             LEFT JOIN (
