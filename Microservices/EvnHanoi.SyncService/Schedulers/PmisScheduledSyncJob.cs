@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using EvnHanoi.Infrastructure.Messaging;
 using EvnHanoi.SyncService.Clients;
@@ -6,6 +7,7 @@ using EvnHanoi.SyncService.Models;
 using EvnHanoi.SyncService.Models.Pmis;
 using EvnHanoi.SyncService.Repositories;
 using EvnHanoi.SyncService.Services;
+using Microsoft.Extensions.Options;
 using Quartz;
 using RedLockNet;
 using Serilog;
@@ -67,6 +69,16 @@ public class PmisScheduledSyncJob : IJob
     private readonly IDistributedLockFactory _lockFactory;
     private readonly IMessageProducer _messageProducer;
     private readonly IPmisEndpointConfigProvider _endpointConfigProvider;
+    private readonly IPmisSyncStateRepository _stateRepository;
+    private readonly IOptions<PmisIncrementalOptions> _incrementalOptions;
+
+    /// <summary>true nếu lượt Thiết bị này không có cha nào đến hạn quét (đồng bộ tăng dần đang rảnh) — không phải
+    /// bất thường nên không cảnh báo "0 bản ghi" (xem RunIfDueAsync). Quartz tạo 1 instance mới cho mỗi lần chạy.</summary>
+    private bool _incrementalIdle;
+
+    // Thống kê đồng bộ tăng dần của lượt này (chỉ để log kiểm chứng hiệu quả, xem RunIfDueAsync).
+    private int _incrementalUnchanged;
+    private int _incrementalPushed;
 
     public PmisScheduledSyncJob(
         ISyncConfigRepository syncConfigRepository,
@@ -76,7 +88,9 @@ public class PmisScheduledSyncJob : IJob
         IPmisSyncExecutionService executionService,
         IDistributedLockFactory lockFactory,
         IMessageProducer messageProducer,
-        IPmisEndpointConfigProvider endpointConfigProvider)
+        IPmisEndpointConfigProvider endpointConfigProvider,
+        IPmisSyncStateRepository stateRepository,
+        IOptions<PmisIncrementalOptions> incrementalOptions)
     {
         _syncConfigRepository = syncConfigRepository;
         _syncHistoryRepository = syncHistoryRepository;
@@ -86,6 +100,8 @@ public class PmisScheduledSyncJob : IJob
         _lockFactory = lockFactory;
         _messageProducer = messageProducer;
         _endpointConfigProvider = endpointConfigProvider;
+        _stateRepository = stateRepository;
+        _incrementalOptions = incrementalOptions;
     }
 
     /// <summary>Kiểm tra + xử lý (log Warning, tăng warnings) khi 1 vòng phân trang chạm giới hạn an toàn
@@ -113,6 +129,113 @@ public class PmisScheduledSyncJob : IJob
         var idx = parents.FindIndex(p => p.PmisCode == cursor);
         if (idx < 0 || idx + 1 >= parents.Count) return parents;
         return parents.Skip(idx + 1).Concat(parents.Take(idx + 1)).ToList();
+    }
+
+    /// <summary>Mốc bắt đầu của đợt quét đầy đủ đang diễn ra (UTC), hoặc null nếu chưa đến hạn quét đầy đủ / tắt tăng
+    /// dần. Đến hạn = chưa từng quét xong, hoặc lần quét xong gần nhất đã quá <see cref="PmisIncrementalOptions.FullSweepIntervalHours"/>.
+    /// Mốc được lưu (dòng SWEEP "{objectType}_START") ngay lần đầu đến hạn và GIỮ NGUYÊN cho tới khi đợt quét xong,
+    /// nên đợt quét bị cắt giữa chừng vẫn tiếp tục được ở lượt sau (xem <see cref="IncrementalContext.SweepStartUtc"/>).</summary>
+    private async Task<DateTime?> GetSweepStartAsync(string objectType)
+    {
+        var opt = _incrementalOptions.Value;
+        if (!opt.Enabled) return null;
+
+        var lastDone = await _stateRepository.GetSweepAtAsync(objectType);
+        if (lastDone != null && DateTime.UtcNow - lastDone.Value < TimeSpan.FromHours(opt.FullSweepIntervalHours))
+            return null;
+
+        var startKey = objectType + "_START";
+        var start = await _stateRepository.GetSweepAtAsync(startKey);
+        if (start != null && (lastDone == null || start.Value > lastDone.Value)) return start; // đợt quét đang dở
+        await _stateRepository.SetSweepAtAsync(startKey);
+        return await _stateRepository.GetSweepAtAsync(startKey);
+    }
+
+    /// <summary>Đẩy 1 trang Trạm/Đường dây. Đồng bộ tăng dần tắt → đúng hành vi cũ (PushPageAsync). Bật → bỏ qua
+    /// bản ghi không đổi và ghi PMIS_SYNC_STATE CHỈ cho mã đã đẩy thành công. Lỗi ghi trạng thái chỉ log cảnh
+    /// báo (lượt sau đẩy lại — an toàn). Bản ghi không đổi tính vào Success.</summary>
+    private async Task<(int Success, int Failed, int Warnings, List<string> Errors)> PushInfrastructurePageAsync(
+        string objectType, int infraTypeId, string historyId, List<JsonElement> pageItems, string pageLabel, DateTime? sweepStart)
+    {
+        var opt = _incrementalOptions.Value;
+        if (!opt.Enabled)
+        {
+            return await PushPageAsync(
+                (id, items) => _executionService.SyncInfrastructureAsync(infraTypeId, id, items, syncDocuments: false),
+                historyId, pageItems, pageLabel);
+        }
+
+        var codes = pageItems.Select(i => PmisRecordHasher.InfrastructureCode(i, infraTypeId)).Where(c => c.Length > 0).ToList();
+        var inc = new IncrementalContext
+        {
+            Existing = await _stateRepository.GetAsync(objectType, codes),
+            SweepStartUtc = sweepStart,
+            HashVersion = opt.HashVersion
+        };
+
+        var (success, failed, warnings, errors) = await PushPageAsync(
+            (id, items) => _executionService.SyncInfrastructureAsync(infraTypeId, id, items, syncDocuments: false, inc),
+            historyId, pageItems, pageLabel);
+
+        await SaveIncrementalStateAsync(objectType, inc);
+        _incrementalUnchanged += inc.UnchangedCodes.Count;
+        _incrementalPushed += inc.ToSave.Count;
+        return (success + inc.UnchangedCodes.Count, FailedExcludingUnchanged(failed, pageItems.Count, inc), warnings, errors);
+    }
+
+    /// <summary>PushPageAsync bắt exception của cả trang và trả failed = số bản ghi của trang (kể cả bản ghi không
+    /// đổi vốn đã bị bỏ qua hợp lệ) — trừ chúng ra để không đếm 1 bản ghi vừa là Success vừa là Failed.</summary>
+    private static int FailedExcludingUnchanged(int failed, int pageCount, IncrementalContext inc) =>
+        inc.UnchangedCodes.Count > 0 && failed >= pageCount ? failed - inc.UnchangedCodes.Count : failed;
+
+    private async Task SaveIncrementalStateAsync(string objectType, IncrementalContext inc)
+    {
+        try
+        {
+            if (inc.ToSave.Count > 0) await _stateRepository.UpsertPushedAsync(objectType, inc.ToSave, inc.HashVersion);
+            if (inc.UnchangedCodes.Count > 0) await _stateRepository.TouchSeenAsync(objectType, inc.UnchangedCodes);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "PmisScheduledSyncJob: lỗi ghi PMIS_SYNC_STATE ({ObjectType}), lượt sau sẽ đẩy lại các bản ghi này.", objectType);
+        }
+    }
+
+    /// <summary>Chọn và sắp xếp Trạm/Đường dây cha cần quét thiết bị con ở chế độ tăng dần. Ưu tiên: 0 = chưa từng
+    /// quét; 1 = cha vừa được đẩy (mới/đổi) SAU lần quét gần nhất; 2 = đến hạn quét lại (hoặc chưa quét kể từ mốc bắt đầu đợt quét đầy đủ);
+    /// cha còn "mới" (đã quét trong khoảng <paramref name="rescanInterval"/> và — khi đang quét đầy đủ — sau mốc
+    /// <paramref name="sweepStartUtc"/>) bị loại. Trong cùng mức ưu tiên:
+    /// LAST_SCAN_AT cũ nhất trước, rồi theo mã PMIS để thứ tự ổn định.</summary>
+    internal static List<SyncedInfrastructurePmisCode> OrderParentsForScan(
+        List<SyncedInfrastructurePmisCode> all,
+        IReadOnlyDictionary<string, PmisSyncStateRow> scanState,
+        IReadOnlyDictionary<string, PmisSyncStateRow> substationState,
+        IReadOnlyDictionary<string, PmisSyncStateRow> lineState,
+        DateTime? sweepStartUtc, TimeSpan rescanInterval, DateTime nowUtc)
+    {
+        (int Priority, DateTime LastScan) Rank(SyncedInfrastructurePmisCode p)
+        {
+            scanState.TryGetValue(p.PmisCode, out var scan);
+            if (scan?.LastScanAt == null) return (0, DateTime.MinValue);
+
+            var infraState = p.InfraTypeId == 1 ? substationState : lineState;
+            if (infraState.TryGetValue(p.PmisCode, out var infra) && infra.LastPushedAt > scan.LastScanAt)
+                return (1, scan.LastScanAt.Value);
+
+            if ((sweepStartUtc != null && scan.LastScanAt < sweepStartUtc) || nowUtc - scan.LastScanAt.Value >= rescanInterval)
+                return (2, scan.LastScanAt.Value);
+
+            return (3, scan.LastScanAt.Value);
+        }
+
+        return all
+            .Select(p => (Parent: p, Rank: Rank(p)))
+            .Where(x => x.Rank.Priority < 3)
+            .OrderBy(x => x.Rank.Priority)
+            .ThenBy(x => x.Rank.LastScan)
+            .ThenBy(x => x.Parent.PmisCode, StringComparer.Ordinal)
+            .Select(x => x.Parent)
+            .ToList();
     }
 
     /// <summary>Số bản ghi/trang admin đã cấu hình cho apiCode này qua "Cấu hình kết nối API" — mặc định
@@ -211,7 +334,7 @@ public class PmisScheduledSyncJob : IJob
             // `errors` — nếu không sẽ tự kích luôn nhánh Failed phía trên vì total==0 && errors.Count>0)
             // để hiện rõ trên "Lịch sử đồng bộ", không lẫn vào các lượt thật sự ổn. Không dùng Failed vì
             // chưa chắc là LỖI (có thể môi trường mới chưa có dữ liệu).
-            var zeroRecordsMessage = total == 0 && status == SyncHistoryStatus.Success
+            var zeroRecordsMessage = total == 0 && status == SyncHistoryStatus.Success && !_incrementalIdle
                 ? $"{objectType}: PMIS trả về 0 bản ghi — bất thường với mô hình full-resync, kiểm tra kết nối/dữ liệu nguồn nếu lặp lại nhiều lượt."
                 : null;
             if (zeroRecordsMessage != null)
@@ -224,6 +347,12 @@ public class PmisScheduledSyncJob : IJob
                 errors.Count > 0 ? string.Join("; ", errors.Take(5)) : null);
             if (!completed)
                 Log.Warning("PmisScheduledSyncJob: {ObjectType} hoàn tất với kết quả thật ({Status}, total={Total}, success={Success}) nhưng syncHistoryId={SyncHistoryId} đã bị SyncHistoryWatchdogJob đánh FAILED trước đó (chạy quá ngưỡng an toàn, xem SyncHistoryWatchdogJob.StaleThreshold) — giữ nguyên FAILED của watchdog, bỏ kết quả thật này.", objectType, status, total, success, historyId);
+
+            if (_incrementalOptions.Value.Enabled)
+            {
+                Log.Information("PmisScheduledSyncJob: {ObjectType} đồng bộ tăng dần — PMIS trả {Total} bản ghi, đã đẩy {Pushed}, bỏ qua {Unchanged} bản ghi không đổi, lỗi {Failed}.",
+                    objectType, total, _incrementalPushed, _incrementalUnchanged, failed);
+            }
 
             // Lượt chạy hoàn tất bình thường (kể cả Failed do 0/n item thành công vẫn là 1 lượt đã thử
             // xong) — đẩy NextSyncAt theo tần suất cấu hình, và reset bộ đếm lỗi liên tiếp vì PMIS đã
@@ -300,6 +429,7 @@ public class PmisScheduledSyncJob : IJob
         var pageSize = await GetPageSizeAsync("SUBSTATION_LIST");
         int total = 0, success = 0, failed = 0, warnings = 0;
         var errors = new List<string>();
+        var sweepStart = await GetSweepStartAsync(SyncObjectType.Substation);
         // Tiếp tục từ vị trí lượt TRƯỚC dừng lại vì chạm trần an toàn (nếu có) thay vì luôn bắt đầu lại từ
         // 0 — xem SyncConfig.SyncCursor + Migration0011. Không có cursor (lượt trước hoàn tất trọn vẹn,
         // hoặc lượt trước lỗi gọi PMIS mà không chạm trần) → bắt đầu từ đầu như cũ.
@@ -326,8 +456,8 @@ public class PmisScheduledSyncJob : IJob
             var pageItems = result.Items.Select(i => JsonSerializer.SerializeToElement(i)).ToList();
             total += pageItems.Count;
 
-            var (pageSuccess, pageFailed, pageWarnings, pageErrors) = await PushPageAsync(
-                (id, items) => _executionService.SyncInfrastructureAsync(1, id, items, syncDocuments: false), historyId, pageItems, $"Trạm biến áp skip={skip}");
+            var (pageSuccess, pageFailed, pageWarnings, pageErrors) = await PushInfrastructurePageAsync(
+                SyncObjectType.Substation, 1, historyId, pageItems, $"Trạm biến áp skip={skip}", sweepStart);
             success += pageSuccess;
             failed += pageFailed;
             warnings += pageWarnings;
@@ -341,6 +471,7 @@ public class PmisScheduledSyncJob : IJob
                 // Quét trọn tới hết danh sách (từ vị trí resume trở đi) — coi là 1 vòng hoàn tất, xoá cursor
                 // để lượt sau bắt đầu lại từ đầu danh sách.
                 await _syncConfigRepository.UpdateSyncCursorAsync(SyncObjectType.Substation, null);
+                await MarkSweepDoneAsync(SyncObjectType.Substation, sweepStart, failed, errors);
                 return await FinishSubstationOrLineAsync(SyncObjectType.Substation, 1, config, historyId, total, success, failed, warnings, errors);
             }
             skip += pageSize;
@@ -358,6 +489,7 @@ public class PmisScheduledSyncJob : IJob
         var pageSize = await GetPageSizeAsync("LINE_LIST");
         int total = 0, success = 0, failed = 0, warnings = 0;
         var errors = new List<string>();
+        var sweepStart = await GetSweepStartAsync(SyncObjectType.TransmissionLine);
         var skip = int.TryParse(config.SyncCursor, out var resumeSkip) && resumeSkip > 0 ? resumeSkip : 0;
         while (true)
         {
@@ -376,8 +508,8 @@ public class PmisScheduledSyncJob : IJob
             var pageItems = result.Items.Select(i => JsonSerializer.SerializeToElement(i)).ToList();
             total += pageItems.Count;
 
-            var (pageSuccess, pageFailed, pageWarnings, pageErrors) = await PushPageAsync(
-                (id, items) => _executionService.SyncInfrastructureAsync(2, id, items, syncDocuments: false), historyId, pageItems, $"Đường dây skip={skip}");
+            var (pageSuccess, pageFailed, pageWarnings, pageErrors) = await PushInfrastructurePageAsync(
+                SyncObjectType.TransmissionLine, 2, historyId, pageItems, $"Đường dây skip={skip}", sweepStart);
             success += pageSuccess;
             failed += pageFailed;
             warnings += pageWarnings;
@@ -386,6 +518,7 @@ public class PmisScheduledSyncJob : IJob
             if (result.Items.Count < pageSize || skip + pageItems.Count >= result.Total)
             {
                 await _syncConfigRepository.UpdateSyncCursorAsync(SyncObjectType.TransmissionLine, null);
+                await MarkSweepDoneAsync(SyncObjectType.TransmissionLine, sweepStart, failed, errors);
                 return await FinishSubstationOrLineAsync(SyncObjectType.TransmissionLine, 2, config, historyId, total, success, failed, warnings, errors);
             }
             skip += pageSize;
@@ -401,6 +534,15 @@ public class PmisScheduledSyncJob : IJob
             // lại" nữa; chỉ "lỡ nhịp" khi trục CHƯA từng được đồng bộ tới, và tự khớp đúng ở lượt kế tiếp
             // (PMIS trả toàn bộ dữ liệu mỗi lượt, không phải delta).
         }
+    }
+
+    /// <summary>Ghi mốc "quét đầy đủ xong" khi lượt đầy đủ này duyệt hết danh sách PMIS mà không có lỗi — lượt
+    /// sau mới lại dùng hash để bỏ qua bản ghi không đổi. Chỉ có tác dụng khi bật đồng bộ tăng dần.</summary>
+    private async Task MarkSweepDoneAsync(string objectType, DateTime? sweepStart, int failed, List<string> errors)
+    {
+        if (!_incrementalOptions.Value.Enabled || sweepStart == null || failed > 0 || errors.Count > 0) return;
+        try { await _stateRepository.SetSweepAtAsync(objectType); }
+        catch (Exception ex) { Log.Warning(ex, "PmisScheduledSyncJob: lỗi ghi mốc quét đầy đủ ({ObjectType}).", objectType); }
     }
 
     /// <summary>Gọi ở MỌI điểm thoát của RunSubstationAsync/RunLineAsync (kể cả lỗi gọi PMIS, hoàn tất
@@ -471,7 +613,41 @@ public class PmisScheduledSyncJob : IJob
         // thật ChiTietThietBi/QR — xem PmisSyncExecutionService.EquipmentDetailBudgetExhausted) để mỗi lượt
         // ưu tiên ngân sách cho 1 nhóm cha KHÁC nhau, tránh các cha cuối danh sách không bao giờ được enrich
         // (GetSyncedInfrastructurePmisCodesAsync giờ đã ORDER BY ổn định, cần thiết để xoay vòng có ý nghĩa).
-        var parents = RotateParentsByCursor(await _equipmentServiceClient.GetSyncedInfrastructurePmisCodesAsync(), config.SyncCursor);
+        var opt = _incrementalOptions.Value;
+        var allParents = await _equipmentServiceClient.GetSyncedInfrastructurePmisCodesAsync();
+        var sweepStart = await GetSweepStartAsync(SyncObjectType.Equipment);
+        List<SyncedInfrastructurePmisCode> parents;
+        if (opt.Enabled)
+        {
+            var parentScanState = await _stateRepository.GetAllAsync("PARENT_SCAN");
+            // Đợt quét đầy đủ xong khi mọi cha đã được quét kể từ mốc bắt đầu → ghi mốc hoàn tất và quay về chế độ thường.
+            if (sweepStart != null && !allParents.Any(p => !parentScanState.TryGetValue(p.PmisCode, out var sc) || sc.LastScanAt == null || sc.LastScanAt < sweepStart))
+            {
+                try { await _stateRepository.SetSweepAtAsync(SyncObjectType.Equipment); }
+                catch (Exception ex) { Log.Warning(ex, "PmisScheduledSyncJob: lỗi ghi mốc quét đầy đủ (EQUIPMENT)."); }
+                sweepStart = null;
+            }
+
+            // Đồng bộ tăng dần: chỉ quét cha CHƯA quét / vừa mới-đổi / đến hạn quét lại, ưu tiên theo LAST_SCAN_AT
+            // cũ nhất (thay cho xoay vòng theo SyncCursor) — xem OrderParentsForScan.
+            parents = OrderParentsForScan(
+                allParents,
+                parentScanState,
+                await _stateRepository.GetAllAsync(SyncObjectType.Substation),
+                await _stateRepository.GetAllAsync(SyncObjectType.TransmissionLine),
+                sweepStart, TimeSpan.FromHours(opt.ParentRescanIntervalHours), DateTime.UtcNow);
+            if (parents.Count == 0)
+            {
+                // Không có cha nào đến hạn quét — bình thường ở chế độ tăng dần, không phải bất thường (xem RunIfDueAsync).
+                _incrementalIdle = true;
+                await _syncConfigRepository.UpdateSyncCursorAsync(SyncObjectType.Equipment, null);
+                return (0, 0, 0, 0, []);
+            }
+        }
+        else
+        {
+            parents = RotateParentsByCursor(allParents, config.SyncCursor);
+        }
         var substationDevicePageSize = await GetPageSizeAsync("SUBSTATION_DEVICE_LIST");
         var lineDevicePageSize = await GetPageSizeAsync("LINE_DEVICE_LIST");
         int total = 0, success = 0, failed = 0, warnings = 0;
@@ -479,10 +655,13 @@ public class PmisScheduledSyncJob : IJob
         string? budgetExhaustedAtParent = null;
         string? safetyCapAtParent = null;
         var parentsVisited = 0;
+        var runWatch = Stopwatch.StartNew();
+        var timeBudget = TimeSpan.FromMinutes(opt.EquipmentRunBudgetMinutes);
 
         foreach (var parent in parents)
         {
             parentsVisited++;
+            var parentOk = true; // false nếu lấy danh sách PMIS hoặc lưu thiết bị của cha này có lỗi → chưa coi là đã quét
             var pageSize = parent.InfraTypeId == 1 ? substationDevicePageSize : lineDevicePageSize;
             var skip = 0;
             while (true)
@@ -524,13 +703,34 @@ public class PmisScheduledSyncJob : IJob
                     // thiết bị đường dây). Giờ chỉ ghi nhận lỗi cho riêng cha này rồi sang cha tiếp theo.
                     Log.Error(ex, "PmisScheduledSyncJob: lỗi khi lấy danh sách thiết bị cho {PmisCode} (skip={Skip}), bỏ qua, tiếp tục các trạm/đường dây khác.", parent.PmisCode, skip);
                     errors.Add($"Thiết bị cha={parent.PmisCode} skip={skip}: {SyncErrorFormatter.FormatShort(ex)}");
+                    parentOk = false;
                     break;
                 }
 
                 total += pageItems.Count;
+                IncrementalContext? inc = null;
+                if (opt.Enabled)
+                {
+                    var codes = pageItems.Select(PmisRecordHasher.EquipmentCode).Where(c => c.Length > 0).ToList();
+                    inc = new IncrementalContext
+                    {
+                        Existing = await _stateRepository.GetAsync(SyncObjectType.Equipment, codes),
+                        SweepStartUtc = sweepStart,
+                        HashVersion = opt.HashVersion
+                    };
+                }
                 var (pageSuccess, pageFailed, pageWarnings, pageErrors) = await PushPageAsync(
-                    (hId, items) => _executionService.SyncEquipmentAsync(hId, items, parent.PmisCode),
+                    (hId, items) => _executionService.SyncEquipmentAsync(hId, items, parent.PmisCode, inc),
                     historyId, pageItems, $"Thiết bị cha={parent.PmisCode} skip={skip}");
+                if (inc != null)
+                {
+                    await SaveIncrementalStateAsync(SyncObjectType.Equipment, inc);
+                    _incrementalUnchanged += inc.UnchangedCodes.Count;
+                    _incrementalPushed += inc.ToSave.Count;
+                    pageSuccess += inc.UnchangedCodes.Count; // không đổi tính là thành công
+                    pageFailed = FailedExcludingUnchanged(pageFailed, pageItems.Count, inc);
+                }
+                if (pageFailed > 0) parentOk = false;
                 success += pageSuccess;
                 failed += pageFailed;
                 warnings += pageWarnings;
@@ -539,7 +739,11 @@ public class PmisScheduledSyncJob : IJob
                 if (pageCount < pageSize || pageCount == 0) break;
                 skip += pageSize;
 
-                if (HasHitSafetyCap(skip, $"Thiết bị cha={parent.PmisCode}", ref warnings)) break;
+                if (HasHitSafetyCap(skip, $"Thiết bị cha={parent.PmisCode}", ref warnings))
+                {
+                    parentOk = false; // cha có quá nhiều trang, mới quét dở → chưa coi là đã quét xong
+                    break;
+                }
             }
 
             // Ghi nhận cha ĐẦU TIÊN (theo thứ tự đã xoay vòng) mà ngân sách gọi PMIS thật cạn ngay sau khi
@@ -548,10 +752,28 @@ public class PmisScheduledSyncJob : IJob
             if (budgetExhaustedAtParent == null && _executionService.EquipmentDetailBudgetExhausted)
                 budgetExhaustedAtParent = parent.PmisCode;
 
+            // Đồng bộ tăng dần: ghi mốc quét cha CHỈ khi cha này quét trọn vẹn không lỗi VÀ ngân sách enrich chưa
+            // cạn (cạn nghĩa là có thiết bị TBA chưa lấy đủ chi tiết → cha phải được quét lại sớm ở lượt sau).
+            if (opt.Enabled && parentOk && !_executionService.EquipmentDetailBudgetExhausted)
+            {
+                try { await _stateRepository.MarkParentScannedAsync(parent.PmisCode); }
+                catch (Exception ex) { Log.Warning(ex, "PmisScheduledSyncJob: lỗi ghi mốc quét cha {PmisCode}.", parent.PmisCode); }
+            }
+
+            if (opt.Enabled && runWatch.Elapsed >= timeBudget)
+            {
+                // Hành vi bình thường của chế độ tăng dần (không tăng warnings): lượt sau tiếp tục với các cha có
+                // LAST_SCAN_AT cũ nhất. Trần này phải < SyncHistoryWatchdogJob.StaleThreshold (60 phút).
+                Log.Information("PmisScheduledSyncJob: Thiết bị đã quét {Visited}/{Total} cha trong {Minutes:0} phút (ngân sách thời gian), dừng — lượt sau tiếp tục.",
+                    parentsVisited, parents.Count, runWatch.Elapsed.TotalMinutes);
+                break;
+            }
+
             if (parentsVisited >= MaxParentsPerRunEquipment)
             {
                 Log.Warning("PmisScheduledSyncJob: Thiết bị đã thăm {Visited} cha (giới hạn an toàn {Max}), dừng lại dù danh sách cha có thể còn nữa — sẽ tiếp tục ở lượt sau.", parentsVisited, MaxParentsPerRunEquipment);
-                warnings++;
+                // Chế độ tăng dần: dừng ở trần số cha là bình thường (lượt sau tiếp tục theo LAST_SCAN_AT), không phải cảnh báo.
+                if (!opt.Enabled) warnings++;
                 safetyCapAtParent = parent.PmisCode;
                 break;
             }
@@ -562,7 +784,15 @@ public class PmisScheduledSyncJob : IJob
         // mọi cha, cursor ngân sách vẫn đúng ý nghĩa "ưu tiên nhóm bị bỏ lỡ enrich" cho lượt sau). null nếu
         // CẢ HAI đều không xảy ra trong lượt này (thăm hết cha, không cạn ngân sách) — xoá cursor, lượt sau
         // bắt đầu lại từ đầu danh sách (thứ tự gốc, không cần ưu tiên ai).
-        await _syncConfigRepository.UpdateSyncCursorAsync(SyncObjectType.Equipment, safetyCapAtParent ?? budgetExhaustedAtParent);
+        if (opt.Enabled)
+        {
+            // Chế độ tăng dần không dùng cursor xoay vòng (thứ tự quét theo LAST_SCAN_AT) — xoá cursor cũ.
+            await _syncConfigRepository.UpdateSyncCursorAsync(SyncObjectType.Equipment, null);
+        }
+        else
+        {
+            await _syncConfigRepository.UpdateSyncCursorAsync(SyncObjectType.Equipment, safetyCapAtParent ?? budgetExhaustedAtParent);
+        }
 
         return (total, success, failed, warnings, errors);
     }

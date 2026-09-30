@@ -79,6 +79,28 @@ public class EquipmentServiceClient : IEquipmentServiceClient
         return await response.Content.ReadFromJsonAsync<List<UpsertPmisDocumentResult>>() ?? [];
     }
 
+    public async Task<List<PendingPmisDocumentFile>> GetPendingDocumentFilesAsync(int take)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"internal/v1/documents/pending-files?take={take}");
+        request.Headers.Add("X-Internal-Token", _internalToken);
+
+        var response = await _httpClient.SendAsync(request);
+        await EnsureSuccessOrThrowWithBodyAsync(response);
+        return await response.Content.ReadFromJsonAsync<List<PendingPmisDocumentFile>>() ?? [];
+    }
+
+    public async Task AttachDocumentFileAsync(AttachPmisDocumentFileRequest attach)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "internal/v1/documents/attach-file")
+        {
+            Content = JsonContent.Create(attach)
+        };
+        request.Headers.Add("X-Internal-Token", _internalToken);
+
+        var response = await _httpClient.SendAsync(request);
+        await EnsureSuccessOrThrowWithBodyAsync(response);
+    }
+
     /// <summary>Thay cho response.EnsureSuccessStatusCode() trần — EquipmentService trả message JSON rõ
     /// ràng khi lỗi (vd "Internal:Token chưa được cấu hình trên EquipmentService.", "Token nội bộ không hợp
     /// lệ.") nhưng EnsureSuccessStatusCode() KHÔNG đọc body, chỉ ném "Response status code does not

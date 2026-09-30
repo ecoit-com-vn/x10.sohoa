@@ -66,6 +66,9 @@ builder.Services.AddScoped<IPmisClient, PmisClient>();
 builder.Services.AddScoped<IInteractivePmisClient, InteractivePmisClient>();
 builder.Services.AddScoped<IEquipmentServiceClient, EquipmentServiceClient>();
 builder.Services.AddScoped<IPmisSyncExecutionService, PmisSyncExecutionService>();
+builder.Services.Configure<EvnHanoi.SyncService.Services.PmisIncrementalOptions>(
+    builder.Configuration.GetSection(EvnHanoi.SyncService.Services.PmisIncrementalOptions.SectionName));
+builder.Services.AddScoped<IPmisSyncStateRepository, PmisSyncStateRepository>();
 
 // RemoveAllResilienceHandlers(): builder.AddServiceDefaults() gắn "Standard Resilience Handler" (timeout
 // 10 phút/lần thử, 22 phút tổng — tinh chỉnh cho LLM/OCR) làm mặc định cho MỌI HttpClient, kể cả client
@@ -125,7 +128,12 @@ var retryPolicy = HttpPolicyExtensions
 // PmisClient.SendCoreAsync/DownloadDocumentFileAsync (xem PmisClient.GetCircuitBreaker) — vẫn giữ
 // nguyên việc tách riêng nền ("PMIS") và tương tác ("PMIS-Interactive"), cộng thêm tách riêng theo
 // từng API code trong cùng 1 HttpClient.
-var timeoutPolicy = Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromSeconds(60));
+// 5 phút (trước đây 60s): API TaiFileTaiLieu tải file nhị phân tài liệu thật từ máy chủ lưu trữ PMIS có thể
+// mất lâu (file lớn/mạng chậm) — 60s khiến nhiều tài liệu đồng bộ xong metadata nhưng thiếu file
+// (TimeoutRejectedException). HttpClient.Timeout của 2 named client PMIS bên dưới phải >= giá trị này,
+// nếu không mặc định 100s của HttpClient sẽ cắt trước Polly.
+var pmisHttpTimeout = TimeSpan.FromMinutes(5);
+var timeoutPolicy = Policy.TimeoutAsync<HttpResponseMessage>(pmisHttpTimeout);
 
 // Circuit breaker RIÊNG cho CA (Certificate Authority) — trước đây dùng chung 1 instance với PMIS,
 // khiến lỗi gọi CA có thể mở luôn circuit của PMIS (và ngược lại) dù 2 dịch vụ hoàn toàn không liên quan.
@@ -156,6 +164,7 @@ var bulkheadPolicy = Policy.BulkheadAsync<HttpResponseMessage>(10, 20); // Concu
 builder.Services.AddHttpClient("PMIS", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Endpoints:PMIS"] ?? "https://api.pmis.mock/");
+    client.Timeout = pmisHttpTimeout + TimeSpan.FromSeconds(10);
 })
 .RemoveAllResilienceHandlers()
 .AddPolicyHandler(timeoutPolicy);
@@ -166,6 +175,7 @@ builder.Services.AddHttpClient("PMIS", client =>
 builder.Services.AddHttpClient("PMIS-Interactive", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Endpoints:PMIS"] ?? "https://api.pmis.mock/");
+    client.Timeout = pmisHttpTimeout + TimeSpan.FromSeconds(10);
 })
 .RemoveAllResilienceHandlers()
 .AddPolicyHandler(timeoutPolicy);
@@ -236,6 +246,15 @@ builder.Services.AddQuartz(q =>
         .ForJob(syncHistoryWatchdogJobKey)
         .WithIdentity("SyncHistoryWatchdogJob-trigger")
         .WithSimpleSchedule(x => x.WithIntervalInMinutes(5).RepeatForever())
+    );
+
+    // Pha 2 đồng bộ tài liệu: tải file vật lý (tách khỏi pha danh sách) — xem PmisDocumentFileDownloadJob.
+    var documentFileJobKey = new JobKey("PmisDocumentFileDownloadJob");
+    q.AddJob<PmisDocumentFileDownloadJob>(opts => opts.WithIdentity(documentFileJobKey));
+    q.AddTrigger(opts => opts
+        .ForJob(documentFileJobKey)
+        .WithIdentity("PmisDocumentFileDownloadJob-trigger")
+        .WithSimpleSchedule(x => x.WithIntervalInMinutes(1).RepeatForever())
     );
 
     // Đối chiếu nhẹ 1 lần/ngày (đối chiếu mã PMIS thiếu do phân trang lệch + đếm thiết bị chuyển TBA gần

@@ -225,7 +225,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         };
 
     public async Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncInfrastructureAsync(
-        int infraTypeId, string syncHistoryId, IReadOnlyList<JsonElement> rawItemsRaw, bool syncDocuments = true)
+        int infraTypeId, string syncHistoryId, IReadOnlyList<JsonElement> rawItemsRaw, bool syncDocuments = true, IncrementalContext? inc = null)
     {
         // Cô lập lỗi Deserialize THEO TỪNG BẢN GHI — TRƯỚC ĐÂY 1 bản ghi dị dạng (kiểu dữ liệu PMIS trả
         // sai, vd số bị trả dạng chuỗi) ném JsonException thẳng ra khỏi TOÀN BỘ trang (khỏi cả .Select()
@@ -261,6 +261,28 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                     ErrorMessage = $"Không đọc được dữ liệu JSON từ PMIS: {SyncErrorFormatter.FormatShort(ex)}"
                 });
             }
+        }
+
+        // Đồng bộ tăng dần: bỏ qua bản ghi KHÔNG ĐỔI (cùng hash với lần đẩy thành công gần nhất) TRƯỚC khi gọi
+        // EquipmentService; hashByCode giữ hash của các bản ghi còn lại để ghi trạng thái sau khi đẩy thành công.
+        Dictionary<string, string>? hashByCode = null;
+        if (inc != null)
+        {
+            hashByCode = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var changedItems = new List<JsonElement>(rawItems.Count);
+            foreach (var raw in rawItems)
+            {
+                var code = PmisRecordHasher.InfrastructureCode(raw, infraTypeId);
+                var hash = PmisRecordHasher.Compute(raw);
+                if (code.Length > 0 && inc.IsUnchanged(code, hash, requireDetail: false))
+                {
+                    inc.UnchangedCodes.Add(code);
+                    continue;
+                }
+                if (code.Length > 0) hashByCode[code] = hash;
+                changedItems.Add(raw);
+            }
+            rawItems = changedItems;
         }
 
         List<UpsertInfrastructureFromPmisRequest> upsertRequests;
@@ -367,6 +389,14 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             var isParentUnresolved = result.Success && result.ParentUnresolved;
             if (isParentUnresolved) parentUnresolvedWarnings++;
 
+            // Chỉ ghi nhận "đã đồng bộ" khi lưu thành công VÀ (đường dây) đã xác định được cha — nhánh chưa
+            // có cha phải được đẩy lại ở lượt sau để khớp cha.
+            if (inc != null && result.Success && !result.ParentUnresolved
+                && hashByCode!.TryGetValue(upsertRequests[i].PmisCode, out var savedHash))
+            {
+                inc.ToSave.Add(new PmisSyncStateUpsert { PmisCode = upsertRequests[i].PmisCode, ContentHash = savedHash, DetailSynced = true });
+            }
+
             details.Add(new SyncHistoryDetail
             {
                 SyncHistoryId = syncHistoryId,
@@ -434,7 +464,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
     }
 
     public async Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncEquipmentAsync(
-        string syncHistoryId, IReadOnlyList<JsonElement> rawItems, string? parentPmisCodeFallback = null)
+        string syncHistoryId, IReadOnlyList<JsonElement> rawItems, string? parentPmisCodeFallback = null, IncrementalContext? inc = null)
     {
         var upsertRequests = new List<UpsertEquipmentFromPmisRequest>();
         // Song song 1:1 với upsertRequests — giữ lại ngữ cảnh gốc (TBA hay đường dây, mã cha) để đồng bộ
@@ -443,6 +473,10 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         // Song song 1:1 với upsertRequests/origins (KHÔNG phải rawItems gốc nữa) — dùng để lấy lại
         // DataContent khi ghi SyncHistoryDetail bên dưới, sau khi đã lọc bỏ các bản ghi lỗi Deserialize.
         var validRawItems = new List<JsonElement>();
+        // Song song 1:1 với upsertRequests (chỉ dùng khi đồng bộ tăng dần, inc != null): hash nội dung của
+        // dòng danh sách PMIS và cờ "đã lấy đủ chi tiết" (ChiTietThietBi + ảnh QR) của từng thiết bị.
+        var hashByIndex = new List<string?>();
+        var detailOkByIndex = new List<bool>();
         // Cô lập lỗi Deserialize THEO TỪNG THIẾT BỊ — cùng lý do với SyncInfrastructureAsync: TRƯỚC ĐÂY 1
         // thiết bị có dữ liệu PMIS dị dạng ném JsonException ra khỏi CẢ foreach, làm cả trang bị đánh
         // Failed hết và lặp lại y hệt mỗi lượt (skip cố định). Giờ bỏ qua đúng thiết bị lỗi, ghi Detail
@@ -474,6 +508,21 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 });
                 continue;
             }
+            // Đồng bộ tăng dần: thiết bị KHÔNG ĐỔI và đã lấy đủ chi tiết ở lần trước thì bỏ qua hẳn — không gọi
+            // ChiTietThietBi/QR (không tốn ngân sách MaxEquipmentDetailCallsPerRun), không lưu, không đồng bộ tài
+            // liệu (tài liệu của thiết bị không đổi chỉ được cập nhật ở lượt quét đầy đủ).
+            string? itemHash = null;
+            if (inc != null)
+            {
+                itemHash = PmisRecordHasher.Compute(raw);
+                var earlyCode = PmisRecordHasher.EquipmentCode(raw);
+                if (earlyCode.Length > 0 && inc.IsUnchanged(earlyCode, itemHash, requireDetail: true))
+                {
+                    inc.UnchangedCodes.Add(earlyCode);
+                    continue;
+                }
+            }
+
             validRawItems.Add(raw);
 
             // Thiết bị TBA (nhận diện bằng MaThietBi có giá trị — chỉ dạng thiết bị này mới có field
@@ -492,10 +541,15 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             var thongSoKyThuat = item.ThongSoKyThuat;
             var tenThongSoKyThuat = item.TenThongSoKyThuat;
             var maQRCode = item.MaQRCode;
+            var detailOk = true; // false nếu thiếu ChiTietThietBi/QR do hết ngân sách hoặc lỗi → lượt sau phải lấy lại
 
             if (isSubstationDevice)
             {
-                if (TryConsumeEquipmentDetailCallBudget())
+                if (!TryConsumeEquipmentDetailCallBudget())
+                {
+                    detailOk = false;
+                }
+                else
                 {
                     try
                     {
@@ -516,6 +570,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                     }
                     catch (Exception ex)
                     {
+                        detailOk = false;
                         Log.Warning(ex, "PmisSyncExecutionService: lỗi gọi ChiTietThietBi cho thiết bị TBA {MaThietBi}, bỏ qua thông số kỹ thuật/QR.", maTB);
                     }
                 }
@@ -525,16 +580,25 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             // ảnh nhị phân thật rồi tự encode base64 mới lưu đúng vào EQUIPMENTS.QR_CODE (giữ nguyên
             // field/cột cũ, chỉ sửa cách lấy giá trị).
             string? qrCodeBase64 = null;
-            if (!string.IsNullOrWhiteSpace(maQRCode) && TryConsumeEquipmentDetailCallBudget())
+            if (!string.IsNullOrWhiteSpace(maQRCode))
             {
-                try
+                if (!TryConsumeEquipmentDetailCallBudget())
                 {
-                    var bytes = await _pmisClient.GetDeviceQrImageBytesAsync(maTB);
-                    if (bytes is { Length: > 0 }) qrCodeBase64 = Convert.ToBase64String(bytes);
+                    detailOk = false;
                 }
-                catch (Exception ex)
+                else
                 {
-                    Log.Warning(ex, "PmisSyncExecutionService: lỗi tải ảnh QR cho thiết bị {MaTB}, bỏ qua QR.", maTB);
+                    try
+                    {
+                        var bytes = await _pmisClient.GetDeviceQrImageBytesAsync(maTB);
+                        if (bytes is { Length: > 0 }) qrCodeBase64 = Convert.ToBase64String(bytes);
+                        else detailOk = false;
+                    }
+                    catch (Exception ex)
+                    {
+                        detailOk = false;
+                        Log.Warning(ex, "PmisSyncExecutionService: lỗi tải ảnh QR cho thiết bị {MaTB}, bỏ qua QR.", maTB);
+                    }
                 }
             }
 
@@ -581,6 +645,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 isSubstationDevice ? resolvedParentPmisCode : null,
                 isSubstationDevice ? null : resolvedParentPmisCode,
                 maTB));
+            hashByIndex.Add(itemHash);
+            detailOkByIndex.Add(detailOk);
         }
 
         if (upsertRequests.Count == 0)
@@ -599,6 +665,11 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             var result = results[i];
             if (result.Success) successCount++;
             else errors.Add($"{result.PmisCode}: {result.ErrorMessage}");
+
+            if (inc != null && result.Success && hashByIndex[i] != null)
+            {
+                inc.ToSave.Add(new PmisSyncStateUpsert { PmisCode = upsertRequests[i].PmisCode, ContentHash = hashByIndex[i]!, DetailSynced = detailOkByIndex[i] });
+            }
 
             details.Add(new SyncHistoryDetail
             {
@@ -763,41 +834,29 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             var endpointApiCode = isSubstationOrigin ? "SUBSTATION_DOCUMENT_LIST" : "LINE_DOCUMENT_LIST";
             var results = new List<UpsertPmisDocumentResult>();
             var requests = new List<UpsertPmisDocumentRequest>();
-            // Chi tiết riêng từng tài liệu (tên, loại, URL file thật, kích thước tải được) để đưa vào
+            // Chi tiết riêng từng tài liệu (tên, loại, URL file thật, trạng thái tải file) để đưa vào
             // SyncHistoryDetail.DataContent — trước đây "Lịch sử đồng bộ" chỉ hiện mã/tên của TRẠM/ĐƯỜNG
             // DÂY (owner) lặp lại y hệt cho mọi tài liệu, không cách nào phân biệt tài liệu nào với tài
             // liệu nào, cũng không thấy được URL/kích thước file đã tải hay lỗi tải file thật sự (khác lỗi
             // lưu bản ghi ở EquipmentService) — xem PmisSyncExecutionService.cs (feedback người dùng
             // 2026-09-23: "thiếu log chi tiết cho api tải file vật lý").
-            var docInfoByCode = new Dictionary<string, (string? TenTaiLieu, string? LoaiTaiLieu, string? FileUrl, int? FileSizeBytes, string? FileDownloadError)>();
+            var docInfoByCode = new Dictionary<string, (string? TenTaiLieu, string? LoaiTaiLieu, string? FileUrl, string? FileDownloadError)>();
             foreach (var doc in items)
             {
                 if (string.IsNullOrWhiteSpace(doc.MaTaiLieu)) continue;
 
-                string? fileBase64 = null;
+                // Pha đồng bộ DANH SÁCH KHÔNG tải file vật lý nữa — chỉ gửi URL để EquipmentService lưu
+                // (FILE_STATUS=PENDING), job nền PmisDocumentFileDownloadJob tải dần sau, có thử lại theo
+                // backoff. Nhờ vậy 1 file PMIS chậm/treo không còn chặn cả lượt đồng bộ danh sách.
                 string? fileDownloadError = null;
-                int? fileSizeBytes = null;
-                if (!string.IsNullOrWhiteSpace(doc.File))
+                if (string.IsNullOrWhiteSpace(doc.File))
                 {
-                    var (bytes, errorReason) = await _pmisClient.DownloadDocumentFileAsync(doc.File, endpointApiCode);
-                    if (bytes is { Length: > 0 })
-                    {
-                        fileBase64 = Convert.ToBase64String(bytes);
-                        fileSizeBytes = bytes.Length;
-                    }
-                    else fileDownloadError = errorReason;
-                }
-                else
-                {
-                    // Phân biệt rõ với trường hợp CÓ URL nhưng tải lỗi (fileDownloadError ở trên, có
-                    // "Nguyên nhân: HTTP 404/timeout/..." cụ thể) — ở đây PMIS trả về tài liệu này nhưng
-                    // KHÔNG kèm URL file (trường "File" rỗng/null), nên SyncService chưa từng gọi HTTP.
-                    // Không phải lỗi kết nối phía hệ thống này — khả năng cao PMIS chưa đính kèm file cho
-                    // bản ghi tài liệu này.
-                    fileDownloadError = "PMIS không trả về URL file cho tài liệu này (trường \"File\" rỗng) — chưa từng thử tải.";
+                    // PMIS trả về tài liệu này nhưng KHÔNG kèm URL file (trường "File" rỗng/null) — chưa có gì
+                    // để tải; khả năng cao PMIS chưa đính kèm file cho bản ghi tài liệu này.
+                    fileDownloadError = "PMIS không trả về URL file cho tài liệu này (trường \"File\" rỗng) — chưa có file để tải.";
                 }
 
-                docInfoByCode[doc.MaTaiLieu] = (doc.TenTaiLieu, doc.LoaiTaiLieu, doc.File, fileSizeBytes, fileDownloadError);
+                docInfoByCode[doc.MaTaiLieu] = (doc.TenTaiLieu, doc.LoaiTaiLieu, doc.File, fileDownloadError);
 
                 requests.Add(new UpsertPmisDocumentRequest
                 {
@@ -807,7 +866,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                     DocumentName = doc.TenTaiLieu,
                     DocumentType = doc.LoaiTaiLieu,
                     FileName = doc.TenTaiLieu ?? doc.MaTaiLieu,
-                    FileBase64 = fileBase64,
+                    FileUrl = string.IsNullOrWhiteSpace(doc.File) ? null : doc.File,
+                    FileSourceApi = endpointApiCode,
                     FileDownloadError = fileDownloadError,
                     SyncHistoryId = syncHistoryId,
                     // Đồng bộ cấp Trạm/Đường dây (maTB tham số = null, không lọc) PMIS trả về CẢ tài liệu
@@ -850,8 +910,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 // (item PMIS thô, xem dòng ~726/912 dưới), nên dòng tài liệu tái dùng đúng quy ước đó,
                 // FE không cần thêm nhánh đặc biệt nào cho riêng dòng tài liệu.
                 object dataContentObj = isSubstationOrigin
-                    ? new { info.TenTaiLieu, info.LoaiTaiLieu, OwnerType = ownerType, OwnerPmisCode = ownerPmisCode, TenTBA = sourceName, FileUrl = info.FileUrl, FileSizeBytes = info.FileSizeBytes, Downloaded = info.FileSizeBytes != null, result.WasSkippedAsExisting }
-                    : new { info.TenTaiLieu, info.LoaiTaiLieu, OwnerType = ownerType, OwnerPmisCode = ownerPmisCode, TenDuongDay = sourceName, FileUrl = info.FileUrl, FileSizeBytes = info.FileSizeBytes, Downloaded = info.FileSizeBytes != null, result.WasSkippedAsExisting };
+                    ? new { info.TenTaiLieu, info.LoaiTaiLieu, OwnerType = ownerType, OwnerPmisCode = ownerPmisCode, TenTBA = sourceName, FileUrl = info.FileUrl, FileDownload = info.FileUrl != null ? "PENDING" : "NO_URL", result.WasSkippedAsExisting }
+                    : new { info.TenTaiLieu, info.LoaiTaiLieu, OwnerType = ownerType, OwnerPmisCode = ownerPmisCode, TenDuongDay = sourceName, FileUrl = info.FileUrl, FileDownload = info.FileUrl != null ? "PENDING" : "NO_URL", result.WasSkippedAsExisting };
                 var dataContent = JsonSerializer.Serialize(dataContentObj);
 
                 details.Add(new SyncHistoryDetail
