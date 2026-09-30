@@ -113,10 +113,15 @@ public class PmisClient : IPmisClient
         var sw = Stopwatch.StartNew();
         HttpResponseMessage? response = null;
         Exception? callError = null;
+        var httpClient = _httpClientFactory.CreateClient(_httpClientName);
+        // URL PMIS trả về có thể là IP nội bộ/gateway khác/đường dẫn tương đối — chuẩn hoá về gateway cấu hình
+        // (Endpoints:PMIS), xem PmisFileUrlResolver. Log ghi URL thực sự đã gọi.
+        var requestUrl = fileUrl;
         try
         {
             var endpoint = await _endpointConfigProvider.GetEndpointAsync(endpointApiCode);
-            using var request = new HttpRequestMessage(HttpMethod.Get, fileUrl);
+            requestUrl = PmisFileUrlResolver.Resolve(fileUrl, httpClient.BaseAddress, endpoint?.Url);
+            using var request = new HttpRequestMessage(HttpMethod.Get, requestUrl);
             if (endpoint != null)
             {
                 foreach (var header in endpoint.Headers)
@@ -125,7 +130,6 @@ public class PmisClient : IPmisClient
                 }
             }
 
-            var httpClient = _httpClientFactory.CreateClient(_httpClientName);
             // Key RIÊNG với hậu tố ":File" — endpointApiCode ở đây chỉ dùng để lấy header cấu hình, còn
             // request thật sự gọi tới fileUrl động (server lưu trữ tài liệu), khác hẳn API danh sách
             // (SendCoreAsync dùng key "{httpClientName}:{apiCode}" không hậu tố cho endpoint.Url cố định
@@ -139,7 +143,7 @@ public class PmisClient : IPmisClient
         catch (Exception ex)
         {
             callError = ex;
-            Serilog.Log.Warning(ex, "PmisClient: lỗi tải file tài liệu từ URL {FileUrl}.", fileUrl);
+            Serilog.Log.Warning(ex, "PmisClient: lỗi tải file tài liệu từ URL {FileUrl} (URL gốc PMIS: {RawUrl}).", requestUrl, fileUrl);
             // Dùng Format (đầy đủ: lớp vỏ bọc Polly + nguyên nhân gốc, tối đa 1900 ký tự) thay vì
             // FormatShort (chỉ nguyên nhân gốc, tối đa 300 ký tự) — ErrorReason ở đây không bị nối chung
             // với lỗi khác (khác PmisScheduledSyncJob.PushPageAsync nối nhiều dòng bằng "; "), nên không
@@ -151,7 +155,7 @@ public class PmisClient : IPmisClient
         finally
         {
             sw.Stop();
-            await LogCallAsync(endpointApiCode, "GET", fileUrl, null, response, callError, sw.ElapsedMilliseconds, null);
+            await LogCallAsync(endpointApiCode, "GET", requestUrl, null, response, callError, sw.ElapsedMilliseconds, null);
         }
     }
 
