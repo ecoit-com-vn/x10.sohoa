@@ -248,6 +248,20 @@ public class InfrastructureRepository : IInfrastructureRepository
             $"WHERE i.{nameof(Infrastructure.IsDeleted)} = 0",
             $"{selectOnlyJoins}\n                          WHERE i.{nameof(Infrastructure.IsDeleted)} = 0");
 
+        // EquipmentCount: KHÔNG chọn ở đây nữa — chỉ dùng ở màn chi tiết (GetByIdAsync tự tính riêng),
+        // danh sách phân trang (table Trạm/Đường dây) không hiển thị cột này. Trước đây tính bằng
+        // subquery COUNT(1) tương quan (correlated) trên EQUIPMENTS cho MỌI dòng của MỌI trang — tốn
+        // 1 lần quét/lookup theo INFRASTRUCTURE_ID cho từng dòng dù không ai nhìn thấy giá trị này.
+        //
+        // ChildLineCount: chỉ Đường dây (infraTypeId=2) mới hiển thị badge "X nhánh" trên bảng — Trạm
+        // biến áp (infraTypeId=1) không dùng tới, nên chỉ tính subquery này khi infraTypeId=2.
+        var childLineCountSelect = infraTypeId == 2
+            ? $@"(SELECT COUNT(1)
+                              FROM INFRASTRUCTURE c
+                             WHERE c.PARENT_ID = i.{nameof(Infrastructure.Id)}
+                               AND c.{nameof(Infrastructure.IsDeleted)} = 0) AS {nameof(Infrastructure.ChildLineCount)},"
+            : string.Empty;
+
         var selectSql = $@"SELECT i.{nameof(Infrastructure.Id)},
                            i.{nameof(Infrastructure.Code)},
                            i.{nameof(Infrastructure.Name)},
@@ -270,14 +284,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                            i.PMIS_CODE as {nameof(Infrastructure.PmisCode)},
                            i.LAST_SYNCED_FROM_PMIS_AT as {nameof(Infrastructure.LastSyncedFromPmisAt)},
                            i.CMIS_CODE as {nameof(Infrastructure.CmisCode)},
-                           (SELECT COUNT(1)
-                              FROM EQUIPMENTS eq
-                             WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)}
-                               AND eq.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("eq")}) AS {nameof(Infrastructure.EquipmentCount)},
-                           (SELECT COUNT(1)
-                              FROM INFRASTRUCTURE c
-                             WHERE c.PARENT_ID = i.{nameof(Infrastructure.Id)}
-                               AND c.{nameof(Infrastructure.IsDeleted)} = 0) AS {nameof(Infrastructure.ChildLineCount)},
+                           {childLineCountSelect}
                            u.Id AS OrgId,
                            u.Code AS OrgCode,
                            u.Name AS OrgName
