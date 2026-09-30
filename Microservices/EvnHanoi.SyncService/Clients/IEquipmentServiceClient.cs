@@ -13,6 +13,12 @@ public interface IEquipmentServiceClient
 
     Task<List<UpsertPmisDocumentResult>> UpsertDocumentsAsync(List<UpsertPmisDocumentRequest> items);
 
+    /// <summary>Tài liệu PMIS đang chờ tải file vật lý (đã tới hạn thử lại) — cho PmisDocumentFileDownloadJob.</summary>
+    Task<List<PendingPmisDocumentFile>> GetPendingDocumentFilesAsync(int take);
+
+    /// <summary>Gửi kết quả tải 1 file (FileBase64) hoặc lý do lỗi (ErrorMessage) cho EquipmentService.</summary>
+    Task AttachDocumentFileAsync(AttachPmisDocumentFileRequest request);
+
     /// <summary>Số thiết bị bị đánh dấu "Đã chuyển TBA" bởi PMIS_SYNC trong <paramref name="sinceHours"/>
     /// giờ gần đây — xem PmisReconciliationJob.</summary>
     Task<int> GetRecentlyTransferredCountAsync(int sinceHours);

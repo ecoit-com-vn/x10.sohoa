@@ -180,6 +180,33 @@ public class UpsertPmisDocumentRequest
     /// tránh tài liệu vốn thuộc 1 thiết bị cụ thể bị gán nhầm cho Trạm/Đường dây cha khi lượt đồng bộ
     /// cấp Trạm/Đường dây (không lọc theo thiết bị) chạy trước lượt đồng bộ Thiết bị.</summary>
     public string? DeviceCode { get; set; }
+
+    /// <summary>URL tải file vật lý PMIS trả về (trường "File" của API 8/9). Pha đồng bộ danh sách chỉ LƯU
+    /// URL này (FILE_STATUS=PENDING), việc tải file thật do job nền riêng của SyncService đảm nhiệm — xem
+    /// Migration0069. Null/rỗng = PMIS không đính kèm file (FILE_STATUS=NO_URL).</summary>
+    public string? FileUrl { get; set; }
+
+    /// <summary>Mã endpoint nguồn (SUBSTATION_DOCUMENT_LIST | LINE_DOCUMENT_LIST) — job tải file dùng để
+    /// đính kèm đúng header/API key cấu hình cho endpoint đó.</summary>
+    public string? FileSourceApi { get; set; }
+}
+
+/// <summary>1 tài liệu đang chờ tải file — trả về bởi GET internal/v1/documents/pending-files.</summary>
+public class PendingPmisDocumentFile
+{
+    public string PmisDocumentCode { get; set; } = string.Empty;
+    public string FileUrl { get; set; } = string.Empty;
+    public string? FileSourceApi { get; set; }
+    public int FileAttempts { get; set; }
+}
+
+/// <summary>Payload POST internal/v1/documents/attach-file: gửi file đã tải (FileBase64) hoặc lý do lỗi
+/// (ErrorMessage) cho 1 tài liệu đang chờ.</summary>
+public class AttachPmisDocumentFileRequest
+{
+    public string PmisDocumentCode { get; set; } = string.Empty;
+    public string? FileBase64 { get; set; }
+    public string? ErrorMessage { get; set; }
 }
 
 public class UpsertPmisDocumentResult
@@ -203,6 +230,17 @@ public class PmisDocumentLookup
     public Guid OwnerId { get; set; }
 }
 
+/// <summary>Thông tin tối thiểu của 1 dòng PMIS_DOCUMENT để gắn file tải muộn vào (xem attach-file).</summary>
+public class PmisDocumentFileTarget
+{
+    public string Id { get; set; } = string.Empty;
+    public string PmisDocumentCode { get; set; } = string.Empty;
+    public string OwnerType { get; set; } = string.Empty;
+    public Guid OwnerId { get; set; }
+    public string? DocumentName { get; set; }
+    public string? ObjectKey { get; set; }
+}
+
 /// <summary>1 dòng PMIS_DOCUMENT đầy đủ — dùng cho màn "Kho tài liệu PMIS" (đọc) và "Chọn từ kho PMIS"
 /// (kiểm tra quyền/copy vào hồ sơ), khác PmisDocumentLookup (chỉ Id/ObjectKey, dùng lúc ghi/đồng bộ).</summary>
 public class PmisDocumentDetail
@@ -220,6 +258,12 @@ public class PmisDocumentDetail
     /// <summary>true nếu do người dùng tự upload thủ công (nút "Upload tài liệu" khi đồng bộ tự động lỗi),
     /// false nếu đến từ đồng bộ PMIS thật — suy ra từ CreatedBy, không phải cột riêng.</summary>
     public bool IsManual { get; set; }
+
+    /// <summary>Trạng thái tải file vật lý: NO_URL | PENDING | DONE | FAILED (xem Migration0069).</summary>
+    public string FileStatus { get; set; } = "NO_URL";
+
+    /// <summary>Lý do tải file lỗi gần nhất (nếu có) — hiển thị để người dùng biết vì sao chưa có file.</summary>
+    public string? FileLastError { get; set; }
 }
 
 /// <summary>1 node cây "Kho tài liệu PMIS" (Đơn vị/Trạm biến áp/Đường dây/Thiết bị) — tổng hợp từ dữ
