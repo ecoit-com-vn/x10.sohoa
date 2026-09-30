@@ -161,6 +161,30 @@ export class PmisDocumentWarehouseComponent implements OnInit {
     return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
   }
 
+  fileStatusLabel(doc: PmisDocumentItem): string {
+    switch (doc.fileStatus) {
+      case 'PENDING':
+        return 'Đang chờ tải file';
+      case 'FAILED':
+        return 'Lỗi tải file';
+      default:
+        return 'Chưa có file';
+    }
+  }
+
+  fileStatusTooltip(doc: PmisDocumentItem): string {
+    switch (doc.fileStatus) {
+      case 'PENDING':
+        return doc.fileLastError
+          ? `Hệ thống đang tự tải file từ PMIS, lần thử gần nhất lỗi: ${doc.fileLastError}`
+          : 'Hệ thống đang tự tải file từ PMIS, vui lòng quay lại sau.';
+      case 'FAILED':
+        return `Tải file từ PMIS lỗi nhiều lần, hệ thống thử lại mỗi 24 giờ. ${doc.fileLastError ?? ''}`.trim();
+      default:
+        return 'PMIS không đính kèm file cho tài liệu này.';
+    }
+  }
+
   download(doc: PmisDocumentItem): void {
     if (this.downloadingId()) return;
     this.downloadingId.set(doc.id);
