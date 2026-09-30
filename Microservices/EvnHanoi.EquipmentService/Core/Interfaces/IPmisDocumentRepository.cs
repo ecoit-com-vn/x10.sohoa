@@ -19,6 +19,22 @@ public interface IPmisDocumentRepository
     /// <summary>Cập nhật ObjectKey/FileSize cho 1 dòng đã có nhưng trước đó chưa tải được file.</summary>
     Task UpdateFileAsync(string id, string objectKey, long fileSize, string? syncHistoryId);
 
+    /// <summary>Cập nhật URL file + mã endpoint nguồn cho dòng CHƯA có file. Dòng đang NO_URL (hoặc URL đổi)
+    /// chuyển về PENDING với FILE_ATTEMPTS=0 để job nền tải; dòng đang PENDING/FAILED cùng URL giữ nguyên
+    /// lịch thử lại. fileUrl rỗng thì không làm gì.</summary>
+    Task UpdateFileSourceAsync(string id, string? fileUrl, string? fileSourceApi);
+
+    /// <summary>Hàng đợi tải file: dòng chưa có ObjectKey, FILE_STATUS PENDING/FAILED và đã tới hạn thử lại.
+    /// Ưu tiên dòng ít lần thử nhất (dòng mới trước, dòng hay lỗi sau).</summary>
+    Task<IReadOnlyList<PendingPmisDocumentFile>> GetPendingFilesAsync(int take);
+
+    /// <summary>Dòng CHƯA xoá mềm theo mã kèm tên/owner — attach-file cần để đặt tên file và đường dẫn lưu trữ (không gắn file vào dòng đã xoá).</summary>
+    Task<PmisDocumentFileTarget?> GetFileTargetByCodeAsync(string pmisDocumentCode);
+
+    /// <summary>Ghi nhận 1 lần tải file lỗi: tăng FILE_ATTEMPTS, lưu lý do, đặt FILE_NEXT_RETRY_AT theo
+    /// backoff luỹ thừa; đủ số lần thì FAILED (vẫn được thử lại, nhưng thưa — mỗi 24 giờ).</summary>
+    Task MarkFileFailedAsync(string id, string? errorMessage);
+
     /// <summary>Sửa lại OwnerType/OwnerId cho 1 dòng đã có (kể cả đã có file) khi resolve lại ra chủ sở
     /// hữu đúng hơn — KHÔNG đụng ObjectKey/FileSize. Dùng khi tài liệu bị gán nhầm cho INFRASTRUCTURE ở
     /// lượt đồng bộ trước khi EQUIPMENT thật tồn tại (xem InternalPmisSyncController.UpsertDocumentsFromPmis).</summary>

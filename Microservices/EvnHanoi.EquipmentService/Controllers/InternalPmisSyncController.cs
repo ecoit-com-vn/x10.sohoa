@@ -338,6 +338,9 @@ public class InternalPmisSyncController : ControllerBase
                     continue;
                 }
 
+                // Pha đồng bộ DANH SÁCH chỉ lưu metadata + URL file (FILE_STATUS=PENDING) — việc tải file vật
+                // lý do job nền PmisDocumentFileDownloadJob (SyncService) đảm nhiệm qua pending-files/attach-file.
+                // FileBase64 vẫn được chấp nhận (tương thích client cũ / upload trực tiếp) — có thì lưu luôn.
                 string? objectKey = null;
                 long? fileSize = null;
                 if (!string.IsNullOrWhiteSpace(item.FileBase64))
@@ -346,35 +349,36 @@ public class InternalPmisSyncController : ControllerBase
                     using var stream = new MemoryStream(bytes);
                     var (key, _) = await _fileStorageService.UploadPmisDocumentAsync(
                         stream, item.FileName ?? item.PmisDocumentCode, "application/octet-stream", bytes.Length,
-                        item.OwnerType, ownerId.Value);
+                        ownerType, ownerId.Value);
                     objectKey = key;
                     fileSize = bytes.Length;
                 }
 
+                var hasUrl = !string.IsNullOrWhiteSpace(item.FileUrl);
                 if (existing != null)
                 {
-                    // Đã có dòng metadata từ lần trước (tải file lỗi) — chỉ update nếu lần này tải
-                    // được, không INSERT lại vì PmisDocumentCode đã UNIQUE.
+                    // Đã có dòng metadata (chưa có file) — chỉ cập nhật file/URL, không INSERT lại vì
+                    // PmisDocumentCode đã UNIQUE. Cũng sửa owner nếu resolve lại ra chủ đúng hơn (giống nhánh
+                    // đã có file ở trên): dòng chờ tải lâu có thể được gán tạm cho INFRASTRUCTURE trước khi
+                    // EQUIPMENT thật tồn tại; attach-file lưu file theo owner đang có trên dòng này.
+                    if (!string.Equals(existing.OwnerType, ownerType, StringComparison.OrdinalIgnoreCase) ||
+                        existing.OwnerId != ownerId.Value)
+                    {
+                        await _pmisDocumentRepository.UpdateOwnerAsync(existing.Id, ownerType, ownerId.Value);
+                    }
+
                     if (objectKey != null)
                         await _pmisDocumentRepository.UpdateFileAsync(existing.Id, objectKey, fileSize!.Value, item.SyncHistoryId);
+                    else
+                        await _pmisDocumentRepository.UpdateFileSourceAsync(existing.Id, item.FileUrl, item.FileSourceApi);
 
-                    results.Add(new UpsertPmisDocumentResult
-                    {
-                        PmisDocumentCode = item.PmisDocumentCode,
-                        Success = objectKey != null,
-                        ErrorMessage = objectKey == null ? BuildFileDownloadFailedMessage(item) : null
-                    });
+                    results.Add(BuildUpsertResult(item.PmisDocumentCode, objectKey != null, hasUrl));
                     continue;
                 }
 
                 item.OwnerType = ownerType; // ghi đúng OwnerType đã phân giải (có thể khác giá trị gửi lên nếu resolve theo DeviceCode thành công)
                 await _pmisDocumentRepository.InsertAsync(item, ownerId.Value, objectKey, fileSize);
-                results.Add(new UpsertPmisDocumentResult
-                {
-                    PmisDocumentCode = item.PmisDocumentCode,
-                    Success = objectKey != null,
-                    ErrorMessage = objectKey == null ? BuildFileDownloadFailedMessage(item) : null
-                });
+                results.Add(BuildUpsertResult(item.PmisDocumentCode, objectKey != null, hasUrl));
             }
             catch (Exception ex)
             {
@@ -388,6 +392,57 @@ public class InternalPmisSyncController : ControllerBase
         }
 
         return Ok(results);
+    }
+
+    /// <summary>Success=true khi đã có file HOẶC đang chờ job nền tải (có URL) — đó là trạng thái bình thường
+    /// của pha danh sách, không phải lỗi. Chỉ khi PMIS không kèm URL file mới báo cảnh báo (chưa có gì để tải).</summary>
+    private static UpsertPmisDocumentResult BuildUpsertResult(string code, bool hasFile, bool hasUrl) =>
+        new()
+        {
+            PmisDocumentCode = code,
+            Success = hasFile || hasUrl,
+            ErrorMessage = hasFile || hasUrl ? null : "PMIS không trả về URL file cho tài liệu này — đã lưu thông tin, chưa có file."
+        };
+
+    /// <summary>Lấy các tài liệu đang chờ tải file (đã tới hạn thử lại) cho job nền của SyncService.</summary>
+    [HttpGet("documents/pending-files")]
+    public async Task<IActionResult> GetPendingDocumentFiles(
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken,
+        [FromQuery] int take = 40)
+    {
+        if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
+        take = Math.Clamp(take, 1, 200);
+        return Ok(await _pmisDocumentRepository.GetPendingFilesAsync(take));
+    }
+
+    /// <summary>Nhận kết quả tải file của job nền: có FileBase64 thì lưu MinIO + đánh dấu DONE; không thì ghi
+    /// lỗi + đặt lịch thử lại theo backoff.</summary>
+    [HttpPost("documents/attach-file")]
+    public async Task<IActionResult> AttachDocumentFile(
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken,
+        [FromBody] AttachPmisDocumentFileRequest request)
+    {
+        if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
+        if (request is null || string.IsNullOrWhiteSpace(request.PmisDocumentCode))
+            return BadRequest(new { message = "Thiếu PmisDocumentCode." });
+
+        var target = await _pmisDocumentRepository.GetFileTargetByCodeAsync(request.PmisDocumentCode);
+        if (target == null) return NotFound(new { message = "Không tìm thấy tài liệu." });
+        if (!string.IsNullOrEmpty(target.ObjectKey)) return Ok(new { attached = false, reason = "Tài liệu đã có file." });
+
+        if (string.IsNullOrWhiteSpace(request.FileBase64))
+        {
+            await _pmisDocumentRepository.MarkFileFailedAsync(target.Id, request.ErrorMessage);
+            return Ok(new { attached = false });
+        }
+
+        var bytes = Convert.FromBase64String(request.FileBase64);
+        using var stream = new MemoryStream(bytes);
+        var (key, _) = await _fileStorageService.UploadPmisDocumentAsync(
+            stream, target.DocumentName ?? target.PmisDocumentCode, "application/octet-stream", bytes.Length,
+            target.OwnerType, target.OwnerId);
+        await _pmisDocumentRepository.UpdateFileAsync(target.Id, key, bytes.Length, null);
+        return Ok(new { attached = true });
     }
 
     /// <summary>
@@ -512,11 +567,6 @@ public class InternalPmisSyncController : ControllerBase
     /// <summary>Ghép nguyên nhân thật (nếu SyncService có gửi kèm — xem UpsertPmisDocumentRequest.FileDownloadError)
     /// vào thông báo chung, để admin thấy được lý do cụ thể ngay trong màn "Lịch sử đồng bộ" thay vì phải
     /// vào log pod SyncService mới biết được vì sao tải file thất bại.</summary>
-    private static string BuildFileDownloadFailedMessage(UpsertPmisDocumentRequest item) =>
-        string.IsNullOrWhiteSpace(item.FileDownloadError)
-            ? "Không tải được file tài liệu từ PMIS — đã lưu thông tin, chưa có file."
-            : $"Không tải được file tài liệu từ PMIS — đã lưu thông tin, chưa có file. Nguyên nhân: {item.FileDownloadError}";
-
     private bool ValidateInternalToken(string? internalToken, out IActionResult? errorResult)
     {
         var expected = _configuration["Internal:Token"];
