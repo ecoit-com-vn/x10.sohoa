@@ -241,6 +241,27 @@
     </div>
   </div>
 
+  <!-- Toggle: danh sách chính (Trạm/Đường dây/Thiết bị thật) vs tài liệu đính kèm đồng bộ xoay vòng cùng
+       lượt — tách riêng để không lẫn tên file vào danh sách chính (xem RecordKind). -->
+  <div class="pmis-tabs" style="margin-bottom: 12px;">
+    <button
+      type="button"
+      class="pmis-tab-btn"
+      [class.active]="historyDetailView() === 'MAIN'"
+      (click)="selectHistoryDetailView('MAIN')"
+    >
+      Danh sách chính
+    </button>
+    <button
+      type="button"
+      class="pmis-tab-btn"
+      [class.active]="historyDetailView() === 'DOCUMENT'"
+      (click)="selectHistoryDetailView('DOCUMENT')"
+    >
+      Tài liệu đính kèm
+    </button>
+  </div>
+
   <div class="wf-table-wrap">
     <table class="wf-table">
       <thead>

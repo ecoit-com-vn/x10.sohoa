@@ -170,6 +170,31 @@
     <b>Lỗi của cả lượt đồng bộ:</b> {{ errorMessage }}
   </div>
 
+  <!-- Toggle: danh sách chính (Trạm/Đường dây/Thiết bị thật) vs tài liệu đính kèm đồng bộ xoay vòng cùng
+       lượt — tách riêng để không lẫn tên file vào danh sách chính (xem RecordKind). -->
+  <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+    <button
+      type="button"
+      class="btn-outlined btn-small"
+      [style.background]="historyDetailView() === 'MAIN' ? '#eef2ff' : null"
+      [style.borderColor]="historyDetailView() === 'MAIN' ? '#6366f1' : null"
+      [style.color]="historyDetailView() === 'MAIN' ? '#4338ca' : null"
+      (click)="selectHistoryDetailView('MAIN')"
+    >
+      Danh sách chính
+    </button>
+    <button
+      type="button"
+      class="btn-outlined btn-small"
+      [style.background]="historyDetailView() === 'DOCUMENT' ? '#eef2ff' : null"
+      [style.borderColor]="historyDetailView() === 'DOCUMENT' ? '#6366f1' : null"
+      [style.color]="historyDetailView() === 'DOCUMENT' ? '#4338ca' : null"
+      (click)="selectHistoryDetailView('DOCUMENT')"
+    >
+      Tài liệu đính kèm
+    </button>
+  </div>
+
   <div class="wf-table-wrap">
     <table class="wf-table">
       <thead>
