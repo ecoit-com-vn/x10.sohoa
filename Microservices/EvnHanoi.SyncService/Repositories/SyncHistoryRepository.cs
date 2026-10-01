@@ -73,10 +73,10 @@ public class SyncHistoryRepository : ISyncHistoryRepository
         const string sql = @"
             INSERT INTO SYNC_HISTORY_DETAIL (
                 ID, SYNC_HISTORY_ID, SOURCE_ID, SOURCE_CODE, SOURCE_NAME, TARGET_ID,
-                ACTION_TYPE, STATUS, DATA_CONTENT, ERROR_MESSAGE, SYNC_TIME
+                ACTION_TYPE, STATUS, DATA_CONTENT, ERROR_MESSAGE, RECORD_KIND, SYNC_TIME
             ) VALUES (
                 :Id, :SyncHistoryId, :SourceId, :SourceCode, :SourceName, :TargetId,
-                :ActionType, :Status, :DataContent, :ErrorMessage, SYSTIMESTAMP
+                :ActionType, :Status, :DataContent, :ErrorMessage, :RecordKind, SYSTIMESTAMP
             )";
 
         foreach (var detail in details)
@@ -92,7 +92,8 @@ public class SyncHistoryRepository : ISyncHistoryRepository
                 detail.ActionType,
                 detail.Status,
                 detail.DataContent,
-                detail.ErrorMessage
+                detail.ErrorMessage,
+                detail.RecordKind
             });
         }
     }
@@ -122,7 +123,8 @@ public class SyncHistoryRepository : ISyncHistoryRepository
         return (items, totalCount);
     }
 
-    public async Task<(IEnumerable<SyncHistoryDetail> Items, int TotalCount)> GetDetailsPagedAsync(string syncHistoryId, int page, int pageSize)
+    public async Task<(IEnumerable<SyncHistoryDetail> Items, int TotalCount)> GetDetailsPagedAsync(
+        string syncHistoryId, int page, int pageSize, string? recordKind = null)
     {
         EnsureOpen();
         var parameters = new DynamicParameters();
@@ -130,15 +132,30 @@ public class SyncHistoryRepository : ISyncHistoryRepository
         parameters.Add("Skip", (page - 1) * pageSize);
         parameters.Add("Take", pageSize);
 
-        var totalCount = await _connection.ExecuteScalarAsync<int>(
-            "SELECT COUNT(1) FROM SYNC_HISTORY_DETAIL WHERE SYNC_HISTORY_ID = :SyncHistoryId", parameters);
+        // OR RECORD_KIND IS NULL: dữ liệu lịch sử cũ (trước Migration0014_AddRecordKindToSyncHistoryDetail)
+        // chưa được phân loại — coi như thuộc tab chính (INFRASTRUCTURE/EQUIPMENT) đang xem thay vì biến
+        // mất đột ngột khỏi màn hình. KHÔNG áp dụng cho DOCUMENT (view "Tài liệu đính kèm" hoàn toàn mới,
+        // không có dữ liệu lịch sử nào thực sự thuộc về nó trước migration này — kéo cả dòng NULL vào sẽ
+        // lẫn ngược lại đúng loại lỗi ta đang sửa).
+        var recordKindFilter = string.Empty;
+        if (!string.IsNullOrEmpty(recordKind))
+        {
+            recordKindFilter = recordKind == SyncRecordKind.Document
+                ? " AND RECORD_KIND = :RecordKind"
+                : " AND (RECORD_KIND = :RecordKind OR RECORD_KIND IS NULL)";
+            parameters.Add("RecordKind", recordKind);
+        }
 
-        var items = await _connection.QueryAsync<SyncHistoryDetail>(@"
+        var totalCount = await _connection.ExecuteScalarAsync<int>(
+            $"SELECT COUNT(1) FROM SYNC_HISTORY_DETAIL WHERE SYNC_HISTORY_ID = :SyncHistoryId{recordKindFilter}", parameters);
+
+        var items = await _connection.QueryAsync<SyncHistoryDetail>($@"
             SELECT ID AS Id, SYNC_HISTORY_ID AS SyncHistoryId, SOURCE_ID AS SourceId, SOURCE_CODE AS SourceCode,
                    SOURCE_NAME AS SourceName, TARGET_ID AS TargetId, ACTION_TYPE AS ActionType, STATUS AS Status,
-                   DATA_CONTENT AS DataContent, ERROR_MESSAGE AS ErrorMessage, SYNC_TIME AS SyncTime
+                   DATA_CONTENT AS DataContent, ERROR_MESSAGE AS ErrorMessage, RECORD_KIND AS RecordKind,
+                   SYNC_TIME AS SyncTime
             FROM SYNC_HISTORY_DETAIL
-            WHERE SYNC_HISTORY_ID = :SyncHistoryId
+            WHERE SYNC_HISTORY_ID = :SyncHistoryId{recordKindFilter}
             ORDER BY SYNC_TIME DESC
             OFFSET :Skip ROWS FETCH NEXT :Take ROWS ONLY", parameters);
 

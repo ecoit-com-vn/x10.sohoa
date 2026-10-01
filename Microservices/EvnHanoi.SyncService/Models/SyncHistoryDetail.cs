@@ -17,6 +17,10 @@ public class SyncHistoryDetail
     public string? DataContent { get; set; }
     public string? ErrorMessage { get; set; }
     public DateTime SyncTime { get; set; }
+
+    /// <summary>INFRASTRUCTURE | EQUIPMENT | DOCUMENT — xem SyncRecordKind. NULL cho dữ liệu lịch sử cũ
+    /// (trước Migration0014), API/FE coi NULL như thuộc tab chính đang xem.</summary>
+    public string? RecordKind { get; set; }
 }
 
 public static class SyncActionType
@@ -24,6 +28,14 @@ public static class SyncActionType
     public const string Create = "CREATE";
     public const string Update = "UPDATE";
     public const string Skip = "SKIP";
+}
+
+/// <summary>Phân loại 1 dòng SYNC_HISTORY_DETAIL — xem Migration0014_AddRecordKindToSyncHistoryDetail.</summary>
+public static class SyncRecordKind
+{
+    public const string Infrastructure = "INFRASTRUCTURE";
+    public const string Equipment = "EQUIPMENT";
+    public const string Document = "DOCUMENT";
 }
 
 public static class SyncDetailStatus

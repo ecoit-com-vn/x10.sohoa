@@ -28,12 +28,13 @@ public class SyncHistoryController : ControllerBase
     }
 
     [HttpGet("{historyId}/items")]
-    public async Task<IActionResult> GetItems(string historyId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<IActionResult> GetItems(
+        string historyId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? recordKind = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
 
-        var (items, totalCount) = await _syncHistoryRepository.GetDetailsPagedAsync(historyId, page, pageSize);
+        var (items, totalCount) = await _syncHistoryRepository.GetDetailsPagedAsync(historyId, page, pageSize, recordKind?.ToUpperInvariant());
         return Ok(new { items, totalCount });
     }
 

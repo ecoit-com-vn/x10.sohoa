@@ -19,6 +19,9 @@ public interface IEquipmentServiceClient
     /// <summary>Gửi kết quả tải 1 file (FileBase64) hoặc lý do lỗi (ErrorMessage) cho EquipmentService.</summary>
     Task AttachDocumentFileAsync(AttachPmisDocumentFileRequest request);
 
+    /// <summary>Tóm tắt hàng đợi tải file — cho PmisDocumentFileDownloadWatchdogJob.</summary>
+    Task<PendingDocumentFileSummary> GetPendingDocumentSummaryAsync();
+
     /// <summary>Số thiết bị bị đánh dấu "Đã chuyển TBA" bởi PMIS_SYNC trong <paramref name="sinceHours"/>
     /// giờ gần đây — xem PmisReconciliationJob.</summary>
     Task<int> GetRecentlyTransferredCountAsync(int sinceHours);
