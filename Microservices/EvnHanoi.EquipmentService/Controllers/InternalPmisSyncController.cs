@@ -415,6 +415,16 @@ public class InternalPmisSyncController : ControllerBase
         return Ok(await _pmisDocumentRepository.GetPendingFilesAsync(take));
     }
 
+    /// <summary>Tóm tắt hàng đợi tải file cho watchdog của SyncService (PmisDocumentFileDownloadWatchdogJob)
+    /// — phát hiện khi job tải file ngừng tiến triển mà không ai biết.</summary>
+    [HttpGet("documents/pending-summary")]
+    public async Task<IActionResult> GetPendingDocumentSummary(
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken)
+    {
+        if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
+        return Ok(await _pmisDocumentRepository.GetPendingSummaryAsync());
+    }
+
     /// <summary>Nhận kết quả tải file của job nền: có FileBase64 thì lưu MinIO + đánh dấu DONE; không thì ghi
     /// lỗi + đặt lịch thử lại theo backoff.</summary>
     [HttpPost("documents/attach-file")]

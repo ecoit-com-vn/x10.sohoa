@@ -122,6 +122,25 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         return (await _connection.QueryAsync<PendingPmisDocumentFile>(sql, new { Take = take })).ToList();
     }
 
+    // Dùng SyncedAt (không phải ModifiedDate) để tính LastDownloadedAt bên dưới — ModifiedDate còn bị
+    // UpdateOwnerAsync bump lại trên CẢ dòng đã DONE từ trước (khi 1 lượt đồng bộ Thiết bị khác resolve
+    // lại đúng owner hơn, không liên quan gì tới việc tải file), khiến watchdog tưởng vừa có hoạt động dù
+    // PmisDocumentFileDownloadJob đã chết thật. SyncedAt chỉ được set đúng 1 chỗ duy nhất (UpdateFileAsync,
+    // ngay khi 1 file được tải và lưu thành công thật) nên không bị lẫn như vậy.
+    public async Task<PendingDocumentFileSummary> GetPendingSummaryAsync()
+    {
+        EnsureOpen();
+        const string sql = @"
+            SELECT
+                (SELECT COUNT(*) FROM PMIS_DOCUMENT
+                  WHERE ObjectKey IS NULL AND IsDeleted = 0 AND FILE_URL IS NOT NULL
+                    AND FILE_STATUS IN ('PENDING', 'FAILED')
+                    AND (FILE_NEXT_RETRY_AT IS NULL OR FILE_NEXT_RETRY_AT <= SYSTIMESTAMP)) AS PendingCount,
+                (SELECT MAX(SyncedAt) FROM PMIS_DOCUMENT WHERE FILE_STATUS = 'DONE') AS LastDownloadedAt
+            FROM DUAL";
+        return await _connection.QuerySingleAsync<PendingDocumentFileSummary>(sql);
+    }
+
     public async Task<PmisDocumentFileTarget?> GetFileTargetByCodeAsync(string pmisDocumentCode)
     {
         EnsureOpen();

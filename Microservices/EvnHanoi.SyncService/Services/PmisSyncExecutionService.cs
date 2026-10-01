@@ -258,7 +258,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                     ActionType = SyncActionType.Skip,
                     Status = SyncDetailStatus.Failed,
                     DataContent = raw.GetRawText(),
-                    ErrorMessage = $"Không đọc được dữ liệu JSON từ PMIS: {SyncErrorFormatter.FormatShort(ex)}"
+                    ErrorMessage = $"Không đọc được dữ liệu JSON từ PMIS: {SyncErrorFormatter.FormatShort(ex)}",
+                    RecordKind = SyncRecordKind.Infrastructure
                 });
             }
         }
@@ -409,7 +410,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 DataContent = rawItems[i].GetRawText(),
                 ErrorMessage = result.ErrorMessage ?? (isParentUnresolved
                     ? $"Chưa xác định được đường dây cha (mã PMIS cha '{upsertRequests[i].ParentPmisCode}' chưa đồng bộ tới hoặc không hợp lệ) — tự khớp lại ở lượt đồng bộ kế tiếp."
-                    : null)
+                    : null),
+                RecordKind = SyncRecordKind.Infrastructure
             });
         }
 
@@ -504,7 +506,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                     ActionType = SyncActionType.Skip,
                     Status = SyncDetailStatus.Failed,
                     DataContent = raw.GetRawText(),
-                    ErrorMessage = $"Không đọc được dữ liệu JSON từ PMIS: {SyncErrorFormatter.FormatShort(ex)}"
+                    ErrorMessage = $"Không đọc được dữ liệu JSON từ PMIS: {SyncErrorFormatter.FormatShort(ex)}",
+                    RecordKind = SyncRecordKind.Equipment
                 });
                 continue;
             }
@@ -681,7 +684,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 ActionType = !result.HasChanged ? SyncActionType.Skip : (result.WasCreated ? SyncActionType.Create : SyncActionType.Update),
                 Status = result.Success ? SyncDetailStatus.Success : SyncDetailStatus.Failed,
                 DataContent = validRawItems[i].GetRawText(),
-                ErrorMessage = result.ErrorMessage
+                ErrorMessage = result.ErrorMessage,
+                RecordKind = SyncRecordKind.Equipment
             });
         }
 
@@ -759,7 +763,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 SourceName = sourceName,
                 ActionType = SyncActionType.Skip,
                 Status = SyncDetailStatus.Warning,
-                ErrorMessage = $"Chưa đồng bộ tài liệu đính kèm — lượt này đã đạt trần {MaxDocumentSyncCallsPerRun} owner, sẽ tự tiếp tục ở lượt sau."
+                ErrorMessage = $"Chưa đồng bộ tài liệu đính kèm — lượt này đã đạt trần {MaxDocumentSyncCallsPerRun} owner, sẽ tự tiếp tục ở lượt sau.",
+                RecordKind = SyncRecordKind.Document
             });
             return (1, details);
         }
@@ -923,7 +928,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                     DataContent = dataContent,
                     ActionType = SyncActionType.Skip,
                     Status = isWarning ? SyncDetailStatus.Warning : SyncDetailStatus.Success,
-                    ErrorMessage = result.ErrorMessage ?? info.FileDownloadError
+                    ErrorMessage = result.ErrorMessage ?? info.FileDownloadError,
+                    RecordKind = SyncRecordKind.Document
                 });
             }
             return (hitRecordCap ? warningCount + 1 : warningCount, details);
@@ -939,7 +945,8 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 SourceName = sourceName,
                 ActionType = SyncActionType.Skip,
                 Status = SyncDetailStatus.Warning,
-                ErrorMessage = $"Lỗi đồng bộ tài liệu đính kèm: {ex.Message}"
+                ErrorMessage = $"Lỗi đồng bộ tài liệu đính kèm: {ex.Message}",
+                RecordKind = SyncRecordKind.Document
             });
             return (1, details);
         }
