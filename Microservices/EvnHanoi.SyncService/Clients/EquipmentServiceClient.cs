@@ -89,6 +89,17 @@ public class EquipmentServiceClient : IEquipmentServiceClient
         return await response.Content.ReadFromJsonAsync<List<PendingPmisDocumentFile>>() ?? [];
     }
 
+    public async Task<PendingDocumentFileSummary> GetPendingDocumentSummaryAsync()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "internal/v1/documents/pending-summary");
+        request.Headers.Add("X-Internal-Token", _internalToken);
+
+        var response = await _httpClient.SendAsync(request);
+        await EnsureSuccessOrThrowWithBodyAsync(response);
+        return await response.Content.ReadFromJsonAsync<PendingDocumentFileSummary>()
+            ?? new PendingDocumentFileSummary();
+    }
+
     public async Task AttachDocumentFileAsync(AttachPmisDocumentFileRequest attach)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "internal/v1/documents/attach-file")
