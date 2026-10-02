@@ -185,12 +185,20 @@ public abstract partial class DossierControllerBase : ControllerBase
         return Ok(items);
     }
 
-    /// <summary>Lookup nhóm hồ sơ (DOSSIER_GROUPS) — dùng cho form tạo/sửa.</summary>
+    /// <summary>
+    /// Lookup nhóm hồ sơ (DOSSIER_GROUPS) — dùng cho form tạo/sửa.
+    /// excludeEquipmentGroups=true: bỏ 2 nhóm "Hồ sơ thiết bị của trạm/đường dây" (IsEquipmentDossier=1)
+    /// khỏi kết quả — dùng cho combobox "Nhóm hồ sơ" ở form tạo mới (thiết bị giờ gắn ở cấp Tài liệu,
+    /// không còn chọn ở cấp Hồ sơ). Không lọc ở tầng repository vì GetDossierGroupsLookupAsync còn được
+    /// dùng nội bộ ở chỗ khác cần đủ danh sách (vd. hiển thị đúng tên nhóm của hồ sơ cũ).
+    /// </summary>
     [HttpGet("dossier-groups/lookup")]
     [BypassDynamicPermission]
-    public async Task<IActionResult> GetDossierGroupsLookup()
+    public async Task<IActionResult> GetDossierGroupsLookup([FromQuery] bool excludeEquipmentGroups = false)
     {
         var items = await _dossierService.GetDossierGroupsLookupAsync();
+        if (excludeEquipmentGroups)
+            items = items.Where(g => !g.IsEquipmentDossier);
         return Ok(items);
     }
 
@@ -201,6 +209,7 @@ public abstract partial class DossierControllerBase : ControllerBase
         [FromQuery] string? code,
         [FromQuery] string? name,
         [FromQuery] Guid? infrastructureId,
+        [FromQuery] List<Guid>? infrastructureIds,
         [FromQuery] int? gridTypeId,
         [FromQuery] long? unitId,
         [FromQuery] bool? isActive = true,
@@ -213,6 +222,7 @@ public abstract partial class DossierControllerBase : ControllerBase
             Code = code,
             Name = name,
             InfrastructureId = infrastructureId,
+            InfrastructureIds = infrastructureIds is { Count: > 0 } ? infrastructureIds : null,
             GridTypeId = gridTypeId,
             UnitId = unitId,
             IsActive = isActive,

@@ -881,7 +881,7 @@ public class DossierRepository : IDossierRepository
         const string sql = "SELECT KIND_ID FROM DOSSIERS WHERE Id = :Id AND IsDeleted = 0";
         return await _connection.QuerySingleOrDefaultAsync<int?>(sql, new { Id = id.ToString() });
     }
-    public async Task<Guid> CreateAsync(Dossier dossier, IEnumerable<Guid> equipmentIds)
+    public async Task<Guid> CreateAsync(Dossier dossier, IEnumerable<Guid>? equipmentIds)
     {
         _connection.EnsureOpen();
         if (dossier.Id == Guid.Empty)
@@ -951,13 +951,17 @@ public class DossierRepository : IDossierRepository
                     new { DossierId = dossier.Id.ToString(), InfrastructureId = infId.ToString() },
                     transaction);
             }
-            // Insert equipment links
-            foreach (var equipId in equipmentIds)
+            // Insert equipment links — bỏ qua nếu null (thiết bị không còn quản lý ở cấp hồ sơ; xem
+            // ValidateAndNormalizeGroupAsync trong DossierService).
+            if (equipmentIds != null)
             {
-                await _connection.ExecuteAsync(
-                    "INSERT INTO DOSSIER_EQUIPMENTS (DossierId, EquipmentId) VALUES (:DossierId, :EquipmentId)",
-                    new { DossierId = dossier.Id.ToString(), EquipmentId = equipId.ToString() },
-                    transaction);
+                foreach (var equipId in equipmentIds)
+                {
+                    await _connection.ExecuteAsync(
+                        "INSERT INTO DOSSIER_EQUIPMENTS (DossierId, EquipmentId) VALUES (:DossierId, :EquipmentId)",
+                        new { DossierId = dossier.Id.ToString(), EquipmentId = equipId.ToString() },
+                        transaction);
+                }
             }
             transaction.Commit();
             return dossier.Id;
@@ -968,7 +972,7 @@ public class DossierRepository : IDossierRepository
             throw;
         }
     }
-    public async Task<bool> UpdateAsync(Dossier dossier, IEnumerable<Guid> equipmentIds)
+    public async Task<bool> UpdateAsync(Dossier dossier, IEnumerable<Guid>? equipmentIds)
     {
         _connection.EnsureOpen();
         using var transaction = _connection.BeginTransaction();
@@ -1025,16 +1029,22 @@ public class DossierRepository : IDossierRepository
                     new { DossierId = dossier.Id.ToString(), InfrastructureId = infId.ToString() },
                     transaction);
             }
-            // Update equipment list: xóa cũ, thêm mới
-            await _connection.ExecuteAsync(
-                "DELETE FROM DOSSIER_EQUIPMENTS WHERE DossierId = :DossierId",
-                new { DossierId = dossier.Id.ToString() }, transaction);
-            foreach (var equipId in equipmentIds)
+            // Update equipment list: xóa cũ, thêm mới — CHỈ khi equipmentIds != null. null nghĩa là
+            // client không gửi (mọi form từ nay về sau), giữ nguyên liên kết cũ của các hồ sơ thiết bị
+            // tạo trước khi bỏ tính năng "thêm thiết bị vào hồ sơ", tránh mất dữ liệu khi chỉ sửa thông
+            // tin khác của hồ sơ.
+            if (equipmentIds != null)
             {
                 await _connection.ExecuteAsync(
-                    "INSERT INTO DOSSIER_EQUIPMENTS (DossierId, EquipmentId) VALUES (:DossierId, :EquipmentId)",
-                    new { DossierId = dossier.Id.ToString(), EquipmentId = equipId.ToString() },
-                    transaction);
+                    "DELETE FROM DOSSIER_EQUIPMENTS WHERE DossierId = :DossierId",
+                    new { DossierId = dossier.Id.ToString() }, transaction);
+                foreach (var equipId in equipmentIds)
+                {
+                    await _connection.ExecuteAsync(
+                        "INSERT INTO DOSSIER_EQUIPMENTS (DossierId, EquipmentId) VALUES (:DossierId, :EquipmentId)",
+                        new { DossierId = dossier.Id.ToString(), EquipmentId = equipId.ToString() },
+                        transaction);
+                }
             }
             transaction.Commit();
             return true;

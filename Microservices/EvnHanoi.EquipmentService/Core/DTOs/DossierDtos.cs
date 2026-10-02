@@ -164,7 +164,9 @@ public class DossierCreateDto
     public List<Guid> InfrastructureIds { get; set; } = new();
     public Guid? DossierSetId { get; set; }
     public Guid DossierTypeId { get; set; }
-    public List<Guid> EquipmentIds { get; set; } = new();
+    /// <summary>Không dùng nữa cho hồ sơ mới (thiết bị giờ gắn ở cấp Tài liệu) — giữ nullable để null nghĩa
+    /// là "không đụng tới" khi phân biệt với danh sách rỗng (chủ động gỡ hết) cho các hồ sơ thiết bị cũ.</summary>
+    public List<Guid>? EquipmentIds { get; set; }
     /// <summary>Dữ liệu form động (JSON) từ EAV template, lưu cùng lúc với tạo hồ sơ.</summary>
     public string? FormDataJson { get; set; }
     /// <summary>Chỉ lưu khi BoxId có giá trị; ngược lại backend bỏ qua/null cả 3.</summary>
@@ -190,7 +192,9 @@ public class DossierUpdateDto
     public List<Guid> InfrastructureIds { get; set; } = new();
     public Guid? DossierSetId { get; set; }
     public Guid DossierTypeId { get; set; }
-    public List<Guid> EquipmentIds { get; set; } = new();
+    /// <summary>Không dùng nữa (thiết bị giờ gắn ở cấp Tài liệu) — null = không đụng tới liên kết thiết bị
+    /// hiện có (dossier thiết bị cũ tạo trước khi bỏ tính năng này); danh sách rỗng = chủ động gỡ hết.</summary>
+    public List<Guid>? EquipmentIds { get; set; }
     public int RowVersion { get; set; }
     /// <summary>Dữ liệu form động (JSON) từ EAV template, lưu cùng lúc với cập nhật hồ sơ.</summary>
     public string? FormDataJson { get; set; }
@@ -250,6 +254,8 @@ public class EquipmentLookupFilterDto
     public string? Code { get; set; }
     public string? Name { get; set; }
     public Guid? InfrastructureId { get; set; }
+    /// <summary>Lọc theo NHIỀU Trạm/đường dây (dossier giờ có thể gắn nhiều hạ tầng) — ưu tiên hơn InfrastructureId nếu có.</summary>
+    public List<Guid>? InfrastructureIds { get; set; }
     public int? GridTypeId { get; set; }
     public long? UnitId { get; set; }
     public bool? IsActive { get; set; } = true;

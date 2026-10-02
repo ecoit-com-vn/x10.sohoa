@@ -648,35 +648,49 @@ public class DossierEnrichmentRepository : IDossierEnrichmentRepository
 
 
 
-    public Task<IEnumerable<BhsCatalogDefinition>> GetBhsCatalogDefinitionsAsync() =>
+    // Danh mục cột BHS gần như không đổi (cấu hình catalog tĩnh) nhưng trước đây bị truy vấn lại từ
+    // Oracle trên MỌI lần tải danh sách hồ sơ (mỗi tab/trang/lần tìm kiếm của cả màn Xuất bản hồ sơ lẫn
+    // /my-dossiers) — cache tĩnh 5 phút, đủ ngắn để không "kẹt" dữ liệu cũ lâu nếu ai đó sửa danh mục,
+    // nhưng cắt gần hết round-trip Oracle thừa này trên đường tải danh sách.
+    private static IReadOnlyList<BhsCatalogDefinition>? _bhsCatalogCache;
+    private static DateTime _bhsCatalogCacheExpiresAtUtc = DateTime.MinValue;
+    private static readonly SemaphoreSlim BhsCatalogCacheLock = new(1, 1);
 
-        WithConnectionAsync(async connection =>
+    public async Task<IEnumerable<BhsCatalogDefinition>> GetBhsCatalogDefinitionsAsync()
+    {
+        if (_bhsCatalogCache != null && DateTime.UtcNow < _bhsCatalogCacheExpiresAtUtc)
+            return _bhsCatalogCache;
 
+        await BhsCatalogCacheLock.WaitAsync();
+        try
         {
+            if (_bhsCatalogCache != null && DateTime.UtcNow < _bhsCatalogCacheExpiresAtUtc)
+                return _bhsCatalogCache;
 
-            const string sql = """
+            var result = await WithConnectionAsync(async connection =>
+            {
+                const string sql = """
+                    SELECT c.Code, c.Name, c.Priority
+                    FROM CATALOG c
+                    INNER JOIN CATALOG_TYPE ct ON c.CatalogTypeId = ct.Id
+                    WHERE ct.Code = 'BHS'
+                      AND c.IsDeleted = 0
+                      AND ct.IsDeleted = 0
+                    ORDER BY c.Priority ASC, c.Name ASC
+                    """;
 
-                SELECT c.Code, c.Name, c.Priority
+                return await connection.QueryAsync<BhsCatalogDefinition>(sql);
+            });
 
-                FROM CATALOG c
-
-                INNER JOIN CATALOG_TYPE ct ON c.CatalogTypeId = ct.Id
-
-                WHERE ct.Code = 'BHS'
-
-                  AND c.IsDeleted = 0
-
-                  AND ct.IsDeleted = 0
-
-                ORDER BY c.Priority ASC, c.Name ASC
-
-                """;
-
-
-
-            return await connection.QueryAsync<BhsCatalogDefinition>(sql);
-
-        });
+            _bhsCatalogCache = result.ToList();
+            _bhsCatalogCacheExpiresAtUtc = DateTime.UtcNow.AddMinutes(5);
+            return _bhsCatalogCache;
+        }
+        finally
+        {
+            BhsCatalogCacheLock.Release();
+        }
+    }
 
 
 

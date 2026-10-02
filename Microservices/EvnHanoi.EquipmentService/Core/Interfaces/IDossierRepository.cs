@@ -63,8 +63,9 @@ public interface IDossierRepository
     Task<int?> GetKindIdAsync(Guid id);
 
     // CRUD
-    Task<Guid> CreateAsync(Dossier dossier, IEnumerable<Guid> equipmentIds);
-    Task<bool> UpdateAsync(Dossier dossier, IEnumerable<Guid> equipmentIds);
+    /// <summary>equipmentIds null = không đụng tới DOSSIER_EQUIPMENTS hiện có của dossier.</summary>
+    Task<Guid> CreateAsync(Dossier dossier, IEnumerable<Guid>? equipmentIds);
+    Task<bool> UpdateAsync(Dossier dossier, IEnumerable<Guid>? equipmentIds);
     Task<bool> SoftDeleteAsync(Guid id, string modifiedBy);
     Task<bool> UpdateStatusAsync(Guid id, int statusId, string modifiedBy);
     Task<bool> UpdatePublishStatusAsync(Guid id, int publishStatusId, string modifiedBy);

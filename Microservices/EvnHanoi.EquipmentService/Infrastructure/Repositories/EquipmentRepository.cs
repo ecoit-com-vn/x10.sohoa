@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -18,10 +19,44 @@ public class EquipmentRepository : IEquipmentRepository
     private readonly IDbConnection _connection;
     private readonly IFileStorageService _fileStorageService;
 
+    // Cache ngắn hạn cho COUNT(1) của danh sách thiết bị (GetPagedAsync) — xem giải thích đầy đủ tại
+    // nơi dùng. Key = SQL COUNT + toàn bộ tham số lọc (2 bộ lọc khác nhau ra key khác nhau).
+    private static readonly ConcurrentDictionary<string, (int Count, DateTime ExpiresAtUtc)> PagedCountCache = new();
+    private static readonly TimeSpan PagedCountCacheTtl = TimeSpan.FromSeconds(20);
+
     public EquipmentRepository(IDbConnection connection, IFileStorageService fileStorageService)
     {
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
         _fileStorageService = fileStorageService ?? throw new ArgumentNullException(nameof(fileStorageService));
+    }
+
+    private async Task<int> GetCachedCountAsync(string countSql, DynamicParameters parameters)
+    {
+        var key = BuildCountCacheKey(countSql, parameters);
+        var now = DateTime.UtcNow;
+        if (PagedCountCache.TryGetValue(key, out var cached) && cached.ExpiresAtUtc > now)
+            return cached.Count;
+
+        var count = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+        PagedCountCache[key] = (count, now.Add(PagedCountCacheTtl));
+        return count;
+    }
+
+    private static string BuildCountCacheKey(string countSql, DynamicParameters parameters)
+    {
+        var parts = parameters.ParameterNames
+            .OrderBy(n => n, StringComparer.Ordinal)
+            .Select(n => $"{n}={FormatCountCacheValue(parameters.Get<object>(n))}");
+        return countSql + "||" + string.Join("&", parts);
+    }
+
+    private static string FormatCountCacheValue(object? value)
+    {
+        if (value == null) return "null";
+        if (value is string) return (string)value;
+        if (value is System.Collections.IEnumerable enumerable)
+            return string.Join(";", enumerable.Cast<object>());
+        return value.ToString() ?? "null";
     }
 
     public async Task<Equipment?> GetByIdAsync(Guid id)
@@ -345,7 +380,7 @@ public class EquipmentRepository : IEquipmentRepository
         }
     }
 
-    public async Task<(IEnumerable<EquipmentDto> Items, int TotalCount)> GetPagedAsync(
+    public async Task<(IEnumerable<EquipmentListItemDto> Items, int TotalCount)> GetPagedAsync(
         int page,
         int pageSize,
         string? keyword,
@@ -373,13 +408,15 @@ public class EquipmentRepository : IEquipmentRepository
         // đang xem lại là thứ người dùng CẦN thấy (để biết thiết bị đã rời trạm này đi đâu), không phải
         // nhiễu cần loại bỏ. Trước đây áp filter vô điều kiện khiến thiết bị vừa chuyển đi biến mất hẳn
         // khỏi danh sách thay vì hiển thị với badge "Đã chuyển TBA".
+        // Chỉ join EquipmentTypes/GridTypes ở đây — 2 bảng còn lại (Infrastructure/Unit/Catalog/AppUser)
+        // không tham gia điều kiện WHERE nào, chỉ phục vụ hiển thị cột ở câu SELECT phân trang, nên KHÔNG
+        // đưa vào sqlBase (dùng chung cho cả COUNT lẫn SELECT) — tránh COUNT(1) phải join thêm 4 bảng vô
+        // ích trên mỗi lần tải danh sách (xem selectOnlyJoins bên dưới, chỉ gắn thêm vào câu SELECT).
+        // GridTypes không còn join ở đây — lọc theo GridTypeId dùng thẳng et.GridTypeId (cột trên
+        // EquipmentTypes), và danh sách không còn hiển thị GridTypeName (chỉ EquipmentListItemDto.GridTypeId,
+        // FE tự map tên nếu cần) nên bảng GridTypes không tham gia câu SELECT nữa.
         var sqlBase = $@"FROM EQUIPMENTS e
                         LEFT JOIN EquipmentTypes et ON e.EquipmentTypeId = et.Id
-                        LEFT JOIN GridTypes gt ON et.GridTypeId = gt.Id
-                        LEFT JOIN INFRASTRUCTURE inf ON e.INFRASTRUCTURE_ID = inf.Id
-                        LEFT JOIN ORGANIZATION_UNIT u ON e.UnitId = u.Id
-                        LEFT JOIN CATALOG es ON e.EQUIPMENT_STATUS_ID = es.Id
-                        LEFT JOIN APP_USER usr ON e.CreatorId = usr.Id
                         WHERE e.IsDeleted = 0";
 
         if (!infrastructureId.HasValue)
@@ -442,42 +479,56 @@ public class EquipmentRepository : IEquipmentRepository
             parameters.Add("IsActive", isActive.Value ? 1 : 0);
         }
 
+        // COUNT(1) trên EQUIPMENTS luôn là TABLE ACCESS FULL bất kể có index gì — đã kiểm chứng bằng
+        // EXPLAIN PLAN thật: WHERE IsDeleted=0 AND (StatusTransition IS NULL OR <>0) khớp ~99.99% số
+        // dòng (160.781/160.790 dòng thực tế), tức lọc gần như KHÔNG loại bỏ dòng nào — Oracle CBO chọn
+        // full scan là ĐÚNG (index chỉ có lợi khi filter chọn lọc, không giúp được ở đây). Full scan
+        // ~2.7 giây trên bảng này là chi phí không tránh được cho 1 lần COUNT chính xác theo đúng bộ lọc.
+        // Cache ngắn hạn (20s) theo đúng tổ hợp SQL+tham số: cùng 1 bộ lọc (kể cả unfiltered mặc định)
+        // thường bị gọi lại NHIỀU LẦN liên tiếp trong thời gian ngắn (chuyển trang, nhiều người cùng xem
+        // màn mặc định...) — cache cắt bớt phần lớn các lần gọi lặp đó, đổi lấy tổng số hiển thị có thể
+        // trễ tối đa 20s so với dữ liệu thật (chấp nhận được cho mục đích hiển thị số trang).
         var countSql = $"SELECT COUNT(1) {sqlBase}";
-        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
+        var totalCount = await GetCachedCountAsync(countSql, parameters);
 
-        var selectSql = $@"SELECT e.Id AS {nameof(EquipmentDto.Id)},
-                                   e.Name AS {nameof(EquipmentDto.Name)},
-                                   e.Code AS {nameof(EquipmentDto.Code)},
-                                   e.EquipmentTypeId AS {nameof(EquipmentDto.EquipmentTypeId)},
-                                   e.INFRASTRUCTURE_ID AS {nameof(EquipmentDto.InfrastructureId)},
-                                   e.MANUFACTURE_YEAR AS {nameof(EquipmentDto.ManufactureYear)},
-                                   e.EQUIPMENT_STATUS_ID AS {nameof(EquipmentDto.EquipmentStatusId)},
-                                   e.IS_ACTIVE AS {nameof(EquipmentDto.IsActive)},
-                                   e.StatusTransition AS {nameof(EquipmentDto.StatusTransition)},
-                                   e.CreatedBy AS {nameof(EquipmentDto.CreatedBy)},
-                                   e.CreatedAt AS {nameof(EquipmentDto.CreatedAt)},
-                                   e.ModifiedBy AS {nameof(EquipmentDto.ModifiedBy)},
-                                   e.ModifiedDate AS {nameof(EquipmentDto.ModifiedDate)},
-                                   et.Name AS {nameof(EquipmentDto.EquipmentTypeName)},
-                                   et.Code AS {nameof(EquipmentDto.EquipmentTypeCode)},
-                                   et.GridTypeId AS {nameof(EquipmentDto.GridTypeId)},
-                                   gt.Name AS {nameof(EquipmentDto.GridTypeName)},
-                                   inf.Name AS {nameof(EquipmentDto.InfrastructureName)},
-                                   inf.Code AS {nameof(EquipmentDto.InfrastructureCode)},
-                                   e.UnitId AS {nameof(EquipmentDto.UnitId)},
-                                   u.Name AS {nameof(EquipmentDto.UnitName)},
-                                   es.Name AS {nameof(EquipmentDto.EquipmentStatusName)},
+        // Chỉ cần cho câu SELECT hiển thị (tên trạm/đơn vị/trạng thái/người tạo) — không tham gia lọc,
+        // nên KHÔNG có trong sqlBase (dùng cho COUNT) — chèn thêm vào bản sao riêng cho câu SELECT,
+        // ngay trước WHERE (join phải đứng trước WHERE trong SQL).
+        // Danh sách phân trang chỉ hiển thị tên trạm/đơn vị/người tạo — KHÔNG cần CATALOG es (tên tình
+        // trạng thiết bị, chỉ dùng ở màn chi tiết), nên bỏ hẳn join này ở đây (EquipmentListItemDto).
+        const string selectOnlyJoins = @"
+                        LEFT JOIN INFRASTRUCTURE inf ON e.INFRASTRUCTURE_ID = inf.Id
+                        LEFT JOIN ORGANIZATION_UNIT u ON e.UnitId = u.Id
+                        LEFT JOIN APP_USER usr ON e.CreatorId = usr.Id";
+        var selectSqlBase = sqlBase.Replace("WHERE e.IsDeleted = 0", $"{selectOnlyJoins}\n                        WHERE e.IsDeleted = 0");
+
+        var selectSql = $@"SELECT e.Id AS {nameof(EquipmentListItemDto.Id)},
+                                   e.Name AS {nameof(EquipmentListItemDto.Name)},
+                                   e.Code AS {nameof(EquipmentListItemDto.Code)},
+                                   e.EquipmentTypeId AS {nameof(EquipmentListItemDto.EquipmentTypeId)},
+                                   e.INFRASTRUCTURE_ID AS {nameof(EquipmentListItemDto.InfrastructureId)},
+                                   e.IS_ACTIVE AS {nameof(EquipmentListItemDto.IsActive)},
+                                   e.StatusTransition AS {nameof(EquipmentListItemDto.StatusTransition)},
+                                   e.CreatedBy AS {nameof(EquipmentListItemDto.CreatedBy)},
+                                   e.CreatedAt AS {nameof(EquipmentListItemDto.CreatedAt)},
+                                   e.ModifiedBy AS {nameof(EquipmentListItemDto.ModifiedBy)},
+                                   e.ModifiedDate AS {nameof(EquipmentListItemDto.ModifiedDate)},
+                                   et.Name AS {nameof(EquipmentListItemDto.EquipmentTypeName)},
+                                   et.GridTypeId AS {nameof(EquipmentListItemDto.GridTypeId)},
+                                   inf.Name AS {nameof(EquipmentListItemDto.InfrastructureName)},
+                                   e.UnitId AS {nameof(EquipmentListItemDto.UnitId)},
+                                   u.Name AS {nameof(EquipmentListItemDto.UnitName)},
                                    usr.Id AS CreatorId,
                                    usr.UserName AS Username,
                                    usr.FullName AS FullName
-                            {sqlBase}
+                            {selectSqlBase}
                             ORDER BY e.CreatedAt DESC, e.Code ASC
                             OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY";
 
         parameters.Add("Offset", (page - 1) * pageSize);
         parameters.Add("PageSize", pageSize);
 
-        var items = await _connection.QueryAsync<EquipmentDto, CreatorInfoRow, EquipmentDto>(
+        var items = await _connection.QueryAsync<EquipmentListItemDto, CreatorInfoRow, EquipmentListItemDto>(
             selectSql,
             (eq, creatorRow) =>
             {
@@ -540,7 +591,12 @@ public class EquipmentRepository : IEquipmentRepository
             parameters.Add("AuthorizedUnitIds", authorizedUnitIds.ToArray());
         }
 
-        if (filter.InfrastructureId.HasValue)
+        if (filter.InfrastructureIds is { Count: > 0 })
+        {
+            sqlBase += " AND e.INFRASTRUCTURE_ID IN :InfrastructureIds";
+            parameters.Add("InfrastructureIds", filter.InfrastructureIds.Select(i => i.ToString()).ToArray());
+        }
+        else if (filter.InfrastructureId.HasValue)
         {
             sqlBase += " AND e.INFRASTRUCTURE_ID = :InfrastructureId";
             parameters.Add("InfrastructureId", filter.InfrastructureId.Value.ToString());

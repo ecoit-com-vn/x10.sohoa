@@ -267,4 +267,97 @@ public class PhysicalStorageRepository : IPhysicalStorageRepository
               WHERE Id = :Id AND NVL(IS_DELETED, 0) = 0",
             new { Id = id }) > 0;
     }
+
+    // ─────────────────── Sinh mã tự động ───────────────────
+
+    public async Task<string?> GetUnitCodeAsync(long unitId)
+    {
+        return await _connection.QuerySingleOrDefaultAsync<string?>(
+            "SELECT Code FROM ORGANIZATION_UNIT WHERE Id = :UnitId AND NVL(IsDeleted, 0) = 0",
+            new { UnitId = unitId });
+    }
+
+    public async Task<long?> FindUnitIdByCodeAsync(string code)
+    {
+        return await _connection.QuerySingleOrDefaultAsync<long?>(
+            "SELECT Id FROM ORGANIZATION_UNIT WHERE UPPER(TRIM(Code)) = UPPER(TRIM(:Code)) AND NVL(IsDeleted, 0) = 0",
+            new { Code = code });
+    }
+
+    /// <summary>Số thứ tự kế tiếp = MAX(số ở cuối Code khớp tiền tố) + 1, theo đúng phạm vi SQL truyền vào.</summary>
+    private async Task<int> GetNextSequenceAsync(string sql, object parameters)
+    {
+        var max = await _connection.ExecuteScalarAsync<int>(sql, parameters);
+        return max + 1;
+    }
+
+    public async Task<string?> GenerateNextShelfCodeAsync(long unitId)
+    {
+        var unitCode = await GetUnitCodeAsync(unitId);
+        if (string.IsNullOrWhiteSpace(unitCode)) return null;
+
+        var prefix = $"{unitCode.Trim()}_KE";
+        const string sql = @"
+            SELECT NVL(MAX(TO_NUMBER(REGEXP_SUBSTR(Code, '[0-9]+$'))), 0)
+            FROM PHYSICAL_SHELF
+            WHERE UnitId = :UnitId AND NVL(IS_DELETED, 0) = 0
+              AND REGEXP_LIKE(Code, '^' || :Prefix || '[0-9]+$', 'i')";
+        var next = await GetNextSequenceAsync(sql, new { UnitId = unitId, Prefix = prefix });
+        return $"{prefix}{next}";
+    }
+
+    public async Task<string?> GenerateNextFloorCodeAsync(long unitId)
+    {
+        var unitCode = await GetUnitCodeAsync(unitId);
+        if (string.IsNullOrWhiteSpace(unitCode)) return null;
+
+        var prefix = $"{unitCode.Trim()}_TANG";
+        const string sql = @"
+            SELECT NVL(MAX(TO_NUMBER(REGEXP_SUBSTR(f.Code, '[0-9]+$'))), 0)
+            FROM PHYSICAL_FLOOR f
+            INNER JOIN PHYSICAL_SHELF s ON f.ShelfId = s.Id
+            WHERE s.UnitId = :UnitId AND NVL(f.IS_DELETED, 0) = 0
+              AND UPPER(f.Code) LIKE UPPER(:Prefix) || '%'
+              AND REGEXP_LIKE(f.Code, '^' || :Prefix || '[0-9]+$', 'i')";
+        var next = await GetNextSequenceAsync(sql, new { UnitId = unitId, Prefix = prefix });
+        return $"{prefix}{next}";
+    }
+
+    public async Task<string?> GenerateNextBoxCodeAsync(long unitId)
+    {
+        var unitCode = await GetUnitCodeAsync(unitId);
+        if (string.IsNullOrWhiteSpace(unitCode)) return null;
+
+        var prefix = $"{unitCode.Trim()}_HOP";
+        const string sql = @"
+            SELECT NVL(MAX(TO_NUMBER(REGEXP_SUBSTR(b.Code, '[0-9]+$'))), 0)
+            FROM PHYSICAL_BOX b
+            INNER JOIN PHYSICAL_FLOOR f ON b.FloorId = f.Id
+            INNER JOIN PHYSICAL_SHELF s ON f.ShelfId = s.Id
+            WHERE s.UnitId = :UnitId AND NVL(b.IS_DELETED, 0) = 0
+              AND UPPER(b.Code) LIKE UPPER(:Prefix) || '%'
+              AND REGEXP_LIKE(b.Code, '^' || :Prefix || '[0-9]+$', 'i')";
+        var next = await GetNextSequenceAsync(sql, new { UnitId = unitId, Prefix = prefix });
+        return $"{prefix}{next}";
+    }
+
+    public async Task<long?> FindShelfIdByUnitAndNameAsync(long unitId, string name)
+    {
+        return await _connection.QuerySingleOrDefaultAsync<long?>(
+            @"SELECT Id FROM PHYSICAL_SHELF
+              WHERE UnitId = :UnitId AND NVL(IS_DELETED, 0) = 0
+                AND UPPER(TRIM(Name)) = UPPER(TRIM(:Name))
+              FETCH FIRST 1 ROW ONLY",
+            new { UnitId = unitId, Name = name });
+    }
+
+    public async Task<long?> FindFloorIdByShelfAndNameAsync(long shelfId, string name)
+    {
+        return await _connection.QuerySingleOrDefaultAsync<long?>(
+            @"SELECT Id FROM PHYSICAL_FLOOR
+              WHERE ShelfId = :ShelfId AND NVL(IS_DELETED, 0) = 0
+                AND UPPER(TRIM(Name)) = UPPER(TRIM(:Name))
+              FETCH FIRST 1 ROW ONLY",
+            new { ShelfId = shelfId, Name = name });
+    }
 }

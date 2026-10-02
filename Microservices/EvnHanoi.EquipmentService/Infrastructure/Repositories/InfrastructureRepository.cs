@@ -170,10 +170,11 @@ public class InfrastructureRepository : IInfrastructureRepository
         if (_connection.State != ConnectionState.Open)
             _connection.Open();
 
+        // Không join p (INFRASTRUCTURE cha)/it (INFRASTRUCTURE_TYPE)/u (ORGANIZATION_UNIT) ở đây — cả 3
+        // đều KHÔNG tham gia điều kiện WHERE nào (filter dùng thẳng i.INFRA_TYPE_ID/i.UNIT_ID, không qua
+        // alias join), chỉ phục vụ hiển thị cột/ORDER BY ở câu SELECT phân trang. Tách riêng để COUNT(1)
+        // không phải join thêm 3 bảng vô ích trên mỗi lần tải danh sách (xem selectOnlyJoins bên dưới).
         var sqlBase = $@"FROM INFRASTRUCTURE i
-                          LEFT JOIN INFRASTRUCTURE p ON i.PARENT_ID = p.ID
-                          LEFT JOIN INFRASTRUCTURE_TYPE it ON i.INFRA_TYPE_ID = it.ID
-                          LEFT JOIN ORGANIZATION_UNIT u ON i.UNIT_ID = u.Id
                           WHERE i.{nameof(Infrastructure.IsDeleted)} = 0 AND i.INFRA_TYPE_ID = :InfraTypeId";
 
         var parameters = new DynamicParameters();
@@ -237,6 +238,30 @@ public class InfrastructureRepository : IInfrastructureRepository
         var countSql = $"SELECT COUNT(1) {sqlBase}";
         var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
 
+        // Chỉ cần cho câu SELECT hiển thị (tên cha/loại hạ tầng/đơn vị) + ORDER BY theo mã cha — không
+        // tham gia lọc, nên KHÔNG có trong sqlBase (dùng cho COUNT).
+        const string selectOnlyJoins = @"
+                          LEFT JOIN INFRASTRUCTURE p ON i.PARENT_ID = p.ID
+                          LEFT JOIN INFRASTRUCTURE_TYPE it ON i.INFRA_TYPE_ID = it.ID
+                          LEFT JOIN ORGANIZATION_UNIT u ON i.UNIT_ID = u.Id";
+        var selectSqlBase = sqlBase.Replace(
+            $"WHERE i.{nameof(Infrastructure.IsDeleted)} = 0",
+            $"{selectOnlyJoins}\n                          WHERE i.{nameof(Infrastructure.IsDeleted)} = 0");
+
+        // EquipmentCount: KHÔNG chọn ở đây nữa — chỉ dùng ở màn chi tiết (GetByIdAsync tự tính riêng),
+        // danh sách phân trang (table Trạm/Đường dây) không hiển thị cột này. Trước đây tính bằng
+        // subquery COUNT(1) tương quan (correlated) trên EQUIPMENTS cho MỌI dòng của MỌI trang — tốn
+        // 1 lần quét/lookup theo INFRASTRUCTURE_ID cho từng dòng dù không ai nhìn thấy giá trị này.
+        //
+        // ChildLineCount: chỉ Đường dây (infraTypeId=2) mới hiển thị badge "X nhánh" trên bảng — Trạm
+        // biến áp (infraTypeId=1) không dùng tới, nên chỉ tính subquery này khi infraTypeId=2.
+        var childLineCountSelect = infraTypeId == 2
+            ? $@"(SELECT COUNT(1)
+                              FROM INFRASTRUCTURE c
+                             WHERE c.PARENT_ID = i.{nameof(Infrastructure.Id)}
+                               AND c.{nameof(Infrastructure.IsDeleted)} = 0) AS {nameof(Infrastructure.ChildLineCount)},"
+            : string.Empty;
+
         var selectSql = $@"SELECT i.{nameof(Infrastructure.Id)},
                            i.{nameof(Infrastructure.Code)},
                            i.{nameof(Infrastructure.Name)},
@@ -259,18 +284,11 @@ public class InfrastructureRepository : IInfrastructureRepository
                            i.PMIS_CODE as {nameof(Infrastructure.PmisCode)},
                            i.LAST_SYNCED_FROM_PMIS_AT as {nameof(Infrastructure.LastSyncedFromPmisAt)},
                            i.CMIS_CODE as {nameof(Infrastructure.CmisCode)},
-                           (SELECT COUNT(1)
-                              FROM EQUIPMENTS eq
-                             WHERE eq.INFRASTRUCTURE_ID = i.{nameof(Infrastructure.Id)}
-                               AND eq.IsDeleted = 0 AND {EquipmentSqlFilters.NotTransferredAway("eq")}) AS {nameof(Infrastructure.EquipmentCount)},
-                           (SELECT COUNT(1)
-                              FROM INFRASTRUCTURE c
-                             WHERE c.PARENT_ID = i.{nameof(Infrastructure.Id)}
-                               AND c.{nameof(Infrastructure.IsDeleted)} = 0) AS {nameof(Infrastructure.ChildLineCount)},
+                           {childLineCountSelect}
                            u.Id AS OrgId,
                            u.Code AS OrgCode,
                            u.Name AS OrgName
-                   {sqlBase}
+                   {selectSqlBase}
                     ORDER BY i.IS_ACTIVE DESC,
                              COALESCE(p.CODE, i.{nameof(Infrastructure.Code)}) ASC,
                              CASE WHEN i.PARENT_ID IS NULL THEN 0 ELSE 1 END ASC,

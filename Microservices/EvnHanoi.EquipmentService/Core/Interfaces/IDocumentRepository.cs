@@ -28,6 +28,10 @@ public interface IDocumentRepository
     Task<bool> UpdateDocumentAsync(Document document);
     Task<bool> DeleteDocumentAsync(Guid id, string modifiedBy);
 
+    /// <summary>Gán 1 tài liệu vào nhiều thiết bị (thay thế toàn bộ liên kết cũ nếu có).</summary>
+    Task SetDocumentEquipmentsAsync(Guid documentId, IEnumerable<Guid> equipmentIds);
+    Task<IEnumerable<Guid>> GetDocumentEquipmentIdsAsync(Guid documentId);
+
     // Document Version operations
     Task<Guid> CreateDocumentVersionAsync(DocumentVersion version);
     Task<IEnumerable<DocumentVersionDto>> GetDocumentVersionsAsync(Guid documentId);
