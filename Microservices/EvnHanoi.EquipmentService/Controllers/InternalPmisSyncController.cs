@@ -425,6 +425,17 @@ public class InternalPmisSyncController : ControllerBase
         return Ok(await _pmisDocumentRepository.GetPendingSummaryAsync());
     }
 
+    /// <summary>Trạm/Đường dây còn tài liệu chưa có file — SyncService dùng để backfill đồng bộ lại danh sách
+    /// tài liệu (lấy link file mới) đúng cho các owner này thay vì quét cả ~40.000 owner.</summary>
+    [HttpGet("documents/pending-owner-infrastructures")]
+    public async Task<IActionResult> GetPendingOwnerInfrastructures(
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken)
+    {
+        if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
+        var rows = await _pmisDocumentRepository.GetPendingOwnerInfrastructuresAsync();
+        return Ok(rows.Select(r => new { pmisCode = r.PmisCode, infraTypeId = r.InfraTypeId }));
+    }
+
     /// <summary>Nhận kết quả tải file của job nền: có FileBase64 thì lưu MinIO + đánh dấu DONE; không thì ghi
     /// lỗi + đặt lịch thử lại theo backoff.</summary>
     [HttpPost("documents/attach-file")]
