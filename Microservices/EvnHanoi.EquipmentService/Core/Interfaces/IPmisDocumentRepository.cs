@@ -32,6 +32,11 @@ public interface IPmisDocumentRepository
     /// phát hiện job tải file ngừng tiến triển (xem PendingDocumentFileSummary).</summary>
     Task<PendingDocumentFileSummary> GetPendingSummaryAsync();
 
+    /// <summary>Danh sách Trạm/Đường dây (mã PMIS + loại) có ít nhất 1 tài liệu CHƯA có file (PENDING/FAILED/NO_URL).
+    /// Tài liệu của Thiết bị được quy về Trạm/Đường dây chứa nó — API danh sách tài liệu PMIS gọi theo
+    /// Trạm/Đường dây đã trả luôn cả tài liệu của thiết bị con. Dùng cho backfill lấy lại link file.</summary>
+    Task<IReadOnlyList<PendingOwnerInfrastructure>> GetPendingOwnerInfrastructuresAsync();
+
     /// <summary>Dòng CHƯA xoá mềm theo mã kèm tên/owner — attach-file cần để đặt tên file và đường dẫn lưu trữ (không gắn file vào dòng đã xoá).</summary>
     Task<PmisDocumentFileTarget?> GetFileTargetByCodeAsync(string pmisDocumentCode);
 

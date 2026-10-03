@@ -22,8 +22,11 @@ namespace EvnHanoi.SyncService.Schedulers;
 [DisallowConcurrentExecution]
 public class PmisDocumentFileDownloadJob : IJob
 {
-    private const int BatchSize = 40;
-    private const int MaxParallelDownloads = 4;
+    // Nâng 40/4 → 200/8 (2026-10-03): với ~299.000 tài liệu chờ tải, 40 file/phút mất ~80 giờ. 200 file
+    // x 8 luồng ≈ 5 lần nhanh hơn; vẫn trong khoá RedLock 10 phút và job [DisallowConcurrentExecution] nên
+    // lượt chậm không dồn lượt. Nếu PMIS bắt đầu trả timeout/429 hàng loạt thì hạ MaxParallelDownloads trước.
+    private const int BatchSize = 200;
+    private const int MaxParallelDownloads = 8;
 
     private readonly ISyncConfigRepository _syncConfigRepository;
     private readonly IEquipmentServiceClient _equipmentServiceClient;
