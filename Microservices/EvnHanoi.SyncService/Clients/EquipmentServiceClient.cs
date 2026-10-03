@@ -89,6 +89,16 @@ public class EquipmentServiceClient : IEquipmentServiceClient
         return await response.Content.ReadFromJsonAsync<List<PendingPmisDocumentFile>>() ?? [];
     }
 
+    public async Task<List<SyncedInfrastructurePmisCode>> GetPendingDocumentOwnersAsync()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "internal/v1/documents/pending-owner-infrastructures");
+        request.Headers.Add("X-Internal-Token", _internalToken);
+
+        var response = await _httpClient.SendAsync(request);
+        await EnsureSuccessOrThrowWithBodyAsync(response);
+        return await response.Content.ReadFromJsonAsync<List<SyncedInfrastructurePmisCode>>() ?? [];
+    }
+
     public async Task<PendingDocumentFileSummary> GetPendingDocumentSummaryAsync()
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "internal/v1/documents/pending-summary");

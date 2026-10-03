@@ -141,6 +141,22 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         return await _connection.QuerySingleAsync<PendingDocumentFileSummary>(sql);
     }
 
+    public async Task<IReadOnlyList<PendingOwnerInfrastructure>> GetPendingOwnerInfrastructuresAsync()
+    {
+        EnsureOpen();
+        // Tài liệu của THIẾT BỊ quy về Trạm/Đường dây chứa nó (EQUIPMENTS.INFRASTRUCTURE_ID).
+        const string sql = @"
+            SELECT DISTINCT i.PMIS_CODE AS PmisCode, i.INFRA_TYPE_ID AS InfraTypeId
+            FROM PMIS_DOCUMENT d
+            LEFT JOIN EQUIPMENTS e ON d.OwnerType = 'EQUIPMENT' AND e.Id = d.OwnerId
+            JOIN INFRASTRUCTURE i ON i.Id = CASE WHEN d.OwnerType = 'INFRASTRUCTURE' THEN d.OwnerId ELSE e.INFRASTRUCTURE_ID END
+            WHERE d.ObjectKey IS NULL AND d.IsDeleted = 0
+              AND d.FILE_STATUS IN ('PENDING', 'FAILED', 'NO_URL')
+              AND i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0
+            ORDER BY i.PMIS_CODE";
+        return (await _connection.QueryAsync<PendingOwnerInfrastructure>(sql)).ToList();
+    }
+
     public async Task<PmisDocumentFileTarget?> GetFileTargetByCodeAsync(string pmisDocumentCode)
     {
         EnsureOpen();

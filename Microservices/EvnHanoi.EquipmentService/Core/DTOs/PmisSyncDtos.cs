@@ -204,6 +204,12 @@ public class PendingPmisDocumentFile
 /// PmisDocumentFileDownloadWatchdogJob (SyncService) để phát hiện khi job tải file ngừng tiến triển mà
 /// không ai biết (xem phát hiện thật 2026-10-01: job thiếu hẳn khỏi Quartz job list trên production 10
 /// ngày liền, không log, không exception, chỉ phát hiện được qua tra DB tay).</summary>
+public class PendingOwnerInfrastructure
+{
+    public string PmisCode { get; set; } = string.Empty;
+    public int InfraTypeId { get; set; }
+}
+
 public class PendingDocumentFileSummary
 {
     /// <summary>Số dòng đang chờ tải thật sự (ObjectKey rỗng, có URL, đã tới hạn thử lại) — khớp đúng điều
