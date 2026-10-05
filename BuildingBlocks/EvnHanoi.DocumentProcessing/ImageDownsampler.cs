@@ -70,7 +70,7 @@ internal static class ImageDownsampler
         return outStream.ToArray();
     }
 
-    private static int ResolveTargetLongEdge(ImageMetadata metadata, int currentLongEdge)
+    internal static int ResolveTargetLongEdge(ImageMetadata metadata, int currentLongEdge)
     {
         var embeddedDpi = ResolveEmbeddedDpi(metadata);
         if (embeddedDpi.HasValue && embeddedDpi.Value > TargetDpi)

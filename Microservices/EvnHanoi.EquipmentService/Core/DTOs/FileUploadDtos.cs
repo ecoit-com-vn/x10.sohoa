@@ -30,6 +30,10 @@ public record InitiateChunkedUploadResponse
     public string UploadId { get; set; } = string.Empty;
     public int ChunkSize { get; set; }
     public int TotalChunks { get; set; }
+
+    /// <summary>Tên file thực sự được lưu (luồng hồ sơ: ảnh được chuyển thành PDF nên đuôi đổi thành .pdf).
+    /// FE nên hiển thị tên này thay vì tên file người dùng chọn.</summary>
+    public string? FileName { get; set; }
 }
 
 /// <summary>

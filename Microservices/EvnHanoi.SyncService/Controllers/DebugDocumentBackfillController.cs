@@ -90,6 +90,34 @@ public class DebugDocumentBackfillController : ControllerBase
         return Ok(Snapshot());
     }
 
+    /// <summary>Chẩn đoán (chỉ đọc, chỉ cần mã bí mật): gọi API danh sách tài liệu của PMIS cho 1 Trạm/Đường dây và
+    /// trả NGUYÊN VĂN JSON PMIS — để biết PMIS thực sự trả trường link file nào/giá trị gì (hệ thống không lưu
+    /// phản hồi thô). <paramref name="infraTypeId"/>: 1 = Trạm (API 8), 2 = Đường dây (API 9).</summary>
+    [HttpGet("peek")]
+    public async Task<IActionResult> Peek(
+        [FromHeader(Name = "X-Debug-Sql-Secret")] string? secret,
+        [FromQuery] string ownerCode,
+        [FromQuery] int infraTypeId = 2,
+        [FromQuery] int take = 3)
+    {
+        if (!ValidateAccess(secret, requireAllowExecute: false, out var error)) return error!;
+        if (string.IsNullOrWhiteSpace(ownerCode)) return BadRequest(new { message = "Thiếu ownerCode (mã PMIS Trạm/Đường dây)." });
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var client = scope.ServiceProvider.GetRequiredService<IPmisClient>();
+            var raw = await client.PeekDocumentsRawAsync(infraTypeId == 1, ownerCode, Math.Clamp(take, 1, 10));
+            using var doc = System.Text.Json.JsonDocument.Parse(raw);
+            return Ok(new { ownerCode, infraTypeId, pmisResponse = doc.RootElement.Clone() });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "DebugDocumentBackfillController: peek PMIS lỗi cho {OwnerCode}", ownerCode);
+            return StatusCode(502, new { message = "Gọi PMIS lỗi hoặc phản hồi không phải JSON.", detail = ex.Message });
+        }
+    }
+
     private async Task RunAsync(int? infraTypeId, int? limit)
     {
         var histories = new Dictionary<int, (string? Id, int Total, int Success, int Failed)>();

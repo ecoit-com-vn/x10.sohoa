@@ -20,6 +20,7 @@ namespace EvnHanoi.DigitizationService.Controllers
         private readonly EvnHanoi.DocumentProcessing.IDocumentCompressionService _documentCompressionService;
         private readonly ILogger<DigitizationController> _logger;
         private readonly string _bucketName;
+        private readonly bool _convertImageToPdf;
 
         public DigitizationController(
             IMinioStorageService minioStorageService,
@@ -35,6 +36,8 @@ namespace EvnHanoi.DigitizationService.Controllers
             _documentCompressionService = documentCompressionService;
             _logger = logger;
             _bucketName = configuration["MinIO:BucketName"] ?? "digitization";
+            // OcrWorker chỉ đọc được PDF → ảnh được chuyển thành PDF ngay lúc upload.
+            _convertImageToPdf = configuration.GetValue("DocumentProcessing:ConvertImageToPdf:Enabled", true);
         }
 
         [HttpPost("upload")]
@@ -47,7 +50,9 @@ namespace EvnHanoi.DigitizationService.Controllers
             {
                 // ===== NÉN FILE (giảm về ~150 DPI cho PDF scan/ảnh, giữ nguyên PDF điện tử gốc) =====
                 using var stream = file.OpenReadStream();
-                var compression = await _documentCompressionService.CompressAsync(stream, file.FileName, file.ContentType);
+                var compression = await _documentCompressionService.CompressAsync(
+                    stream, file.FileName, file.ContentType,
+                    options: new EvnHanoi.DocumentProcessing.DocumentProcessingOptions(ConvertImageToPdf: _convertImageToPdf));
                 using var compressedStream = compression.Stream;
 
                 var objectName = $"{Guid.NewGuid()}_{FileNameHelper.ToMinioObjectFileName(compression.FileName)}";
@@ -84,6 +89,11 @@ namespace EvnHanoi.DigitizationService.Controllers
                 );
 
                 return Ok(new { FileId = fileId, Message = "File uploaded and task queued successfully." });
+            }
+            catch (EvnHanoi.DocumentProcessing.DocumentConversionException ex)
+            {
+                _logger.LogWarning(ex, "Không chuyển được ảnh sang PDF khi upload {FileName}", file.FileName);
+                return BadRequest(new { code = "ERR_IMAGE_CONVERSION_FAILED", message = ex.Message });
             }
             catch (Exception ex)
             {

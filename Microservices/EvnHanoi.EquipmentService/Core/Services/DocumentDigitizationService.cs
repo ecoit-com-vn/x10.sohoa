@@ -23,6 +23,8 @@ public class DocumentDigitizationService : IDocumentDigitizationService
     private readonly IDocumentTextIndexNotifier _documentTextIndexNotifier;
     private readonly IDigitizationProgressNotifier _progressNotifier;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly EvnHanoi.DocumentProcessing.IDocumentCompressionService _documentCompressionService;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<DocumentDigitizationService> _logger;
 
     public DocumentDigitizationService(
@@ -36,8 +38,12 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         IDocumentTextIndexNotifier documentTextIndexNotifier,
         IDigitizationProgressNotifier progressNotifier,
         IServiceScopeFactory scopeFactory,
+        EvnHanoi.DocumentProcessing.IDocumentCompressionService documentCompressionService,
+        IConfiguration configuration,
         ILogger<DocumentDigitizationService> logger)
     {
+        _documentCompressionService = documentCompressionService;
+        _configuration = configuration;
         _repository = repository;
         _documentRepository = documentRepository;
         _documentTypeRepository = documentTypeRepository;
@@ -68,6 +74,8 @@ public class DocumentDigitizationService : IDocumentDigitizationService
 
         if (string.IsNullOrEmpty(version.FilePath))
             throw new InvalidOperationException("Tài liệu chưa có file để xử lý OCR.");
+
+        await EnsureOcrReadyAsync(version, _fileStorageService.DossierBucketName, userId);
 
         var formContext = await ResolveFormContextAsync(
             dossier,
@@ -298,6 +306,66 @@ public class DocumentDigitizationService : IDocumentDigitizationService
     private static bool IsOcrPhaseComplete(DocumentOcrProgress progress) =>
         progress.Status is "OcrCompleted" or "Completed" or "Extracting"
         || (progress.Status == "Failed" && progress.Phase == "extraction");
+
+    /// <summary>
+    /// Ảnh upload TRƯỚC khi có tính năng chuyển ảnh → PDF vẫn nằm trên MinIO dưới dạng ảnh, mà OcrWorker chỉ đọc
+    /// được PDF. Khi người dùng bấm OCR, chuyển bản ảnh đó thành PDF TẠI CHỖ (cùng object key — OcrWorker vốn đã
+    /// ghi đè PDF 2 lớp lên đúng key này, và đường đọc luôn lấy bản mới nhất tại key), rồi cập nhật MIME/size/
+    /// page count và đổi đuôi tên tài liệu sang .pdf. Version không phải ảnh → không làm gì.
+    /// </summary>
+    private async Task EnsureOcrReadyAsync(DocumentVersionDto version, string bucketName, string userId)
+    {
+        if (string.IsNullOrEmpty(version.FilePath)
+            || !(version.MimeType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ?? false)
+            || !_configuration.GetValue("DocumentProcessing:ConvertImageToPdf:Enabled", true))
+            return;
+
+        var document = await _documentRepository.GetDocumentByIdAsync(version.DocumentId)
+            ?? throw new KeyNotFoundException("Không tìm thấy tài liệu của phiên bản này.");
+        var sourceName = document.Name;
+
+        byte[] sourceBytes;
+        await using (var source = await _fileStorageService.DownloadFileAsync(version.FilePath, bucketName, null))
+        {
+            using var buffer = new MemoryStream();
+            await source.CopyToAsync(buffer);
+            sourceBytes = buffer.ToArray();
+        }
+
+        using var input = new MemoryStream(sourceBytes);
+        var result = await _documentCompressionService.CompressAsync(
+            input, sourceName, version.MimeType!,
+            options: new EvnHanoi.DocumentProcessing.DocumentProcessingOptions(ConvertImageToPdf: true));
+
+        using var pdfStream = result.Stream;
+        string minioVersionId = version.MinioVersionId ?? string.Empty;
+        long size = version.FileSize;
+
+        if (result.ConvertedFromImage)
+        {
+            (size, minioVersionId) = await _fileStorageService.ReplaceObjectAsync(
+                version.FilePath, bucketName, pdfStream, result.Size, "application/pdf");
+            pdfStream.Seek(0, SeekOrigin.Begin);
+        }
+        else
+        {
+            // Nội dung thực chất đã là PDF (đua với lần chuyển đổi khác) — chỉ cần sửa lại MIME/size trong DB.
+            size = result.Size;
+        }
+
+        var pageCount = DocumentPageCountDetector.Detect(pdfStream, "x.pdf", "application/pdf");
+        await _documentRepository.UpdateDocumentVersionContentAsync(
+            version.Id, minioVersionId, size, "application/pdf", pageCount);
+
+        if (EvnHanoi.DocumentProcessing.DocumentCompressionService.IsConvertibleImageFileName(sourceName))
+            await _documentRepository.UpdateDocumentNameAsync(
+                version.DocumentId, Path.ChangeExtension(sourceName, ".pdf"), userId);
+
+        version.MimeType = "application/pdf";
+        _logger.LogInformation(
+            "Đã chuyển ảnh cũ sang PDF trước khi OCR: version {VersionId}, key {FilePath}, {PageCount} trang.",
+            version.Id, version.FilePath, pageCount);
+    }
 
     public async Task<DocumentOcrProgressDto> SubmitOcrJobAsync(
         SubmitDocumentDigitizationRequest request,
@@ -884,6 +952,8 @@ public class DocumentDigitizationService : IDocumentDigitizationService
 
         if (string.IsNullOrEmpty(version.FilePath))
             throw new InvalidOperationException("Tài liệu chưa có file để xử lý OCR.");
+
+        await EnsureOcrReadyAsync(version, _fileStorageService.DossierBucketName, userId);
 
         var template = await _formTemplateRepository.GetActiveByEquipmentTypeIdAsync(equipment.EquipmentTypeId);
         if (template == null)
