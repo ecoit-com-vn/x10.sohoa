@@ -14,18 +14,15 @@
 >
   <div class="upload-steps">
     <section class="upload-step">
-      <h4 class="step-title">Bước 1 — Loại văn bản <span class="required">*</span></h4>
-      <select
-        class="wf-select w-full"
-        [ngModel]="selectedDocumentTypeId()"
-        (ngModelChange)="selectedDocumentTypeId.set($event)"
-        [disabled]="loadingDocTypes() || submitting()"
-      >
-        <option value="">-- Chọn loại văn bản --</option>
-        <option *ngFor="let dt of documentTypes()" [value]="dt.id">
-          {{ dt.name }}<ng-container *ngIf="dt.code"> ({{ dt.code }})</ng-container>
-        </option>
-      </select>
+      <h4 class="step-title">Bước 1 — Loại văn bản</h4>
+      <div class="selected-document-type-display" *ngIf="selectedDocumentType() as dt">
+        <i class="pi pi-folder-open"></i>
+        <span>{{ dt.name }}<ng-container *ngIf="dt.code"> ({{ dt.code }})</ng-container></span>
+      </div>
+      <p class="ocr-note ocr-warn" *ngIf="!loadingDocTypes() && !selectedDocumentType()">
+        <i class="pi pi-exclamation-triangle"></i>
+        Chưa xác định được loại văn bản — vui lòng đóng popup và chọn 1 nhánh ở cây thư mục trước.
+      </p>
       <p class="ocr-note" *ngIf="loadingDocTypes()"><i class="pi pi-spin pi-spinner"></i> Đang tải danh mục...</p>
     </section>
 
@@ -159,7 +156,7 @@
 
       <div *ngIf="!canUpload()" class="upload-blocked">
         <i class="pi pi-info-circle"></i>
-        Chọn loại văn bản ở bước 1 trước khi {{ isScanMode ? 'quét' : 'upload' }} file.
+        Chưa xác định được loại văn bản — không thể {{ isScanMode ? 'quét' : 'upload' }} file.
       </div>
 
       <ng-container *ngIf="canUpload()">

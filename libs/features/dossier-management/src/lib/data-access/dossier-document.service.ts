@@ -171,7 +171,7 @@ export class DossierDocumentService {
 
   getDocuments(
     dossierId: string,
-    filter: { keyword?: string; page: number; pageSize: number },
+    filter: { keyword?: string; documentTypeId?: string | null; page: number; pageSize: number },
     lookupMode = false,
     suppressErrorToast = false
   ): Observable<DossierDocumentListResponse> {
@@ -181,6 +181,10 @@ export class DossierDocumentService {
 
     if (filter.keyword?.trim()) {
       params = params.set('keyword', filter.keyword.trim());
+    }
+
+    if (filter.documentTypeId) {
+      params = params.set('documentTypeId', filter.documentTypeId);
     }
 
     const context = suppressErrorToast
