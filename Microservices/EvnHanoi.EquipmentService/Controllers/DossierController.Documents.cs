@@ -25,6 +25,7 @@ public abstract partial class DossierControllerBase
     public async Task<IActionResult> GetDocuments(
         Guid id,
         [FromQuery] string? keyword,
+        [FromQuery] Guid? documentTypeId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
@@ -33,6 +34,7 @@ public abstract partial class DossierControllerBase
             var filter = new DossierDocumentFilterDto
             {
                 Keyword = keyword,
+                DocumentTypeId = documentTypeId,
                 Page = page,
                 PageSize = pageSize
             };

@@ -3,6 +3,9 @@ namespace EvnHanoi.EquipmentService.Core.DTOs;
 public class DossierDocumentFilterDto
 {
     public string? Keyword { get; set; }
+    /// <summary>Lọc theo 1 loại văn bản cụ thể — null = lấy mọi loại (giữ nguyên hành vi cũ). Dùng cho
+    /// giao diện cây thư mục loại văn bản ở tab Tài liệu đính kèm.</summary>
+    public Guid? DocumentTypeId { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
 }
