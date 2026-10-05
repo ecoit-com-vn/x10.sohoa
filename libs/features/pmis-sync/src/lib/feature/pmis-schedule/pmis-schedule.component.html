@@ -170,6 +170,31 @@
     <b>Lỗi của cả lượt đồng bộ:</b> {{ errorMessage }}
   </div>
 
+  <!-- Toggle: danh sách chính (Trạm/Đường dây/Thiết bị thật) vs tài liệu đính kèm đồng bộ xoay vòng cùng
+       lượt — tách riêng để không lẫn tên file vào danh sách chính (xem RecordKind). -->
+  <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+    <button
+      type="button"
+      class="btn-outlined btn-small"
+      [style.background]="historyDetailView() === 'MAIN' ? '#eef2ff' : null"
+      [style.borderColor]="historyDetailView() === 'MAIN' ? '#6366f1' : null"
+      [style.color]="historyDetailView() === 'MAIN' ? '#4338ca' : null"
+      (click)="selectHistoryDetailView('MAIN')"
+    >
+      Danh sách chính
+    </button>
+    <button
+      type="button"
+      class="btn-outlined btn-small"
+      [style.background]="historyDetailView() === 'DOCUMENT' ? '#eef2ff' : null"
+      [style.borderColor]="historyDetailView() === 'DOCUMENT' ? '#6366f1' : null"
+      [style.color]="historyDetailView() === 'DOCUMENT' ? '#4338ca' : null"
+      (click)="selectHistoryDetailView('DOCUMENT')"
+    >
+      Tài liệu đính kèm
+    </button>
+  </div>
+
   <div class="wf-table-wrap">
     <table class="wf-table">
       <thead>
@@ -180,6 +205,7 @@
           <th>Trạm/Đường dây trực thuộc</th>
           <th>Hành động</th>
           <th>Trạng thái</th>
+          <th *ngIf="historyDetailView() === 'DOCUMENT'">Tải file</th>
           <th>Lỗi</th>
         </tr>
       </thead>
@@ -206,10 +232,16 @@
                 {{ d.status === 'SUCCESS' ? 'Thành công' : d.status === 'WARNING' ? 'Cảnh báo' : 'Lỗi' }}
               </span>
             </td>
-            <td class="note-cell">{{ d.errorMessage || '---' }}</td>
+            <td *ngIf="historyDetailView() === 'DOCUMENT'">
+              {{ d.hasFile || d.fileStatus === 'DONE' ? 'Đã tải'
+                : d.fileStatus === 'FAILED' ? 'Lỗi (hết lượt thử)'
+                : d.fileStatus === 'PENDING' ? (d.fileAttempts ? 'Lỗi, sẽ thử lại' : 'Chờ tải')
+                : d.fileStatus === 'NO_URL' ? 'Không có link' : '---' }}
+            </td>
+            <td class="note-cell">{{ (historyDetailView() === 'DOCUMENT' && d.fileLastError) || d.errorMessage || '---' }}</td>
           </tr>
           <tr *ngIf="historyDetails().length === 0">
-            <td colspan="7" class="empty-row"><i class="pi pi-inbox"></i><div>Không có dữ liệu.</div></td>
+            <td [attr.colspan]="historyDetailView() === 'DOCUMENT' ? 8 : 7" class="empty-row"><i class="pi pi-inbox"></i><div>Không có dữ liệu.</div></td>
           </tr>
         </ng-container>
       </tbody>

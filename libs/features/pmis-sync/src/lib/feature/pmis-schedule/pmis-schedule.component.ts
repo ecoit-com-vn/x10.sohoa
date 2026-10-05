@@ -13,6 +13,7 @@ import {
   SyncHistory,
   SyncHistoryCleanupMode,
   SyncHistoryDetail,
+  SyncRecordKind,
 } from '../../data-access/pmis-history.service';
 import { formatUtcDate } from '../../data-access/date-format.util';
 import { getParentName as resolveParentName } from '../../data-access/sync-history-detail.util';
@@ -69,6 +70,9 @@ export class PmisScheduleComponent implements OnInit {
   historyDetailLoading = signal(false);
   historyDetails = signal<SyncHistoryDetail[]>([]);
   historyDetailTarget = signal<SyncHistory | null>(null);
+  /** Toggle trong modal "Danh sách bản ghi đã đồng bộ": MAIN = Trạm/Đường dây/Thiết bị thật,
+   * DOCUMENT = tài liệu đính kèm đồng bộ xoay vòng cùng lượt (xem SyncRecordKind). */
+  historyDetailView = signal<'MAIN' | 'DOCUMENT'>('MAIN');
 
   cleanupDialogVisible = signal(false);
   cleanupMode = signal<SyncHistoryCleanupMode>('KEEP_LAST_7_DAYS');
@@ -156,9 +160,26 @@ export class PmisScheduleComponent implements OnInit {
   openHistoryDetail(history: SyncHistory): void {
     this.historyDetailTarget.set(history);
     this.historyDetailDialogVisible.set(true);
+    this.historyDetailView.set('MAIN');
+    this.loadHistoryDetailItems(history.id, history.objectType, 'MAIN');
+  }
+
+  /** objectType 'EQUIPMENT' → EQUIPMENT, còn lại (SUBSTATION/TRANSMISSION_LINE) → INFRASTRUCTURE. */
+  private mainRecordKind(objectType: string): SyncRecordKind {
+    return objectType === 'EQUIPMENT' ? 'EQUIPMENT' : 'INFRASTRUCTURE';
+  }
+
+  selectHistoryDetailView(view: 'MAIN' | 'DOCUMENT'): void {
+    if (this.historyDetailView() === view) return;
+    this.historyDetailView.set(view);
+    const target = this.historyDetailTarget();
+    if (target) this.loadHistoryDetailItems(target.id, target.objectType, view);
+  }
+
+  private loadHistoryDetailItems(historyId: string, objectType: string, view: 'MAIN' | 'DOCUMENT'): void {
     this.historyDetailLoading.set(true);
     this.historyService
-      .getHistoryItems(history.id, 1, 100)
+      .getHistoryItems(historyId, 1, 100, view === 'DOCUMENT' ? 'DOCUMENT' : this.mainRecordKind(objectType))
       .pipe(finalize(() => this.historyDetailLoading.set(false)))
       .subscribe({
         next: (response) => this.historyDetails.set(response.items),

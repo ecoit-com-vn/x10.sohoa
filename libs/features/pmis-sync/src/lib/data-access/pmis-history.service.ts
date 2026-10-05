@@ -28,8 +28,18 @@ export interface SyncHistoryDetail {
   status: 'SUCCESS' | 'FAILED' | 'WARNING';
   dataContent: string | null;
   errorMessage: string | null;
+  /** INFRASTRUCTURE | EQUIPMENT | DOCUMENT — null cho dữ liệu lịch sử cũ (trước khi có phân loại). */
+  recordKind: string | null;
   syncTime: string;
+  /** Chỉ có ở dòng DOCUMENT — trạng thái tải file HIỆN TẠI tính lúc đọc (không phải lúc đồng bộ). */
+  fileStatus?: 'NO_URL' | 'PENDING' | 'DONE' | 'FAILED' | null;
+  fileAttempts?: number | null;
+  fileLastError?: string | null;
+  hasFile?: boolean | null;
 }
+
+/** Khớp SyncRecordKind phía backend (Models/SyncHistoryDetail.cs) — dùng khi gọi getHistoryItems. */
+export type SyncRecordKind = 'INFRASTRUCTURE' | 'EQUIPMENT' | 'DOCUMENT';
 
 export type SyncHistoryCleanupMode = 'DATE_RANGE' | 'KEEP_LAST_1_DAY' | 'KEEP_LAST_7_DAYS' | 'ALL';
 
@@ -74,10 +84,15 @@ export class PmisHistoryService {
     });
   }
 
-  getHistoryItems(historyId: string, page: number, pageSize: number): Observable<{ items: SyncHistoryDetail[]; totalCount: number }> {
-    return this.http.get<{ items: SyncHistoryDetail[]; totalCount: number }>(`${this.apiUrl}/${historyId}/items`, {
-      params: { page: String(page), pageSize: String(pageSize) },
-    });
+  getHistoryItems(
+    historyId: string,
+    page: number,
+    pageSize: number,
+    recordKind?: SyncRecordKind
+  ): Observable<{ items: SyncHistoryDetail[]; totalCount: number }> {
+    const params: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
+    if (recordKind) params['recordKind'] = recordKind;
+    return this.http.get<{ items: SyncHistoryDetail[]; totalCount: number }>(`${this.apiUrl}/${historyId}/items`, { params });
   }
 
   cleanup(
