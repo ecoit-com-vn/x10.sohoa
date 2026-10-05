@@ -422,9 +422,13 @@ export class DossierManagementService {
     return this.http.get<any[]>(`${this.config.apiGatewayUrl}/api/v1/organization-units/lookup`);
   }
 
-  getEquipmentLookup(params?: { infrastructureId?: string; gridTypeId?: number; keyword?: string; code?: string; name?: string; unitId?: number; isActive?: boolean; page?: number; pageSize?: number }): Observable<any> {
+  getEquipmentLookup(params?: { infrastructureId?: string; infrastructureIds?: string[]; gridTypeId?: number; keyword?: string; code?: string; name?: string; unitId?: number; isActive?: boolean; page?: number; pageSize?: number }): Observable<any> {
     let httpParams = new HttpParams();
-    if (params?.infrastructureId) httpParams = httpParams.set('infrastructureId', params.infrastructureId);
+    if (params?.infrastructureIds?.length) {
+      for (const id of params.infrastructureIds) httpParams = httpParams.append('infrastructureIds', id);
+    } else if (params?.infrastructureId) {
+      httpParams = httpParams.set('infrastructureId', params.infrastructureId);
+    }
     if (params?.gridTypeId != null) httpParams = httpParams.set('gridTypeId', params.gridTypeId.toString());
     if (params?.keyword?.trim()) httpParams = httpParams.set('keyword', params.keyword.trim());
     if (params?.code?.trim()) httpParams = httpParams.set('code', params.code.trim());

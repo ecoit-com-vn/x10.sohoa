@@ -386,11 +386,30 @@ export class DossierListComponent implements OnInit {
         ),
         takeUntilDestroyed(this.destroyRef)
       )
-      .subscribe((res) => this.infrastructures.set(res || []));
+      .subscribe((res) => this.infrastructures.set(this.mapInfrastructureOptions(res)));
+  }
+
+  /**
+   * Gắn thêm "displayLabel" = "Tên (Mã)" — ô lọc hiển thị đúng định dạng này (xem #item template), nhưng
+   * filterBy mặc định của p-select chỉ so khớp riêng từng field name/code, KHÔNG so khớp chuỗi đã gộp.
+   * Nếu người dùng gõ nguyên cụm đã gộp (vd copy từ cột bảng, dạng "Trạm 110kV Hoàng Mai (E20)"), cả tìm
+   * kiếm server (LIKE riêng NAME/CODE) lẫn filter client của PrimeNG (khớp riêng từng field) đều không
+   * tìm thấy gì dù trạm đó tồn tại — thêm field gộp sẵn này vào filterBy để khớp được cả 2 kiểu gõ.
+   */
+  private mapInfrastructureOptions(items: any[] | null | undefined): any[] {
+    return (items || []).map((item) => ({
+      ...item,
+      displayLabel: item.code ? `${item.name} (${item.code})` : item.name
+    }));
   }
 
   onInfrastructureFilter(event: { filter: string }): void {
-    this.infrastructureFilterSubject.next((event?.filter || '').trim());
+    const raw = (event?.filter || '').trim();
+    // Nếu người dùng gõ/copy nguyên định dạng hiển thị "Tên (Mã)" (vd từ cột bảng), bỏ phần "(Mã)" ở
+    // cuối trước khi gửi lên server — cột NAME/CODE trong DB không có dấu ngoặc nên tìm nguyên cụm sẽ
+    // luôn ra rỗng dù trạm đó tồn tại. Chỉ tìm theo phần Tên đứng trước dấu ngoặc.
+    const stripped = raw.replace(/\s*\([^)]*\)\s*$/, '').trim();
+    this.infrastructureFilterSubject.next(stripped || raw);
   }
 
 
@@ -617,8 +636,9 @@ export class DossierListComponent implements OnInit {
     this.service.getInfrastructureLookup().subscribe({
 
       next: (res) => {
-        this.defaultInfrastructureSource = res || [];
-        this.infrastructures.set(res || []);
+        const mapped = this.mapInfrastructureOptions(res);
+        this.defaultInfrastructureSource = mapped;
+        this.infrastructures.set(mapped);
       },
 
       error: () => console.error('Failed to load infrastructures')

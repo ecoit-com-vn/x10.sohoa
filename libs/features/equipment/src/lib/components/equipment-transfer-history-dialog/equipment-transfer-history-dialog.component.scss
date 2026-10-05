@@ -1,0 +1,41 @@
+.transfer-history-search {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+
+  .form-group {
+    flex: 1 1 160px;
+    min-width: 150px;
+  }
+
+  .form-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #374151;
+  }
+}
+
+.transfer-history-search-fields {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.transfer-history-search-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.transfer-history-paginator {
+  margin-top: 12px;
+}
+
+.empty-row {
+  text-align: center;
+  color: #9ca3af;
+  padding: 20px 0;
+}

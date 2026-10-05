@@ -26,17 +26,41 @@
         <strong style="font-size: 0.95rem">KHO TÀI LIỆU PMIS</strong>
       </div>
 
-      <div *ngIf="loadingTree()" style="text-align: center; color: #999; padding: 12px 0">
-        <i class="pi pi-spin pi-spinner" style="font-size: 1.2rem"></i>
+      <!-- Tìm Trạm/Đường dây trên TOÀN BỘ công ty - gõ từ khóa (tên/mã) hoặc chọn thẳng trong danh sách,
+           không cần biết nó thuộc công ty nào hay tự duyệt qua cây. -->
+      <div style="margin-bottom: 12px">
+        <p-select
+          [options]="infraSearchOptions()"
+          [ngModel]="selectedInfraSearchId()"
+          (ngModelChange)="onInfraSearchSelected($event)"
+          (onShow)="loadInfraSearchOptionsIfNeeded()"
+          optionLabel="name"
+          optionValue="id"
+          [filter]="true"
+          filterBy="name,code,unitName"
+          [loading]="infraSearchLoading()"
+          [showClear]="true"
+          placeholder="Tìm Trạm/Đường dây theo tên, mã..."
+          appendTo="body"
+          [virtualScroll]="true"
+          [virtualScrollItemSize]="40"
+          styleClass="w-full"
+        >
+          <ng-template #item let-option>
+            <div style="display: flex; flex-direction: column">
+              <span>
+                <i class="pi" [ngClass]="nodeIcons[option.nodeType]" style="margin-right: 6px; color: #6b7280"></i
+                >{{ option.name }}
+              </span>
+              <small *ngIf="option.unitName" class="lookup-option-code" style="margin-left: 20px">{{ option.unitName }}</small>
+            </div>
+          </ng-template>
+        </p-select>
       </div>
 
-      <div *ngIf="!loadingTree() && tree().length === 0" style="color: #999; font-size: 0.85rem">
-        Chưa có tài liệu PMIS nào được đồng bộ.
-      </div>
-
-      <ng-container *ngIf="!loadingTree()">
-        <ng-container *ngTemplateOutlet="nodeTemplate; context: { $implicit: tree(), isRoot: true }"></ng-container>
-      </ng-container>
+      <!-- Cây lười (lazy): node gốc mặc định luôn hiển thị; click mở gốc mới gọi API load Đơn vị, click
+           mở 1 Đơn vị mới gọi tiếp API load Trạm/Đường dây/Thiết bị của riêng đơn vị đó. -->
+      <ng-container *ngTemplateOutlet="nodeTemplate; context: { $implicit: tree(), isRoot: true }"></ng-container>
 
       <ng-template #nodeTemplate let-nodes let-isRoot="isRoot">
         <div *ngFor="let node of nodes; first as isFirst; last as isLast" [class.first-node]="isFirst" [class.last-node]="isLast">
@@ -52,7 +76,10 @@
               [class.root-node]="isRoot"
               [title]="node.name"
             >
-              <i class="pi" [ngClass]="nodeIcons[node.nodeType]"></i>
+              <i
+                class="pi"
+                [ngClass]="isNodeLoading(node.id) ? 'pi-spin pi-spinner' : nodeIcons[node.nodeType]"
+              ></i>
               <span class="folder-name-text">
                 {{ node.name }}<ng-container *ngIf="node.documentCount > 0"> ({{ node.documentCount }})</ng-container>
               </span>
@@ -60,11 +87,24 @@
           </div>
 
           <div
-            *ngIf="node.children && node.children.length > 0 && isExpanded(node.id)"
+            *ngIf="isExpanded(node.id) && node.children && node.children.length > 0"
             class="folder-children-wrapper"
             [class.root-children]="isRoot"
           >
             <ng-container *ngTemplateOutlet="nodeTemplate; context: { $implicit: node.children, isRoot: false }"></ng-container>
+          </div>
+
+          <!-- Đã mở nhưng chưa/không còn dữ liệu con (đang tải, hoặc tải xong mà rỗng) - chỉ áp dụng cho
+               root/unit (nơi mở ra thật sự gọi API tải thêm cấp con); Trạm/Đường dây/Thiết bị không có
+               bước tải riêng nào nữa (Thiết bị đã tải kèm khi mở Đơn vị) nên không hiện "Chưa có dữ liệu"
+               gây hiểu nhầm là lỗi trong khi tài liệu của node đó vẫn hiển thị đầy đủ ở bảng bên phải. -->
+          <div
+            *ngIf="isExpanded(node.id) && (!node.children || node.children.length === 0) && (node.nodeType === 'root' || node.nodeType === 'unit' || node.nodeType === 'group')"
+            class="folder-children-wrapper"
+            [class.root-children]="isRoot"
+            style="color: #999; font-size: 0.85rem; padding: 4px 0"
+          >
+            {{ isNodeLoading(node.id) ? 'Đang tải...' : 'Chưa có dữ liệu.' }}
           </div>
         </div>
       </ng-template>
@@ -98,10 +138,58 @@
         </button>
       </div>
 
-      <div *ngIf="!canShowDocuments()" style="text-align: center; padding: 40px 0; color: #94a3b8">
+      <div *ngIf="!canShowDocuments() && !canShowChildList()" style="text-align: center; padding: 40px 0; color: #94a3b8">
         <i class="pi pi-arrow-left" style="font-size: 1.4rem"></i>
         <div style="margin-top: 8px">Chọn 1 Trạm biến áp, Đường dây hoặc Thiết bị bên trái để xem tài liệu.</div>
       </div>
+
+      <!-- Chọn 1 Đơn vị hoặc 1 thư mục "Trạm biến áp"/"Đường dây": hiển thị danh sách con sang bảng để
+           tiếp tục duyệt/xem tài liệu. -->
+      <ng-container *ngIf="canShowChildList()">
+        <div class="wf-table-wrap">
+          <table class="wf-table">
+            <thead>
+              <tr>
+                <th class="col-stt">STT</th>
+                <th>Tên</th>
+                <th style="width: 160px">Loại</th>
+                <th style="width: 120px">Số tài liệu</th>
+                <th class="col-hd">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="childNodesForTable().length === 0">
+                <td colspan="5" class="empty-row">Chưa có dữ liệu.</td>
+              </tr>
+              <tr *ngFor="let child of childNodesForTable(); let i = index" class="folder-row-table">
+                <td class="col-stt text-muted">{{ i + 1 }}</td>
+                <td>
+                  <a (click)="selectNode(child)" style="cursor: pointer; color: #2563eb; font-weight: 500">
+                    <i class="pi" [ngClass]="nodeIcons[child.nodeType]" style="margin-right: 6px"></i>
+                    {{ child.name }}
+                  </a>
+                </td>
+                <td>
+                  {{
+                    child.nodeType === 'substation' ? 'Trạm biến áp' : child.nodeType === 'line' ? 'Đường dây' : '—'
+                  }}
+                </td>
+                <td>{{ child.nodeType === 'group' ? '—' : child.documentCount }}</td>
+                <td class="col-hd">
+                  <button
+                    type="button"
+                    class="btn-outlined btn-small"
+                    (click)="selectNode(child)"
+                    [title]="child.nodeType === 'group' ? 'Mở thư mục' : 'Xem tài liệu'"
+                  >
+                    <i class="pi" [ngClass]="child.nodeType === 'group' ? 'pi-folder-open' : 'pi-eye'"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </ng-container>
 
       <ng-container *ngIf="canShowDocuments()">
         <div class="grid-filter-bar">

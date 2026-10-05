@@ -22,6 +22,108 @@
   }
 }
 
+.documents-tab-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+// Phong cách panel "Kho hồ sơ" ở màn /search/dossier (DossierSearchComponent: folder-tree-header/
+// folder-tree-btn) — mượn lại màu sắc/bố cục cho nhất quán, chỉ còn 1 cấp (loại văn bản không phân
+// cấp cha/con) nên không có phần connector-line lồng nhánh của màn đó.
+.document-type-tree {
+  flex: 0 0 240px;
+  min-width: 200px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px;
+
+  .tree-header {
+    background-color: #3b82f6;
+    color: #ffffff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+
+    i {
+      font-size: 1.05rem;
+    }
+  }
+
+  .tree-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .tree-item-btn {
+    width: 100%;
+    text-align: left;
+    padding: 8px 10px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    background-color: transparent;
+    color: #374151;
+    min-width: 0;
+    font-weight: normal;
+    transition: all 0.15s ease;
+
+    &.root-node {
+      font-weight: bold;
+    }
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    i {
+      color: #eab308;
+      flex-shrink: 0;
+      font-size: 1.1rem;
+      transition: color 0.15s ease;
+    }
+
+    &:hover {
+      background: #eff6ff;
+      color: #2563eb;
+    }
+
+    &.active {
+      background: #eff6ff;
+      color: #2563eb;
+      font-weight: 600;
+    }
+  }
+
+  .tree-loading,
+  .tree-empty {
+    margin: 8px 2px 0;
+    font-size: 0.78rem;
+    color: #94a3b8;
+  }
+}
+
+.documents-panel {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .action-buttons-group {
   display: flex;
   gap: 4px;
@@ -36,7 +138,7 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  --actions-col-width: 124px;
+  --actions-col-width: 76px;
 }
 
 .dossier-documents-tab .wf-table {
@@ -72,7 +174,7 @@
     justify-content: flex-end;
     width: 100%;
     min-height: 100%;
-    padding: 9px 10px 9px 12px;
+    padding: 9px 8px;
     background: #fff;
     overflow: visible;
   }
@@ -86,10 +188,11 @@
   }
 
   .col-actions-sticky-panel--head {
-    padding: 10px 10px 10px 12px;
+    padding: 10px 8px;
     font-weight: 600;
     color: #475569;
-    font-size: 0.82rem;
+    font-size: 0.78rem;
+    white-space: nowrap;
   }
 }
 

@@ -243,7 +243,6 @@
         <app-dossier-documents-tab
           [dossierId]="dossierId"
           [infrastructureIds]="infrastructureIds()"
-          [equipmentIds]="equipmentIds()"
           [canEdit]="dossierKindId() === 1 ? canManageDigitizationDocuments() : canEditDossier()"
           [canUpload]="menuScope === 'publisher'"
           [menuScope]="menuScope"

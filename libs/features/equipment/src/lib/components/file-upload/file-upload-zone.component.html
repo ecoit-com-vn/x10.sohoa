@@ -18,6 +18,7 @@
             type="file"
             multiple
             hidden
+            [attr.accept]="allowedExtensions().join(',')"
             (change)="onFileSelected($event)"
           />
         </label>

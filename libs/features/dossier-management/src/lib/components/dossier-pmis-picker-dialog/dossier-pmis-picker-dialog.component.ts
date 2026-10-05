@@ -26,8 +26,9 @@ const NODE_ICONS: { [key: string]: string } = {
 /**
  * "Chọn từ kho PMIS" — sibling của DossierFolderPickerDialogComponent, cùng UI 2 bước (chọn tài liệu →
  * chọn loại văn bản), nhưng duyệt cây Kho tài liệu PMIS (Đơn vị→Trạm/Đường dây→Thiết bị) thay vì cây
- * thư mục, và CHỈ hiện đúng nhánh Trạm/Đường dây/Thiết bị đã gắn với hồ sơ này (infrastructureIds/
- * equipmentIds) — ẩn hẳn, không chỉ làm mờ, để không thể chọn nhầm tài liệu của đối tượng khác.
+ * thư mục, và CHỈ hiện đúng nhánh Trạm/Đường dây (và Thiết bị thuộc các Trạm/Đường dây đó) đã gắn với
+ * hồ sơ này (infrastructureIds) — ẩn hẳn, không chỉ làm mờ, để không thể chọn nhầm tài liệu của đối
+ * tượng khác.
  */
 @Component({
   selector: 'app-dossier-pmis-picker-dialog',
@@ -47,7 +48,6 @@ export class DossierPmisPickerDialogComponent {
    * thuộc, nên nếu Trạm/Thiết bị hồ sơ đến muộn hơn cây (dossier còn đang tải) thì computed sẽ không
    * bao giờ tính lại — cây sẽ kẹt ở kết quả rỗng/sai của lần tính đầu tiên. */
   infrastructureIds = input<string[]>([]);
-  equipmentIds = input<string[]>([]);
   @Input() visible = false;
   @Output() visibleChange = new EventEmitter<boolean>();
   @Output() documentsAdded = new EventEmitter<void>();
@@ -60,17 +60,32 @@ export class DossierPmisPickerDialogComponent {
   expandedNodeIds = signal<Set<string>>(new Set());
   selectedNode = signal<PmisCatalogNode | null>(null);
 
-  /** Node THẬT SỰ được phép chọn (Trạm/Đường dây/Thiết bị hồ sơ này đã gắn) — khác allowedTree's node
-   * set, vốn còn giữ thêm tổ tiên chỉ để không đứt gãy cây, KHÔNG được phép bấm chọn. */
+  /** Node THẬT SỰ được phép chọn (Trạm/Đường dây hồ sơ này đã gắn, và mọi Thiết bị thuộc các
+   * Trạm/Đường dây đó) — khác allowedTree's node set, vốn còn giữ thêm tổ tiên chỉ để không đứt gãy
+   * cây, KHÔNG được phép bấm chọn.
+   * Thiết bị không còn gắn trực tiếp vào hồ sơ (equipmentIds đã bỏ — xem removal ở dossier-form), nên
+   * phạm vi Thiết bị được chọn giờ suy ra theo Trạm/Đường dây cha (đi ngược parentId) thay vì so khớp
+   * 1 danh sách thiết bị cố định.
+   */
   private directlyAllowedIds = computed(() => {
     const allInfra = new Set(this.infrastructureIds());
-    const allEquip = new Set(this.equipmentIds());
+    const byId = new Map(this.flatNodes().map((n) => [n.id, n]));
     const ids = new Set<string>();
     for (const n of this.flatNodes()) {
-      const isAllowed =
-        ((n.nodeType === 'substation' || n.nodeType === 'line') && allInfra.has(n.id.replace('infra_', '')))
-        || (n.nodeType === 'equipment' && allEquip.has(n.id.replace('equipment_', '')));
-      if (isAllowed) ids.add(n.id);
+      if ((n.nodeType === 'substation' || n.nodeType === 'line') && allInfra.has(n.id.replace('infra_', ''))) {
+        ids.add(n.id);
+      }
+    }
+    for (const n of this.flatNodes()) {
+      if (n.nodeType !== 'equipment') continue;
+      let current: PmisCatalogNode | undefined = n;
+      while (current) {
+        if (ids.has(current.id) && (current.nodeType === 'substation' || current.nodeType === 'line')) {
+          ids.add(n.id);
+          break;
+        }
+        current = current.parentId ? byId.get(current.parentId) : undefined;
+      }
     }
     return ids;
   });

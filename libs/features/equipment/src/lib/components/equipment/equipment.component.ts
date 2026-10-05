@@ -1,4 +1,5 @@
-import { Component, OnInit, signal, computed, inject, effect, HostListener } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, effect, HostListener, ViewChild, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   DeleteConfirmDialogComponent,
   EcoPaginatorComponent,
@@ -23,9 +24,10 @@ import {
   parseFormSchemaFields,
   parsePmisFormValues,
 } from '@sohoa.frontend/features/dossier-management';
-import { EMPTY, forkJoin, of } from 'rxjs';
-import { catchError, finalize, switchMap, map } from 'rxjs/operators';
+import { EMPTY, forkJoin, of, Subject } from 'rxjs';
+import { catchError, finalize, switchMap, map, debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { EquipmentDocumentsComponent } from '../equipment-documents/equipment-documents.component';
+import { EquipmentTransferHistoryDialogComponent } from '../equipment-transfer-history-dialog/equipment-transfer-history-dialog.component';
 import { EavFormService } from '../../../../../../shared/core/src/lib/services/eav-form.service';
 
 @Component({
@@ -43,7 +45,8 @@ import { EavFormService } from '../../../../../../shared/core/src/lib/services/e
     EcoPaginatorComponent,
     DeleteConfirmDialogComponent,
     EquipmentDocumentsComponent,
-    DatePickerModule
+    DatePickerModule,
+    EquipmentTransferHistoryDialogComponent
   ],
   providers: [MessageService],
   templateUrl: './equipment.component.html',
@@ -66,10 +69,17 @@ export class EquipmentComponent implements OnInit {
   activeRowMenu = signal<string | null>(null);
   actionMenuItems: MenuItem[] = [];
 
+  @ViewChild(EquipmentTransferHistoryDialogComponent) transferHistoryDialog!: EquipmentTransferHistoryDialogComponent;
+
+  onViewTransferHistory(item: any): void {
+    this.transferHistoryDialog.open(item.id, item.code && item.name ? `${item.code} - ${item.name}` : (item.name || item.code || ''));
+  }
+
   openActionMenu(item: any, event: Event, menu: Menu) {
     event.stopPropagation();
     this.actionMenuItems = [
       { label: 'Xem chi tiết', title: 'Xem chi tiết', icon: 'pi pi-eye color-teal', command: () => this.onViewSpecs(item) },
+      { label: 'Lịch sử', title: 'Lịch sử di chuyển thiết bị', icon: 'pi pi-history color-blue', command: () => this.onViewTransferHistory(item) },
       ...(this.canEdit() && item.equipmentTypeId ? [{ label: 'Cấu hình', title: 'Cấu hình', icon: 'pi pi-cog color-blue', command: () => this.onEditSpecs(item) }] : []),
       ...(this.canEdit() ? [{ label: 'Sửa', title: 'Sửa', icon: 'pi pi-pencil color-blue', command: () => this.onEdit(item) }] : []),
       ...(this.canManage() && this.canShowTransferEquipment(item) ? [{ label: 'Chuyển thiết bị', title: 'Chuyển thiết bị', icon: 'pi pi-send color-blue', command: () => this.openTransferDialog(item) }] : []),
@@ -273,6 +283,8 @@ export class EquipmentComponent implements OnInit {
   // State lists
   items = signal<any[]>([]);
   totalCount = signal<number>(0);
+  exportingList = signal<boolean>(false);
+  isLoadingList = signal<boolean>(false);
 
 
   currentView = signal<'list' | 'add' | 'edit'>('list');
@@ -375,7 +387,67 @@ export class EquipmentComponent implements OnInit {
   canDelete = computed(() => this.authService.hasPermission('EQUIPMENT_DELETE') || this.authService.hasPermission('SUPER_ADMIN'));
   canManage = computed(() => this.authService.hasPermission('EQUIPMENT_MANAGE') || this.authService.hasPermission('SUPER_ADMIN'));
 
+  private readonly destroyRef = inject(DestroyRef);
+  /** Trigger tải danh sách — dồn qua switchMap để lần gọi mới luôn huỷ/bỏ qua kết quả của lần gọi cũ
+   * đang chờ, tránh race condition (response trả về không theo đúng thứ tự request có thể ghi đè dữ
+   * liệu mới bằng dữ liệu cũ hơn) và để bật/tắt isLoadingList đúng 1 chỗ cho mọi lần tải. */
+  private readonly loadItemsTrigger = new Subject<void>();
+  /** Gõ từ khoá tìm kiếm gọi API ngay lập tức trên MỌI ký tự (không debounce) trước đây — mỗi ký tự gõ
+   * là 1 round-trip đầy đủ COUNT + SELECT, rất tốn khi bảng EQUIPMENTS nhiều dữ liệu. Debounce 300ms. */
+  private readonly searchKeywordSubject = new Subject<string>();
+
   constructor() {
+    this.loadItemsTrigger
+      .pipe(
+        switchMap(() => {
+          this.isLoadingList.set(true);
+          const unitId = this.getEquipmentListUnitId();
+          const gridTypeId = this.searchGridTypeId() ? Number(this.searchGridTypeId()) : undefined;
+          const isActive = this.searchStatus() !== '' ? this.searchStatus() === '1' : undefined;
+
+          return this.equipmentService.getEquipments(
+            this.currentPage(),
+            this.pageSize(),
+            this.searchCode(),
+            this.searchName(),
+            unitId,
+            this.searchInfrastructureId(),
+            gridTypeId,
+            this.searchEquipmentTypeId(),
+            isActive,
+            this.searchKeyword()
+          ).pipe(
+            catchError(() => {
+              this.messageService.add({
+                severity: 'error',
+                summary: 'Lỗi',
+                detail: 'Không thể tải danh sách thiết bị'
+              });
+              return of(null);
+            }),
+            finalize(() => this.isLoadingList.set(false))
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((res) => {
+        if (res) {
+          this.items.set(res.items || []);
+          this.totalCount.set(res.totalCount || 0);
+        }
+      });
+
+    this.searchKeywordSubject
+      .pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe(() => {
+        this.currentPage.set(1);
+        this.loadItems();
+      });
+
     effect(() => {
       this.currentPage();
       this.pageSize();
@@ -519,9 +591,10 @@ export class EquipmentComponent implements OnInit {
           }
         });
       } else {
+        // KHÔNG gọi loadItems() ở đây — effect() trong constructor đã tự động tải danh sách ngay khi
+        // component khởi tạo (currentView mặc định đã là 'list'), gọi thêm ở đây gây gọi API 2 lần mỗi
+        // lần vào màn danh sách.
         this.currentView.set('list');
-        this.applyLoggedInUserUnitFilter();
-        this.loadItems();
       }
     });
   }
@@ -638,36 +711,111 @@ export class EquipmentComponent implements OnInit {
   }
 
   loadItems() {
+    this.loadItemsTrigger.next();
+  }
+
+  /** Gọi từ ô nhập từ khoá tìm kiếm — CHỈ cập nhật signal + đẩy vào subject debounce, KHÔNG gọi
+   * loadItems() ngay (khác các bộ lọc dropdown khác, chọn 1 lần nên gọi ngay là hợp lý). */
+  onKeywordChange(value: string): void {
+    this.searchKeyword.set(value);
+    this.searchKeywordSubject.next(value);
+  }
+
+  exportEquipmentsToExcel(): void {
+    if (this.exportingList()) return;
+
+    const exportPageSize = 500;
     const unitId = this.getEquipmentListUnitId();
     const gridTypeId = this.searchGridTypeId() ? Number(this.searchGridTypeId()) : undefined;
     const isActive = this.searchStatus() !== '' ? this.searchStatus() === '1' : undefined;
+    const code = this.searchCode();
+    const name = this.searchName();
+    const infrastructureId = this.searchInfrastructureId();
+    const equipmentTypeId = this.searchEquipmentTypeId();
+    const keyword = this.searchKeyword();
 
+    this.exportingList.set(true);
     this.equipmentService.getEquipments(
-      this.currentPage(),
-      this.pageSize(),
-      this.searchCode(),
-      this.searchName(),
+      1,
+      exportPageSize,
+      code,
+      name,
       unitId,
-      this.searchInfrastructureId(),
+      infrastructureId,
       gridTypeId,
-      this.searchEquipmentTypeId(),
+      equipmentTypeId,
       isActive,
-      this.searchKeyword()
-    ).subscribe({
-      next: (res) => {
-        if (res) {
-          this.items.set(res.items || []);
-          this.totalCount.set(res.totalCount || 0);
+      keyword
+    )
+      .pipe(
+        switchMap((firstPage) => {
+          const totalCount = firstPage?.totalCount || 0;
+          const pageCount = Math.ceil(totalCount / exportPageSize);
+          if (pageCount <= 1) return of(firstPage?.items || []);
+          const remainingPages = Array.from({ length: pageCount - 1 }, (_, index) =>
+            this.equipmentService.getEquipments(
+              index + 2,
+              exportPageSize,
+              code,
+              name,
+              unitId,
+              infrastructureId,
+              gridTypeId,
+              equipmentTypeId,
+              isActive,
+              keyword
+            )
+          );
+          return forkJoin(remainingPages).pipe(
+            map((responses) => [
+              ...(firstPage?.items || []),
+              ...responses.flatMap((response) => response?.items || [])
+            ])
+          );
+        }),
+        finalize(() => this.exportingList.set(false))
+      )
+      .subscribe({
+        next: async (rows: any[]) => {
+          if (!rows.length) {
+            this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Không có dữ liệu để xuất.' });
+            return;
+          }
+          const worksheetRows = rows.map((row: any, index: number) => ({
+            'STT': index + 1,
+            'Mã thiết bị': row.code || '',
+            'Tên thiết bị': row.name || '',
+            'Loại thiết bị': row.equipmentTypeName || '',
+            'Trạm/đường dây': row.infrastructureName || '',
+            'Đơn vị quản lý': row.unitName || '',
+            'Ngày tạo': row.createdAt ? new Date(row.createdAt).toLocaleDateString('vi-VN') : '',
+            'Người tạo': row.creator?.name || row.createdBy || '',
+            'Trạng thái': this.getEquipmentStatusLabel(row)
+          }));
+          const XLSX = await import('xlsx');
+          const worksheet = XLSX.utils.json_to_sheet(worksheetRows);
+          worksheet['!cols'] = [
+            { wch: 6 }, { wch: 18 }, { wch: 28 }, { wch: 20 }, { wch: 24 }, { wch: 24 }, { wch: 14 }, { wch: 18 }, { wch: 16 }
+          ];
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, worksheet, 'Danh sách thiết bị');
+          const blob = new Blob([XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `DanhSachThietBi_${new Date().getTime()}.xlsx`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xuất file Excel thành công!' });
+        },
+        error: () => {
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể xuất file Excel.' });
         }
-      },
-      error: () => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: 'Không thể tải danh sách thiết bị'
-        });
-      }
-    });
+      });
   }
 
   private buildOrgTree(units: any[]): any[] {
@@ -721,17 +869,15 @@ export class EquipmentComponent implements OnInit {
     }
   }
 
-  private applyLoggedInUserUnitFilter(): void {
-    const userUnitId = this.authService.getUserUnitId();
-    if (userUnitId) {
-      this.searchUnitId.set(String(userUnitId));
-    }
-  }
-
+  /**
+   * KHÔNG ép cứng theo đơn vị đăng nhập — màn này không có ô lọc "Đơn vị" trên UI để người dùng gỡ
+   * lại, nên nếu ép cứng thì tài khoản thuộc đơn vị cấp cao (vd. Tổng công ty) sẽ VĨNH VIỄN chỉ thấy
+   * thiết bị gán trực tiếp cho đơn vị đó, mất hết thiết bị của các đơn vị con — vì backend
+   * GetPagedAsync so khớp unitId CHÍNH XÁC (không tính đơn vị con) khi có truyền unitId. Khi không
+   * truyền unitId, backend đã tự lọc đúng theo toàn bộ cây đơn vị được phép xem
+   * (GetAllowedUnitIdsAsync), nên chỉ cần dùng searchUnitId khi có nơi khác trong code chủ động set nó.
+   */
   private getEquipmentListUnitId(): number | undefined {
-    const userUnitId = this.authService.getUserUnitId();
-    if (userUnitId) return userUnitId;
-
     const selectedUnitId = this.searchUnitId();
     return selectedUnitId ? Number(selectedUnitId) : undefined;
   }
@@ -1005,7 +1151,6 @@ export class EquipmentComponent implements OnInit {
     this.searchGridTypeId.set('');
     this.searchEquipmentTypeId.set('');
     this.searchStatus.set('');
-    this.applyLoggedInUserUnitFilter();
     this.currentPage.set(1);
     this.loadItems();
   }

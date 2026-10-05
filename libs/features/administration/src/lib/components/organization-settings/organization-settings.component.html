@@ -16,6 +16,12 @@
             <wf-breadcrumb />
         </div>
         <div class="toolbar-right">
+            <button *ngIf="authService.hasPermission('ORGANIZATION_CREATE')" class="btn-save" type="button"
+                [disabled]="syncing()" (click)="onSyncOrganizations()">
+                <i class="pi" [class.pi-refresh]="!syncing()" [class.pi-spin]="syncing()"
+                    [class.pi-spinner]="syncing()"></i>
+                {{ syncing() ? 'Đang đồng bộ...' : 'Đồng bộ' }}
+            </button>
             <button *ngIf="authService.hasPermission('ORGANIZATION_CREATE')" class="btn-green" (click)="onAddNew()">
                 <i class="pi pi-plus"></i> Thêm mới
             </button>

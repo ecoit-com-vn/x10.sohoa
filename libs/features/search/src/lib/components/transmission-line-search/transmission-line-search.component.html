@@ -128,46 +128,9 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let item of paginatedItems(); let i = index">
-                <td class="col-stt text-muted">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
-                <td>
-                  <a class="transmission-line-code-link" (click)="onViewDetail(item)">{{ item.code }}</a>
-                </td>
-                <td class="transmission-line-plain-text">{{ item.name }}</td>
-                <td>{{ item.address || '-' }}</td>
-                <td>
-                  <span class="status-pill"
-                    [style.background-color]="item.gridTypeId === 1 ? '#eff6ff' : (item.gridTypeId === 2 ? '#f5f3ff' : (item.gridTypeId === 3 ? '#ecfdf5' : '#f9fafb'))"
-                    [style.color]="item.gridTypeId === 1 ? '#1e40af' : (item.gridTypeId === 2 ? '#5b21b6' : (item.gridTypeId === 3 ? '#065f46' : '#6b7280'))"
-                    [style.border-color]="item.gridTypeId === 1 ? '#bfdbfe' : (item.gridTypeId === 2 ? '#ddd6fe' : (item.gridTypeId === 3 ? '#a7f3d0' : '#e5e7eb'))">
-                    {{ item.gridTypeId === 1 ? 'Cao áp' : (item.gridTypeId === 2 ? 'Trung áp' : (item.gridTypeId === 3 ? 'Hạ áp' : '-')) }}
-                  </span>
-                </td>
-                <td>
-                  <span class="transmission-line-plain-text" *ngIf="item.organization">
-                    {{ item.organization.name }}
-                  </span>
-                  <span class="transmission-line-plain-text" *ngIf="!item.organization">Chưa phân bổ</span>
-                </td>
-                <td>
-                  <span *ngIf="item.isActive === 1 || item.isActive === true" class="status-pill status-active"
-                    style="background-color: #ecfdf5; color: #065f46; border-color: #a7f3d0;">
-                    Hoạt động
-                  </span>
-                  <span *ngIf="item.isActive === 0 || item.isActive === false" class="status-pill status-locked"
-                    style="background-color: #fef2f2; color: #991b1b; border-color: #fee2e2;">
-                    Ngừng hoạt động
-                  </span>
-                </td>
-                <td class="col-hd">
-                  <div class="action-buttons-group">
-                    <button class="act-btn" style="background-color: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;"
-                      title="Xem chi tiết" (click)="onViewDetail(item)">
-                      <i class="pi pi-eye"></i>
-                    </button>
-                  </div>
-                </td>
-              </tr>
+              <ng-container
+                *ngTemplateOutlet="lineRowsTpl; context: { $implicit: transmissionLineTree(), level: 0 }"
+              ></ng-container>
               <tr *ngIf="items().length === 0">
                 <td colspan="8" class="empty-row">
                   <i class="pi pi-inbox"></i>
@@ -177,6 +140,76 @@
             </tbody>
           </table>
         </div>
+
+        <ng-template #lineRowsTpl let-nodes let-level="level" let-parentStt="parentStt">
+          <ng-container *ngFor="let node of nodes; let i = index">
+            <ng-container *ngIf="getLineSTT(node, level, i, parentStt) as nodeStt">
+              <tr class="line-row" [class.line-row-parent]="level === 0" [class.line-row-child]="level > 0"
+                [class.line-row-expandable]="node.children?.length > 0" (click)="onParentLineRowClick(node)">
+                <td class="col-stt text-muted" style="text-align: center;">{{ nodeStt }}</td>
+                <td>
+                  <a class="transmission-line-code-link" (click)="onViewDetail(node); $event.stopPropagation()">{{ node.code }}</a>
+                </td>
+                <td>
+                  <div class="line-name-cell" [style.padding-left.px]="level * 24">
+                    <i *ngIf="node.children?.length > 0" class="pi chevron-icon"
+                      [class.pi-angle-down]="!isLineExpanded(node.id)" [class.pi-angle-up]="isLineExpanded(node.id)"
+                      (click)="toggleLineGroup(node.id, $event)"></i>
+                    <span *ngIf="!(node.children?.length > 0)" class="chevron-placeholder"></span>
+                    <i class="pi pi-bolt line-item-icon" [class.child-icon]="level > 0"></i>
+                    <span class="transmission-line-plain-text" [style.font-weight]="level === 0 ? '600' : '500'">
+                      {{ node.name }}
+                    </span>
+                    <span *ngIf="node.children?.length > 0" class="child-count-badge"
+                      [title]="node.children.length + ' đường dây nhánh con'">
+                      {{ node.children.length }} nhánh
+                    </span>
+                  </div>
+                </td>
+                <td>{{ node.address || '-' }}</td>
+                <td>
+                  <span class="status-pill"
+                    [style.background-color]="node.gridTypeId === 1 ? '#eff6ff' : (node.gridTypeId === 2 ? '#f5f3ff' : (node.gridTypeId === 3 ? '#ecfdf5' : '#f9fafb'))"
+                    [style.color]="node.gridTypeId === 1 ? '#1e40af' : (node.gridTypeId === 2 ? '#5b21b6' : (node.gridTypeId === 3 ? '#065f46' : '#6b7280'))"
+                    [style.border-color]="node.gridTypeId === 1 ? '#bfdbfe' : (node.gridTypeId === 2 ? '#ddd6fe' : (node.gridTypeId === 3 ? '#a7f3d0' : '#e5e7eb'))">
+                    {{ node.gridTypeId === 1 ? 'Cao áp' : (node.gridTypeId === 2 ? 'Trung áp' : (node.gridTypeId === 3 ? 'Hạ áp' : '-')) }}
+                  </span>
+                </td>
+                <td>
+                  <span class="transmission-line-plain-text" *ngIf="node.organization">
+                    {{ node.organization.name }}
+                  </span>
+                  <span class="transmission-line-plain-text" *ngIf="!node.organization">Chưa phân bổ</span>
+                </td>
+                <td>
+                  <span *ngIf="node.isActive === 1 || node.isActive === true" class="status-pill status-active"
+                    style="background-color: #ecfdf5; color: #065f46; border-color: #a7f3d0;">
+                    Hoạt động
+                  </span>
+                  <span *ngIf="node.isActive === 0 || node.isActive === false" class="status-pill status-locked"
+                    style="background-color: #fef2f2; color: #991b1b; border-color: #fee2e2;">
+                    Ngừng hoạt động
+                  </span>
+                </td>
+                <td class="col-hd" (click)="$event.stopPropagation()">
+                  <div class="action-buttons-group">
+                    <button class="act-btn" style="background-color: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;"
+                      title="Xem chi tiết" (click)="onViewDetail(node)">
+                      <i class="pi pi-eye"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+
+              <!-- Child rows khi mở rộng -->
+              <ng-container *ngIf="node.children?.length > 0 && isLineExpanded(node.id)">
+                <ng-container
+                  *ngTemplateOutlet="lineRowsTpl; context: { $implicit: node.children, level: level + 1, parentStt: nodeStt }"
+                ></ng-container>
+              </ng-container>
+            </ng-container>
+          </ng-container>
+        </ng-template>
 
         <app-eco-paginator *ngIf="totalCount() > 0" [first]="(currentPage() - 1) * pageSize()" [rows]="pageSize()"
           [totalRecords]="totalCount()" [rowsPerPageOptions]="[10, 20, 50]" recordLabel="bản ghi"

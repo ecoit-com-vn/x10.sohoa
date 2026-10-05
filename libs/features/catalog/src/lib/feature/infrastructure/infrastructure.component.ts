@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject, effect, HostListener } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, effect, HostListener, ViewChild } from '@angular/core';
 import {
   DeleteConfirmDialogComponent,
   EcoPaginatorComponent,
@@ -16,10 +16,10 @@ import { MenuItem, MessageService } from 'primeng/api';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService, BreadcrumbTrailItem } from '@sohoa.frontend/shared/core';
 import { InfrastructureService } from '../../data-access/infrastructure.service';
-import { EquipmentService } from '@sohoa.frontend/features/equipment';
+import { EquipmentService, EquipmentTransferHistoryDialogComponent } from '@sohoa.frontend/features/equipment';
 import { DossierDocumentService, DossierManagementService } from '@sohoa.frontend/features/dossier-management';
 import { forkJoin, of } from 'rxjs';
-import { catchError, finalize } from 'rxjs/operators';
+import { catchError, finalize, map, switchMap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-infrastructure',
@@ -34,7 +34,8 @@ import { catchError, finalize } from 'rxjs/operators';
     MenuModule,
     EcoPaginatorComponent,
     WfBreadcrumbComponent,
-    DeleteConfirmDialogComponent
+    DeleteConfirmDialogComponent,
+    EquipmentTransferHistoryDialogComponent
   ],
   providers: [MessageService],
   templateUrl: './infrastructure.component.html',
@@ -133,75 +134,47 @@ export class InfrastructureComponent implements OnInit {
 
   // Transmission Line Tree Table Signals
   //
-  // LƯU Ý: KHÔNG tự gom cây cha-con bằng cách đối chiếu parentId trong PHẠM VI 1 TRANG dữ liệu như
-  // trước đây — với 14.000+ đường dây phân trang 10 dòng/trang, 1 đường trục và các nhánh con của nó
-  // hầu như luôn rơi vào 2 trang khác nhau nên cây gần như luôn hiển thị phẳng dù backend đã có đúng
-  // PARENT_ID. Cách đúng: trang chính chỉ tải đường trục (rootOnly=true, xem loadItems), nhánh con tải
-  // "lười" riêng qua API {id}/children đúng lúc người dùng bấm mở rộng — xem toggleLineGroup.
+  // Cùng cách màn "Tra cứu tìm kiếm đường dây" (/search/transmission-line) đang làm: KHÔNG lọc rootOnly
+  // ở backend nữa — luôn tải phẳng 1 trang (cha lẫn con lẫn lộn theo đúng thứ tự sắp xếp, sort theo mã
+  // nên cha và con thường đứng cạnh nhau), rồi tự dựng cây ngay từ items() bằng parentId. Không phụ
+  // thuộc childLineCount (field này hiện không đáng tin cậy - xem transmissionLineTree/hasChildLines).
+  // Đánh đổi: 1 trục và nhánh con của nó vẫn có thể rơi vào 2 trang khác nhau nếu cách xa nhau trong
+  // thứ tự sắp xếp — chấp nhận đánh đổi này để nhất quán với /search.
   expandedLineIds = signal<Set<string>>(new Set<string>());
-  childrenByLineId = signal<Map<string, any[]>>(new Map<string, any[]>());
-  loadingChildLineIds = signal<Set<string>>(new Set<string>());
 
   transmissionLineTree = computed(() => {
     const list = this.items() || [];
-    const childrenMap = this.childrenByLineId();
-    return list.map(item => ({ ...item, children: childrenMap.get(item.id) || [] }));
+    const map = new Map<string, any>();
+    list.forEach(item => map.set(item.id, { ...item, children: [] }));
+    const roots: any[] = [];
+    map.forEach(node => {
+      if (node.parentId && map.has(node.parentId)) {
+        map.get(node.parentId).children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+    return roots;
   });
 
   toggleLineGroup(lineId: string, event?: Event) {
     if (event) event.stopPropagation();
 
-    const isExpanded = this.expandedLineIds().has(lineId);
+    // Children đã được gắn sẵn từ items() của trang hiện tại (xem transmissionLineTree) — không cần
+    // gọi thêm API nào, chỉ cần bật/tắt hiển thị.
     this.expandedLineIds.update((prev) => {
       const next = new Set(prev);
-      if (isExpanded) {
+      if (next.has(lineId)) {
         next.delete(lineId);
       } else {
         next.add(lineId);
       }
       return next;
     });
-
-    // Mở rộng lần đầu (chưa có trong cache, và chưa có lượt tải nào đang chạy dở — tránh bấm nhanh
-    // mở/đóng/mở lại khi API còn đang tải làm gọi trùng) mới gọi API — thu gọn/mở lại sau đó dùng lại
-    // cache, không gọi lại API mỗi lần bấm chevron.
-    if (!isExpanded && !this.childrenByLineId().has(lineId) && !this.loadingChildLineIds().has(lineId)) {
-      this.loadChildLines(lineId);
-    }
-  }
-
-  private loadChildLines(lineId: string) {
-    this.loadingChildLineIds.update(prev => new Set(prev).add(lineId));
-    this.infraService.getChildLines(2, lineId).subscribe({
-      next: (children) => {
-        this.childrenByLineId.update(prev => new Map(prev).set(lineId, children || []));
-        this.loadingChildLineIds.update(prev => {
-          const next = new Set(prev);
-          next.delete(lineId);
-          return next;
-        });
-      },
-      error: () => {
-        this.loadingChildLineIds.update(prev => {
-          const next = new Set(prev);
-          next.delete(lineId);
-          return next;
-        });
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: 'Không tải được danh sách nhánh con.'
-        });
-      }
-    });
   }
 
   isLineExpanded(lineId: string): boolean {
     return this.expandedLineIds().has(lineId);
-  }
-
-  isLineChildrenLoading(lineId: string): boolean {
-    return this.loadingChildLineIds().has(lineId);
   }
 
   /// Nhánh con hiển thị CHỈ phần tên sau dấu "/" CUỐI CÙNG (khớp đúng cách backend tách tên cha —
@@ -217,8 +190,19 @@ export class InfrastructureComponent implements OnInit {
     return branch.length > 0 ? branch : name;
   }
 
+  /** children đã được gắn sẵn thật sự trong transmissionLineTree (từ parentId của chính trang hiện
+   * tại) - đây là nguồn duy nhất đáng tin cậy, không dùng childLineCount (backend trả về không chính
+   * xác cho danh sách phân trang). */
+  hasChildLines(node: any): boolean {
+    return (node.children?.length ?? 0) > 0;
+  }
+
+  childLineCountDisplay(node: any): number {
+    return node.children?.length || 0;
+  }
+
   onParentLineRowClick(node: any) {
-    if ((node.childLineCount ?? 0) > 0) {
+    if (this.hasChildLines(node)) {
       this.toggleLineGroup(node.id);
     }
   }
@@ -552,6 +536,12 @@ export class InfrastructureComponent implements OnInit {
       this.activeEquipmentMenu.set(item.id);
     }
   }
+
+  @ViewChild(EquipmentTransferHistoryDialogComponent) transferHistoryDialog!: EquipmentTransferHistoryDialogComponent;
+
+  onViewEquipmentTransferHistory(eq: any): void {
+    this.transferHistoryDialog.open(eq.id, eq.code && eq.name ? `${eq.code} - ${eq.name}` : (eq.name || eq.code || ''));
+  }
   // ── END DETAIL VIEW SIGNALS ────────────────────────────────────────────────
 
   // Dynamic Permissions check per catalog type
@@ -861,12 +851,13 @@ export class InfrastructureComponent implements OnInit {
     this.onFieldChange('unitId');
   }
 
-  loadItems() {
-    // Đường dây: mặc định chỉ tải đường TRỤC (rootOnly=true) — nhánh con tải lười khi mở rộng (xem
-    // toggleLineGroup). Khi đang tìm kiếm theo từ khoá thì bỏ rootOnly để không bỏ sót nhánh con có
-    // tên khớp từ khoá nhưng đường trục cha lại không khớp — trả về danh sách phẳng như trước đây.
-    const isLineRootView = this.infraTypeId() === 2 && !this.searchKeyword().trim();
+  isLoadingList = signal<boolean>(false);
 
+  loadItems() {
+    // Đường dây: luôn tải phẳng (không rootOnly) — giống hệt /search/transmission-line — rồi tự dựng
+    // cây từ items() bằng parentId (xem transmissionLineTree). Không dùng childLineCount vì field này
+    // không đáng tin cậy.
+    this.isLoadingList.set(true);
     this.infraService.getInfrastructures(
       this.infraTypeId(),
       this.currentPage(),
@@ -875,15 +866,14 @@ export class InfrastructureComponent implements OnInit {
       this.searchStatus(),
       this.searchUnitId(),
       this.searchPersonalOnly(),
-      isLineRootView
-    ).subscribe({
+      false
+    ).pipe(finalize(() => this.isLoadingList.set(false))).subscribe({
       next: (res) => {
         if (res) {
           this.items.set(res.items || []);
           this.totalCount.set(res.totalCount || 0);
-          // Dữ liệu trang đã đổi — cache nhánh con/trạng thái mở rộng của trang cũ không còn phù hợp.
+          // Mặc định thu gọn mọi node khi tải trang mới — người dùng tự bấm chevron để xem nhánh con.
           this.expandedLineIds.set(new Set<string>());
-          this.childrenByLineId.set(new Map<string, any[]>());
         }
       },
       error: () => {
@@ -894,6 +884,124 @@ export class InfrastructureComponent implements OnInit {
         });
       }
     });
+  }
+
+  exportingList = signal<boolean>(false);
+
+  private getGridTypeLabel(gridTypeId: any): string {
+    const id = Number(gridTypeId);
+    if (id === 1) return 'Cao áp';
+    if (id === 2) return 'Trung áp';
+    if (id === 3) return 'Hạ áp';
+    return '-';
+  }
+
+  /**
+   * Xuất Excel toàn bộ danh sách (Trạm biến áp hoặc Đường dây, tuỳ infraTypeId hiện tại) khớp bộ lọc
+   * hiện tại (không chỉ trang đang xem) — tải tuần tự nhiều trang (giống dossier-list.component.ts)
+   * rồi dựng file .xlsx phía trình duyệt, cùng cột đang hiển thị trên bảng danh sách.
+   */
+  exportLinesToExcel(): void {
+    if (this.exportingList()) return;
+
+    const infraTypeId = this.infraTypeId();
+    const isSubstation = infraTypeId === 1;
+    const exportPageSize = 500;
+    const keyword = this.searchKeyword();
+    const status = this.searchStatus();
+    const unitId = this.searchUnitId();
+    const personalOnly = this.searchPersonalOnly();
+
+    this.exportingList.set(true);
+    this.infraService.getInfrastructures(infraTypeId, 1, exportPageSize, keyword, status, unitId, personalOnly, false)
+      .pipe(
+        switchMap((firstPage) => {
+          const totalCount = firstPage?.totalCount || 0;
+          const pageCount = Math.ceil(totalCount / exportPageSize);
+          if (pageCount <= 1) return of(firstPage?.items || []);
+
+          const remainingPages = Array.from({ length: pageCount - 1 }, (_, index) =>
+            this.infraService.getInfrastructures(infraTypeId, index + 2, exportPageSize, keyword, status, unitId, personalOnly, false)
+          );
+          return forkJoin(remainingPages).pipe(
+            map((responses) => [
+              ...(firstPage?.items || []),
+              ...responses.flatMap((response) => response?.items || [])
+            ])
+          );
+        }),
+        finalize(() => this.exportingList.set(false))
+      )
+      .subscribe({
+        next: async (rows) => {
+          if (!rows.length) {
+            this.messageService.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Không có dữ liệu để xuất.' });
+            return;
+          }
+
+          const worksheetRows = isSubstation
+            ? rows.map((row: any, index: number) => ({
+                'STT': index + 1,
+                'Mã Trạm': row.code || '',
+                'Tên Trạm': row.name || '',
+                'Ngày vận hành': row.operationDate ? new Date(row.operationDate).toLocaleDateString('vi-VN') : '-',
+                'Địa chỉ': row.address || '-',
+                'Đơn vị quản lý': row.organization?.name || row.unitName || 'Chưa phân bổ',
+                'Trạng thái': row.isActive === 1 || row.isActive === true ? 'Hoạt động' : 'Ngừng hoạt động'
+              }))
+            : rows.map((row: any, index: number) => ({
+                'STT': index + 1,
+                'Mã đường dây': row.code || '',
+                'Tên đường dây': row.name || '',
+                'Địa chỉ': row.address || '-',
+                'Loại lưới điện': this.getGridTypeLabel(row.gridTypeId),
+                'Đơn vị quản lý': row.organization?.name || row.unitName || 'Chưa phân bổ',
+                'Trạng thái': row.isActive === 1 || row.isActive === true ? 'Hoạt động' : 'Ngừng hoạt động'
+              }));
+
+          const XLSX = await import('xlsx');
+          const worksheet = XLSX.utils.json_to_sheet(worksheetRows);
+          worksheet['!cols'] = isSubstation
+            ? [
+                { wch: 6 },  // STT
+                { wch: 18 }, // Mã Trạm
+                { wch: 30 }, // Tên Trạm
+                { wch: 16 }, // Ngày vận hành
+                { wch: 24 }, // Địa chỉ
+                { wch: 28 }, // Đơn vị quản lý
+                { wch: 16 }  // Trạng thái
+              ]
+            : [
+                { wch: 6 },  // STT
+                { wch: 22 }, // Mã đường dây
+                { wch: 32 }, // Tên đường dây
+                { wch: 20 }, // Địa chỉ
+                { wch: 14 }, // Loại lưới điện
+                { wch: 28 }, // Đơn vị quản lý
+                { wch: 16 }  // Trạng thái
+              ];
+
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, worksheet, isSubstation ? 'Danh sách trạm biến áp' : 'Danh sách đường dây');
+
+          const blob = new Blob([XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${isSubstation ? 'DanhSachTramBienAp' : 'DanhSachDuongDay'}_${new Date().getTime()}.xlsx`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+
+          this.messageService.add({ severity: 'success', summary: 'Thành công', detail: 'Đã xuất file Excel thành công!' });
+        },
+        error: () => {
+          this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể xuất file Excel.' });
+        }
+      });
   }
 
   onSearch() {

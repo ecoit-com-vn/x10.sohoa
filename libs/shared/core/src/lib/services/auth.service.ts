@@ -1,8 +1,9 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Observable, of, throwError } from 'rxjs';
 import { catchError, finalize, map, shareReplay, tap } from 'rxjs/operators';
 import { APP_CONFIG } from '../config/app-config.token';
+import { SUPPRESS_HTTP_ERROR_TOAST } from '../interceptors/http-error.interceptor';
 
 export interface UserProfile {
   id: string;
@@ -204,7 +205,13 @@ export class AuthService {
   }
 
   getAvatarBlob(): Observable<Blob> {
-    return this.http.get(`${this.base}/avatar`, { responseType: 'blob' });
+    // Ảnh đại diện cũ có thể không còn tồn tại trong storage (object key trỏ tới file đã mất) - đây là
+    // trường hợp được UI xử lý êm (rơi về icon mặc định), không phải lỗi cần chặn người dùng bằng toast
+    // toàn cục, tránh gây hiểu nhầm là không thể tải ảnh mới lên khi vào màn thông tin cá nhân.
+    return this.http.get(`${this.base}/avatar`, {
+      responseType: 'blob',
+      context: new HttpContext().set(SUPPRESS_HTTP_ERROR_TOAST, true)
+    });
   }
 
   uploadAvatar(file: File): Observable<AvatarResponse> {

@@ -39,6 +39,7 @@ import {
   DocumentOcrProgress,
   DocumentVersion,
   SignDocumentResult,
+  DocumentTypeLookupItem,
 } from '../../data-access/dossier-document.service';
 import {
   formatDocumentDate,
@@ -124,10 +125,10 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
   private lastSignalRDossierId: string | null = null;
 
   @Input({ required: true }) dossierId!: string;
-  /** Trạm/Đường dây + Thiết bị hồ sơ đã gắn — dùng để lọc "Chọn từ kho PMIS" chỉ hiện đúng tài liệu
-   * thuộc các đối tượng này, tránh chọn nhầm tài liệu của Trạm/Đường dây/Thiết bị khác. */
+  /** Trạm/Đường dây hồ sơ đã gắn — dùng để lọc "Chọn từ kho PMIS" chỉ hiện đúng tài liệu thuộc các
+   * Trạm/Đường dây này (và thiết bị thuộc chúng), tránh chọn nhầm tài liệu của đối tượng khác. Cũng
+   * dùng để giới hạn danh sách thiết bị chọn được khi "Thêm mới tài liệu". */
   @Input() infrastructureIds: string[] = [];
-  @Input() equipmentIds: string[] = [];
   @Input() canEdit = false;
   @Input() canUpload = false;
   @Input() kindId = 2;
@@ -138,6 +139,13 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
   @Output() formDataSaved = new EventEmitter<void>();
 
   documents = signal<DossierDocumentItem[]>([]);
+  // Cây thư mục "Loại văn bản" bên trái tab — null = "Tất cả tài liệu" (không lọc theo loại văn bản).
+  documentTypeFolders = signal<DocumentTypeLookupItem[]>([]);
+  loadingDocumentTypeFolders = signal(false);
+  selectedDocumentTypeId = signal<string | null>(null);
+  readonly selectedDocumentTypeFolder = computed(() =>
+    this.documentTypeFolders().find((t) => t.id === this.selectedDocumentTypeId()) ?? null
+  );
   loading = signal(false);
   deleting = signal(false);
   page = signal(1);
@@ -262,6 +270,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
     this.applyKindContext();
     if (this.dossierId) {
       this.loadDocuments();
+      this.loadDocumentTypeFolders();
       void this.switchDossierSignalRGroup(this.dossierId);
     }
 
@@ -418,6 +427,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
     this.documentService
       .getDocuments(this.dossierId, {
         keyword: this.searchKeyword(),
+        documentTypeId: this.selectedDocumentTypeId(),
         page: this.page(),
         pageSize: this.pageSize(),
       })
@@ -448,6 +458,25 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
           }
         },
       });
+  }
+
+  private loadDocumentTypeFolders(): void {
+    this.loadingDocumentTypeFolders.set(true);
+    this.documentService
+      .getDocumentTypesForDossier(this.dossierId)
+      .pipe(finalize(() => this.loadingDocumentTypeFolders.set(false)))
+      .subscribe({
+        next: (items) => this.documentTypeFolders.set(items),
+        error: () => this.documentTypeFolders.set([]),
+      });
+  }
+
+  /** Click 1 nhánh cây "Loại văn bản" bên trái — null = nhánh gốc "Tất cả tài liệu". */
+  onSelectDocumentTypeFolder(documentTypeId: string | null): void {
+    if (this.selectedDocumentTypeId() === documentTypeId) return;
+    this.selectedDocumentTypeId.set(documentTypeId);
+    this.page.set(1);
+    this.loadDocuments();
   }
 
   getOcrProgress(doc: DossierDocumentItem): DocumentOcrProgress | undefined {
@@ -909,13 +938,23 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
       this.showFolderPicker.set(true);
     } else if (action === 'pmis') {
       this.showPmisPicker.set(true);
-    } else if (action === 'direct') {
-      this.uploadSource.set(3);
-      this.uploadDialogTitle.set('Upload trực tiếp vào hồ sơ');
-      this.showDirectUpload.set(true);
-    } else if (action === 'scan') {
-      this.uploadSource.set(2);
-      this.uploadDialogTitle.set('Quét tài liệu vào hồ sơ');
+    } else if (action === 'direct' || action === 'scan') {
+      const folder = this.selectedDocumentTypeFolder();
+      if (!folder) {
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Chưa chọn loại văn bản',
+          detail: 'Vui lòng chọn 1 loại văn bản ở cây thư mục bên trái trước khi thêm tài liệu.',
+        });
+        return;
+      }
+      if (action === 'direct') {
+        this.uploadSource.set(3);
+        this.uploadDialogTitle.set(`Upload trực tiếp vào hồ sơ — ${folder.name}`);
+      } else {
+        this.uploadSource.set(2);
+        this.uploadDialogTitle.set(`Quét tài liệu vào hồ sơ — ${folder.name}`);
+      }
       this.showDirectUpload.set(true);
     }
   }

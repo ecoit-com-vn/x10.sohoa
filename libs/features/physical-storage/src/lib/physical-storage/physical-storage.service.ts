@@ -142,4 +142,28 @@ export class PhysicalStorageService {
   deleteBox(id: number): Observable<void> {
     return this.api.delete<void>(`${this.base}/boxes/${id}`);
   }
+
+  // ─────────────────── IMPORT EXCEL ───────────────────
+  downloadImportTemplate() {
+    return this.api.getBlobResponse(`${this.base}/import/template`);
+  }
+
+  importFromExcel(file: File): Observable<PhysicalStorageImportResultDto> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.api.post<PhysicalStorageImportResultDto>(`${this.base}/import`, formData);
+  }
+}
+
+export interface PhysicalStorageImportErrorDto {
+  sheet: string;
+  row: number;
+  reason: string;
+}
+
+export interface PhysicalStorageImportResultDto {
+  shelvesCreated: number;
+  floorsCreated: number;
+  boxesCreated: number;
+  errors: PhysicalStorageImportErrorDto[];
 }
