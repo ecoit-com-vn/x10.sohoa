@@ -1571,7 +1571,7 @@ public class DocumentRepository : IDocumentRepository
             SELECT COUNT(1)
             FROM DOCUMENT_VERSIONS dv
             INNER JOIN DOCUMENTS d ON d.ID = dv.DOCUMENT_ID AND d.IS_DELETED = 0
-            INNER JOIN DOSSIER_EQUIPMENTS de ON d.DOSSIER_ID = de.DossierId AND de.EquipmentId = :EquipmentId
+            INNER JOIN DOCUMENT_EQUIPMENTS de ON de.DocumentId = d.ID AND de.EquipmentId = :EquipmentId
             WHERE dv.ID = :VersionId AND dv.IS_DELETED = 0";
 
         var count = await _connection.ExecuteScalarAsync<int>(sql, new
@@ -1592,7 +1592,7 @@ public class DocumentRepository : IDocumentRepository
             FROM DOCUMENT_VERSIONS dv
             INNER JOIN DOCUMENTS d ON d.ID = dv.DOCUMENT_ID AND d.IS_DELETED = 0
             INNER JOIN DOSSIERS dossier ON d.DOSSIER_ID = dossier.ID
-            INNER JOIN DOSSIER_EQUIPMENTS de ON d.DOSSIER_ID = de.DossierId AND de.EquipmentId = :EquipmentId
+            INNER JOIN DOCUMENT_EQUIPMENTS de ON de.DocumentId = d.ID AND de.EquipmentId = :EquipmentId
             WHERE dv.ID = :VersionId
               AND dv.IS_DELETED = 0
               AND dossier.IsDeleted = 0

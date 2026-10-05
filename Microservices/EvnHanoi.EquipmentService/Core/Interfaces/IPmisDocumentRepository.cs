@@ -37,6 +37,9 @@ public interface IPmisDocumentRepository
     /// Trạm/Đường dây đã trả luôn cả tài liệu của thiết bị con. Dùng cho backfill lấy lại link file.</summary>
     Task<IReadOnlyList<PendingOwnerInfrastructure>> GetPendingOwnerInfrastructuresAsync();
 
+    /// <summary>Trạng thái tải file hiện tại theo danh sách mã tài liệu (bỏ qua dòng đã xoá mềm).</summary>
+    Task<IReadOnlyList<PmisDocumentFileStatus>> GetFileStatusByCodesAsync(IReadOnlyCollection<string> codes);
+
     /// <summary>Dòng CHƯA xoá mềm theo mã kèm tên/owner — attach-file cần để đặt tên file và đường dẫn lưu trữ (không gắn file vào dòng đã xoá).</summary>
     Task<PmisDocumentFileTarget?> GetFileTargetByCodeAsync(string pmisDocumentCode);
 
