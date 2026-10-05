@@ -205,6 +205,7 @@
           <th>Trạm/Đường dây trực thuộc</th>
           <th>Hành động</th>
           <th>Trạng thái</th>
+          <th *ngIf="historyDetailView() === 'DOCUMENT'">Tải file</th>
           <th>Lỗi</th>
         </tr>
       </thead>
@@ -231,10 +232,16 @@
                 {{ d.status === 'SUCCESS' ? 'Thành công' : d.status === 'WARNING' ? 'Cảnh báo' : 'Lỗi' }}
               </span>
             </td>
-            <td class="note-cell">{{ d.errorMessage || '---' }}</td>
+            <td *ngIf="historyDetailView() === 'DOCUMENT'">
+              {{ d.hasFile || d.fileStatus === 'DONE' ? 'Đã tải'
+                : d.fileStatus === 'FAILED' ? 'Lỗi (hết lượt thử)'
+                : d.fileStatus === 'PENDING' ? (d.fileAttempts ? 'Lỗi, sẽ thử lại' : 'Chờ tải')
+                : d.fileStatus === 'NO_URL' ? 'Không có link' : '---' }}
+            </td>
+            <td class="note-cell">{{ (historyDetailView() === 'DOCUMENT' && d.fileLastError) || d.errorMessage || '---' }}</td>
           </tr>
           <tr *ngIf="historyDetails().length === 0">
-            <td colspan="7" class="empty-row"><i class="pi pi-inbox"></i><div>Không có dữ liệu.</div></td>
+            <td [attr.colspan]="historyDetailView() === 'DOCUMENT' ? 8 : 7" class="empty-row"><i class="pi pi-inbox"></i><div>Không có dữ liệu.</div></td>
           </tr>
         </ng-container>
       </tbody>
