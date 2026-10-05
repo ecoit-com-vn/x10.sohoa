@@ -28,6 +28,10 @@ public interface IPmisClient
     /// xác thực từ đúng cấu hình endpoint nguồn (SUBSTATION_DOCUMENT_LIST hoặc LINE_DOCUMENT_LIST) —
     /// không dùng cố định 1 endpoint cho cả 2 nguồn.</summary>
     Task<(byte[]? Bytes, string? ErrorReason)> DownloadDocumentFileAsync(string fileUrl, string endpointApiCode);
+
+    /// <summary>Gọi API danh sách tài liệu (8/9) và trả NGUYÊN VĂN body JSON PMIS (không qua DTO) — chỉ để chẩn đoán
+    /// khi nghi PMIS đổi tên/định dạng trường "File" (hệ thống không lưu phản hồi thô ở đâu khác).</summary>
+    Task<string> PeekDocumentsRawAsync(bool isSubstation, string ownerPmisCode, int take);
 }
 
 /// <summary>Báo lỗi nghiệp vụ khi 1 API PMIS chưa được cấu hình (chưa bật hoặc chưa nhập Url) qua màn "Cấu hình kết nối PMIS".</summary>

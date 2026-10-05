@@ -101,6 +101,9 @@ public class DocumentCompressionService : IDocumentCompressionService
                 isImage = false;
                 isPdf = true;
                 mimeType = "application/pdf";
+                // Đuôi cũng phải khớp nội dung (OcrWorker/ExtractionWorker suy tên JSON bằng cách cắt đuôi ".pdf").
+                if (IsConvertibleImageFileName(fileName))
+                    fileName = Path.ChangeExtension(fileName, ".pdf");
             }
         }
 

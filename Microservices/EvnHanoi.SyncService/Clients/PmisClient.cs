@@ -189,6 +189,15 @@ public class PmisClient : IPmisClient
         return parsed;
     }
 
+    public async Task<string> PeekDocumentsRawAsync(bool isSubstation, string ownerPmisCode, int take)
+    {
+        object request = isSubstation
+            ? new PmisSubstationDocumentSearchRequest { MaTBA = ownerPmisCode, Skip = 0, Take = take }
+            : new PmisLineDocumentSearchRequest { MaDuongDay = ownerPmisCode, Skip = 0, Take = take };
+        using var response = await SendAsync(isSubstation ? "SUBSTATION_DOCUMENT_LIST" : "LINE_DOCUMENT_LIST", request);
+        return await response.Content.ReadAsStringAsync();
+    }
+
     private async Task<HttpResponseMessage> SendAsync(string apiCode, object request) =>
         (await SendCoreAsync(apiCode, request, suppressSuccessLog: false)).Response;
 

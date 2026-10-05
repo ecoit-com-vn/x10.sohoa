@@ -577,9 +577,18 @@ namespace EvnHanoi.DigitizationService.Workers
                 return;
             }
 
-            _logger.LogError(
-                "OCR task vượt quá {MaxRetries} lần thử — đã chuyển sang hàng đợi lỗi {DlqQueue}.",
-                MaxRetries, DigitizationTopicTopology.OcrTaskDeadLetterQueue);
+            if (ex is NonRetryableOcrException)
+            {
+                _logger.LogError(
+                    "OCR task lỗi dữ liệu đầu vào (không thể retry) — đã chuyển thẳng sang hàng đợi lỗi {DlqQueue}: {Reason}",
+                    DigitizationTopicTopology.OcrTaskDeadLetterQueue, ex.Message);
+            }
+            else
+            {
+                _logger.LogError(
+                    "OCR task vượt quá {MaxRetries} lần thử — đã chuyển sang hàng đợi lỗi {DlqQueue}.",
+                    MaxRetries, DigitizationTopicTopology.OcrTaskDeadLetterQueue);
+            }
 
             var fileId = TryExtractFileId(messageText);
             if (fileId.HasValue)
