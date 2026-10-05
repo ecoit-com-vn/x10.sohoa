@@ -560,7 +560,8 @@ public class FileUploadService : IFileUploadService
 
         // ===== NÉN FILE (giảm về ~150 DPI cho PDF scan/ảnh, giữ nguyên PDF điện tử gốc) =====
         fileStream.Seek(0, SeekOrigin.Begin);
-        var compression = await _documentCompressionService.CompressAsync(fileStream, fileName, mimeType, cancellationToken);
+        var compression = await _documentCompressionService.CompressAsync(
+            fileStream, fileName, mimeType, cancellationToken, ConversionOptions(isDossierFlow: true));
         using var compressedStream = compression.Stream;
         fileName = compression.FileName;
         mimeType = compression.MimeType;
@@ -641,12 +642,13 @@ public class FileUploadService : IFileUploadService
         var chunkSize = _config.GetValue<int>("FileUpload:ChunkSizeBytes");
         var totalChunks = (int)Math.Ceiling((double)fileSize / chunkSize);
         var uploadId = Guid.NewGuid().ToString("N");
+        var storedFileName = ResolveStoredFileName(fileName, isDossierFlow: true);
 
         var session = new UploadSession
         {
             UploadId = uploadId,
             DossierId = dossierId,
-            FileName = fileName,
+            FileName = storedFileName,
             TotalChunks = totalChunks,
             Status = "InProgress",
             CreatedDate = DateTime.UtcNow,
@@ -659,7 +661,8 @@ public class FileUploadService : IFileUploadService
         {
             UploadId = uploadId,
             ChunkSize = chunkSize,
-            TotalChunks = totalChunks
+            TotalChunks = totalChunks,
+            FileName = storedFileName
         };
     }
 
@@ -700,6 +703,9 @@ public class FileUploadService : IFileUploadService
 
         var pageCount = 0;
         var mimeType = ResolveMimeType(session.FileName);
+        // true khi nội dung merge là ẢNH và cờ chuyển đổi bật: khi đó MỌI lỗi trước lúc ghi lại PDF đều phải huỷ upload
+        // (object đang mang tên .pdf nhưng còn là bytes ảnh) thay vì bị nuốt như lỗi đếm trang.
+        var mustConvert = false;
         try
         {
             await using var mergedFile = await _fileStorageService.DownloadFileAsync(
@@ -708,12 +714,18 @@ public class FileUploadService : IFileUploadService
                 minioVersionId,
                 cancellationToken);
 
+            var header = new byte[16];
+            var headerRead = await mergedFile.ReadAsync(header.AsMemory(0, header.Length), cancellationToken);
+            mustConvert = ConversionOptions(isDossierFlow: true).ConvertImageToPdf
+                && EvnHanoi.DocumentProcessing.DocumentCompressionService.LooksLikeImage(header[..headerRead]);
+            mergedFile.Seek(0, SeekOrigin.Begin);
+
             // ===== NÉN FILE SAU KHI MERGE (giảm về ~150 DPI cho PDF scan/ảnh, giữ nguyên PDF điện tử
             // gốc) — ghi đè lên đúng object vừa merge, không giữ lại bản chưa nén. =====
-            var compression = await _documentCompressionService.CompressAsync(mergedFile, session.FileName, mimeType, cancellationToken);
+            var compression = await _documentCompressionService.CompressAsync(
+                mergedFile, session.FileName, mimeType, cancellationToken, ConversionOptions(isDossierFlow: true));
             using var compressedStream = compression.Stream;
             mimeType = compression.MimeType;
-
             if (compression.WasCompressed)
             {
                 var (replacedSize, replacedVersionId) = await _fileStorageService.ReplaceObjectAsync(
@@ -722,8 +734,21 @@ public class FileUploadService : IFileUploadService
                 minioVersionId = replacedVersionId;
             }
 
+            mustConvert = false; // đã ghi lại thành công — các lỗi sau (đếm trang) không còn nghiêm trọng
             compressedStream.Seek(0, SeekOrigin.Begin);
             pageCount = DocumentPageCountDetector.Detect(compressedStream, session.FileName, mimeType);
+        }
+        catch (Exception ex) when (ex is EvnHanoi.DocumentProcessing.DocumentConversionException || mustConvert)
+        {
+            // Chuyển ảnh → PDF là bắt buộc: lỗi chuyển đổi hoặc lỗi ghi lại object sau khi chuyển → KHÔNG được
+            // nuốt (object trên MinIO đang mang tên .pdf nhưng có thể vẫn là bytes ảnh). Dọn object + đóng session.
+            _logger.LogError(ex, "Chuyển ảnh → PDF thất bại ở chunked upload hồ sơ {UploadId} ({FileName}) — huỷ upload.",
+                uploadId, session.FileName);
+            try { await _fileStorageService.DeleteFileAsync(mergedPath, _fileStorageService.DossierBucketName, minioVersionId, cancellationToken); }
+            catch (Exception cleanupEx) { _logger.LogWarning(cleanupEx, "Không dọn được object {Path} sau lỗi chuyển ảnh.", mergedPath); }
+            session.Status = "Failed";
+            await _documentRepository.UpdateUploadSessionAsync(session);
+            throw;
         }
         catch (Exception ex)
         {
@@ -751,7 +776,7 @@ public class FileUploadService : IFileUploadService
             FilePath = mergedPath,
             MinioVersionId = minioVersionId,
             FileSize = mergedSize,
-            MimeType = ResolveMimeType(session.FileName),
+            MimeType = mimeType,
             PageCount = pageCount,
             UploadSessionId = session.Id,
             ChunksCount = session.TotalChunks,
@@ -882,13 +907,15 @@ public class FileUploadService : IFileUploadService
 
         var totalChunks = (int)Math.Ceiling((double)fileSize / chunkSize);
         var uploadId = Guid.NewGuid().ToString("N");
+        // Chỉ tài liệu thuộc hồ sơ (không nằm trong thư mục Kho TL) mới chuyển ảnh → PDF.
+        var storedFileName = ResolveStoredFileName(fileName, isDossierFlow: !document.FolderId.HasValue);
 
         var session = new UploadSession
         {
             UploadId = uploadId,
             FolderId = document.FolderId,
             DossierId = document.DossierId,
-            FileName = fileName,
+            FileName = storedFileName,
             TotalChunks = totalChunks,
             CompletedChunks = 0,
             Status = "InProgress",
@@ -905,7 +932,8 @@ public class FileUploadService : IFileUploadService
         {
             UploadId = uploadId,
             ChunkSize = chunkSize,
-            TotalChunks = totalChunks
+            TotalChunks = totalChunks,
+            FileName = storedFileName
         };
     }
 
@@ -975,23 +1003,44 @@ public class FileUploadService : IFileUploadService
 
             var mimeType = ResolveMimeType(session.FileName);
             ValidateDossierMimeType(mimeType);
-            ValidateMagicBytes(mergedStream, mimeType);
+            var conversion = ConversionOptions(isDossierFlow: !document.FolderId.HasValue);
+            // Luồng hồ sơ: tên đã đổi .pdf từ lúc Initiate nhưng nội dung merge vẫn là ảnh gốc → chữ ký có thể là ảnh.
+            ValidateMagicBytes(mergedStream, mimeType, allowImageSignatures: conversion.ConvertImageToPdf);
 
             // ===== NÉN FILE SAU KHI MERGE (giảm về ~150 DPI cho PDF scan/ảnh, giữ nguyên PDF điện tử
             // gốc) — ghi đè lên đúng object vừa merge, không giữ lại bản chưa nén. =====
             var storageBucketName = document.FolderId.HasValue ? _fileStorageService.DocumentBucketName : _fileStorageService.DossierBucketName;
             mergedStream.Seek(0, SeekOrigin.Begin);
-            var compression = await _documentCompressionService.CompressAsync(mergedStream, session.FileName, mimeType, cancellationToken);
-            using var compressedStream = compression.Stream;
-            mimeType = compression.MimeType;
-
-            if (compression.WasCompressed)
+            var convertedFromImage = false;
+            Stream compressedStream;
+            try
             {
-                var (replacedSize, replacedVersionId) = await _fileStorageService.ReplaceObjectAsync(
-                    minioPath, storageBucketName, compressedStream, compression.Size, compression.MimeType, cancellationToken);
-                mergedSize = replacedSize;
-                minioVersionId = replacedVersionId;
+                var compression = await _documentCompressionService.CompressAsync(
+                    mergedStream, session.FileName, mimeType, cancellationToken, conversion);
+                compressedStream = compression.Stream;
+                mimeType = compression.MimeType;
+                convertedFromImage = compression.ConvertedFromImage;
+
+                if (compression.WasCompressed)
+                {
+                    var (replacedSize, replacedVersionId) = await _fileStorageService.ReplaceObjectAsync(
+                        minioPath, storageBucketName, compressedStream, compression.Size, compression.MimeType, cancellationToken);
+                    mergedSize = replacedSize;
+                    minioVersionId = replacedVersionId;
+                }
             }
+            catch (Exception ex) when (ex is EvnHanoi.DocumentProcessing.DocumentConversionException || convertedFromImage)
+            {
+                // Chuyển ảnh → PDF bắt buộc: không để lại object mang tên .pdf nhưng còn là bytes ảnh.
+                _logger.LogError(ex, "Chuyển ảnh → PDF thất bại ở chunked phiên bản mới {UploadId} ({FileName}) — huỷ upload.",
+                    uploadId, session.FileName);
+                try { await _fileStorageService.DeleteFileAsync(minioPath, storageBucketName, minioVersionId, cancellationToken); }
+                catch (Exception cleanupEx) { _logger.LogWarning(cleanupEx, "Không dọn được object {Path} sau lỗi chuyển ảnh.", minioPath); }
+                session.Status = "Failed";
+                await _documentRepository.UpdateUploadSessionAsync(session);
+                throw;
+            }
+            using var _ = compressedStream;
 
             var versions = await _documentRepository.GetDocumentVersionsAsync(documentId);
             int versionNumber = versions.Any() ? versions.Max(v => v.VersionNumber) + 1 : 1;
@@ -1061,6 +1110,19 @@ public class FileUploadService : IFileUploadService
         await _documentRepository.UpdateUploadSessionAsync(session);
     }
 
+    /// <summary>Chỉ luồng HỒ SƠ (OCR) mới chuyển ảnh → PDF; Kho tài liệu thiết bị giữ nguyên ảnh. Tắt được bằng
+    /// cấu hình DocumentProcessing:ConvertImageToPdf:Enabled=false.</summary>
+    private EvnHanoi.DocumentProcessing.DocumentProcessingOptions ConversionOptions(bool isDossierFlow) =>
+        new(ConvertImageToPdf: isDossierFlow && _config.GetValue("DocumentProcessing:ConvertImageToPdf:Enabled", true));
+
+    /// <summary>Luồng chunked chốt object key/Name từ tên file lúc Initiate → đổi đuôi ảnh sang .pdf NGAY ở đó
+    /// (chuyển đổi sau đó là bắt buộc, lỗi thì huỷ upload, nên không thể xảy ra "tên .pdf mà nội dung là ảnh").</summary>
+    private string ResolveStoredFileName(string fileName, bool isDossierFlow) =>
+        ConversionOptions(isDossierFlow).ConvertImageToPdf
+        && EvnHanoi.DocumentProcessing.DocumentCompressionService.IsConvertibleImageFileName(fileName)
+            ? Path.ChangeExtension(fileName, ".pdf")
+            : fileName;
+
     private static string ResolveMimeType(string fileName)
     {
         var provider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
@@ -1071,15 +1133,30 @@ public class FileUploadService : IFileUploadService
         return "application/octet-stream";
     }
 
-    private void ValidateMagicBytes(Stream fileStream, string mimeType)
+    private static readonly string[] ConvertibleImageMimeTypes = { "image/jpeg", "image/png", "image/tiff" };
+
+    private void ValidateMagicBytes(Stream fileStream, string mimeType, bool allowImageSignatures = false)
     {
         using var memStream = new MemoryStream();
         fileStream.CopyTo(memStream);
         memStream.Seek(0, SeekOrigin.Begin);
-        
-        if (!_mimeTypeValidator.ValidateMagicBytes(memStream, mimeType))
+
+        var ok = _mimeTypeValidator.ValidateMagicBytes(memStream, mimeType);
+
+        // Chunked hồ sơ: tên file đã được đổi .pdf (ảnh sẽ chuyển PDF) nên MIME suy từ tên là PDF, nhưng bytes
+        // thật là ảnh → chấp nhận chữ ký của đúng các định dạng ảnh được phép (jpeg/png/tiff).
+        if (!ok && allowImageSignatures && mimeType.Equals("application/pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var imageMime in ConvertibleImageMimeTypes)
+            {
+                memStream.Seek(0, SeekOrigin.Begin);
+                if (_mimeTypeValidator.ValidateMagicBytes(memStream, imageMime)) { ok = true; break; }
+            }
+        }
+
+        if (!ok)
             throw new ArgumentException("File bị nghi ngờ - chữ ký file không khớp với loại file");
-        
+
         fileStream.Seek(0, SeekOrigin.Begin);
     }
 }

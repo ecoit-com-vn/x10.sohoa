@@ -1488,6 +1488,53 @@ public class DocumentRepository : IDocumentRepository
         return rows > 0;
     }
 
+    public async Task<bool> UpdateDocumentVersionContentAsync(
+        Guid versionId, string minioVersionId, long fileSize, string mimeType, int pageCount)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            UPDATE DOCUMENT_VERSIONS
+            SET MINIO_VERSION_ID = :MinioVersionId,
+                FILE_SIZE = :FileSize,
+                MIME_TYPE = :MimeType,
+                PAGE_COUNT = :PageCount
+            WHERE ID = :Id AND IS_DELETED = 0";
+
+        var rows = await _connection.ExecuteAsync(sql, new
+        {
+            Id = versionId.ToString(),
+            MinioVersionId = minioVersionId,
+            FileSize = fileSize,
+            MimeType = mimeType,
+            PageCount = pageCount
+        });
+        return rows > 0;
+    }
+
+    public async Task<bool> UpdateDocumentNameAsync(Guid documentId, string name, string modifiedBy)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            UPDATE DOCUMENTS
+            SET NAME = :Name,
+                ROW_VERSION = ROW_VERSION + 1,
+                MODIFIED_BY = :ModifiedBy,
+                MODIFIED_DATE = SYSTIMESTAMP
+            WHERE ID = :Id AND IS_DELETED = 0";
+
+        var rows = await _connection.ExecuteAsync(sql, new
+        {
+            Id = documentId.ToString(),
+            Name = name,
+            ModifiedBy = modifiedBy
+        });
+        return rows > 0;
+    }
+
     public async Task<bool> SoftDeleteDocumentVersionsAsync(Guid documentId, string modifiedBy)
     {
         if (_connection.State != ConnectionState.Open)
