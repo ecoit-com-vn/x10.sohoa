@@ -60,6 +60,8 @@ export interface InitiateChunkedUploadResponse {
   uploadId: string;
   chunkSize: number;
   totalChunks: number;
+  /** Tên file thực sự được lưu — luồng hồ sơ: ảnh được chuyển thành PDF nên đuôi là .pdf. */
+  fileName?: string;
 }
 
 export interface UploadChunkResponse {
