@@ -1253,11 +1253,15 @@ public class DocumentRepository : IDocumentRepository
         var aliasedWhere = "d.IS_DELETED = 0 AND d.DOSSIER_ID = :DossierId";
         if (!string.IsNullOrWhiteSpace(filter.Keyword))
             aliasedWhere += " AND d.NAME LIKE :Keyword";
+        if (filter.DocumentTypeId.HasValue)
+            aliasedWhere += " AND d.DOCUMENT_TYPE_ID = :DocumentTypeId";
 
         var countParams = new DynamicParameters();
         countParams.Add("DossierId", dossierId.ToString());
         if (!string.IsNullOrWhiteSpace(filter.Keyword))
             countParams.Add("Keyword", $"%{filter.Keyword}%");
+        if (filter.DocumentTypeId.HasValue)
+            countParams.Add("DocumentTypeId", filter.DocumentTypeId.Value.ToString());
 
         var countSql = $"SELECT COUNT(*) FROM DOCUMENTS d WHERE {aliasedWhere}";
         var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, countParams);
@@ -1339,6 +1343,8 @@ public class DocumentRepository : IDocumentRepository
         listParams.Add("DossierId", dossierId.ToString());
         if (!string.IsNullOrWhiteSpace(filter.Keyword))
             listParams.Add("Keyword", $"%{filter.Keyword}%");
+        if (filter.DocumentTypeId.HasValue)
+            listParams.Add("DocumentTypeId", filter.DocumentTypeId.Value.ToString());
         listParams.Add("Offset", offset);
         listParams.Add("PageSize", filter.PageSize);
 
