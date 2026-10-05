@@ -4,36 +4,76 @@
     <span>Chỉ xem — không thể thêm, sửa hoặc xóa tài liệu.</span>
   </div>
 
-  <div class="list-toolbar" style="margin-bottom: 12px;">
-    <div class="toolbar-left">
-      <input
-        type="text"
-        class="wf-search-input"
-        placeholder="Tìm tài liệu..."
-        [ngModel]="searchKeyword()"
-        (ngModelChange)="onSearchChange($event)"
-        style="min-width: 220px;"
-      />
-    </div>
-    <div class="toolbar-right" *ngIf="canEdit || canUpload">
-      <button type="button" class="btn-save btn-small" [disabled]="exporting()" (click)="onExportDocuments()">
-        <i class="pi" [ngClass]="exporting() ? 'pi-spin pi-spinner' : 'pi-download'"></i>
-        Export
-      </button>
-      <app-dossier-upload-menu
-        [disabled]="!canEdit && !canUpload"
-        (actionSelected)="onUploadAction($event)"
-      ></app-dossier-upload-menu>
-    </div>
-  </div>
+  <div class="documents-tab-layout">
+    <aside class="document-type-tree">
+      <div class="tree-header">
+        <i class="pi pi-fw pi-folder"></i>
+        <strong>LOẠI VĂN BẢN</strong>
+      </div>
+      <ul class="tree-list">
+        <li>
+          <button
+            type="button"
+            class="tree-item-btn root-node"
+            [class.active]="selectedDocumentTypeId() === null"
+            (click)="onSelectDocumentTypeFolder(null)"
+          >
+            <i class="pi" [ngClass]="selectedDocumentTypeId() === null ? 'pi-folder-open' : 'pi-folder'"></i>
+            <span>Tất cả tài liệu</span>
+          </button>
+        </li>
+        <li *ngFor="let dt of documentTypeFolders()">
+          <button
+            type="button"
+            class="tree-item-btn"
+            [class.active]="selectedDocumentTypeId() === dt.id"
+            [title]="dt.name"
+            (click)="onSelectDocumentTypeFolder(dt.id)"
+          >
+            <i class="pi" [ngClass]="selectedDocumentTypeId() === dt.id ? 'pi-folder-open' : 'pi-folder'"></i>
+            <span>{{ dt.name }}</span>
+          </button>
+        </li>
+      </ul>
+      <p class="tree-loading" *ngIf="loadingDocumentTypeFolders()">
+        <i class="pi pi-spin pi-spinner"></i> Đang tải...
+      </p>
+      <p class="tree-empty" *ngIf="!loadingDocumentTypeFolders() && documentTypeFolders().length === 0">
+        Hồ sơ chưa có loại văn bản nào được cấu hình.
+      </p>
+    </aside>
 
-  <div
-    #tableWrap
-    class="wf-table-wrap"
-    [class.loading]="loading()"
-    [class.has-horizontal-scroll]="hasHorizontalScroll()"
-  >
-    <table class="wf-table">
+    <section class="documents-panel">
+      <div class="list-toolbar" style="margin-bottom: 12px;">
+        <div class="toolbar-left">
+          <input
+            type="text"
+            class="wf-search-input"
+            placeholder="Tìm tài liệu..."
+            [ngModel]="searchKeyword()"
+            (ngModelChange)="onSearchChange($event)"
+            style="min-width: 220px;"
+          />
+        </div>
+        <div class="toolbar-right" *ngIf="canEdit || canUpload">
+          <button type="button" class="btn-save btn-small" [disabled]="exporting()" (click)="onExportDocuments()">
+            <i class="pi" [ngClass]="exporting() ? 'pi-spin pi-spinner' : 'pi-download'"></i>
+            Export
+          </button>
+          <app-dossier-upload-menu
+            [disabled]="!canEdit && !canUpload"
+            (actionSelected)="onUploadAction($event)"
+          ></app-dossier-upload-menu>
+        </div>
+      </div>
+
+      <div
+        #tableWrap
+        class="wf-table-wrap"
+        [class.loading]="loading()"
+        [class.has-horizontal-scroll]="hasHorizontalScroll()"
+      >
+        <table class="wf-table">
       <thead>
         <tr>
           <th class="col-stt">STT</th>
@@ -204,6 +244,8 @@
         <option [ngValue]="50">50 / trang</option>
       </select>
     </div>
+  </div>
+    </section>
   </div>
 </div>
 
@@ -441,6 +483,7 @@
 <app-dossier-direct-upload-dialog
   [dossierId]="dossierId"
   [infrastructureIds]="infrastructureIds"
+  [documentTypeId]="selectedDocumentTypeId()"
   [uploadSource]="uploadSource()"
   [dialogTitle]="uploadDialogTitle()"
   [visible]="showDirectUpload()"

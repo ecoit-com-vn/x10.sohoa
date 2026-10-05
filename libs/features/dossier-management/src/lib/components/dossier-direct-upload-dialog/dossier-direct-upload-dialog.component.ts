@@ -110,7 +110,22 @@ export class DossierDirectUploadDialogComponent implements OnInit {
 
   @Input() dialogTitle = 'Upload trực tiếp vào hồ sơ';
 
-  /** Chỉ hiển thị loại văn bản lý lịch thiết bị (IsEquipmentProfile). */
+  /** Loại văn bản đang chọn ở cây thư mục bên ngoài (tab cha) — thay cho select "Bước 1" cũ đã bỏ.
+   * null = chưa chọn nhánh nào, upload sẽ bị chặn (tab cha đã chặn mở dialog trong trường hợp này,
+   * đây là lớp bảo vệ thứ 2 phòng khi dialog được mở bằng cách khác).
+   *
+   * Dùng setter ghi vào signal riêng thay vì đọc thẳng property trong computed() — computed() chỉ
+   * theo dõi được signal, một @Input thường (property thuần) không bao giờ kích hoạt nó tính lại, nên
+   * selectedDocumentTypeId từng bị đứng im ở giá trị lúc khởi tạo (luôn rỗng) dù tab cha đã truyền
+   * đúng documentTypeId khi người dùng chọn nhánh cây — đây chính là lỗi "Chưa xác định được loại văn
+   * bản" dù đã chọn loại tài liệu trước khi bấm Thêm mới. */
+  private readonly documentTypeIdSignal = signal<string | null>(null);
+  @Input() set documentTypeId(value: string | null) {
+    this.documentTypeIdSignal.set(value);
+  }
+  get documentTypeId(): string | null {
+    return this.documentTypeIdSignal();
+  }
 
   @Output() visibleChange = new EventEmitter<boolean>();
 
@@ -124,7 +139,9 @@ export class DossierDirectUploadDialogComponent implements OnInit {
 
   loadingDocTypes = signal(false);
 
-  selectedDocumentTypeId = signal('');
+  /** thay cho signal set() thủ công cũ — nguồn giờ là @Input() documentTypeId do tab cha truyền vào
+   * (lấy từ nhánh cây thư mục đang chọn), không còn select trong dialog này nữa. */
+  readonly selectedDocumentTypeId = computed(() => this.documentTypeIdSignal() ?? '');
 
   /** Thiết bị để phân loại tài liệu — chỉ chọn được thiết bị thuộc Trạm/đường dây đã chọn của hồ sơ. */
   equipmentOptions = signal<{ id: string; code: string; name: string }[]>([]);
@@ -377,8 +394,6 @@ export class DossierDirectUploadDialogComponent implements OnInit {
     this.submitting.set(false);
 
     this.scanInProgress.set(false);
-
-    this.selectedDocumentTypeId.set('');
 
     this.selectedEquipmentIds.set([]);
 
