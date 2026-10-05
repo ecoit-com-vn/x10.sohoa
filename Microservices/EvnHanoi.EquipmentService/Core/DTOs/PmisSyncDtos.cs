@@ -204,6 +204,16 @@ public class PendingPmisDocumentFile
 /// PmisDocumentFileDownloadWatchdogJob (SyncService) để phát hiện khi job tải file ngừng tiến triển mà
 /// không ai biết (xem phát hiện thật 2026-10-01: job thiếu hẳn khỏi Quartz job list trên production 10
 /// ngày liền, không log, không exception, chỉ phát hiện được qua tra DB tay).</summary>
+/// <summary>Trạng thái tải file hiện tại của 1 tài liệu — cho màn Lịch sử đồng bộ (SyncService) hiện lỗi tải file thật.</summary>
+public class PmisDocumentFileStatus
+{
+    public string PmisDocumentCode { get; set; } = string.Empty;
+    public string FileStatus { get; set; } = "NO_URL";
+    public int FileAttempts { get; set; }
+    public string? FileLastError { get; set; }
+    public bool HasFile { get; set; }
+}
+
 public class PendingOwnerInfrastructure
 {
     public string PmisCode { get; set; } = string.Empty;
@@ -235,6 +245,10 @@ public class UpsertPmisDocumentResult
     public string PmisDocumentCode { get; set; } = string.Empty;
     public bool Success { get; set; }
     public bool WasSkippedAsExisting { get; set; }
+
+    /// <summary>true nếu lần này INSERT dòng mới (false = đã có dòng, chỉ làm mới link/owner) — để lịch sử đồng bộ
+    /// phân biệt Tạo mới/Cập nhật.</summary>
+    public bool WasCreated { get; set; }
     public string? ErrorMessage { get; set; }
 }
 

@@ -23,6 +23,16 @@ public class SyncHistoryDetail
     public string? RecordKind { get; set; }
 }
 
+/// <summary>SyncHistoryDetail kèm trạng thái tải file HIỆN TẠI của tài liệu (chỉ điền khi RecordKind=DOCUMENT) —
+/// tính lúc đọc (SyncHistoryController.GetItems), không lưu vào bảng, vì trạng thái đổi sau khi lượt đồng bộ xong.</summary>
+public class SyncHistoryDetailView : SyncHistoryDetail
+{
+    public string? FileStatus { get; set; }
+    public int? FileAttempts { get; set; }
+    public string? FileLastError { get; set; }
+    public bool? HasFile { get; set; }
+}
+
 public static class SyncActionType
 {
     public const string Create = "CREATE";

@@ -131,5 +131,6 @@ public class UpsertPmisDocumentResult
     public string PmisDocumentCode { get; set; } = string.Empty;
     public bool Success { get; set; }
     public bool WasSkippedAsExisting { get; set; }
+    public bool WasCreated { get; set; }
     public string? ErrorMessage { get; set; }
 }

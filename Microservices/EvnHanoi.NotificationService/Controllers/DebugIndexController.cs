@@ -146,12 +146,14 @@ public class DebugIndexController : ControllerBase
             .Index(IndexName)
             .IndexMany(batch, (op, eq) => op.Id(eq.Id)));
 
-        var failed = response.IsValidResponse ? response.Items.Count(i => i.Error != null) : batch.Count;
+        // Cả request lỗi (HTTP không thành công) → coi cả lô lỗi; request OK nhưng có item lỗi → đếm đúng item.
+        var requestOk = response.ApiCallDetails.HasSuccessfulStatusCode;
+        var failed = requestOk ? response.Items.Count(i => i.Error != null) : batch.Count;
         lock (StateLock)
         {
             _state.Indexed += batch.Count - failed;
             _state.FailedDocs += failed;
-            if (failed > 0) _state.LastError = response.IsValidResponse
+            if (failed > 0) _state.LastError = requestOk
                 ? response.Items.FirstOrDefault(i => i.Error != null)?.Error?.Reason
                 : response.DebugInformation;
         }
