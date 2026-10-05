@@ -26,8 +26,15 @@ public class OcrModuleJobController : ControllerBase
     private readonly EvnHanoi.DocumentProcessing.IDocumentCompressionService _documentCompressionService;
     private readonly ILogger<OcrModuleJobController> _logger;
     private readonly string _trainingBucketName;
+    private readonly bool _convertImageToPdf;
 
-    private static readonly string[] AllowedUploadContentTypes = { "application/pdf" };
+    private static readonly string[] AllowedUploadContentTypes =
+    {
+        "application/pdf", "image/jpeg", "image/png", "image/tiff", "image/bmp"
+    };
+
+    // OcrWorker chỉ đọc được PDF → file ảnh được chuyển thành PDF 1 trang (TIFF nhiều trang → nhiều trang) lúc upload.
+    private static readonly string[] AllowedUploadExtensions = { ".pdf", ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp" };
 
     public OcrModuleJobController(
         IOcrModuleRepository repository,
@@ -47,6 +54,7 @@ public class OcrModuleJobController : ControllerBase
         // Bucket riêng cho dữ liệu huấn luyện AI-OCR (đã dùng sẵn bởi OcrTrainingDataController) —
         // tách biệt hoàn toàn khỏi bucket "digitization" chứa file hồ sơ/thiết bị thật.
         _trainingBucketName = configuration["MinIO:TrainingBucketName"] ?? "ocr-training";
+        _convertImageToPdf = configuration.GetValue("DocumentProcessing:ConvertImageToPdf:Enabled", true);
     }
 
     /// <summary>
@@ -59,24 +67,29 @@ public class OcrModuleJobController : ControllerBase
     public async Task<ActionResult<CreateJobResponse>> CreateFromUpload([FromForm] IFormFile file)
     {
         if (file == null || file.Length == 0)
-            return BadRequest(new { code = "ERR_OCR_MODULE_NO_FILE", message = "Vui lòng chọn file PDF để tải lên." });
+            return BadRequest(new { code = "ERR_OCR_MODULE_NO_FILE", message = "Vui lòng chọn file PDF hoặc ảnh để tải lên." });
 
         if (file.Length > 50_000_000)
             return BadRequest(new { code = "ERR_OCR_MODULE_FILE_TOO_LARGE", message = "Kích thước file không được vượt quá 50MB." });
 
         var extension = Path.GetExtension(file.FileName);
-        if (!string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase) ||
+        if (Array.IndexOf(AllowedUploadExtensions, extension?.ToLowerInvariant()) < 0 ||
             Array.IndexOf(AllowedUploadContentTypes, file.ContentType?.ToLowerInvariant()) < 0)
         {
-            return BadRequest(new { code = "ERR_OCR_MODULE_INVALID_FILE_TYPE", message = "Chỉ chấp nhận file PDF." });
+            return BadRequest(new { code = "ERR_OCR_MODULE_INVALID_FILE_TYPE", message = "Chỉ chấp nhận file PDF hoặc ảnh (JPG, PNG, TIFF, BMP)." });
         }
+
+        if (!_convertImageToPdf && !string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { code = "ERR_OCR_MODULE_INVALID_FILE_TYPE", message = "Hệ thống đang tắt chuyển ảnh sang PDF — chỉ nhận file PDF." });
 
         OcrModuleJob? job = null;
 
         try
         {
             using var inputStream = file.OpenReadStream();
-            var compression = await _documentCompressionService.CompressAsync(inputStream, file.FileName, file.ContentType);
+            var compression = await _documentCompressionService.CompressAsync(
+                inputStream, file.FileName, file.ContentType,
+                options: new EvnHanoi.DocumentProcessing.DocumentProcessingOptions(ConvertImageToPdf: _convertImageToPdf));
             using var compressedStream = compression.Stream;
 
             using var msPdf = new MemoryStream();
@@ -110,6 +123,11 @@ public class OcrModuleJobController : ControllerBase
             await _messagePublisher.PublishMessageAsync(taskMessage, "digitization.topic", "ocr.process.task");
 
             return Ok(new CreateJobResponse { JobId = job.Id, RegionCount = 0, State = job.State });
+        }
+        catch (EvnHanoi.DocumentProcessing.DocumentConversionException ex)
+        {
+            _logger.LogWarning(ex, "Không chuyển được ảnh sang PDF khi tải lên file huấn luyện AI-OCR {FileName}", file.FileName);
+            return BadRequest(new { code = "ERR_OCR_MODULE_IMAGE_CONVERSION_FAILED", message = ex.Message });
         }
         catch (Exception ex)
         {
