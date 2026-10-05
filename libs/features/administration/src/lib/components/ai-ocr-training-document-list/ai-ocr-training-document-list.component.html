@@ -107,14 +107,14 @@
 <p-dialog
   [visible]="uploadDialogVisible()"
   (visibleChange)="$event ? null : closeUploadDialog()"
-  header="Tải lên file PDF huấn luyện AI-OCR"
+  header="Tải lên file huấn luyện AI-OCR (PDF hoặc ảnh)"
   [modal]="true"
   [style]="{ width: '560px' }"
   styleClass="evn-dialog-custom"
 >
-  <p class="upload-hint">Chọn 1 file PDF để tải lên — hệ thống sẽ đưa file vào xử lý OCR ngay sau khi tải lên xong.</p>
+  <p class="upload-hint">Chọn 1 file PDF hoặc ảnh (JPG, PNG, TIFF) để tải lên — ảnh sẽ được chuyển thành PDF, rồi hệ thống đưa file vào xử lý OCR ngay sau khi tải lên xong.</p>
   <app-file-upload-zone
-    [allowedExtensions]="['.pdf']"
+    [allowedExtensions]="['.pdf', '.jpg', '.jpeg', '.png', '.tif', '.tiff']"
     [maxFileSize]="50 * 1024 * 1024"
     [uploadHandler]="uploadHandler"
     (fileUploaded)="onFileUploaded()"
