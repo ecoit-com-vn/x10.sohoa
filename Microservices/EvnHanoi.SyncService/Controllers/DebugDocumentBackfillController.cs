@@ -92,7 +92,8 @@ public class DebugDocumentBackfillController : ControllerBase
 
     private async Task RunAsync(int? infraTypeId, int? limit)
     {
-        var histories = new Dictionary<int, (string Id, int Total, int Success, int Failed)>();
+        var histories = new Dictionary<int, (string? Id, int Total, int Success, int Failed)>();
+        var runFailed = false;
         try
         {
             List<SyncedInfrastructurePmisCode> owners;
@@ -126,25 +127,51 @@ public class DebugDocumentBackfillController : ControllerBase
 
                     if (!histories.TryGetValue(owner.InfraTypeId, out var history))
                     {
-                        var objectType = owner.InfraTypeId == 1 ? SyncObjectType.Substation : SyncObjectType.TransmissionLine;
-                        var config = await sp.GetRequiredService<ISyncConfigRepository>().GetByObjectTypeAsync(objectType);
-                        var id = await historyRepo.CreateAsync(new SyncHistory
+                        // Tạo SYNC_HISTORY lỗi (vd. thiếu dòng SYNC_CONFIG) KHÔNG được dừng cả lượt: ghi nhận lỗi,
+                        // bỏ qua các owner của loại này (không có SyncHistoryId hợp lệ để gắn vào tài liệu) và
+                        // tiếp tục loại còn lại.
+                        string? id = null;
+                        try
                         {
-                            SyncConfigId = config?.Id ?? string.Empty,
-                            ObjectType = objectType,
-                            SyncType = SyncType.Manual,
-                            StartTime = DateTime.UtcNow,
-                            Status = SyncHistoryStatus.Running,
-                            CreatedBy = "DEBUG_BACKFILL",
-                        });
+                            var objectType = owner.InfraTypeId == 1 ? SyncObjectType.Substation : SyncObjectType.TransmissionLine;
+                            var config = await sp.GetRequiredService<ISyncConfigRepository>().GetByObjectTypeAsync(objectType);
+                            if (config == null) throw new InvalidOperationException($"Thiếu dòng SYNC_CONFIG cho {objectType}.");
+                            id = await historyRepo.CreateAsync(new SyncHistory
+                            {
+                                SyncConfigId = config.Id,
+                                ObjectType = objectType,
+                                SyncType = SyncType.Manual,
+                                StartTime = DateTime.UtcNow,
+                                Status = SyncHistoryStatus.Running,
+                                CreatedBy = "DEBUG_BACKFILL",
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "DebugDocumentBackfillController: không tạo được SYNC_HISTORY cho infraTypeId={InfraTypeId}", owner.InfraTypeId);
+                            lock (StateLock) _state.LastError = $"Không tạo được lịch sử cho loại {owner.InfraTypeId}: {ex.Message}";
+                        }
+
                         history = (id, 0, 0, 0);
+                    }
+
+                    if (history.Id == null)
+                    {
+                        histories[owner.InfraTypeId] = (null, history.Total + 1, 0, history.Failed + 1);
+                        lock (StateLock)
+                        {
+                            _state.FailedOwners++;
+                            _state.ProcessedOwners++;
+                        }
+
+                        continue;
                     }
 
                     var ok = true;
                     try
                     {
                         var exec = sp.GetRequiredService<IPmisSyncExecutionService>();
-                        var (warnings, details) = await exec.SyncDocumentsForInfrastructureOwnerAsync(owner.PmisCode, owner.InfraTypeId, history.Id);
+                        var (warnings, details) = await exec.SyncDocumentsForInfrastructureOwnerAsync(owner.PmisCode, owner.InfraTypeId, history.Id!);
                         var problems = details.Where(d => d.Status != SyncDetailStatus.Success).ToList();
                         if (problems.Count > 0) await historyRepo.InsertDetailsAsync(problems);
                         lock (StateLock) _state.Warnings += warnings;
@@ -177,6 +204,7 @@ public class DebugDocumentBackfillController : ControllerBase
         }
         catch (Exception ex)
         {
+            runFailed = true;
             _logger.LogError(ex, "DebugDocumentBackfillController: backfill thất bại");
             lock (StateLock)
             {
@@ -187,21 +215,29 @@ public class DebugDocumentBackfillController : ControllerBase
         }
         finally
         {
-            await CompleteHistoriesAsync(histories);
+            await CompleteHistoriesAsync(histories, runFailed);
         }
     }
 
-    private async Task CompleteHistoriesAsync(Dictionary<int, (string Id, int Total, int Success, int Failed)> histories)
+    private async Task CompleteHistoriesAsync(Dictionary<int, (string? Id, int Total, int Success, int Failed)> histories, bool runFailed)
     {
         if (histories.Count == 0) return;
+        int totalOwners, processed;
+        lock (StateLock) { totalOwners = _state.TotalOwners; processed = _state.ProcessedOwners; }
         try
         {
             using var scope = _scopeFactory.CreateScope();
             var repo = scope.ServiceProvider.GetRequiredService<ISyncHistoryRepository>();
-            foreach (var h in histories.Values)
+            foreach (var h in histories.Values.Where(h => h.Id != null))
             {
-                var status = h.Failed == 0 ? SyncHistoryStatus.Success : SyncHistoryStatus.Warning;
-                await repo.CompleteAsync(h.Id, status, h.Total, h.Success, h.Failed, h.Failed > 0 ? $"{h.Failed} owner lỗi khi backfill tài liệu." : null);
+                // Cả lượt thất bại giữa chừng → FAILED (không để SUCCESS dù chưa owner nào lỗi); có owner lỗi → WARNING.
+                var status = runFailed ? SyncHistoryStatus.Failed
+                    : h.Failed == 0 ? SyncHistoryStatus.Success
+                    : SyncHistoryStatus.Warning;
+                var parts = new List<string>();
+                if (runFailed) parts.Add($"Lượt backfill dừng giữa chừng: đã xử lý {processed}/{totalOwners} owner (cả hai loại).");
+                if (h.Failed > 0) parts.Add($"{h.Failed} owner lỗi khi backfill tài liệu.");
+                await repo.CompleteAsync(h.Id!, status, h.Total, h.Success, h.Failed, parts.Count > 0 ? string.Join(" ", parts) : null);
             }
         }
         catch (Exception ex)

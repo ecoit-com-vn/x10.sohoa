@@ -141,6 +141,19 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         return await _connection.QuerySingleAsync<PendingDocumentFileSummary>(sql);
     }
 
+    public async Task<IReadOnlyList<PmisDocumentFileStatus>> GetFileStatusByCodesAsync(IReadOnlyCollection<string> codes)
+    {
+        if (codes.Count == 0) return [];
+        EnsureOpen();
+        const string sql = @"
+            SELECT PmisDocumentCode, FILE_STATUS AS FileStatus, FILE_ATTEMPTS AS FileAttempts,
+                   FILE_LAST_ERROR AS FileLastError,
+                   CASE WHEN ObjectKey IS NOT NULL THEN 1 ELSE 0 END AS HasFile
+            FROM PMIS_DOCUMENT
+            WHERE IsDeleted = 0 AND PmisDocumentCode IN :Codes";
+        return (await _connection.QueryAsync<PmisDocumentFileStatus>(sql, new { Codes = codes })).ToList();
+    }
+
     public async Task<IReadOnlyList<PendingOwnerInfrastructure>> GetPendingOwnerInfrastructuresAsync()
     {
         EnsureOpen();

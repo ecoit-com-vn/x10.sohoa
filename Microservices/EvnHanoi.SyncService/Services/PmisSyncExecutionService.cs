@@ -910,6 +910,17 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 var isWarning = !result.Success || info.FileDownloadError != null;
                 if (isWarning) warningCount++;
 
+                // Pha danh sách CHỈ lưu metadata + link; file thật do PmisDocumentFileDownloadJob tải sau. Dòng
+                // đã lưu thành công, có link nhưng chưa có file (không phải "đã có file từ trước" =
+                // WasSkippedAsExisting) trước đây hiện "Bỏ qua / Thành công" y hệt 1 file đã tải xong — gây hiểu
+                // nhầm (PRO 2026-10: 0 file DONE dù lịch sử toàn "Thành công"). Đánh dấu Warning ở MỨC DÒNG để
+                // người xem biết file chưa về, nhưng KHÔNG cộng vào warningCount (đó là trạng thái bình thường
+                // của pha 1, nếu cộng thì mọi lượt có tài liệu mới đều thành WARNING với hàng chục nghìn cảnh báo).
+                var fileNotYetDownloaded = result.Success && !result.WasSkippedAsExisting && info.FileUrl != null && info.FileDownloadError == null;
+                var actionType = result.WasSkippedAsExisting ? SyncActionType.Skip
+                    : result.WasCreated ? SyncActionType.Create
+                    : SyncActionType.Update;
+
                 // Dùng ĐÚNG khoá TenTBA/TenDuongDay (không bịa khoá "OwnerName" mới) — đây là 2 khoá mà
                 // FE (getParentName) đã đọc sẵn từ dataContent của dòng Trạm/Đường dây/Thiết bị chính
                 // (item PMIS thô, xem dòng ~726/912 dưới), nên dòng tài liệu tái dùng đúng quy ước đó,
@@ -926,9 +937,10 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                     SourceCode = result.PmisDocumentCode,
                     SourceName = info.TenTaiLieu ?? result.PmisDocumentCode,
                     DataContent = dataContent,
-                    ActionType = SyncActionType.Skip,
-                    Status = isWarning ? SyncDetailStatus.Warning : SyncDetailStatus.Success,
-                    ErrorMessage = result.ErrorMessage ?? info.FileDownloadError,
+                    ActionType = actionType,
+                    Status = isWarning || fileNotYetDownloaded ? SyncDetailStatus.Warning : SyncDetailStatus.Success,
+                    ErrorMessage = result.ErrorMessage ?? info.FileDownloadError
+                        ?? (fileNotYetDownloaded ? "Đã lưu thông tin; file chưa tải về (đang chờ job tải file)." : null),
                     RecordKind = SyncRecordKind.Document
                 });
             }
