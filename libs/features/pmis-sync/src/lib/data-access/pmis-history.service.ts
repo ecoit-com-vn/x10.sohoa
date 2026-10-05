@@ -31,6 +31,11 @@ export interface SyncHistoryDetail {
   /** INFRASTRUCTURE | EQUIPMENT | DOCUMENT — null cho dữ liệu lịch sử cũ (trước khi có phân loại). */
   recordKind: string | null;
   syncTime: string;
+  /** Chỉ có ở dòng DOCUMENT — trạng thái tải file HIỆN TẠI tính lúc đọc (không phải lúc đồng bộ). */
+  fileStatus?: 'NO_URL' | 'PENDING' | 'DONE' | 'FAILED' | null;
+  fileAttempts?: number | null;
+  fileLastError?: string | null;
+  hasFile?: boolean | null;
 }
 
 /** Khớp SyncRecordKind phía backend (Models/SyncHistoryDetail.cs) — dùng khi gọi getHistoryItems. */
