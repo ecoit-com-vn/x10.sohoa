@@ -122,6 +122,54 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         return (await _connection.QueryAsync<PendingPmisDocumentFile>(sql, new { Take = take })).ToList();
     }
 
+    // Dùng SyncedAt (không phải ModifiedDate) để tính LastDownloadedAt bên dưới — ModifiedDate còn bị
+    // UpdateOwnerAsync bump lại trên CẢ dòng đã DONE từ trước (khi 1 lượt đồng bộ Thiết bị khác resolve
+    // lại đúng owner hơn, không liên quan gì tới việc tải file), khiến watchdog tưởng vừa có hoạt động dù
+    // PmisDocumentFileDownloadJob đã chết thật. SyncedAt chỉ được set đúng 1 chỗ duy nhất (UpdateFileAsync,
+    // ngay khi 1 file được tải và lưu thành công thật) nên không bị lẫn như vậy.
+    public async Task<PendingDocumentFileSummary> GetPendingSummaryAsync()
+    {
+        EnsureOpen();
+        const string sql = @"
+            SELECT
+                (SELECT COUNT(*) FROM PMIS_DOCUMENT
+                  WHERE ObjectKey IS NULL AND IsDeleted = 0 AND FILE_URL IS NOT NULL
+                    AND FILE_STATUS IN ('PENDING', 'FAILED')
+                    AND (FILE_NEXT_RETRY_AT IS NULL OR FILE_NEXT_RETRY_AT <= SYSTIMESTAMP)) AS PendingCount,
+                (SELECT MAX(SyncedAt) FROM PMIS_DOCUMENT WHERE FILE_STATUS = 'DONE') AS LastDownloadedAt
+            FROM DUAL";
+        return await _connection.QuerySingleAsync<PendingDocumentFileSummary>(sql);
+    }
+
+    public async Task<IReadOnlyList<PmisDocumentFileStatus>> GetFileStatusByCodesAsync(IReadOnlyCollection<string> codes)
+    {
+        if (codes.Count == 0) return [];
+        EnsureOpen();
+        const string sql = @"
+            SELECT PmisDocumentCode, FILE_STATUS AS FileStatus, FILE_ATTEMPTS AS FileAttempts,
+                   FILE_LAST_ERROR AS FileLastError,
+                   CASE WHEN ObjectKey IS NOT NULL THEN 1 ELSE 0 END AS HasFile
+            FROM PMIS_DOCUMENT
+            WHERE IsDeleted = 0 AND PmisDocumentCode IN :Codes";
+        return (await _connection.QueryAsync<PmisDocumentFileStatus>(sql, new { Codes = codes })).ToList();
+    }
+
+    public async Task<IReadOnlyList<PendingOwnerInfrastructure>> GetPendingOwnerInfrastructuresAsync()
+    {
+        EnsureOpen();
+        // Tài liệu của THIẾT BỊ quy về Trạm/Đường dây chứa nó (EQUIPMENTS.INFRASTRUCTURE_ID).
+        const string sql = @"
+            SELECT DISTINCT i.PMIS_CODE AS PmisCode, i.INFRA_TYPE_ID AS InfraTypeId
+            FROM PMIS_DOCUMENT d
+            LEFT JOIN EQUIPMENTS e ON d.OwnerType = 'EQUIPMENT' AND e.Id = d.OwnerId
+            JOIN INFRASTRUCTURE i ON i.Id = CASE WHEN d.OwnerType = 'INFRASTRUCTURE' THEN d.OwnerId ELSE e.INFRASTRUCTURE_ID END
+            WHERE d.ObjectKey IS NULL AND d.IsDeleted = 0
+              AND d.FILE_STATUS IN ('PENDING', 'FAILED', 'NO_URL')
+              AND i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0
+            ORDER BY i.PMIS_CODE";
+        return (await _connection.QueryAsync<PendingOwnerInfrastructure>(sql)).ToList();
+    }
+
     public async Task<PmisDocumentFileTarget?> GetFileTargetByCodeAsync(string pmisDocumentCode)
     {
         EnsureOpen();

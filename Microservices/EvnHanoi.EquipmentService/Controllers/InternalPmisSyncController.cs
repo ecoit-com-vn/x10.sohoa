@@ -378,7 +378,9 @@ public class InternalPmisSyncController : ControllerBase
 
                 item.OwnerType = ownerType; // ghi đúng OwnerType đã phân giải (có thể khác giá trị gửi lên nếu resolve theo DeviceCode thành công)
                 await _pmisDocumentRepository.InsertAsync(item, ownerId.Value, objectKey, fileSize);
-                results.Add(BuildUpsertResult(item.PmisDocumentCode, objectKey != null, hasUrl));
+                var created = BuildUpsertResult(item.PmisDocumentCode, objectKey != null, hasUrl);
+                created.WasCreated = true;
+                results.Add(created);
             }
             catch (Exception ex)
             {
@@ -413,6 +415,39 @@ public class InternalPmisSyncController : ControllerBase
         if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
         take = Math.Clamp(take, 1, 200);
         return Ok(await _pmisDocumentRepository.GetPendingFilesAsync(take));
+    }
+
+    /// <summary>Tóm tắt hàng đợi tải file cho watchdog của SyncService (PmisDocumentFileDownloadWatchdogJob)
+    /// — phát hiện khi job tải file ngừng tiến triển mà không ai biết.</summary>
+    [HttpGet("documents/pending-summary")]
+    public async Task<IActionResult> GetPendingDocumentSummary(
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken)
+    {
+        if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
+        return Ok(await _pmisDocumentRepository.GetPendingSummaryAsync());
+    }
+
+    /// <summary>Trạm/Đường dây còn tài liệu chưa có file — SyncService dùng để backfill đồng bộ lại danh sách
+    /// tài liệu (lấy link file mới) đúng cho các owner này thay vì quét cả ~40.000 owner.</summary>
+    [HttpGet("documents/pending-owner-infrastructures")]
+    public async Task<IActionResult> GetPendingOwnerInfrastructures(
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken)
+    {
+        if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
+        var rows = await _pmisDocumentRepository.GetPendingOwnerInfrastructuresAsync();
+        return Ok(rows.Select(r => new { pmisCode = r.PmisCode, infraTypeId = r.InfraTypeId }));
+    }
+
+    /// <summary>Trạng thái tải file hiện tại theo danh sách mã tài liệu (tối đa 200) — màn Lịch sử đồng bộ của
+    /// SyncService dùng để hiện lỗi tải file thật (FILE_LAST_ERROR) thay vì chỉ "Thành công" của pha danh sách.</summary>
+    [HttpPost("documents/file-status")]
+    public async Task<IActionResult> GetDocumentFileStatus(
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken,
+        [FromBody] List<string> codes)
+    {
+        if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
+        var distinct = (codes ?? []).Where(c => !string.IsNullOrWhiteSpace(c)).Distinct().Take(200).ToList();
+        return Ok(await _pmisDocumentRepository.GetFileStatusByCodesAsync(distinct));
     }
 
     /// <summary>Nhận kết quả tải file của job nền: có FileBase64 thì lưu MinIO + đánh dấu DONE; không thì ghi

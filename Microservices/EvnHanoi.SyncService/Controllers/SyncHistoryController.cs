@@ -1,3 +1,5 @@
+using EvnHanoi.SyncService.Clients;
+using EvnHanoi.SyncService.Models;
 using EvnHanoi.SyncService.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,10 +13,17 @@ namespace EvnHanoi.SyncService.Controllers;
 public class SyncHistoryController : ControllerBase
 {
     private readonly ISyncHistoryRepository _syncHistoryRepository;
+    private readonly IEquipmentServiceClient _equipmentServiceClient;
+    private readonly ILogger<SyncHistoryController> _logger;
 
-    public SyncHistoryController(ISyncHistoryRepository syncHistoryRepository)
+    public SyncHistoryController(
+        ISyncHistoryRepository syncHistoryRepository,
+        IEquipmentServiceClient equipmentServiceClient,
+        ILogger<SyncHistoryController> logger)
     {
         _syncHistoryRepository = syncHistoryRepository;
+        _equipmentServiceClient = equipmentServiceClient;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -28,14 +37,60 @@ public class SyncHistoryController : ControllerBase
     }
 
     [HttpGet("{historyId}/items")]
-    public async Task<IActionResult> GetItems(string historyId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<IActionResult> GetItems(
+        string historyId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? recordKind = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
 
-        var (items, totalCount) = await _syncHistoryRepository.GetDetailsPagedAsync(historyId, page, pageSize);
-        return Ok(new { items, totalCount });
+        var (items, totalCount) = await _syncHistoryRepository.GetDetailsPagedAsync(historyId, page, pageSize, recordKind?.ToUpperInvariant());
+        var views = items.Select(ToView).ToList();
+
+        // Dòng tài liệu: "Thành công" của lượt đồng bộ chỉ nghĩa là đã lưu metadata + link; file thật do job nền tải
+        // sau, nên gắn trạng thái tải file HIỆN TẠI (lỗi gần nhất, số lần thử) để người xem thấy sự thật. Lỗi gọi
+        // EquipmentService chỉ làm mất phần bổ sung này, KHÔNG được làm hỏng danh sách lịch sử.
+        var codes = views.Where(v => v.RecordKind == SyncRecordKind.Document && !string.IsNullOrWhiteSpace(v.SourceCode))
+            .Select(v => v.SourceCode!).Distinct().ToList();
+        if (codes.Count > 0)
+        {
+            try
+            {
+                var statuses = (await _equipmentServiceClient.GetDocumentFileStatusAsync(codes))
+                    .GroupBy(x => x.PmisDocumentCode, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+                foreach (var v in views.Where(v => v.SourceCode != null && statuses.ContainsKey(v.SourceCode)))
+                {
+                    var st = statuses[v.SourceCode!];
+                    v.FileStatus = st.FileStatus;
+                    v.FileAttempts = st.FileAttempts;
+                    v.FileLastError = st.FileLastError;
+                    v.HasFile = st.HasFile;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "SyncHistoryController: không lấy được trạng thái tải file cho lịch sử {HistoryId}.", historyId);
+            }
+        }
+
+        return Ok(new { items = views, totalCount });
     }
+
+    private static SyncHistoryDetailView ToView(SyncHistoryDetail d) => new()
+    {
+        Id = d.Id,
+        SyncHistoryId = d.SyncHistoryId,
+        SourceId = d.SourceId,
+        SourceCode = d.SourceCode,
+        SourceName = d.SourceName,
+        TargetId = d.TargetId,
+        ActionType = d.ActionType,
+        Status = d.Status,
+        DataContent = d.DataContent,
+        ErrorMessage = d.ErrorMessage,
+        SyncTime = d.SyncTime,
+        RecordKind = d.RecordKind,
+    };
 
     /// <summary>Xoá thủ công Lịch sử đồng bộ (nút "Xoá lịch sử") — 4 chế độ, xem SyncHistoryRepository.DeleteAsync.</summary>
     [HttpPost("cleanup")]

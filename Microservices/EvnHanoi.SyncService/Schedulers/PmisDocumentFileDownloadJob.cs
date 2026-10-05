@@ -22,8 +22,11 @@ namespace EvnHanoi.SyncService.Schedulers;
 [DisallowConcurrentExecution]
 public class PmisDocumentFileDownloadJob : IJob
 {
-    private const int BatchSize = 40;
-    private const int MaxParallelDownloads = 4;
+    // Nâng 40/4 → 200/8 (2026-10-03): với ~299.000 tài liệu chờ tải, 40 file/phút mất ~80 giờ. 200 file
+    // x 8 luồng ≈ 5 lần nhanh hơn; vẫn trong khoá RedLock 10 phút và job [DisallowConcurrentExecution] nên
+    // lượt chậm không dồn lượt. Nếu PMIS bắt đầu trả timeout/429 hàng loạt thì hạ MaxParallelDownloads trước.
+    private const int BatchSize = 200;
+    private const int MaxParallelDownloads = 8;
 
     private readonly ISyncConfigRepository _syncConfigRepository;
     private readonly IEquipmentServiceClient _equipmentServiceClient;
@@ -50,7 +53,11 @@ public class PmisDocumentFileDownloadJob : IJob
             // (tài liệu chỉ phát sinh từ 2 đối tượng này) — tránh tiếp tục gọi PMIS khi admin chủ ý dừng.
             var substationConfig = await _syncConfigRepository.GetByObjectTypeAsync(SyncObjectType.Substation);
             var lineConfig = await _syncConfigRepository.GetByObjectTypeAsync(SyncObjectType.TransmissionLine);
-            if (substationConfig is not { IsEnabled: true } && lineConfig is not { IsEnabled: true }) return;
+            if (substationConfig is not { IsEnabled: true } && lineConfig is not { IsEnabled: true })
+            {
+                Log.Information("PmisDocumentFileDownloadJob: bỏ qua lượt này vì cả 2 switch Trạm biến áp/Đường dây đều đang tắt.");
+                return;
+            }
 
             await using var redLock = await _lockFactory.CreateLockAsync(
                 "sync:lock:pmis:document-files", TimeSpan.FromMinutes(10), TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(1));
@@ -61,7 +68,16 @@ public class PmisDocumentFileDownloadJob : IJob
             }
 
             var pending = await _equipmentServiceClient.GetPendingDocumentFilesAsync(BatchSize);
-            if (pending.Count == 0) return;
+            if (pending.Count == 0)
+            {
+                // Mức Debug (không phải Info/Warning): đây là trạng thái bình thường khi hàng đợi đã tải
+                // hết — không nên gây ồn log mỗi phút. Giúp phân biệt "job có chạy nhưng không có gì để
+                // làm" (có dòng Debug này) với "job không hề được Quartz đăng ký" (im lặng tuyệt đối, kể cả
+                // ở mức Debug) — phát hiện thật 2026-10-01: PmisDocumentFileDownloadJob thiếu hẳn khỏi danh
+                // sách "Adding N jobs" lúc khởi động trên production vì image cũ hơn lúc job này được thêm.
+                Log.Debug("PmisDocumentFileDownloadJob: không có tài liệu nào đang chờ tải.");
+                return;
+            }
 
             int ok = 0, failed = 0;
             await Parallel.ForEachAsync(

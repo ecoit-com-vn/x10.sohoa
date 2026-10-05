@@ -257,6 +257,16 @@ builder.Services.AddQuartz(q =>
         .WithSimpleSchedule(x => x.WithIntervalInMinutes(1).RepeatForever())
     );
 
+    // Cảnh báo khi job tải file phía trên ngừng tiến triển mà không ai biết (phát hiện thật 2026-10-01: job
+    // "biến mất" khỏi production 10 ngày liền, không crash/không log) — xem PmisDocumentFileDownloadWatchdogJob.
+    var documentFileWatchdogJobKey = new JobKey("PmisDocumentFileDownloadWatchdogJob");
+    q.AddJob<PmisDocumentFileDownloadWatchdogJob>(opts => opts.WithIdentity(documentFileWatchdogJobKey));
+    q.AddTrigger(opts => opts
+        .ForJob(documentFileWatchdogJobKey)
+        .WithIdentity("PmisDocumentFileDownloadWatchdogJob-trigger")
+        .WithSimpleSchedule(x => x.WithIntervalInMinutes(5).RepeatForever())
+    );
+
     // Đối chiếu nhẹ 1 lần/ngày (đối chiếu mã PMIS thiếu do phân trang lệch + đếm thiết bị chuyển TBA gần
     // đây) — KHÔNG tự sửa gì, chỉ log cảnh báo cho admin, xem PmisReconciliationJob.
     var reconciliationJobKey = new JobKey("PmisReconciliationJob");

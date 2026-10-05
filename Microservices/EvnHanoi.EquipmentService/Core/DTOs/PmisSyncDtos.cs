@@ -200,6 +200,37 @@ public class PendingPmisDocumentFile
     public int FileAttempts { get; set; }
 }
 
+/// <summary>Tóm tắt hàng đợi tải file — trả về bởi GET internal/v1/documents/pending-summary, dùng cho
+/// PmisDocumentFileDownloadWatchdogJob (SyncService) để phát hiện khi job tải file ngừng tiến triển mà
+/// không ai biết (xem phát hiện thật 2026-10-01: job thiếu hẳn khỏi Quartz job list trên production 10
+/// ngày liền, không log, không exception, chỉ phát hiện được qua tra DB tay).</summary>
+/// <summary>Trạng thái tải file hiện tại của 1 tài liệu — cho màn Lịch sử đồng bộ (SyncService) hiện lỗi tải file thật.</summary>
+public class PmisDocumentFileStatus
+{
+    public string PmisDocumentCode { get; set; } = string.Empty;
+    public string FileStatus { get; set; } = "NO_URL";
+    public int FileAttempts { get; set; }
+    public string? FileLastError { get; set; }
+    public bool HasFile { get; set; }
+}
+
+public class PendingOwnerInfrastructure
+{
+    public string PmisCode { get; set; } = string.Empty;
+    public int InfraTypeId { get; set; }
+}
+
+public class PendingDocumentFileSummary
+{
+    /// <summary>Số dòng đang chờ tải thật sự (ObjectKey rỗng, có URL, đã tới hạn thử lại) — khớp đúng điều
+    /// kiện WHERE của GetPendingFilesAsync.</summary>
+    public int PendingCount { get; set; }
+
+    /// <summary>Thời điểm gần nhất có 1 tài liệu được tải THÀNH CÔNG (FILE_STATUS='DONE') — null nếu chưa
+    /// từng có. Watchdog so sánh mốc này với "bây giờ" để biết job có còn tiến triển không.</summary>
+    public DateTime? LastDownloadedAt { get; set; }
+}
+
 /// <summary>Payload POST internal/v1/documents/attach-file: gửi file đã tải (FileBase64) hoặc lý do lỗi
 /// (ErrorMessage) cho 1 tài liệu đang chờ.</summary>
 public class AttachPmisDocumentFileRequest
@@ -214,6 +245,10 @@ public class UpsertPmisDocumentResult
     public string PmisDocumentCode { get; set; } = string.Empty;
     public bool Success { get; set; }
     public bool WasSkippedAsExisting { get; set; }
+
+    /// <summary>true nếu lần này INSERT dòng mới (false = đã có dòng, chỉ làm mới link/owner) — để lịch sử đồng bộ
+    /// phân biệt Tạo mới/Cập nhật.</summary>
+    public bool WasCreated { get; set; }
     public string? ErrorMessage { get; set; }
 }
 

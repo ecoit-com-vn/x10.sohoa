@@ -19,9 +19,27 @@ public interface IEquipmentServiceClient
     /// <summary>Gửi kết quả tải 1 file (FileBase64) hoặc lý do lỗi (ErrorMessage) cho EquipmentService.</summary>
     Task AttachDocumentFileAsync(AttachPmisDocumentFileRequest request);
 
+    /// <summary>Tóm tắt hàng đợi tải file — cho PmisDocumentFileDownloadWatchdogJob.</summary>
+    Task<PendingDocumentFileSummary> GetPendingDocumentSummaryAsync();
+
+    /// <summary>Trạm/Đường dây còn tài liệu chưa có file (gồm cả tài liệu của thiết bị con) — cho backfill.</summary>
+    Task<List<SyncedInfrastructurePmisCode>> GetPendingDocumentOwnersAsync();
+
+    /// <summary>Trạng thái tải file hiện tại theo mã tài liệu (≤200) — cho màn Lịch sử đồng bộ.</summary>
+    Task<List<PmisDocumentFileStatusDto>> GetDocumentFileStatusAsync(IReadOnlyCollection<string> codes);
+
     /// <summary>Số thiết bị bị đánh dấu "Đã chuyển TBA" bởi PMIS_SYNC trong <paramref name="sinceHours"/>
     /// giờ gần đây — xem PmisReconciliationJob.</summary>
     Task<int> GetRecentlyTransferredCountAsync(int sinceHours);
+}
+
+public class PmisDocumentFileStatusDto
+{
+    public string PmisDocumentCode { get; set; } = string.Empty;
+    public string FileStatus { get; set; } = "NO_URL";
+    public int FileAttempts { get; set; }
+    public string? FileLastError { get; set; }
+    public bool HasFile { get; set; }
 }
 
 public class SyncedInfrastructurePmisCode

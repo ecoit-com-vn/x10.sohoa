@@ -13,7 +13,10 @@ public interface ISyncHistoryRepository
     Task<bool> CompleteAsync(string id, string status, int totalRecords, int successRecords, int failedRecords, string? errorMessage);
     Task InsertDetailsAsync(IEnumerable<SyncHistoryDetail> details);
     Task<(IEnumerable<SyncHistory> Items, int TotalCount)> GetPagedAsync(string? objectType, int page, int pageSize);
-    Task<(IEnumerable<SyncHistoryDetail> Items, int TotalCount)> GetDetailsPagedAsync(string syncHistoryId, int page, int pageSize);
+    /// <summary>recordKind: lọc theo INFRASTRUCTURE/EQUIPMENT/DOCUMENT (xem SyncRecordKind) — null = không lọc
+    /// (hành vi cũ). Dữ liệu lịch sử chưa phân loại (RECORD_KIND NULL) tính vào INFRASTRUCTURE/EQUIPMENT,
+    /// không tính vào DOCUMENT.</summary>
+    Task<(IEnumerable<SyncHistoryDetail> Items, int TotalCount)> GetDetailsPagedAsync(string syncHistoryId, int page, int pageSize, string? recordKind = null);
 
     /// <summary>Xoá thủ công theo yêu cầu admin (nút "Xoá lịch sử") — SYNC_HISTORY_DETAIL tự động xoá
     /// theo (ON DELETE CASCADE). <paramref name="mode"/>: "DATE_RANGE" (dùng fromDate/toDate),

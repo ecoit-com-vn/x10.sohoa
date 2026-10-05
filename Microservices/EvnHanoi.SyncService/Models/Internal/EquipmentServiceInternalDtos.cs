@@ -110,6 +110,14 @@ public class PendingPmisDocumentFile
     public int FileAttempts { get; set; }
 }
 
+/// <summary>Tóm tắt hàng đợi tải file (GET internal/v1/documents/pending-summary) — dùng bởi
+/// PmisDocumentFileDownloadWatchdogJob để phát hiện job tải file ngừng tiến triển.</summary>
+public class PendingDocumentFileSummary
+{
+    public int PendingCount { get; set; }
+    public DateTime? LastDownloadedAt { get; set; }
+}
+
 /// <summary>Payload POST internal/v1/documents/attach-file: file đã tải (FileBase64) hoặc lý do lỗi (ErrorMessage).</summary>
 public class AttachPmisDocumentFileRequest
 {
@@ -123,5 +131,6 @@ public class UpsertPmisDocumentResult
     public string PmisDocumentCode { get; set; } = string.Empty;
     public bool Success { get; set; }
     public bool WasSkippedAsExisting { get; set; }
+    public bool WasCreated { get; set; }
     public string? ErrorMessage { get; set; }
 }
