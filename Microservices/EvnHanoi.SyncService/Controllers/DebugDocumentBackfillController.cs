@@ -118,6 +118,24 @@ public class DebugDocumentBackfillController : ControllerBase
         }
     }
 
+    /// <summary>Chẩn đoán (chỉ đọc, chỉ cần mã bí mật): gọi API TaiFileTaiLieu cho 1 mã tài liệu đúng như job tải file
+    /// (gateway + header cấu hình) và trả mã HTTP, loại nội dung, kích thước, nhận dạng định dạng (PDF/ảnh/JSON/
+    /// base64) + phần đầu nội dung. KHÔNG lưu file, KHÔNG sửa DB.</summary>
+    [HttpGet("peek-file")]
+    public async Task<IActionResult> PeekFile(
+        [FromHeader(Name = "X-Debug-Sql-Secret")] string? secret,
+        [FromQuery] string maTaiLieu,
+        [FromQuery] int infraTypeId = 2)
+    {
+        if (!ValidateAccess(secret, requireAllowExecute: false, out var error)) return error!;
+        if (string.IsNullOrWhiteSpace(maTaiLieu)) return BadRequest(new { message = "Thiếu maTaiLieu." });
+
+        using var scope = _scopeFactory.CreateScope();
+        var client = scope.ServiceProvider.GetRequiredService<IPmisClient>();
+        var probe = await client.ProbeDocumentFileAsync(maTaiLieu, infraTypeId == 1 ? "SUBSTATION_DOCUMENT_LIST" : "LINE_DOCUMENT_LIST");
+        return Ok(probe);
+    }
+
     private async Task RunAsync(int? infraTypeId, int? limit)
     {
         var histories = new Dictionary<int, (string? Id, int Total, int Success, int Failed)>();
