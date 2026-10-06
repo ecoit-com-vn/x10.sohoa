@@ -455,6 +455,10 @@ public class DossierDocumentService : IDossierDocumentService
                 throw new InvalidOperationException($"Không thể chuyển tài liệu '{document.Name}' sang hồ sơ");
 
             await _documentRepository.UpdateDocumentVersionFilePathAsync(version.Id, destPath, userId);
+
+            if (request.EquipmentIds is { Count: > 0 })
+                await _documentRepository.SetDocumentEquipmentsAsync(documentId, request.EquipmentIds);
+
             movedItems.Add(new MovedDossierDocumentDto
             {
                 DocumentId = documentId,

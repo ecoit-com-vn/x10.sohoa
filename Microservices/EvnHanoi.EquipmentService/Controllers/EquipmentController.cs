@@ -303,9 +303,17 @@ public partial class EquipmentController : ControllerBase
         sourceEquipment.ModifiedDate = DateTime.UtcNow;
         sourceEquipment.StatusTransition = 1;
 
-        var transferredDossierIds = await _equipmentRepository.CloneDossiersAndDocumentsForDetailTransferAsync(
-            sourceEquipment,
-            replacementEquipment);
+        IReadOnlyList<Guid> transferredDossierIds;
+        try
+        {
+            transferredDossierIds = await _equipmentRepository.CloneDossiersAndDocumentsForDetailTransferAsync(
+                sourceEquipment,
+                replacementEquipment);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
 
         try
         {

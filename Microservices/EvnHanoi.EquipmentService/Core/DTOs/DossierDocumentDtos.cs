@@ -14,6 +14,7 @@ public class MoveDocumentsFromFolderRequest
 {
     public List<Guid> DocumentIds { get; set; } = new();
     public Guid DocumentTypeId { get; set; }
+    public List<Guid>? EquipmentIds { get; set; }
 }
 
 public class MovedDossierDocumentDto
