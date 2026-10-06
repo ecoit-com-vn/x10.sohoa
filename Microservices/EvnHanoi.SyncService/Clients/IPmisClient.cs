@@ -32,6 +32,25 @@ public interface IPmisClient
     /// <summary>Gọi API danh sách tài liệu (8/9) và trả NGUYÊN VĂN body JSON PMIS (không qua DTO) — chỉ để chẩn đoán
     /// khi nghi PMIS đổi tên/định dạng trường "File" (hệ thống không lưu phản hồi thô ở đâu khác).</summary>
     Task<string> PeekDocumentsRawAsync(bool isSubstation, string ownerPmisCode, int take);
+
+    /// <summary>Gọi API tải file tài liệu (TaiFileTaiLieu?maTaiLieu=...) đúng như job tải file (gateway + header cấu hình)
+    /// nhưng CHỈ trả thông tin chẩn đoán (mã HTTP, loại nội dung, kích thước, phần đầu) — không lưu file.</summary>
+    Task<DocumentFileProbe> ProbeDocumentFileAsync(string maTaiLieu, string endpointApiCode);
+}
+
+/// <summary>Kết quả chẩn đoán 1 lần gọi API tải file tài liệu PMIS.</summary>
+public class DocumentFileProbe
+{
+    public string RequestUrl { get; set; } = string.Empty;
+    public int? StatusCode { get; set; }
+    public string? ContentType { get; set; }
+    public long? ContentLength { get; set; }
+    public long BodyBytes { get; set; }
+    public string? HeadHex { get; set; }
+    public string? HeadText { get; set; }
+    public string? DetectedFormat { get; set; }
+    public List<string>? JsonKeys { get; set; }
+    public string? Error { get; set; }
 }
 
 /// <summary>Báo lỗi nghiệp vụ khi 1 API PMIS chưa được cấu hình (chưa bật hoặc chưa nhập Url) qua màn "Cấu hình kết nối PMIS".</summary>
