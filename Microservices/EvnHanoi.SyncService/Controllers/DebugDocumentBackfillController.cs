@@ -125,14 +125,22 @@ public class DebugDocumentBackfillController : ControllerBase
     public async Task<IActionResult> PeekFile(
         [FromHeader(Name = "X-Debug-Sql-Secret")] string? secret,
         [FromQuery] string maTaiLieu,
-        [FromQuery] int infraTypeId = 2)
+        [FromQuery] int infraTypeId = 2,
+        [FromQuery] string method = "GET",
+        [FromQuery] string bodyMode = "query",
+        [FromQuery] string path = "/api/PmisDongBo/TaiFileTaiLieu")
     {
         if (!ValidateAccess(secret, requireAllowExecute: false, out var error)) return error!;
         if (string.IsNullOrWhiteSpace(maTaiLieu)) return BadRequest(new { message = "Thiếu maTaiLieu." });
+        if (!path.StartsWith("/api/", StringComparison.Ordinal) || path.Contains("..") || path.Contains("//"))
+            return BadRequest(new { message = "path phải bắt đầu bằng /api/ và không chứa '..' hoặc '//'." });
+        if (!new[] { "GET", "POST" }.Contains(method.ToUpperInvariant()))
+            return BadRequest(new { message = "method chỉ nhận GET hoặc POST." });
 
         using var scope = _scopeFactory.CreateScope();
         var client = scope.ServiceProvider.GetRequiredService<IPmisClient>();
-        var probe = await client.ProbeDocumentFileAsync(maTaiLieu, infraTypeId == 1 ? "SUBSTATION_DOCUMENT_LIST" : "LINE_DOCUMENT_LIST");
+        var probe = await client.ProbeDocumentFileAsync(
+            maTaiLieu, infraTypeId == 1 ? "SUBSTATION_DOCUMENT_LIST" : "LINE_DOCUMENT_LIST", method, bodyMode, path);
         return Ok(probe);
     }
 

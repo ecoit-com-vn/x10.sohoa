@@ -198,16 +198,23 @@ public class PmisClient : IPmisClient
         return await response.Content.ReadAsStringAsync();
     }
 
-    public async Task<DocumentFileProbe> ProbeDocumentFileAsync(string maTaiLieu, string endpointApiCode)
+    public async Task<DocumentFileProbe> ProbeDocumentFileAsync(string maTaiLieu, string endpointApiCode,
+        string method = "GET", string bodyMode = "query", string path = "/api/PmisDongBo/TaiFileTaiLieu")
     {
         var probe = new DocumentFileProbe();
         try
         {
             var httpClient = _httpClientFactory.CreateClient(_httpClientName);
             var endpoint = await _endpointConfigProvider.GetEndpointAsync(endpointApiCode);
+            var isPost = string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase);
+            var withQuery = !isPost || string.Equals(bodyMode, "query", StringComparison.OrdinalIgnoreCase);
             probe.RequestUrl = PmisFileUrlResolver.Resolve(
-                $"/api/PmisDongBo/TaiFileTaiLieu?maTaiLieu={Uri.EscapeDataString(maTaiLieu)}", httpClient.BaseAddress, endpoint?.Url);
-            using var request = new HttpRequestMessage(HttpMethod.Get, probe.RequestUrl);
+                withQuery ? $"{path}?maTaiLieu={Uri.EscapeDataString(maTaiLieu)}" : path, httpClient.BaseAddress, endpoint?.Url);
+            using var request = new HttpRequestMessage(isPost ? HttpMethod.Post : HttpMethod.Get, probe.RequestUrl);
+            if (isPost && string.Equals(bodyMode, "json", StringComparison.OrdinalIgnoreCase))
+                request.Content = JsonContent.Create(new { maTaiLieu });
+            else if (isPost && string.Equals(bodyMode, "form", StringComparison.OrdinalIgnoreCase))
+                request.Content = new FormUrlEncodedContent(new Dictionary<string, string> { ["maTaiLieu"] = maTaiLieu });
             if (endpoint != null)
             {
                 foreach (var header in endpoint.Headers) request.Headers.TryAddWithoutValidation(header.Key, header.Value);

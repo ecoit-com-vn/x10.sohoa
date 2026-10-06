@@ -35,7 +35,12 @@ public interface IPmisClient
 
     /// <summary>Gọi API tải file tài liệu (TaiFileTaiLieu?maTaiLieu=...) đúng như job tải file (gateway + header cấu hình)
     /// nhưng CHỈ trả thông tin chẩn đoán (mã HTTP, loại nội dung, kích thước, phần đầu) — không lưu file.</summary>
-    Task<DocumentFileProbe> ProbeDocumentFileAsync(string maTaiLieu, string endpointApiCode);
+    /// <param name="method">GET hoặc POST.</param>
+    /// <param name="bodyMode">Với POST: "query" (maTaiLieu trên query, không body), "json" (body {"maTaiLieu":...}),
+    /// "form" (application/x-www-form-urlencoded).</param>
+    /// <param name="path">Đường dẫn tương đối dưới gateway (mặc định /api/PmisDongBo/TaiFileTaiLieu) — để thử biến thể.</param>
+    Task<DocumentFileProbe> ProbeDocumentFileAsync(string maTaiLieu, string endpointApiCode,
+        string method = "GET", string bodyMode = "query", string path = "/api/PmisDongBo/TaiFileTaiLieu");
 }
 
 /// <summary>Kết quả chẩn đoán 1 lần gọi API tải file tài liệu PMIS.</summary>
