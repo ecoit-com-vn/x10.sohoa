@@ -125,15 +125,55 @@ public class DebugDocumentBackfillController : ControllerBase
     public async Task<IActionResult> PeekFile(
         [FromHeader(Name = "X-Debug-Sql-Secret")] string? secret,
         [FromQuery] string maTaiLieu,
-        [FromQuery] int infraTypeId = 2)
+        [FromQuery] int infraTypeId = 2,
+        [FromQuery] string method = "GET",
+        [FromQuery] string bodyMode = "query",
+        [FromQuery] string path = "/api/PmisDongBo/TaiFileTaiLieu")
     {
         if (!ValidateAccess(secret, requireAllowExecute: false, out var error)) return error!;
         if (string.IsNullOrWhiteSpace(maTaiLieu)) return BadRequest(new { message = "Thiếu maTaiLieu." });
+        if (!path.StartsWith("/api/", StringComparison.Ordinal) || path.Contains("..") || path.Contains("//"))
+            return BadRequest(new { message = "path phải bắt đầu bằng /api/ và không chứa '..' hoặc '//'." });
+        if (!new[] { "GET", "POST" }.Contains(method.ToUpperInvariant()))
+            return BadRequest(new { message = "method chỉ nhận GET hoặc POST." });
+        if (method.Equals("POST", StringComparison.OrdinalIgnoreCase)
+            && !ValidateAccess(secret, requireAllowExecute: true, out error)) return error!;
 
         using var scope = _scopeFactory.CreateScope();
         var client = scope.ServiceProvider.GetRequiredService<IPmisClient>();
-        var probe = await client.ProbeDocumentFileAsync(maTaiLieu, infraTypeId == 1 ? "SUBSTATION_DOCUMENT_LIST" : "LINE_DOCUMENT_LIST");
+        var probe = await client.ProbeDocumentFileAsync(
+            maTaiLieu, infraTypeId == 1 ? "SUBSTATION_DOCUMENT_LIST" : "LINE_DOCUMENT_LIST", method, bodyMode, path);
         return Ok(probe);
+    }
+
+    /// <summary>Thử BẤT KỲ API nào dưới gateway PMIS (chỉ cần mã bí mật; không lưu, không sửa DB): GET/POST/HEAD/OPTIONS,
+    /// query, body JSON hoặc form, header bổ sung. Trả mã HTTP, header phản hồi, định dạng, phần đầu nội dung.
+    /// Ví dụ: { "method":"POST", "path":"/api/PmisDongBo/TaiFileTaiLieu", "jsonBody":{"maTaiLieu":"PD-32236"} }.
+    /// Chỉ gọi được tới gateway PMIS đã cấu hình (path phải bắt đầu bằng /api/) — không phải proxy tới host bất kỳ.</summary>
+    [HttpPost("peek-api")]
+    public async Task<IActionResult> PeekApi(
+        [FromHeader(Name = "X-Debug-Sql-Secret")] string? secret,
+        [FromBody] PmisProbeRequest request)
+    {
+        if (!ValidateAccess(secret, requireAllowExecute: false, out var error)) return error!;
+        if (request == null || (string.IsNullOrWhiteSpace(request.Path) && string.IsNullOrWhiteSpace(request.Url)))
+            return BadRequest(new { message = "Thiếu path (hoặc url đầy đủ)." });
+        // Có url đầy đủ thì PmisClient tự kiểm tra host theo danh sách cho phép; chỉ kiểm path khi dùng path.
+        if (string.IsNullOrWhiteSpace(request.Url)
+            && (!request.Path.StartsWith("/api/", StringComparison.Ordinal) || request.Path.Contains("..") || request.Path.Contains("//") || request.Path.Contains('?')))
+            return BadRequest(new { message = "path phải bắt đầu bằng /api/, không chứa '..', '//' hoặc '?' (dùng trường query)." });
+        request.ExtraAllowedAuthorities = (_configuration["DebugSql:ProbeAllowedHosts"] ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        if (!new[] { "GET", "POST", "HEAD", "OPTIONS" }.Contains(request.Method.ToUpperInvariant()))
+            return BadRequest(new { message = "method chỉ nhận GET, POST, HEAD hoặc OPTIONS." });
+        // POST có thể làm thay đổi dữ liệu phía PMIS (API nào đó không chỉ đọc) nên cần cờ AllowExecute như mọi thao tác ghi.
+        if (request.Method.Equals("POST", StringComparison.OrdinalIgnoreCase)
+            && !ValidateAccess(secret, requireAllowExecute: true, out error)) return error!;
+
+        _logger.LogWarning("DebugDocumentBackfillController: peek-api {Method} {Target}", request.Method, request.Url ?? request.Path);
+        using var scope = _scopeFactory.CreateScope();
+        var client = scope.ServiceProvider.GetRequiredService<IPmisClient>();
+        return Ok(await client.ProbeApiAsync(request));
     }
 
     private async Task RunAsync(int? infraTypeId, int? limit)
