@@ -1,0 +1,91 @@
+.w-full { width: 100%; }
+:host ::ng-deep .lookup-search-select { width: 100%; min-height: 34px; }
+:host ::ng-deep .lookup-search-select .p-select-label {
+  padding-top: 7px;
+  padding-bottom: 7px;
+  font-size: 0.875rem;
+}
+.lookup-option-code { margin-left: 6px; color: #64748b; }
+.dossier-form-shell { display: flex; flex-direction: column; }
+.form-header-panel {
+  background: var(--p-surface-0, #ffffff);
+  border: 1px solid var(--p-content-border-color, rgba(226, 232, 240, 0.8));
+  border-radius: 5px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 16px -6px rgba(0, 0, 0, 0.05);
+  padding: 10px;
+  margin-bottom: 12px;
+}
+.tab-bar { margin-bottom: 0; }
+// Ghi đè .tab-item/.tab-active mặc định (styles.scss) để khớp đúng phong cách tab ở màn chi tiết
+// Trạm biến áp/Đường dây (InfrastructureComponent) — chữ to hơn, khoảng cách icon/chữ rõ ràng hơn,
+// màu xanh sáng hơn khi hover/active.
+.tab-bar .tab-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  font-size: 0.95rem;
+}
+.tab-bar .tab-item:hover { color: #2563eb; }
+.tab-bar .tab-item.tab-active { color: #2563eb; border-bottom-color: #2563eb; }
+.tab-content {
+  background: var(--p-surface-0, #ffffff);
+  border: 1px solid var(--p-content-border-color, rgba(226, 232, 240, 0.8));
+  border-radius: 5px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 16px -6px rgba(0, 0, 0, 0.05);
+  padding: 16px;
+
+  // Tab "Tài liệu đính kèm" (DossierDocumentsTabComponent) tự dựng 2 panel riêng (cây loại văn bản +
+  // bảng tài liệu) — bỏ nền/viền/padding bọc ngoài ở đây để 2 panel đó nằm trực tiếp trên nền trang,
+  // không lồng bên trong 1 khối nền thứ 3 (xem dossier-detail.component.scss, cùng khuôn xử lý).
+  &.tab-content--bare {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+}
+.storage-tree-picker { position: relative; width: 100%; }
+.storage-tree-trigger {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 34px; padding: 0 10px;
+  border: 1px solid #d1d5db; border-radius: 5px;
+  cursor: pointer; background: #ffffff;
+  font-size: 0.85rem; color: #94a3b8; user-select: none; outline: none;
+}
+.storage-tree-trigger.has-value { color: #374151; }
+.storage-tree-trigger.open, .storage-tree-trigger:hover { border-color: #9ca3af; }
+.storage-tree-selected-label {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
+}
+.storage-tree-clear {
+  border: none; background: transparent; width: 18px; height: 18px;
+  cursor: pointer; color: #6b7280; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.75rem;
+}
+.storage-tree-dropdown {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 40;
+  background: #fff; border: 1px solid #d1d5db; border-radius: 5px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.08); max-height: 240px; overflow-y: auto;
+}
+.storage-tree-empty { padding: 12px; text-align: center; color: #6b7280; font-size: 0.85rem; }
+.storage-tree-node {
+  display: flex; align-items: center; gap: 4px; padding: 6px 8px; margin: 1px 4px;
+  border-radius: 4px; cursor: default;
+}
+.storage-tree-node.selected { background: #eff6ff; cursor: pointer; }
+.storage-tree-node.selected .storage-tree-node-label { color: #002D72; font-weight: 600; }
+.storage-tree-node:not(.selected) .storage-tree-node-label.storage-tree-level { color: #6b7280; font-weight: 500; }
+.storage-tree-leaf { cursor: pointer; }
+.storage-tree-node:hover { background: #f8fafc; }
+.storage-tree-expand-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border: none; background: transparent; cursor: pointer; flex-shrink: 0;
+}
+.storage-tree-expand-btn .pi { font-size: 0.65rem; color: #6b7280; }
+.storage-tree-node-spacer { display: inline-block; width: 18px; height: 18px; flex-shrink: 0; }
+.storage-tree-node-label {
+  font-size: 0.85rem; color: #374151; flex: 1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.storage-tree-node-label code { font-size: 0.85rem; color: #6b7280; font-family: inherit; }

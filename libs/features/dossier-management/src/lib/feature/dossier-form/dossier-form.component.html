@@ -1,0 +1,572 @@
+<div class="dossier-form-shell" style="position: relative;">
+  <!-- Tab-bar + header action gộp riêng 1 panel nền trắng, tách biệt với panel nội dung bên dưới
+       (giống khuôn 2 panel ở màn chi tiết Trạm biến áp/Đường dây, InfrastructureComponent) — trước
+       đây 1 div .wf-card bọc chung cả 2 phần này thành 1 khối duy nhất. -->
+  <div class="form-header-panel" *ngIf="isEditMode()">
+    <!-- Header -->
+    <div *ngIf="showSubmitForApprovalButton() || (formPendingTask() && isUserAuthorizedForFormAction)">
+      <div style="display: flex; align-items: center; gap: 10px;">
+      </div>
+      <div class="edit-actions">
+        <!-- Workflow action buttons for Returned (statusId = 5) -->
+        <ng-container *ngIf="formPendingTask() && isUserAuthorizedForFormAction">
+          <button *ngFor="let btn of formDynamicButtons()"
+                  class="btn-small"
+                  [style.padding]="'8px 12px'"
+                  [style.border-radius]="'4px'"
+                  [class.btn-cancel]="isRejectLabel(btn.label)"
+                  [class.btn-save]="isApproveLabel(btn.label)"
+                  [class.btn-green]="!isRejectLabel(btn.label) && !isApproveLabel(btn.label)"
+                  (click)="openFormActionDialog(btn)">
+            <i class="pi"
+               [class.pi-check]="!isRejectLabel(btn.label)"
+               [class.pi-times]="isRejectLabel(btn.label)"
+               style="margin-right: 4px;"></i>
+            {{ btn.label }}
+          </button>
+        </ng-container>
+
+      </div>
+    </div>
+
+    <!-- Tabs — chỉ hiện khi sửa hồ sơ -->
+    <div class="tab-bar">
+      <button type="button" *ngIf="isFormTabVisible('info')" class="tab-item" [class.tab-active]="activeTab() === 'info'" (click)="activeTab.set('info')">
+        <i class="pi pi-info-circle" style="margin-right: 6px;"></i>
+        Thông tin hồ sơ
+      </button>
+      <button type="button" *ngIf="isFormTabVisible('documents')" class="tab-item" [class.tab-active]="activeTab() === 'documents'" (click)="activeTab.set('documents')">
+        <i class="pi pi-file" style="margin-right: 6px;"></i>
+        Tài liệu đính kèm
+      </button>
+      <button type="button" *ngIf="isFormTabVisible('versions')" class="tab-item" [class.tab-active]="activeTab() === 'versions'" (click)="activeTab.set('versions')">
+        <i class="pi pi-history" style="margin-right: 6px;"></i>
+        Lịch sử phiên bản
+      </button>
+      <button type="button" *ngIf="isFormTabVisible('workflow')" class="tab-item" [class.tab-active]="activeTab() === 'workflow'" (click)="activeTab.set('workflow')">
+        <i class="pi pi-sitemap" style="margin-right: 6px;"></i>
+        Quy trình & Lịch sử
+      </button>
+    </div>
+  </div>
+
+  <div class="tab-content" [class.tab-content--bare]="isEditMode() && activeTab() === 'documents'" style="position: relative;">
+  <div *ngIf="!isEditMode() || activeTab() === 'info'">
+  <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px;">
+
+    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+      <div class="form-group" style="flex: 1 1 240px; min-width: 220px;">
+        <label class="form-label">Nhóm hồ sơ <span class="required">*</span></label>
+        <p-select
+          [options]="selectableDossierGroups()"
+          [(ngModel)]="dossier.dossierGroupId"
+          (ngModelChange)="onDossierGroupChange($event)"
+          optionLabel="name"
+          optionValue="id"
+          [filter]="true"
+          filterBy="name,code"
+          [showClear]="false"
+          placeholder="-- Chọn nhóm hồ sơ --"
+          appendTo="body"
+          styleClass="w-full"
+          [style]="{'width':'100%'}">
+        </p-select>
+      </div>
+
+      <div *ngIf="isEditMode() && !usePublishApi && !hideGridTypeField" class="form-group" style="flex: 1 1 240px; min-width: 220px;">
+        <label class="form-label">Loại lưới điện</label>
+        <p-select
+          [options]="gridTypes()"
+          [(ngModel)]="dossier.gridTypeId"
+          (ngModelChange)="onGridTypeChange($event)"
+          optionLabel="name"
+          optionValue="id"
+          [filter]="true"
+          filterBy="name,code"
+          [showClear]="true"
+          placeholder="-- Chọn loại lưới điện --"
+          appendTo="body"
+          styleClass="w-full"
+          [style]="{'width':'100%'}">
+        </p-select>
+      </div>
+
+      <div class="form-group" style="flex: 1 1 240px; min-width: 220px;">
+        <label class="form-label">Trạm / Đường dây <span class="required">*</span></label>
+        <p-multiSelect
+          [options]="formInfrastructures()"
+          [ngModel]="dossier.infrastructureIds"
+          (ngModelChange)="onInfrastructureChange($event)"
+          optionLabel="name"
+          optionValue="id"
+          [filter]="true"
+          filterBy="name,code"
+          filterPlaceholder="Tìm tên trạm/đường dây..."
+          (onFilter)="onInfrastructureFilter($event)"
+          [virtualScroll]="true"
+          [virtualScrollItemSize]="36"
+          [showClear]="true"
+          display="comma"
+          [maxSelectedLabels]="2"
+          selectedItemsLabel="{0} trạm/đường dây đã chọn"
+          placeholder="-- Chọn trạm/đường dây --"
+          appendTo="body"
+          styleClass="w-full lookup-search-select"
+          [style]="{'width':'100%'}">
+          <ng-template #item let-item>
+            <span>{{ item.name }}</span>
+            <small *ngIf="item.code" class="lookup-option-code">({{ item.code }})</small>
+          </ng-template>
+        </p-multiSelect>
+      </div>
+
+      <div class="form-group" style="flex: 1 1 240px; min-width: 220px;">
+        <label class="form-label">Hộp lưu trữ</label>
+        <div class="storage-tree-picker">
+          <div class="storage-tree-trigger"
+            [class.has-value]="!!selectedStorageBoxId()"
+            [class.open]="storageTreeOpen()"
+            (click)="toggleStorageTree($event)">
+            <span class="storage-tree-selected-label">
+              <i class="pi pi-box" style="margin-right: 6px; color: #6b7280;"></i>
+              {{ storageSelectionLabel() || '-- Chọn hộp (kệ / tầng / hộp) --' }}
+            </span>
+            <span style="display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;">
+              <button *ngIf="selectedStorageBoxId()" type="button" class="storage-tree-clear"
+                title="Bỏ chọn" (click)="clearStorageSelection($event)">
+                <i class="pi pi-times"></i>
+              </button>
+              <i class="pi" [class.pi-chevron-down]="!storageTreeOpen()"
+                [class.pi-chevron-up]="storageTreeOpen()"></i>
+            </span>
+          </div>
+          <div class="storage-tree-dropdown" *ngIf="storageTreeOpen()" (click)="$event.stopPropagation()">
+            <div *ngIf="storageTree().length === 0" class="storage-tree-empty">
+              Chưa có kệ/tầng/hộp theo đơn vị hiện tại.
+            </div>
+            <ng-container *ngFor="let shelf of storageTree()">
+              <div class="storage-tree-node" [style.padding-left.px]="8">
+                <button type="button" class="storage-tree-expand-btn"
+                  *ngIf="shelf.floors?.length"
+                  (click)="toggleStorageNode('s-' + shelf.id, $event)">
+                  <i class="pi"
+                    [class.pi-chevron-right]="!isStorageNodeExpanded('s-' + shelf.id)"
+                    [class.pi-chevron-down]="isStorageNodeExpanded('s-' + shelf.id)"></i>
+                </button>
+                <span class="storage-tree-node-spacer" *ngIf="!shelf.floors?.length"></span>
+                <span class="storage-tree-node-label storage-tree-level">
+                  {{ shelf.name }} <code>({{ shelf.code }})</code>
+                </span>
+              </div>
+              <ng-container *ngIf="isStorageNodeExpanded('s-' + shelf.id)">
+                <ng-container *ngFor="let floor of shelf.floors || []">
+                  <div class="storage-tree-node" [style.padding-left.px]="22">
+                    <button type="button" class="storage-tree-expand-btn"
+                      *ngIf="floor.boxes?.length"
+                      (click)="toggleStorageNode('f-' + floor.id, $event)">
+                      <i class="pi"
+                        [class.pi-chevron-right]="!isStorageNodeExpanded('f-' + floor.id)"
+                        [class.pi-chevron-down]="isStorageNodeExpanded('f-' + floor.id)"></i>
+                    </button>
+                    <span class="storage-tree-node-spacer" *ngIf="!floor.boxes?.length"></span>
+                    <span class="storage-tree-node-label storage-tree-level">
+                      {{ floor.name }} <code>({{ floor.code }})</code>
+                    </span>
+                  </div>
+                  <ng-container *ngIf="isStorageNodeExpanded('f-' + floor.id)">
+                    <div class="storage-tree-node storage-tree-leaf"
+                      *ngFor="let box of floor.boxes || []"
+                      [style.padding-left.px]="36"
+                      [class.selected]="selectedStorageBoxId() == box.id"
+                      (click)="selectStorageBox(shelf, floor, box)">
+                      <span class="storage-tree-node-spacer"></span>
+                      <span class="storage-tree-node-label">
+                        {{ box.name }} <code>({{ box.code }})</code>
+                      </span>
+                    </div>
+                  </ng-container>
+                </ng-container>
+              </ng-container>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- Box chọn Loại hồ sơ — đặt ở dưới để gen form động bên dưới      -->
+  <!-- ================================================================ -->
+  <div style="padding: 16px; background: #f0f5ff; border: 1.5px solid #bfdbfe; border-radius: 8px; margin-bottom: 20px;">
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label" style="font-weight: 700; color: #002D72;">
+        Loại hồ sơ <span class="required">*</span>
+      </label>
+      <select class="wf-select w-full" [(ngModel)]="dossier.dossierTypeId"
+              (ngModelChange)="onDossierTypeChange($event)"
+              [disabled]="isEditMode()">
+        <option value="">-- Chọn loại hồ sơ --</option>
+        <option *ngFor="let item of dossierTypes()" [value]="item.id">{{ item.name }}</option>
+      </select>
+      <p style="font-size: 0.75rem; color: #6b7280; margin: 6px 0 0 0;">
+        <i class="pi pi-info-circle"></i>
+        Chọn loại hồ sơ để hiển thị các trường thông tin tương ứng cần nhập bên dưới
+      </p>
+    </div>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- Dynamic form fields — sinh ra từ FormSchema khi chọn loại hồ sơ  -->
+  <!-- ================================================================ -->
+  <div *ngIf="loadingForm()">
+    <div style="display: flex; align-items: center; gap: 8px; color: #6b7280; padding: 12px 0;">
+      <i class="pi pi-spin pi-spinner"></i> Đang tải biểu mẫu...
+    </div>
+  </div>
+
+  <div *ngIf="!loadingForm() && dynamicFields().length > 0">
+    <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+      <h3 style="font-size: 0.95rem; font-weight: 700; color: #002D72; margin: 0;">Thông tin chi tiết hồ sơ</h3>
+      <span style="font-size: 0.78rem; color: #6b7280;">({{ selectedTypeName() }})</span>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <ng-container *ngFor="let field of dynamicFields(); trackBy: trackByFieldKey">
+        <div class="form-group" [style.grid-column]="field.type === 'textarea' ? '1 / -1' : 'auto'">
+          <label class="form-label">
+            {{ field.label }}
+            <span class="required" *ngIf="field.required">*</span>
+          </label>
+
+          <ng-container [ngSwitch]="field.type">
+            <input *ngSwitchCase="'text'" type="text" class="wf-input w-full"
+                   autocomplete="off"
+                   [name]="'dyn_' + field.key"
+                   [placeholder]="field.placeholder || ''"
+                   [(ngModel)]="formData[field.key]">
+
+            <div *ngSwitchCase="'number'" style="display: flex; gap: 6px; align-items: center;">
+              <input type="number" class="wf-input" style="flex: 1;"
+                     autocomplete="off"
+                     [name]="'dyn_' + field.key"
+                     [placeholder]="field.placeholder || ''"
+                     [(ngModel)]="formData[field.key]">
+              <span *ngIf="field.unit" style="font-size: 0.85rem; color: #6b7280; white-space: nowrap;">{{ field.unit }}</span>
+            </div>
+
+            <p-datepicker *ngSwitchCase="'date'"
+                          [name]="'dyn_' + field.key"
+                          [(ngModel)]="formData[field.key]"
+                          dateFormat="dd/mm/yy"
+                          [showIcon]="true"
+                          icon="pi pi-calendar"
+                          appendTo="body"
+                          styleClass="w-full"
+                          [placeholder]="field.placeholder || 'dd/mm/yyyy'">
+            </p-datepicker>
+
+            <textarea *ngSwitchCase="'textarea'" class="wf-textarea w-full" rows="3"
+                      autocomplete="off"
+                      [name]="'dyn_' + field.key"
+                      [placeholder]="field.placeholder || ''"
+                      [(ngModel)]="formData[field.key]"></textarea>
+
+            <!-- Dropdown (type = select, luưu trong schema là dropdown → được normalize thành select) -->
+            <select *ngSwitchCase="'select'" class="wf-select w-full"
+                    [name]="'dyn_' + field.key"
+                    [(ngModel)]="formData[field.key]">
+              <option value="">-- Chọn --</option>
+              <ng-container *ngIf="field.dataSourceType === 'catalog' && field.catalogItems?.length; else manualOptions">
+                <option *ngFor="let opt of field.catalogItems" [value]="opt.value">{{ opt.label }}</option>
+              </ng-container>
+              <ng-template #manualOptions>
+                <option *ngFor="let opt of field.options" [value]="opt.value">{{ opt.label }}</option>
+              </ng-template>
+            </select>
+
+            <!-- Radio group -->
+            <div *ngSwitchCase="'radio'" style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+              <ng-container *ngIf="field.dataSourceType === 'catalog' && field.catalogItems?.length; else manualRadioOptions">
+                <label *ngFor="let opt of field.catalogItems"
+                       style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                  <input type="radio"
+                         [name]="'dyn_' + field.key"
+                         [value]="opt.value"
+                         [(ngModel)]="formData[field.key]"
+                         style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
+                  <span style="font-size: 0.9rem;">{{ opt.label }}</span>
+                </label>
+              </ng-container>
+              <ng-template #manualRadioOptions>
+                <label *ngFor="let opt of (field.options || [])"
+                       style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                  <input type="radio"
+                         [name]="'dyn_' + field.key"
+                         [value]="opt.value"
+                         [(ngModel)]="formData[field.key]"
+                         style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
+                  <span style="font-size: 0.9rem;">{{ opt.label }}</span>
+                </label>
+              </ng-template>
+            </div>
+
+            <!-- Checkbox (có thể là đơn hoặc nhóm nhiều lựa chọn) -->
+            <ng-container *ngSwitchCase="'checkbox'">
+              <!-- TH 1: Nhóm checkbox (nếu có options hoặc catalog) -->
+              <div *ngIf="field.dataSourceType === 'catalog' || (field.options && field.options.length > 0); else singleCheckbox"
+                   style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                
+                <!-- Nút "Chọn tất cả" nếu có selectAll -->
+                <label *ngIf="field.selectAll" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; border-bottom: 1px dashed #cbd5e1; padding-bottom: 4px; margin-bottom: 4px;">
+                  <input type="checkbox"
+                         [checked]="isAllCheckboxesChecked(field)"
+                         (change)="toggleSelectAllCheckboxes(field, $any($event.target).checked)"
+                         style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
+                  <span style="font-size: 0.9rem; color: #002D72;">Chọn tất cả</span>
+                </label>
+
+                <!-- Catalog hoặc Manual options -->
+                <ng-container *ngIf="field.dataSourceType === 'catalog' && field.catalogItems?.length; else manualCheckboxGroup">
+                  <label *ngFor="let opt of field.catalogItems"
+                         style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                    <input type="checkbox"
+                           [name]="'dyn_' + field.key + '_' + opt.value"
+                           [checked]="isCheckboxChecked(field.key, opt.value)"
+                           (change)="onCheckboxGroupChange(field.key, opt.value, $any($event.target).checked)"
+                           style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
+                    <span style="font-size: 0.9rem;">{{ opt.label }}</span>
+                  </label>
+                </ng-container>
+                <ng-template #manualCheckboxGroup>
+                  <label *ngFor="let opt of (field.options || [])"
+                         style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                    <input type="checkbox"
+                           [name]="'dyn_' + field.key + '_' + opt.value"
+                           [checked]="isCheckboxChecked(field.key, opt.value)"
+                           (change)="onCheckboxGroupChange(field.key, opt.value, $any($event.target).checked)"
+                           style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
+                    <span style="font-size: 0.9rem;">{{ opt.label }}</span>
+                  </label>
+                </ng-template>
+              </div>
+
+              <!-- TH 2: Checkbox đơn -->
+              <ng-template #singleCheckbox>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 4px;">
+                  <input type="checkbox"
+                         [name]="'dyn_' + field.key"
+                         [(ngModel)]="formData[field.key]"
+                         style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
+                  <span style="font-size: 0.9rem;">{{ field.placeholder || field.label }}</span>
+                </label>
+              </ng-template>
+            </ng-container>
+
+            <!-- Checkbox Group (Giữ lại để tương thích ngược nếu có template cũ dùng checkboxGroup) -->
+            <div *ngSwitchCase="'checkboxGroup'" style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+              <!-- Nút "Chọn tất cả" nếu có selectAll -->
+              <label *ngIf="field.selectAll" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; border-bottom: 1px dashed #cbd5e1; padding-bottom: 4px; margin-bottom: 4px;">
+                <input type="checkbox"
+                       [checked]="isAllCheckboxesChecked(field)"
+                       (change)="toggleSelectAllCheckboxes(field, $any($event.target).checked)"
+                       style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
+                <span style="font-size: 0.9rem; color: #002D72;">Chọn tất cả</span>
+              </label>
+
+              <ng-container *ngIf="field.dataSourceType === 'catalog' && field.catalogItems?.length; else manualCheckboxGroupOld">
+                <label *ngFor="let opt of field.catalogItems"
+                       style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                  <input type="checkbox"
+                         [name]="'dyn_' + field.key + '_' + opt.value"
+                         [checked]="isCheckboxChecked(field.key, opt.value)"
+                         (change)="onCheckboxGroupChange(field.key, opt.value, $any($event.target).checked)"
+                         style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
+                  <span style="font-size: 0.9rem;">{{ opt.label }}</span>
+                </label>
+              </ng-container>
+              <ng-template #manualCheckboxGroupOld>
+                <label *ngFor="let opt of (field.options || [])"
+                       style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                  <input type="checkbox"
+                         [name]="'dyn_' + field.key + '_' + opt.value"
+                         [checked]="isCheckboxChecked(field.key, opt.value)"
+                         (change)="onCheckboxGroupChange(field.key, opt.value, $any($event.target).checked)"
+                         style="width: 16px; height: 16px; accent-color: #002D72; cursor: pointer;">
+                  <span style="font-size: 0.9rem;">{{ opt.label }}</span>
+                </label>
+              </ng-template>
+            </div>
+
+            <input *ngSwitchDefault type="text" class="wf-input w-full"
+                   autocomplete="off"
+                   [name]="'dyn_' + field.key"
+                   [(ngModel)]="formData[field.key]">
+          </ng-container>
+        </div>
+      </ng-container>
+    </div>
+  </div>
+
+  <!-- Placeholder khi chưa chọn loại hồ sơ -->
+  <div *ngIf="!loadingForm() && !dossier.dossierTypeId" style="padding: 28px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; text-align: center; color: #94a3b8;">
+    <i class="pi pi-file-edit" style="font-size: 2rem; display: block; margin-bottom: 8px;"></i>
+    Chọn Loại hồ sơ ở trên để hiển thị các trường thông tin chi tiết
+  </div>
+
+  <!-- Thông báo khi loại hồ sơ chưa có biểu mẫu -->
+  <div *ngIf="!loadingForm() && dossier.dossierTypeId && dynamicFields().length === 0 && selectedFormId()"
+       style="padding: 16px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; color: #92400e; font-size: 0.88rem;">
+    <i class="pi pi-exclamation-triangle"></i>
+    Biểu mẫu cho loại hồ sơ này chưa có trường thông tin nào. Liên hệ quản trị viên để cấu hình.
+  </div>
+  </div>
+
+  <!-- Tab Tài liệu đính kèm (chỉ khi sửa) -->
+  <div *ngIf="isEditMode() && activeTab() === 'documents'">
+    <app-dossier-documents-tab
+      [dossierId]="dossierId!"
+      [infrastructureIds]="dossier.infrastructureIds || []"
+      [canEdit]="true"
+      [kindId]="kindIdSignal()"
+      [menuScope]="'creator'"
+      [hasFormTemplate]="!!selectedFormId()"
+      [formId]="selectedFormId()"
+      (formDataSaved)="loadDossierDetail(dossierId!)"
+    ></app-dossier-documents-tab>
+  </div>
+
+  <div *ngIf="isEditMode() && activeTab() === 'versions'">
+    <app-dossier-versions-tab [dossierId]="dossierId!" />
+  </div>
+
+  <div *ngIf="isEditMode() && activeTab() === 'workflow'">
+    <app-dossier-workflow-tab [dossierId]="dossierId!" [kindId]="kindIdSignal()" />
+  </div>
+
+  <!-- Loading — chỉ che tab thông tin, không chặn tab Tài liệu -->
+  <div *ngIf="loading() && (!isEditMode() || activeTab() === 'info')" style="position: absolute; inset: 0; background: rgba(255,255,255,0.6); display: flex; align-items: center; justify-content: center; z-index: 10; border-radius: 8px; pointer-events: none;">
+    <i class="pi pi-spin pi-spinner" style="font-size: 2rem; color: #002D72;"></i>
+  </div>
+  </div>
+</div>
+
+<!-- Dialog Xác nhận Gửi Duyệt -->
+<p-dialog
+  [visible]="showSubmitConfirm()"
+  (visibleChange)="$event ? null : showSubmitConfirm.set(false)"
+  header="Gửi duyệt hồ sơ"
+  [modal]="true"
+  [style]="{ width: '450px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!submitting()">
+  <div style="display: flex; flex-direction: column; gap: 16px; padding: 8px 0 16px;">
+    <div style="display: flex; align-items: flex-start; gap: 12px;">
+      <i class="pi pi-send" style="font-size: 1.8rem; color: #1d4ed8;"></i>
+      <div>
+        <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Xác nhận gửi duyệt hồ sơ lên cấp trên</p>
+        <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+          Hồ sơ sẽ đi vào quy trình phê duyệt bước: <b style="color: #1e293b;">{{ nextStepInfo()?.stepName || 'Phê duyệt' }}</b>.
+        </p>
+      </div>
+    </div>
+
+    <!-- Chọn người xử lý tiếp theo nếu được yêu cầu -->
+    <div *ngIf="nextStepInfo()?.requiresNextAssignee" class="form-group">
+      <label class="form-label required">Người duyệt tiếp theo ({{ nextStepInfo()?.stepName }})</label>
+      <select class="wf-select" [value]="selectedNextUser()" (change)="onNextUserChange($event)"
+        [disabled]="loadingEligibleSubmitUsers()">
+        <option value="">-- Chọn người phê duyệt --</option>
+        <option *ngFor="let u of filteredSubmitNextUsers()" [value]="u.id || u.Id || u.userId || u.username">
+          {{ u.fullName || u.FullName || u.name || u.username }}
+        </option>
+      </select>
+      <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="nextStepInfo()?.staticAssigneeId">Bước này có cấu hình người xử lý cụ thể — có thể chọn trong danh sách bên dưới.</div>
+      <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="loadingEligibleSubmitUsers()">Đang tải danh sách người đủ điều kiện...</div>
+      <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="!loadingEligibleSubmitUsers() && filteredSubmitNextUsers().length === 0">
+        Không có người dùng nào đủ điều kiện xử lý bước này.
+      </div>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <button class="btn-cancel btn-small" (click)="showSubmitConfirm.set(false)" [disabled]="submitting()">
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button class="btn-save btn-small" (click)="onConfirmSubmitAndMove()" [disabled]="submitting()">
+        <i class="pi pi-spin pi-spinner" *ngIf="submitting()"></i>
+        <i class="pi pi-check" *ngIf="!submitting()"></i>
+        Xác nhận gửi
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog Xác nhận Hoàn thành nhập liệu (đồng bộ nội dung với popup ở màn Chi tiết hồ sơ) -->
+<p-dialog
+  [visible]="showCompleteInputConfirm()"
+  (visibleChange)="$event ? null : onCancelCompleteInput()"
+  header="Xác nhận hoàn thành"
+  [modal]="true"
+  [style]="{ width: '420px' }"
+  styleClass="evn-dialog-custom"
+  [closable]="!completingInput()">
+  <div style="display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 16px;">
+    <i class="pi pi-exclamation-triangle" style="font-size: 1.8rem; color: #3b82f6;"></i>
+    <div>
+      <p style="margin: 0 0 6px 0; font-weight: 600; color: #1e293b;">Bạn có chắc chắn muốn hoàn thành nhập liệu?</p>
+      <p style="margin: 0; color: #64748b; font-size: 0.875rem;">
+        Hồ sơ này sẽ được chuyển sang trạng thái "Hoàn thành".
+      </p>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <button class="btn-cancel btn-small" (click)="onCancelCompleteInput()" [disabled]="completingInput()">
+        <i class="pi pi-times"></i> Hủy
+      </button>
+      <button class="btn-save btn-small" (click)="onConfirmCompleteInput()" [disabled]="completingInput()">
+        <i class="pi pi-spin pi-spinner" *ngIf="completingInput()"></i>
+        <i class="pi pi-check" *ngIf="!completingInput()"></i>
+        Xác nhận
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog thực hiện hành động workflow cho Form -->
+<p-dialog [visible]="showFormActionDialog()" 
+          (visibleChange)="$event ? null : showFormActionDialog.set(false)"
+          [header]="'Xác nhận hành động: ' + (pendingActionBtn()?.label || '')" 
+          [modal]="true" 
+          [style]="{ width: '450px' }"
+          styleClass="evn-dialog-no-modal"
+          [closable]="!formActionSubmitting()">
+  <div style="display: flex; flex-direction: column; gap: 16px; padding: 8px 0 16px;">
+    <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+      <label class="form-label required">Ý kiến xử lý</label>
+      <textarea class="wf-textarea" [ngModel]="formActionComment()" (ngModelChange)="formActionComment.set($event)" rows="3" placeholder="Nhập ý kiến xử lý..."></textarea>
+    </div>
+    
+    <div class="form-group" *ngIf="pendingActionBtn()?.requiresUser && !isRejectLabel(pendingActionBtn()?.label || '')" style="display: flex; flex-direction: column; gap: 6px;">
+      <label class="form-label required">Người xử lý tiếp theo</label>
+      <select class="wf-select w-full" [ngModel]="selectedNextUserId()" (ngModelChange)="selectedNextUserId.set($event)"
+        [disabled]="loadingEligibleFormNextUsers()">
+        <option value="" disabled selected>-- Chọn người xử lý --</option>
+        <option *ngFor="let u of filteredFormNextUsers()" [value]="u.id || u.Id || u.userId || u.username">{{ u.fullName || u.name }} ({{ u.username }})</option>
+      </select>
+      <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="pendingActionBtn()?.staticAssigneeId">Bước này có cấu hình người xử lý cụ thể — có thể chọn trong danh sách bên dưới.</div>
+      <div style="margin-top: 4px; font-size: 0.8rem; color: #64748b;" *ngIf="loadingEligibleFormNextUsers()">Đang tải danh sách người đủ điều kiện...</div>
+    </div>
+  </div>
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      <button (click)="showFormActionDialog.set(false)" class="btn-cancel btn-small" [disabled]="formActionSubmitting()">Hủy</button>
+      <button (click)="confirmFormAction()" class="btn-save btn-small" [disabled]="formActionSubmitting() || (pendingActionBtn()?.requiresUser && !isRejectLabel(pendingActionBtn()?.label || '') && !selectedNextUserId())">
+        <i class="pi pi-spin pi-spinner" *ngIf="formActionSubmitting()"></i>
+        <i class="pi pi-check" *ngIf="!formActionSubmitting()"></i>
+        Đồng ý
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+
