@@ -1092,7 +1092,7 @@ StatusTransition,
 
         try
         {
-            var dossierCopies = await PrepareDossierAndDocumentCopiesAsync(
+            var plan = await PrepareDossierAndDocumentCopiesAsync(
                 sourceEquipment,
                 replacementEquipment,
                 copiedObjects);
@@ -1101,7 +1101,10 @@ StatusTransition,
 
             try
             {
-                await CloneDossiersAndDocumentsAsync(dossierCopies, replacementEquipment, transaction);
+                if (plan != null)
+                {
+                    await CloneDossiersAndDocumentsAsync(plan, replacementEquipment, transaction);
+                }
 
                 var sourceUpdated = await _connection.ExecuteAsync(@"UPDATE EQUIPMENTS
                     SET ModifiedBy = :ModifiedBy,
@@ -1122,7 +1125,7 @@ StatusTransition,
                     throw new InvalidOperationException("Thiết bị nguồn không còn tồn tại hoặc đã bị xóa.");
 
                 transaction.Commit();
-                return dossierCopies.Select(copy => copy.Id).ToList();
+                return plan != null ? new[] { plan.Id } : Array.Empty<Guid>();
             }
             catch
             {
@@ -1151,78 +1154,106 @@ StatusTransition,
         }
     }
 
-    private async Task<List<DossierClone>> PrepareDossierAndDocumentCopiesAsync(
+    /// <summary>
+    /// Tìm loại hồ sơ "Vận hành" đang hoạt động để gán cho hồ sơ tự động tạo khi "Chuyển hồ sơ" — so
+    /// khớp tên chính xác (bỏ khoảng trắng thừa, không phân biệt hoa/thường) thay vì query LOWER() phía
+    /// Oracle để tránh phụ thuộc NLS collation của DB. Không có hằng số/Code cố định cho loại hồ sơ này
+    /// trong toàn bộ codebase — đây là danh mục do admin tự cấu hình (DOSSIER_TYPES), nên chỉ còn cách
+    /// so khớp theo tên hiển thị.
+    /// </summary>
+    private async Task<Guid> GetOperatingDossierTypeIdAsync()
+    {
+        var types = await _connection.QueryAsync<(string Id, string Name)>(
+            "SELECT Id, Name FROM DOSSIER_TYPES WHERE IsDeleted = 0 AND IS_ACTIVE = 1");
+
+        var match = types.FirstOrDefault(t =>
+            string.Equals(t.Name?.Trim(), "Vận hành", StringComparison.OrdinalIgnoreCase));
+
+        if (match.Id == null)
+        {
+            throw new InvalidOperationException(
+                "Không tìm thấy loại hồ sơ \"Vận hành\" đang hoạt động — vui lòng cấu hình loại hồ sơ này trước khi chuyển hồ sơ.");
+        }
+
+        return Guid.Parse(match.Id);
+    }
+
+    /// <summary>
+    /// Chuẩn bị 1 hồ sơ "Vận hành" (trạng thái Chờ xuất bản) mới cho hạ tầng đích, kèm các tài liệu
+    /// đang gắn thiết bị nguồn (qua DOCUMENT_EQUIPMENTS — model hiện tại, thay cho DOSSIER_EQUIPMENTS
+    /// đã ngừng ghi dữ liệu từ khi tách liên kết Thiết bị ra khỏi Hồ sơ). Trả về null nếu thiết bị
+    /// nguồn không có tài liệu nào đang gắn — không tạo hồ sơ rỗng vô ích.
+    /// </summary>
+    private async Task<DossierTransferPlan?> PrepareDossierAndDocumentCopiesAsync(
         Equipment sourceEquipment,
         Equipment replacementEquipment,
         ICollection<(string ObjectKey, string VersionId)> copiedObjects)
     {
-        var dossiers = (await _connection.QueryAsync<TransferDossierRow>(@"
+        var documents = (await _connection.QueryAsync<TransferDocumentRow>(@"
             SELECT d.ID AS Id,
-                   d.DOSSIER_GROUP_ID AS DossierGroupId,
-                   d.GridTypeId,
-                   d.DossierSetId,
-                   d.DossierTypeId,
-                   d.FormDataJson,
-                   d.STATUS_ID AS StatusId,
-                   d.KIND_ID AS KindId,
-                   d.PUBLISHSTATUSID AS PublishStatusId,
-                   d.ShelfId,
-                   d.FloorId,
-                   d.BoxId
-            FROM DOSSIERS d
-            INNER JOIN DOSSIER_EQUIPMENTS de ON de.DossierId = d.ID
+                   d.NAME AS Name,
+                   d.FOLDER_ID AS FolderId,
+                   d.DOCUMENT_TYPE_ID AS DocumentTypeId,
+                   d.STATUS AS Status
+            FROM DOCUMENTS d
+            INNER JOIN DOCUMENT_EQUIPMENTS de ON de.DocumentId = d.ID
             WHERE de.EquipmentId = :EquipmentId
-              AND d.IsDeleted = 0",
+              AND d.IS_DELETED = 0",
             new { EquipmentId = sourceEquipment.Id.ToString() })).ToList();
 
-        var dossierCopies = dossiers.Select(dossier => new DossierClone
+        if (documents.Count == 0)
         {
-            Source = dossier,
-            Id = Guid.NewGuid()
-        }).ToList();
+            return null;
+        }
 
-        foreach (var dossierCopy in dossierCopies)
+        var dossierTypeId = await GetOperatingDossierTypeIdAsync();
+
+        // DOSSIER_GROUP_ID phải khớp loại hạ tầng đích (1=Trạm biến áp -> Station, 2=Đường dây ->
+        // TransmissionLine) — trước đây copy nguyên từ hồ sơ nguồn nên tự đúng theo ngữ cảnh, giờ tự
+        // tạo mới nên phải tự tra INFRA_TYPE_ID để chọn đúng nhóm.
+        var infraTypeId = replacementEquipment.InfrastructureId.HasValue
+            ? await _connection.QuerySingleOrDefaultAsync<int?>(
+                "SELECT INFRA_TYPE_ID FROM INFRASTRUCTURE WHERE Id = :Id",
+                new { Id = replacementEquipment.InfrastructureId.Value.ToString() })
+            : null;
+        var dossierGroupId = infraTypeId == 2
+            ? DossierGroupConstants.TransmissionLine
+            : DossierGroupConstants.Station;
+
+        var plan = new DossierTransferPlan
         {
-            dossierCopy.Documents = (await _connection.QueryAsync<TransferDocumentRow>(@"
+            Id = Guid.NewGuid(),
+            DossierGroupId = dossierGroupId,
+            DossierTypeId = dossierTypeId,
+            Documents = documents.Select(document => new DocumentClone
+            {
+                Source = document,
+                Id = Guid.NewGuid()
+            }).ToList()
+        };
+
+        foreach (var documentCopy in plan.Documents)
+        {
+            documentCopy.Versions = (await _connection.QueryAsync<TransferDocumentVersionRow>(@"
                 SELECT ID AS Id,
-                       NAME AS Name,
-                       FOLDER_ID AS FolderId,
-                       DOCUMENT_TYPE_ID AS DocumentTypeId,
-                       STATUS AS Status
-                FROM DOCUMENTS
-                WHERE DOSSIER_ID = :DossierId
-                  AND IS_DELETED = 0",
-                new { DossierId = dossierCopy.Source.Id.ToString() }))
-                .Select(document => new DocumentClone
+                       VERSION_NUMBER AS VersionNumber,
+                       UPLOAD_SOURCE AS UploadSource,
+                       FILE_PATH AS FilePath,
+                       MINIO_VERSION_ID AS MinioVersionId,
+                       FILE_SIZE AS FileSize,
+                       MIME_TYPE AS MimeType,
+                       PAGE_COUNT AS PageCount
+                FROM DOCUMENT_VERSIONS
+                WHERE DOCUMENT_ID = :DocumentId
+                  AND IS_DELETED = 0
+                ORDER BY VERSION_NUMBER",
+                new { DocumentId = documentCopy.Source.Id.ToString() }))
+                .Select(version => new DocumentVersionClone
                 {
-                    Source = document,
+                    Source = version,
                     Id = Guid.NewGuid()
                 })
                 .ToList();
-
-            foreach (var documentCopy in dossierCopy.Documents)
-            {
-                documentCopy.Versions = (await _connection.QueryAsync<TransferDocumentVersionRow>(@"
-                    SELECT ID AS Id,
-                           VERSION_NUMBER AS VersionNumber,
-                           UPLOAD_SOURCE AS UploadSource,
-                           FILE_PATH AS FilePath,
-                           MINIO_VERSION_ID AS MinioVersionId,
-                           FILE_SIZE AS FileSize,
-                           MIME_TYPE AS MimeType,
-                           PAGE_COUNT AS PageCount
-                    FROM DOCUMENT_VERSIONS
-                    WHERE DOCUMENT_ID = :DocumentId
-                      AND IS_DELETED = 0
-                    ORDER BY VERSION_NUMBER",
-                    new { DocumentId = documentCopy.Source.Id.ToString() }))
-                    .Select(version => new DocumentVersionClone
-                    {
-                        Source = version,
-                        Id = Guid.NewGuid()
-                    })
-                    .ToList();
-            }
         }
 
         var unitCode = await _connection.QuerySingleOrDefaultAsync<string>(
@@ -1230,217 +1261,211 @@ StatusTransition,
             new { UnitId = replacementEquipment.UnitId }) ?? "unknown";
 
         // Copy MinIO before opening the database transaction. Database failure is compensated by the caller.
-        foreach (var dossierCopy in dossierCopies)
+        foreach (var documentCopy in plan.Documents)
         {
-            foreach (var documentCopy in dossierCopy.Documents)
+            foreach (var versionCopy in documentCopy.Versions)
             {
-                foreach (var versionCopy in documentCopy.Versions)
-                {
-                    if (string.IsNullOrWhiteSpace(versionCopy.Source.FilePath))
-                        continue;
+                if (string.IsNullOrWhiteSpace(versionCopy.Source.FilePath))
+                    continue;
 
-                    var destinationFileName = GetDestinationFileName(
-                        documentCopy.Source.Name,
-                        versionCopy.Source.FilePath);
-                    var destinationObjectKey = _fileStorageService.BuildDossierObjectKey(
-                        unitCode,
-                        dossierCopy.Id,
-                        destinationFileName);
-                    var copiedFile = await _fileStorageService.CopyFileWithVersionAsync(
-                        versionCopy.Source.FilePath,
-                        destinationObjectKey,
-                        _fileStorageService.DossierBucketName,
-                        _fileStorageService.DossierBucketName,
-                        versionCopy.Source.MinioVersionId);
+                var destinationFileName = GetDestinationFileName(
+                    documentCopy.Source.Name,
+                    versionCopy.Source.FilePath);
+                var destinationObjectKey = _fileStorageService.BuildDossierObjectKey(
+                    unitCode,
+                    plan.Id,
+                    destinationFileName);
+                var copiedFile = await _fileStorageService.CopyFileWithVersionAsync(
+                    versionCopy.Source.FilePath,
+                    destinationObjectKey,
+                    _fileStorageService.DossierBucketName,
+                    _fileStorageService.DossierBucketName,
+                    versionCopy.Source.MinioVersionId);
 
-                    versionCopy.FilePath = copiedFile.ObjectKey;
-                    versionCopy.MinioVersionId = copiedFile.VersionId;
-                    copiedObjects.Add(copiedFile);
-                }
+                versionCopy.FilePath = copiedFile.ObjectKey;
+                versionCopy.MinioVersionId = copiedFile.VersionId;
+                copiedObjects.Add(copiedFile);
             }
         }
 
-        return dossierCopies;
+        return plan;
     }
 
+    /// <summary>
+    /// Tạo 1 hồ sơ "Vận hành" mới ở trạng thái Chờ xuất bản (STATUS_ID=Approved, PUBLISHSTATUSID=Pending
+    /// — cùng khuôn DossierService.CreateForPublishingAsync) cho hạ tầng đích, rồi chép các tài liệu
+    /// đang gắn thiết bị nguồn vào hồ sơ đó, gắn lại DOCUMENT_EQUIPMENTS theo thiết bị thay thế (model
+    /// hiện tại — không còn ghi DOSSIER_EQUIPMENTS nữa).
+    /// </summary>
     private async Task CloneDossiersAndDocumentsAsync(
-        IEnumerable<DossierClone> dossierCopies,
+        DossierTransferPlan plan,
         Equipment replacementEquipment,
         IDbTransaction transaction)
     {
-        foreach (var dossierCopy in dossierCopies)
+        await _connection.ExecuteAsync(@"INSERT INTO DOSSIERS (
+                    Id,
+                    DOSSIER_GROUP_ID,
+                    GridTypeId,
+                    InfrastructureId,
+                    DossierSetId,
+                    DossierTypeId,
+                    FormDataJson,
+                    STATUS_ID,
+                    KIND_ID,
+                    WorkflowInstanceId,
+                    WorkflowStatusName,
+                    RowVersion,
+                    CreatorId,
+                    CreatorUsername,
+                    CreatorName,
+                    CreatedBy,
+                    CreatedDate,
+                    IsDeleted,
+                    PUBLISHSTATUSID,
+                    ShelfId,
+                    FloorId,
+                    BoxId
+                ) VALUES (
+                    :Id,
+                    :DossierGroupId,
+                    NULL,
+                    :InfrastructureId,
+                    NULL,
+                    :DossierTypeId,
+                    NULL,
+                    :StatusId,
+                    :KindId,
+                    NULL,
+                    NULL,
+                    1,
+                    :CreatorId,
+                    :CreatorUsername,
+                    :CreatorName,
+                    :CreatedBy,
+                    SYSTIMESTAMP,
+                    0,
+                    :PublishStatusId,
+                    NULL,
+                    NULL,
+                    NULL
+                )",
+            new
+            {
+                Id = plan.Id.ToString(),
+                plan.DossierGroupId,
+                InfrastructureId = replacementEquipment.InfrastructureId?.ToString(),
+                DossierTypeId = plan.DossierTypeId.ToString(),
+                StatusId = DossierStatusConstants.Approved,
+                KindId = DossierKind.New.Id,
+                CreatorId = replacementEquipment.CreatorId?.ToString(),
+                CreatorUsername = replacementEquipment.CreatedBy,
+                CreatorName = replacementEquipment.CreatedBy,
+                replacementEquipment.CreatedBy,
+                PublishStatusId = DossierPublishStatusConstants.Pending
+            }, transaction);
+
+        if (replacementEquipment.InfrastructureId.HasValue)
         {
-            await _connection.ExecuteAsync(@"INSERT INTO DOSSIERS (
-                        Id,
-                        DOSSIER_GROUP_ID,
-                        GridTypeId,
-                        InfrastructureId,
-                        DossierSetId,
-                        DossierTypeId,
-                        FormDataJson,
-                        STATUS_ID,
-                        KIND_ID,
-                        WorkflowInstanceId,
-                        WorkflowStatusName,
-                        RowVersion,
-                        CreatorId,
-                        CreatorUsername,
-                        CreatorName,
-                        CreatedBy,
-                        CreatedDate,
-                        IsDeleted,
-                        PUBLISHSTATUSID,
-                        ShelfId,
-                        FloorId,
-                        BoxId
+            await _connection.ExecuteAsync(
+                "INSERT INTO DOSSIER_INFRASTRUCTURE (DossierId, InfrastructureId) VALUES (:DossierId, :InfrastructureId)",
+                new
+                {
+                    DossierId = plan.Id.ToString(),
+                    InfrastructureId = replacementEquipment.InfrastructureId.Value.ToString()
+                },
+                transaction);
+        }
+
+        foreach (var documentCopy in plan.Documents)
+        {
+            await _connection.ExecuteAsync(@"INSERT INTO DOCUMENTS (
+                        ID,
+                        NAME,
+                        FOLDER_ID,
+                        DOSSIER_ID,
+                        DOCUMENT_TYPE_ID,
+                        STATUS,
+                        ROW_VERSION,
+                        CREATED_BY,
+                        CREATOR_NAME,
+                        CREATED_DATE,
+                        IS_DELETED
                     ) VALUES (
                         :Id,
-                        :DossierGroupId,
-                        :GridTypeId,
-                        :InfrastructureId,
-                        :DossierSetId,
-                        :DossierTypeId,
-                        :FormDataJson,
-                        :StatusId,
-                        :KindId,
-                        NULL,
-                        NULL,
+                        :Name,
+                        :FolderId,
+                        :DossierId,
+                        :DocumentTypeId,
+                        :Status,
                         1,
-                        :CreatorId,
-                        :CreatorUsername,
-                        :CreatorName,
                         :CreatedBy,
+                        :CreatorName,
                         SYSTIMESTAMP,
-                        0,
-                        :PublishStatusId,
-                        :ShelfId,
-                        :FloorId,
-                        :BoxId
+                        0
                     )",
                 new
                 {
-                    Id = dossierCopy.Id.ToString(),
-                    dossierCopy.Source.DossierGroupId,
-                    dossierCopy.Source.GridTypeId,
-                    InfrastructureId = replacementEquipment.InfrastructureId?.ToString(),
-                    DossierSetId = dossierCopy.Source.DossierSetId?.ToString(),
-                    DossierTypeId = dossierCopy.Source.DossierTypeId.ToString(),
-                    FormDataJson = OracleClob.Param(dossierCopy.Source.FormDataJson),
-                    dossierCopy.Source.StatusId,
-                    dossierCopy.Source.KindId,
-                    CreatorId = replacementEquipment.CreatorId?.ToString(),
-                    CreatorUsername = replacementEquipment.CreatedBy,
-                    CreatorName = replacementEquipment.CreatedBy,
-                    replacementEquipment.CreatedBy,
-                    dossierCopy.Source.PublishStatusId,
-                    dossierCopy.Source.ShelfId,
-                    dossierCopy.Source.FloorId,
-                    dossierCopy.Source.BoxId
+                    Id = documentCopy.Id.ToString(),
+                    documentCopy.Source.Name,
+                    FolderId = documentCopy.Source.FolderId?.ToString(),
+                    DossierId = plan.Id.ToString(),
+                    DocumentTypeId = documentCopy.Source.DocumentTypeId?.ToString(),
+                    documentCopy.Source.Status,
+                    CreatedBy = replacementEquipment.CreatedBy,
+                    CreatorName = replacementEquipment.CreatedBy
                 }, transaction);
 
-            if (replacementEquipment.InfrastructureId.HasValue)
-            {
-                await _connection.ExecuteAsync(
-                    "INSERT INTO DOSSIER_INFRASTRUCTURE (DossierId, InfrastructureId) VALUES (:DossierId, :InfrastructureId)",
-                    new
-                    {
-                        DossierId = dossierCopy.Id.ToString(),
-                        InfrastructureId = replacementEquipment.InfrastructureId.Value.ToString()
-                    },
-                    transaction);
-            }
-
             await _connection.ExecuteAsync(
-                "INSERT INTO DOSSIER_EQUIPMENTS (DossierId, EquipmentId) VALUES (:DossierId, :EquipmentId)",
+                "INSERT INTO DOCUMENT_EQUIPMENTS (DocumentId, EquipmentId) VALUES (:DocumentId, :EquipmentId)",
                 new
                 {
-                    DossierId = dossierCopy.Id.ToString(),
+                    DocumentId = documentCopy.Id.ToString(),
                     EquipmentId = replacementEquipment.Id.ToString()
                 },
                 transaction);
 
-            foreach (var documentCopy in dossierCopy.Documents)
+            foreach (var versionCopy in documentCopy.Versions)
             {
-                await _connection.ExecuteAsync(@"INSERT INTO DOCUMENTS (
+                await _connection.ExecuteAsync(@"INSERT INTO DOCUMENT_VERSIONS (
                             ID,
-                            NAME,
-                            FOLDER_ID,
-                            DOSSIER_ID,
-                            DOCUMENT_TYPE_ID,
-                            STATUS,
-                            ROW_VERSION,
+                            DOCUMENT_ID,
+                            VERSION_NUMBER,
+                            UPLOAD_SOURCE,
+                            FILE_PATH,
+                            MINIO_VERSION_ID,
+                            FILE_SIZE,
+                            MIME_TYPE,
+                            PAGE_COUNT,
                             CREATED_BY,
-                            CREATOR_NAME,
                             CREATED_DATE,
                             IS_DELETED
                         ) VALUES (
                             :Id,
-                            :Name,
-                            :FolderId,
-                            :DossierId,
-                            :DocumentTypeId,
-                            :Status,
-                            1,
+                            :DocumentId,
+                            :VersionNumber,
+                            :UploadSource,
+                            :FilePath,
+                            :MinioVersionId,
+                            :FileSize,
+                            :MimeType,
+                            :PageCount,
                             :CreatedBy,
-                            :CreatorName,
                             SYSTIMESTAMP,
                             0
                         )",
                     new
                     {
-                        Id = documentCopy.Id.ToString(),
-                        documentCopy.Source.Name,
-                        FolderId = documentCopy.Source.FolderId?.ToString(),
-                        DossierId = dossierCopy.Id.ToString(),
-                        DocumentTypeId = documentCopy.Source.DocumentTypeId?.ToString(),
-                        documentCopy.Source.Status,
-                        CreatedBy = replacementEquipment.CreatedBy,
-                        CreatorName = replacementEquipment.CreatedBy
+                        Id = versionCopy.Id.ToString(),
+                        DocumentId = documentCopy.Id.ToString(),
+                        versionCopy.Source.VersionNumber,
+                        versionCopy.Source.UploadSource,
+                        versionCopy.FilePath,
+                        versionCopy.MinioVersionId,
+                        versionCopy.Source.FileSize,
+                        versionCopy.Source.MimeType,
+                        versionCopy.Source.PageCount,
+                        CreatedBy = replacementEquipment.CreatedBy
                     }, transaction);
-
-                foreach (var versionCopy in documentCopy.Versions)
-                {
-                    await _connection.ExecuteAsync(@"INSERT INTO DOCUMENT_VERSIONS (
-                                ID,
-                                DOCUMENT_ID,
-                                VERSION_NUMBER,
-                                UPLOAD_SOURCE,
-                                FILE_PATH,
-                                MINIO_VERSION_ID,
-                                FILE_SIZE,
-                                MIME_TYPE,
-                                PAGE_COUNT,
-                                CREATED_BY,
-                                CREATED_DATE,
-                                IS_DELETED
-                            ) VALUES (
-                                :Id,
-                                :DocumentId,
-                                :VersionNumber,
-                                :UploadSource,
-                                :FilePath,
-                                :MinioVersionId,
-                                :FileSize,
-                                :MimeType,
-                                :PageCount,
-                                :CreatedBy,
-                                SYSTIMESTAMP,
-                                0
-                            )",
-                        new
-                        {
-                            Id = versionCopy.Id.ToString(),
-                            DocumentId = documentCopy.Id.ToString(),
-                            versionCopy.Source.VersionNumber,
-                            versionCopy.Source.UploadSource,
-                            versionCopy.FilePath,
-                            versionCopy.MinioVersionId,
-                            versionCopy.Source.FileSize,
-                            versionCopy.Source.MimeType,
-                            versionCopy.Source.PageCount,
-                            CreatedBy = replacementEquipment.CreatedBy
-                        }, transaction);
-                }
             }
         }
     }
@@ -1451,22 +1476,6 @@ StatusTransition,
         return string.IsNullOrWhiteSpace(extension) || documentName.EndsWith(extension, StringComparison.OrdinalIgnoreCase)
             ? documentName
             : $"{documentName}{extension}";
-    }
-
-    private sealed class TransferDossierRow
-    {
-        public Guid Id { get; init; }
-        public int DossierGroupId { get; init; }
-        public int? GridTypeId { get; init; }
-        public Guid? DossierSetId { get; init; }
-        public Guid DossierTypeId { get; init; }
-        public string? FormDataJson { get; init; }
-        public int StatusId { get; init; }
-        public int KindId { get; init; }
-        public int? PublishStatusId { get; init; }
-        public long? ShelfId { get; init; }
-        public long? FloorId { get; init; }
-        public long? BoxId { get; init; }
     }
 
     private sealed class TransferDocumentRow
@@ -1490,10 +1499,12 @@ StatusTransition,
         public int PageCount { get; init; }
     }
 
-    private sealed class DossierClone
+    /// <summary>1 hồ sơ "Vận hành" mới tự động tạo khi "Chuyển hồ sơ" + danh sách tài liệu sẽ chép vào.</summary>
+    private sealed class DossierTransferPlan
     {
-        public required TransferDossierRow Source { get; init; }
         public Guid Id { get; init; }
+        public Guid DossierTypeId { get; init; }
+        public int DossierGroupId { get; init; }
         public List<DocumentClone> Documents { get; set; } = [];
     }
 
