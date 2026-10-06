@@ -195,45 +195,118 @@ public class PmisClient : IPmisClient
             ? new PmisSubstationDocumentSearchRequest { MaTBA = ownerPmisCode, Skip = 0, Take = take }
             : new PmisLineDocumentSearchRequest { MaDuongDay = ownerPmisCode, Skip = 0, Take = take };
         using var response = await SendAsync(isSubstation ? "SUBSTATION_DOCUMENT_LIST" : "LINE_DOCUMENT_LIST", request);
-        return await response.Content.ReadAsStringAsync();
+        var bytes = await ReadCappedAsync(response.Content, ProbeMaxBodyBytes);
+        if (bytes.Length >= ProbeMaxBodyBytes)
+            throw new InvalidOperationException($"Phản hồi PMIS lớn hơn {ProbeMaxBodyBytes / 1024 / 1024} MB (có thể chứa file/base64 trong danh sách) — dùng take nhỏ hơn hoặc peek-api để xem phần đầu.");
+        return System.Text.Encoding.UTF8.GetString(bytes);
     }
 
-    public async Task<DocumentFileProbe> ProbeDocumentFileAsync(string maTaiLieu, string endpointApiCode,
+    private const int ProbeMaxBodyBytes = 2 * 1024 * 1024;
+
+    // Không cho caller ghi đè Host (đổi vhost đích của gateway) hay header điều khiển kết nối/độ dài.
+    private static readonly HashSet<string> ProbeBlockedHeaders =
+        new(StringComparer.OrdinalIgnoreCase) { "Host", "Content-Length", "Transfer-Encoding", "Connection", "Upgrade" };
+
+    /// <summary>Đọc tối đa <paramref name="max"/> byte đầu của body (không nạp cả body lớn vào bộ nhớ).</summary>
+    private static async Task<byte[]> ReadCappedAsync(HttpContent content, int max)
+    {
+        await using var stream = await content.ReadAsStreamAsync();
+        using var ms = new MemoryStream();
+        var buffer = new byte[81920];
+        int read;
+        while (ms.Length < max && (read = await stream.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, max - ms.Length)))) > 0)
+            ms.Write(buffer, 0, read);
+        return ms.ToArray();
+    }
+
+    public Task<DocumentFileProbe> ProbeDocumentFileAsync(string maTaiLieu, string endpointApiCode,
         string method = "GET", string bodyMode = "query", string path = "/api/PmisDongBo/TaiFileTaiLieu")
     {
-        var probe = new DocumentFileProbe();
+        var isPost = string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase);
+        var request = new PmisProbeRequest { Method = method, Path = path, HeadersFromApiCode = endpointApiCode };
+        if (!isPost || string.Equals(bodyMode, "query", StringComparison.OrdinalIgnoreCase))
+            request.Query = new Dictionary<string, string> { ["maTaiLieu"] = maTaiLieu };
+        else if (string.Equals(bodyMode, "json", StringComparison.OrdinalIgnoreCase))
+            request.JsonBody = System.Text.Json.JsonSerializer.SerializeToElement(new { maTaiLieu });
+        else if (string.Equals(bodyMode, "form", StringComparison.OrdinalIgnoreCase))
+            request.FormBody = new Dictionary<string, string> { ["maTaiLieu"] = maTaiLieu };
+        return ProbeApiAsync(request);
+    }
+
+    public async Task<DocumentFileProbe> ProbeApiAsync(PmisProbeRequest req)
+    {
+        var probe = new DocumentFileProbe { Method = req.Method.ToUpperInvariant() };
         try
         {
             var httpClient = _httpClientFactory.CreateClient(_httpClientName);
-            var endpoint = await _endpointConfigProvider.GetEndpointAsync(endpointApiCode);
-            var isPost = string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase);
-            var withQuery = !isPost || string.Equals(bodyMode, "query", StringComparison.OrdinalIgnoreCase);
-            probe.RequestUrl = PmisFileUrlResolver.Resolve(
-                withQuery ? $"{path}?maTaiLieu={Uri.EscapeDataString(maTaiLieu)}" : path, httpClient.BaseAddress, endpoint?.Url);
-            using var request = new HttpRequestMessage(isPost ? HttpMethod.Post : HttpMethod.Get, probe.RequestUrl);
-            if (isPost && string.Equals(bodyMode, "json", StringComparison.OrdinalIgnoreCase))
-                request.Content = JsonContent.Create(new { maTaiLieu });
-            else if (isPost && string.Equals(bodyMode, "form", StringComparison.OrdinalIgnoreCase))
-                request.Content = new FormUrlEncodedContent(new Dictionary<string, string> { ["maTaiLieu"] = maTaiLieu });
-            if (endpoint != null)
+            var endpoint = await _endpointConfigProvider.GetEndpointAsync(req.HeadersFromApiCode);
+
+            var queryString = req.Query is { Count: > 0 }
+                ? string.Join("&", req.Query.Select(kv => $"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(kv.Value)}"))
+                : null;
+
+            // Host tin cậy = gateway PMIS cấu hình + host của endpoint nguồn header; chỉ host này mới nhận header xác thực cấu hình.
+            var trusted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (httpClient.BaseAddress != null) trusted.Add(httpClient.BaseAddress.Authority);
+            if (Uri.TryCreate(endpoint?.Url, UriKind.Absolute, out var endpointUri)) trusted.Add(endpointUri.Authority);
+            var attachConfigHeaders = true;
+
+            if (!string.IsNullOrWhiteSpace(req.Url))
             {
-                foreach (var header in endpoint.Headers) request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                if (!Uri.TryCreate(req.Url, UriKind.Absolute, out var target)
+                    || (target.Scheme != Uri.UriSchemeHttp && target.Scheme != Uri.UriSchemeHttps)
+                    || !string.IsNullOrEmpty(target.UserInfo))
+                    throw new InvalidOperationException("url phải là http/https tuyệt đối, không chứa user:pass@.");
+
+                var allowed = new HashSet<string>(trusted, StringComparer.OrdinalIgnoreCase);
+                foreach (var extra in req.ExtraAllowedAuthorities) allowed.Add(extra.Trim());
+                if (!allowed.Contains(target.Authority) && !allowed.Contains(target.Host))
+                    throw new InvalidOperationException(
+                        $"Host '{target.Authority}' không nằm trong danh sách cho phép. Cho phép: {string.Join(", ", allowed)}. Thêm host vào DebugSql__ProbeAllowedHosts nếu cần.");
+
+                attachConfigHeaders = trusted.Contains(target.Authority);
+                probe.RequestUrl = queryString == null ? target.AbsoluteUri
+                    : target.AbsoluteUri + (target.Query.Length > 0 ? "&" : "?") + queryString;
             }
+            else
+            {
+                var relative = queryString == null ? req.Path : $"{req.Path}?{queryString}";
+                probe.RequestUrl = PmisFileUrlResolver.Resolve(relative, httpClient.BaseAddress, endpoint?.Url);
+            }
+
+            using var request = new HttpRequestMessage(new HttpMethod(probe.Method), probe.RequestUrl);
+            if (req.JsonBody is { } json) request.Content = JsonContent.Create(json);
+            else if (req.FormBody is { Count: > 0 }) request.Content = new FormUrlEncodedContent(req.FormBody);
+
+            if (endpoint != null && attachConfigHeaders)
+                foreach (var header in endpoint.Headers) request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            if (req.Headers != null)
+                foreach (var header in req.Headers.Where(h => !ProbeBlockedHeaders.Contains(h.Key)))
+                {
+                    request.Headers.Remove(header.Key);
+                    request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                }
 
             using var response = await httpClient.SendAsync(request);
             probe.StatusCode = (int)response.StatusCode;
             probe.ContentType = response.Content.Headers.ContentType?.ToString();
             probe.ContentLength = response.Content.Headers.ContentLength;
+            probe.ResponseHeaders = response.Headers.Concat(response.Content.Headers)
+                .ToDictionary(h => h.Key, h => string.Join(", ", h.Value), StringComparer.OrdinalIgnoreCase);
 
-            var bytes = await response.Content.ReadAsByteArrayAsync();
+            // Chỉ đọc tối đa ProbeMaxBodyBytes: file/base64 lớn không được nạp hết vào RAM chỉ để chẩn đoán.
+            // ContentLength (header) vẫn cho biết kích thước thật nếu server gửi.
+            var bytes = await ReadCappedAsync(response.Content, ProbeMaxBodyBytes);
             probe.BodyBytes = bytes.Length;
+            probe.BodyTruncated = bytes.Length >= ProbeMaxBodyBytes;
             probe.HeadHex = Convert.ToHexString(bytes.AsSpan(0, Math.Min(16, bytes.Length)));
 
-            var text = System.Text.Encoding.UTF8.GetString(bytes, 0, Math.Min(bytes.Length, 400));
+            var headChars = Math.Clamp(req.HeadChars, 50, 4000);
+            var text = System.Text.Encoding.UTF8.GetString(bytes, 0, Math.Min(bytes.Length, headChars * 4));
             var isPrintable = text.All(c => !char.IsControl(c) || c is '\r' or '\n' or '\t');
-            probe.HeadText = isPrintable ? (text.Length > 300 ? text[..300] : text) : null;
+            probe.HeadText = isPrintable ? (text.Length > headChars ? text[..headChars] : text) : null;
 
-            // Nhận dạng định dạng: JSON (có thể chứa base64), base64 thuần, hay nhị phân (PDF/ảnh/zip theo magic bytes).
+            // Nhận dạng định dạng: nhị phân theo magic bytes, JSON (kèm dò chuỗi dài giống base64), hay base64 thuần.
             if (bytes.Length >= 4 && bytes[0] == 0x25 && bytes[1] == 0x50 && bytes[2] == 0x44 && bytes[3] == 0x46) probe.DetectedFormat = "PDF (nhị phân)";
             else if (bytes.Length >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8) probe.DetectedFormat = "JPEG (nhị phân)";
             else if (bytes.Length >= 4 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) probe.DetectedFormat = "PNG (nhị phân)";
@@ -244,8 +317,21 @@ public class PmisClient : IPmisClient
                 try
                 {
                     using var doc = System.Text.Json.JsonDocument.Parse(bytes);
-                    if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object)
-                        probe.JsonKeys = doc.RootElement.EnumerateObject().Select(p => $"{p.Name}:{p.Value.ValueKind}" + (p.Value.ValueKind == System.Text.Json.JsonValueKind.String ? $"(len={p.Value.GetString()!.Length})" : "")).ToList();
+                    var node = doc.RootElement;
+                    // Mảng gốc → mô tả phần tử đầu; có "items" → mô tả phần tử đầu của items (cấu trúc phân trang PMIS).
+                    if (node.ValueKind == System.Text.Json.JsonValueKind.Array && node.GetArrayLength() > 0) node = node[0];
+                    else if (node.ValueKind == System.Text.Json.JsonValueKind.Object
+                             && node.TryGetProperty("items", out var items) && items.ValueKind == System.Text.Json.JsonValueKind.Array && items.GetArrayLength() > 0)
+                        node = items[0];
+                    if (node.ValueKind == System.Text.Json.JsonValueKind.Object)
+                        probe.JsonKeys = node.EnumerateObject().Select(pr =>
+                        {
+                            var desc = $"{pr.Name}:{pr.Value.ValueKind}";
+                            if (pr.Value.ValueKind != System.Text.Json.JsonValueKind.String) return desc;
+                            var str = pr.Value.GetString() ?? string.Empty;
+                            var looksBase64 = str.Length > 200 && System.Text.RegularExpressions.Regex.IsMatch(str[..200], "^[A-Za-z0-9+/=\\r\\n]+$");
+                            return desc + $"(len={str.Length}{(looksBase64 ? ", base64?" : "")})";
+                        }).ToList();
                 }
                 catch { /* không phải JSON hợp lệ — giữ HeadText */ }
             }
