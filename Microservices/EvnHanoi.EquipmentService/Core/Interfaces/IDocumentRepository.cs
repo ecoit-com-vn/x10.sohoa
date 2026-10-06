@@ -54,6 +54,12 @@ public interface IDocumentRepository
     Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDocumentsByDossierIdsAsync(IEnumerable<Guid> dossierIds, string? keyword, int page, int pageSize);
     Task<bool> AssignDocumentToDossierAsync(Guid documentId, Guid dossierId, Guid documentTypeId, string modifiedBy);
     Task<bool> UpdateDocumentVersionFilePathAsync(Guid versionId, string filePath, string modifiedBy);
+
+    /// <summary>Cập nhật metadata nội dung sau khi ghi đè file tại chỗ (chuyển ảnh cũ → PDF khi bấm OCR).</summary>
+    Task<bool> UpdateDocumentVersionContentAsync(Guid versionId, string minioVersionId, long fileSize, string mimeType, int pageCount);
+
+    /// <summary>Đổi tên tài liệu do hệ thống (đuôi ảnh → .pdf sau khi chuyển đổi). Tăng ROW_VERSION, không kiểm tra khoá lạc quan.</summary>
+    Task<bool> UpdateDocumentNameAsync(Guid documentId, string name, string modifiedBy);
     Task<bool> SoftDeleteDocumentVersionsAsync(Guid documentId, string modifiedBy);
     Task<bool> SoftDeleteDocumentVersionAsync(Guid versionId, string modifiedBy);
     Task<string?> GetOrganizationUnitCodeAsync(long unitId);

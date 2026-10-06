@@ -253,6 +253,15 @@ namespace EvnHanoi.DigitizationService.Workers
                             await fileStream.CopyToAsync(msPdf, stoppingToken);
                             byte[] pdfBytes = msPdf.ToArray();
 
+                            // Lớp phòng thủ: ảnh đáng lẽ đã được chuyển thành PDF lúc upload. File không phải PDF
+                            // (ảnh upload từ trước khi có tính năng, hoặc đường upload bỏ sót) → báo lỗi rõ ràng và
+                            // KHÔNG retry (retry vô ích, chỉ chiếm GPU/queue) thay vì ném exception khó hiểu từ PDFtoImage.
+                            if (!LooksLikePdf(pdfBytes))
+                            {
+                                throw new NonRetryableOcrException(
+                                    $"File {taskMsg.FilePath} không phải PDF (có thể là file ảnh chưa được chuyển đổi) — OCR chỉ xử lý PDF.");
+                            }
+
                             // Idempotency: nếu file đã được OcrWorker dựng PDF 2 lớp từ trước (marker
                             // /EvnOcrVersion trong Info) mà message này vẫn tới (retry, requeue thủ
                             // công...), KHÔNG OCR/vẽ lại — job trước đã ghi đè lên bản gốc trên MinIO,
@@ -510,6 +519,24 @@ namespace EvnHanoi.DigitizationService.Workers
 
         private const int MaxRetries = 3;
 
+        /// <summary>Lỗi do dữ liệu đầu vào (không phải hạ tầng) — thử lại không thể thành công, đi thẳng DLQ + báo Failed.</summary>
+        private sealed class NonRetryableOcrException : Exception
+        {
+            public NonRetryableOcrException(string message) : base(message) { }
+        }
+
+        private static bool LooksLikePdf(byte[] bytes)
+        {
+            // Đặc tả cho phép rác trước header trong 1024 byte đầu.
+            var limit = Math.Min(bytes.Length - 4, 1024);
+            for (var i = 0; i <= limit; i++)
+            {
+                if (bytes[i] == 0x25 && bytes[i + 1] == 0x50 && bytes[i + 2] == 0x44 && bytes[i + 3] == 0x46)
+                    return true;
+            }
+            return false;
+        }
+
         /// <summary>
         /// Lỗi ở cấp tài liệu (ngoài vòng lặp OCR từng trang — ví dụ tải file MinIO thất bại, PDF hỏng,
         /// upload/publish thất bại). Thử lại tối đa <see cref="MaxRetries"/> lần bằng cách ack message gốc
@@ -525,7 +552,7 @@ namespace EvnHanoi.DigitizationService.Workers
             CancellationToken cancellationToken)
         {
             var retryCount = GetRetryCount(ea.BasicProperties?.Headers) + 1;
-            var isFinalAttempt = retryCount > MaxRetries;
+            var isFinalAttempt = retryCount > MaxRetries || ex is NonRetryableOcrException;
             var targetRoutingKey = isFinalAttempt
                 ? DigitizationTopicTopology.OcrTaskDeadLetterRoutingKey
                 : DigitizationTopicTopology.OcrTaskRoutingKey;
@@ -550,9 +577,18 @@ namespace EvnHanoi.DigitizationService.Workers
                 return;
             }
 
-            _logger.LogError(
-                "OCR task vượt quá {MaxRetries} lần thử — đã chuyển sang hàng đợi lỗi {DlqQueue}.",
-                MaxRetries, DigitizationTopicTopology.OcrTaskDeadLetterQueue);
+            if (ex is NonRetryableOcrException)
+            {
+                _logger.LogError(
+                    "OCR task lỗi dữ liệu đầu vào (không thể retry) — đã chuyển thẳng sang hàng đợi lỗi {DlqQueue}: {Reason}",
+                    DigitizationTopicTopology.OcrTaskDeadLetterQueue, ex.Message);
+            }
+            else
+            {
+                _logger.LogError(
+                    "OCR task vượt quá {MaxRetries} lần thử — đã chuyển sang hàng đợi lỗi {DlqQueue}.",
+                    MaxRetries, DigitizationTopicTopology.OcrTaskDeadLetterQueue);
+            }
 
             var fileId = TryExtractFileId(messageText);
             if (fileId.HasValue)
