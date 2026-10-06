@@ -7,6 +7,7 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System;
 using System.Text;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
@@ -22,6 +23,7 @@ using EvnHanoi.DigitizationService.Repositories;
 using EvnHanoi.DigitizationService.Services;
 using EvnHanoi.DigitizationService.Helpers;
 using EvnHanoi.Infrastructure.Messaging;
+using Minio.Exceptions;
 
 namespace EvnHanoi.DigitizationService.Workers
 {
@@ -242,6 +244,10 @@ CÙNG HÀNG: label bên trái, giá trị là khối ngay bên phải (x1 của 
 CÙNG CỘT: giá trị nằm ngay dưới label (x0 hai khối xấp xỉ nhau, y0 của giá trị lớn hơn y0 của label một khoảng ngắn).
 CHỈ lấy khối chữ gần nhất, hợp lý nhất theo 2 kiểu quan hệ trên. KHÔNG lấy khối chữ ở xa, ở cột/bảng khác dù nội dung nghe có vẻ liên quan — đây là nguyên nhân phổ biến nhất gây ghép nhầm dữ liệu giữa các cột cạnh nhau.
 
+[ĐỐI TƯỢNG CHÍNH CỦA TÀI LIỆU]
+Mỗi trường mô tả ĐỐI TƯỢNG CHÍNH mà tài liệu nói về (thiết bị, hồ sơ, công trình được lập biên bản/giấy chứng nhận). KHÔNG lấy thông tin của đối tượng phụ xuất hiện trong tài liệu để điền cho trường của đối tượng chính. Đối tượng phụ gồm: dụng cụ/thiết bị đo kiểm, thiết bị tham chiếu, tiêu chuẩn và phương pháp thử, người thực hiện, đơn vị thực hiện. Ví dụ: hãng/số chế tạo nằm trong bảng ""thiết bị đo/dụng cụ đo"" là của dụng cụ đo, KHÔNG phải của thiết bị được thí nghiệm.
+Nếu nhãn của trường có trên trang nhưng giá trị để TRỐNG, hoặc trang không có mục đó → null. KHÔNG mượn giá trị của mục khác để điền vào.
+
 [NGUYÊN TẮC CHỐNG ẢO GIÁC — ƯU TIÊN CAO HƠN MỌI NGUYÊN TẮC KHÁC]
 
 CHỈ điền giá trị THỰC SỰ XUẤT HIỆN trong danh sách khối chữ OCR được cung cấp. TUYỆT ĐỐI KHÔNG suy diễn, không ""đoán"" giá trị hợp lý dựa trên kiến thức nền về ngành điện, không tự bổ sung phần bị thiếu, không tự tính toán lại số liệu không có trong OCR.
@@ -340,12 +346,44 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
 
                                         // Đọc cấu hình extraction từ appsettings
                                         int maxTokens = _configuration.GetValue("Extraction:MaxTokens", 4096);
-                                        float llmTemperature = _configuration.GetValue("Extraction:Temperature", 0.05f);
+                                        float llmTemperature = _configuration.GetValue("Extraction:Temperature", 0f);
+                                        int llmTopK = _configuration.GetValue("Extraction:TopK", 1);
+                                        int llmSeed = _configuration.GetValue("Extraction:Seed", 42);
+                                        bool disableThinking = _configuration.GetValue("Extraction:DisableThinking", true);
                                         int maxRetries = _configuration.GetValue("Extraction:MaxRetries", 2);
                                         int retryDelayMs = _configuration.GetValue("Extraction:RetryDelayMs", 1000);
 
                                         PageResult? pageResult = null;
                                         var swTotal = Stopwatch.StartNew();
+
+                                        // Cache kết quả theo nội dung: cùng (model + prompt + tham số + văn bản OCR) thì trả lại
+                                        // đúng kết quả đã bóc tách trước đó. Đây là cách duy nhất ĐẢM BẢO giống nhau tuyệt đối
+                                        // giữa các lần bóc tách lại (greedy decoding chỉ tái lập được khi cấu hình server y hệt).
+                                        // Đổi model/prompt/tham số → khóa đổi → tự bóc tách lại.
+                                        string? cacheObjectKey = null;
+                                        if (_configuration.GetValue("Extraction:ResultCache:Enabled", true))
+                                        {
+                                            cacheObjectKey = BuildResultCacheKey(
+                                                _configuration.GetValue("Extraction:ModelId", "unspecified") ?? "unspecified",
+                                                systemPrompt, userPrompt, pageText,
+                                                llmTemperature, llmTopK, llmSeed, disableThinking, maxTokens);
+                                            try
+                                            {
+                                                using var cached = await minioService.DownloadFileAsync(taskMsg.BucketName, cacheObjectKey);
+                                                using var cachedReader = new StreamReader(cached, Encoding.UTF8);
+                                                var cachedNode = JsonNode.Parse(await cachedReader.ReadToEndAsync());
+                                                if (cachedNode is JsonObject)
+                                                {
+                                                    _logger.LogInformation("[CACHE] Trang {Page}: dùng kết quả đã bóc tách ({Key}).", pageNum, cacheObjectKey);
+                                                    return new PageResult(pageNum, cachedNode, null, null, "cache");
+                                                }
+                                            }
+                                            catch (Exception cacheEx)
+                                            {
+                                                if (!IsObjectNotFound(cacheEx))
+                                                    _logger.LogWarning(cacheEx, "[CACHE] Không đọc được cache trang {Page}; bóc tách bình thường.", pageNum);
+                                            }
+                                        }
 
                                         for (int attempt = 0; attempt <= maxRetries; attempt++)
                                         {
@@ -360,17 +398,24 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
 
                                             try
                                             {
-                                                var payload = new
+                                                // Bóc tách cần kết quả ổn định và nhanh: giải mã tham lam (temperature 0 + top_k 1),
+                                                // seed cố định, và TẮT thinking. Gemma 4/Qwen3.5 mặc định "suy luận" ~1000-3000 token
+                                                // trước khi trả JSON — chậm gấp ~10 lần và là nguồn lệch kết quả giữa các lần chạy.
+                                                var payload = new Dictionary<string, object?>
                                                 {
-                                                    messages = new object[]
+                                                    ["messages"] = new object[]
                                                     {
                                                         new { role = "system", content = systemPrompt },
                                                         new { role = "user", content = $"{userPrompt}\n[VĂN BẢN OCR]:\n{pageText}" }
                                                     },
-                                                    temperature = llmTemperature,
-                                                    max_tokens = maxTokens,
-                                                    response_format = new { type = "json_object" }
+                                                    ["temperature"] = llmTemperature,
+                                                    ["max_tokens"] = maxTokens,
+                                                    ["response_format"] = new { type = "json_object" },
+                                                    ["top_k"] = llmTopK,
+                                                    ["seed"] = llmSeed + attempt  // retry dùng seed khác, nếu không greedy sẽ lặp lại đúng đầu ra lỗi
                                                 };
+                                                if (disableThinking)
+                                                    payload["chat_template_kwargs"] = new { enable_thinking = false };
                                                 var content = new StringContent(
                                                     JsonSerializer.Serialize(payload, OcrPageContentHelper.Utf8JsonOptions),
                                                     Encoding.UTF8,
@@ -409,6 +454,19 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
                                                 var parsedJson = JsonNode.Parse(extractedJson);
                                                 _logger.LogInformation("[ĐO ĐẠC] Trang {Page} hoàn thành Trích xuất sau {ElapsedMs} ms.", pageNum, sw.ElapsedMilliseconds);
                                                 pageResult = new PageResult(pageNum, parsedJson, null, null, "direct");
+                                                if (cacheObjectKey != null && parsedJson is JsonObject)
+                                                {
+                                                    // Chỉ cache kết quả JSON hợp lệ; lỗi ghi cache không được làm hỏng bóc tách.
+                                                    try
+                                                    {
+                                                        using var cacheStream = new MemoryStream(Encoding.UTF8.GetBytes(parsedJson.ToJsonString(OcrPageContentHelper.Utf8JsonOptions)));
+                                                        await minioService.UploadFileAsync(taskMsg.BucketName, cacheObjectKey, cacheStream, "application/json");
+                                                    }
+                                                    catch (Exception cacheWriteEx)
+                                                    {
+                                                        _logger.LogWarning(cacheWriteEx, "[CACHE] Không ghi được cache trang {Page}.", pageNum);
+                                                    }
+                                                }
                                                 break;
                                             }
                                             catch
@@ -696,6 +754,25 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
         }
 
         private const int MaxRetries = 3;
+
+        /// <summary>
+        /// Khóa cache = SHA-256 của mọi thứ ảnh hưởng đầu ra LLM: model, prompt hệ thống/người dùng,
+        /// văn bản OCR của trang và các tham số lấy mẫu. Đặt dưới tiền tố riêng trong cùng bucket.
+        /// </summary>
+        internal static string BuildResultCacheKey(string modelId, string systemPrompt, string userPrompt, string pageText,
+            float temperature, int topK, int seed, bool disableThinking, int maxTokens)
+        {
+            var material = string.Join("\u0001", modelId, systemPrompt, userPrompt, pageText,
+                temperature.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
+                topK, seed, disableThinking, maxTokens);
+            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(material));
+            return $"extraction_cache/{Convert.ToHexString(hash).ToLowerInvariant()}.json";
+        }
+
+        private static bool IsObjectNotFound(Exception ex) =>
+            ex is ObjectNotFoundException
+            || ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase)
+            || ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         /// Trước đây lỗi bị nack không requeue (mất message âm thầm, không DLQ, không báo trạng thái).
