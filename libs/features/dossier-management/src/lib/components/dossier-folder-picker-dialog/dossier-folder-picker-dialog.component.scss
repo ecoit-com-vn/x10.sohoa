@@ -134,6 +134,23 @@
   font-weight: 600;
 }
 
+.selected-document-type-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  color: #1e40af;
+  font-weight: 600;
+  font-size: 0.875rem;
+
+  i {
+    color: #3b82f6;
+  }
+}
+
 .step-note {
   margin: 8px 0 0;
   font-size: 0.85rem;

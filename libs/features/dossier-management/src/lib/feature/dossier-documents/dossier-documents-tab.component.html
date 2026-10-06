@@ -79,11 +79,10 @@
           <th class="col-stt">STT</th>
           <th>Loại tài liệu</th>
           <th>Tên tài liệu</th>
-          <th style="width: 110px;">Kích thước</th>
-          <th class="col-digitization" style="width: 10px;">OCR</th>
-          <th class="col-digitization" style="width: 100px;">Bóc tách</th>
-          <th style="width: 150px;">Ngày tạo</th>
-          <th style="width: 200px;">Người tạo</th>
+          <th>Kích thước</th>
+          <th class="col-digitization">OCR</th>
+          <th class="col-digitization">Bóc tách</th>
+          <th>Ngày tạo</th>
           <th class="col-hd col-actions-sticky">
             <div class="col-actions-sticky-panel col-actions-sticky-panel--head">Thao tác</div>
           </th>
@@ -182,13 +181,6 @@
             </ng-template>
           </td>
           <td>{{ formatDate(doc.createdDate) }}</td>
-          <td>
-            <span
-              [title]="displayCreatorName(doc)"
-            >
-              {{ displayCreatorName(doc) }}
-            </span>
-          </td>
           <td class="col-hd col-actions-sticky">
             <div class="col-actions-sticky-panel">
             <div class="action-buttons-group">
@@ -466,6 +458,8 @@
 
 <app-dossier-folder-picker-dialog
   [dossierId]="dossierId"
+  [infrastructureIds]="infrastructureIds"
+  [documentTypeId]="selectedDocumentTypeId()"
   [visible]="showFolderPicker()"
   (visibleChange)="showFolderPicker.set($event)"
   (documentsAdded)="onDocumentsAdded()"

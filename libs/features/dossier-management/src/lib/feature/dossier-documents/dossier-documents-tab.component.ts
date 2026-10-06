@@ -645,7 +645,10 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
       });
     }
 
-    if (this.canEdit) {
+    // Xóa tài liệu là hành động độc lập với quyền sửa nội dung hồ sơ (canEdit) ở phân hệ Xuất bản —
+    // cùng lý do với "Ký số" ở trên (canEdit luôn false khi menuScope === 'publisher', xem
+    // canEditDossier()/canManageDigitizationDocuments() trong dossier-detail.component.ts).
+    if (this.canEdit || this.hasPublisherDeletePermission()) {
       actions.push({
         key: 'delete',
         title: 'Xóa tài liệu',
@@ -756,6 +759,25 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
       return false;
     }
     return this.authService.hasPermission('SUPER_ADMIN') || this.authService.hasPermission('DOSSIER_SIGN');
+  }
+
+  /** Quyền xóa tài liệu ở phân hệ Xuất bản hồ sơ (menuScope === 'publisher') — canEdit luôn false ở
+   * đây theo thiết kế (xem canEditDossier()/canManageDigitizationDocuments() trong
+   * dossier-detail.component.ts), nên phải xét permission riêng, cùng khuôn với hasSignPermission().
+   * Mã quyền khác nhau theo loại hồ sơ vì backend tách policy theo controller
+   * (DossierController → DOSSIER_DELETE, DossierDigitizationController → DOSSIER_DIGITIZATION_DELETE
+   * — xem PermissionCodeResolver.GetResourceBase/CategorizeAction). */
+  hasPublisherDeletePermission(): boolean {
+    if (this.menuScope !== 'publisher') {
+      return false;
+    }
+    if (this.authService.hasPermission('SUPER_ADMIN')) {
+      return true;
+    }
+    const kind = normalizeDossierKindId(this.kindId, 2);
+    return kind === 1
+      ? this.authService.hasPermission('DOSSIER_DIGITIZATION_DELETE')
+      : this.authService.hasPermission('DOSSIER_DELETE');
   }
 
   /** Badge tạm thời "Đã ký số" ngay sau khi ký thành công — mất đi khi danh sách được tải lại. */
@@ -934,27 +956,30 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
   }
 
   onUploadAction(action: DossierUploadAction): void {
+    if (action === 'pmis') {
+      this.showPmisPicker.set(true);
+      return;
+    }
+
+    const folder = this.selectedDocumentTypeFolder();
+    if (!folder) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Chưa chọn loại văn bản',
+        detail: 'Vui lòng chọn 1 loại văn bản ở cây thư mục bên trái trước khi thêm tài liệu.',
+      });
+      return;
+    }
+
     if (action === 'folder') {
       this.showFolderPicker.set(true);
-    } else if (action === 'pmis') {
-      this.showPmisPicker.set(true);
-    } else if (action === 'direct' || action === 'scan') {
-      const folder = this.selectedDocumentTypeFolder();
-      if (!folder) {
-        this.messageService.add({
-          severity: 'warn',
-          summary: 'Chưa chọn loại văn bản',
-          detail: 'Vui lòng chọn 1 loại văn bản ở cây thư mục bên trái trước khi thêm tài liệu.',
-        });
-        return;
-      }
-      if (action === 'direct') {
-        this.uploadSource.set(3);
-        this.uploadDialogTitle.set(`Upload trực tiếp vào hồ sơ — ${folder.name}`);
-      } else {
-        this.uploadSource.set(2);
-        this.uploadDialogTitle.set(`Quét tài liệu vào hồ sơ — ${folder.name}`);
-      }
+    } else if (action === 'direct') {
+      this.uploadSource.set(3);
+      this.uploadDialogTitle.set(`Upload trực tiếp vào hồ sơ — ${folder.name}`);
+      this.showDirectUpload.set(true);
+    } else if (action === 'scan') {
+      this.uploadSource.set(2);
+      this.uploadDialogTitle.set(`Quét tài liệu vào hồ sơ — ${folder.name}`);
       this.showDirectUpload.set(true);
     }
   }
