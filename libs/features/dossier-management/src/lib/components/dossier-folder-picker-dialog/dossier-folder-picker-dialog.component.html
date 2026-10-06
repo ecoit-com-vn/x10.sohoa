@@ -144,22 +144,46 @@
   <ng-template #configureTpl>
     <div class="configure-steps">
       <section class="configure-step">
-        <h4 class="step-title">Bước 1 — Loại văn bản <span class="required">*</span></h4>
-        <select
-          class="wf-select w-full"
-          [ngModel]="selectedDocumentTypeId()"
-          (ngModelChange)="selectedDocumentTypeId.set($event)"
-          [disabled]="loadingDocTypes() || moving()"
-        >
-          <option value="">-- Chọn loại văn bản --</option>
-          <option *ngFor="let dt of documentTypes()" [value]="dt.id">
-            {{ dt.name }}<ng-container *ngIf="dt.code"> ({{ dt.code }})</ng-container>
-          </option>
-        </select>
+        <h4 class="step-title">Bước 1 — Loại văn bản</h4>
+        <div class="selected-document-type-display" *ngIf="selectedDocumentType() as dt">
+          <i class="pi pi-folder-open"></i>
+          <span>{{ dt.name }}<ng-container *ngIf="dt.code"> ({{ dt.code }})</ng-container></span>
+        </div>
+        <p class="step-note ocr-warn" *ngIf="!loadingDocTypes() && !selectedDocumentType()">
+          <i class="pi pi-exclamation-triangle"></i>
+          Chưa xác định được loại văn bản — vui lòng đóng popup và chọn 1 nhánh ở cây thư mục trước.
+        </p>
         <p class="step-note" *ngIf="loadingDocTypes()"><i class="pi pi-spin pi-spinner"></i> Đang tải danh mục...</p>
         <p class="step-note" *ngIf="selectedDocumentType()?.formName">
           Form EAV: {{ selectedDocumentType()?.formName }}
         </p>
+      </section>
+
+      <section class="configure-step" *ngIf="infrastructureIds.length > 0">
+        <h4 class="step-title">Thiết bị liên quan</h4>
+        <p-multiSelect
+          [options]="equipmentOptions()"
+          [ngModel]="selectedEquipmentIds()"
+          (ngModelChange)="selectedEquipmentIds.set($event)"
+          optionLabel="name"
+          optionValue="id"
+          [filter]="true"
+          filterBy="name,code"
+          display="comma"
+          [maxSelectedLabels]="2"
+          selectedItemsLabel="{0} thiết bị đã chọn"
+          placeholder="-- Không gắn thiết bị --"
+          [loading]="loadingEquipments()"
+          [disabled]="moving()"
+          appendTo="body"
+          styleClass="w-full"
+        >
+          <ng-template #item let-item>
+            <span>{{ item.name }}</span>
+            <small *ngIf="item.code"> ({{ item.code }})</small>
+          </ng-template>
+        </p-multiSelect>
+        <p class="step-note">Chỉ chọn được thiết bị thuộc Trạm/đường dây đã chọn của hồ sơ này. 1 tài liệu có thể gắn nhiều thiết bị.</p>
       </section>
 
       <section class="configure-step">

@@ -214,11 +214,13 @@ export class DossierDocumentService {
   moveFromFolder(
     dossierId: string,
     documentIds: string[],
-    documentTypeId: string
+    documentTypeId: string,
+    equipmentIds?: string[]
   ): Observable<MoveFromFolderResponse> {
     return this.http.post<MoveFromFolderResponse>(`${this.dossierBase(dossierId)}/move-from-folder`, {
       documentIds,
       documentTypeId,
+      equipmentIds: equipmentIds?.length ? equipmentIds : undefined,
     }).pipe(
       map((res) => ({
         ...res,

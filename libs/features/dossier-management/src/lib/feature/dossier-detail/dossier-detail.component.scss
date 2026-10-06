@@ -52,71 +52,67 @@
   gap: 20px;
 }
 
-.detail-card {
-  flex: 1;
-  background-color: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+// Container layout thuần (không còn mang nền/viền riêng) — tab-bar và tab-content bên dưới mỗi phần
+// tự có nền/viền/bo góc riêng (giống khuôn 2 panel tách biệt ở màn chi tiết Trạm biến áp/Đường dây,
+// InfrastructureComponent: tab-bar dùng class "wf-card" riêng, nội dung mỗi tab tự có khung riêng),
+// thay vì trước đây 1 div .wf-card bọc chung cả tab-bar lẫn toàn bộ nội dung thành 1 khối duy nhất.
+.dossier-detail-tabs-container {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-}
-
-/* Redesigned 5-Tab Bar */
-.detail-tab-bar {
-  border-bottom: 1px solid #cbd5e1;
-}
-
-.detail-tab-item {
   flex: 1;
-  padding: 14px 16px;
-  border: none;
-  border-bottom: 3px solid transparent;
-  background-color: #f8fafc;
-  color: #4b5563;
-  font-weight: 500;
-  font-size: 0.95rem;
-  cursor: pointer;
-  display: inline-flex;
+  overflow: hidden;
+  padding: 0 16px 16px;
+}
+
+.tab-bar {
+  background: var(--p-surface-0, #ffffff);
+  border: 1px solid var(--p-content-border-color, rgba(226, 232, 240, 0.8));
+  border-radius: 5px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 16px -6px rgba(0, 0, 0, 0.05);
+  padding: 10px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+// Ghi đè .tab-item/.tab-active mặc định (styles.scss) để khớp đúng phong cách tab ở màn chi tiết
+// Trạm biến áp/Đường dây (InfrastructureComponent) — chữ to hơn, khoảng cách icon/chữ rõ ràng hơn,
+// màu xanh sáng hơn khi hover/active.
+.tab-bar .tab-item {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: all 0.15s ease;
-  border-right: 1px solid #cbd5e1;
-
-  &:last-child {
-    border-right: none;
-  }
-
-  i {
-    font-size: 1.05rem;
-    color: #6b7280;
-  }
+  gap: 6px;
+  padding: 12px 16px;
+  font-size: 0.95rem;
 
   &:hover {
-    background-color: #f1f5f9;
-    color: #1d4ed8;
-    i {
-      color: #1d4ed8;
-    }
+    color: #2563eb;
   }
 
   &.tab-active {
-    background-color: #ffffff;
-    color: #1d4ed8;
-    font-weight: bold;
-    border-bottom: 3px solid #1d4ed8;
-    i {
-      color: #1d4ed8;
-    }
+    color: #2563eb;
+    border-bottom-color: #2563eb;
   }
 }
 
 .tab-content {
   flex: 1;
   overflow-y: auto;
-  padding: 24px 0;
+  background: var(--p-surface-0, #ffffff);
+  border: 1px solid var(--p-content-border-color, rgba(226, 232, 240, 0.8));
+  border-radius: 5px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 16px -6px rgba(0, 0, 0, 0.05);
+  padding: 20px 24px;
+
+  // Tab "Tài liệu đính kèm" (DossierDocumentsTabComponent) tự dựng 2 panel riêng (cây loại văn bản +
+  // bảng tài liệu, xem documents-tab-layout/document-type-tree/documents-panel) — không cần thêm 1
+  // lớp nền/viền/padding bọc ngoài nữa, nếu không 2 panel đó sẽ nằm lồng bên trong 1 khối nền thứ 3,
+  // không tách biệt với nền trang như mẫu (màn chi tiết Thiết bị, tab Tài liệu đính kèm).
+  &.tab-content--bare {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
 }
 
 .tab-pane-container {

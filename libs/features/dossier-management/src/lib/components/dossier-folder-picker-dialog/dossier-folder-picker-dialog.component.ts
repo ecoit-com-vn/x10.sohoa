@@ -24,7 +24,9 @@ import {
   DocumentTypeLookupItem,
   DigitizationExtractionScope,
 } from '../../data-access/dossier-document.service';
+import { DossierManagementService } from '../../data-access/dossier-management.service';
 import { FolderAllocationService } from '@sohoa.frontend/features/digitization';
+import { MultiSelectModule } from 'primeng/multiselect';
 import { OcrMode } from '../../utils/dossier-digitization.util';
 import {
   formatDocumentDate,
@@ -37,18 +39,31 @@ type PickerPhase = 'pick' | 'configure';
 @Component({
   selector: 'app-dossier-folder-picker-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ButtonModule],
+  imports: [CommonModule, FormsModule, DialogModule, ButtonModule, MultiSelectModule],
   templateUrl: './dossier-folder-picker-dialog.component.html',
   styleUrl: './dossier-folder-picker-dialog.component.scss',
 })
 export class DossierFolderPickerDialogComponent {
   private documentService = inject(DocumentManagementService);
   private dossierDocumentService = inject(DossierDocumentService);
+  private dossierManagementService = inject(DossierManagementService);
   private folderAllocationService = inject(FolderAllocationService);
   private messageService = inject(MessageService);
 
   @Input({ required: true }) dossierId!: string;
+  /** Trạm/đường dây đã chọn của hồ sơ — dùng để giới hạn danh sách thiết bị có thể gắn vào tài liệu. */
+  @Input() infrastructureIds: string[] = [];
   @Input() visible = false;
+  /** Loại văn bản đang chọn ở cây thư mục bên ngoài (tab cha) — thay cho select "Bước 1" cũ đã bỏ.
+   * Dùng setter ghi vào signal riêng vì computed() không theo dõi được @Input property thuần (xem
+   * cùng lỗi/fix ở DossierDirectUploadDialogComponent.documentTypeId). */
+  private readonly documentTypeIdSignal = signal<string | null>(null);
+  @Input() set documentTypeId(value: string | null) {
+    this.documentTypeIdSignal.set(value);
+  }
+  get documentTypeId(): string | null {
+    return this.documentTypeIdSignal();
+  }
   @Output() visibleChange = new EventEmitter<boolean>();
   @Output() documentsAdded = new EventEmitter<void>();
   @Output() digitizationStarted = new EventEmitter<void>();
@@ -72,7 +87,13 @@ export class DossierFolderPickerDialogComponent {
 
   documentTypes = signal<DocumentTypeLookupItem[]>([]);
   loadingDocTypes = signal(false);
-  selectedDocumentTypeId = signal('');
+  readonly selectedDocumentTypeId = computed(() => this.documentTypeIdSignal() ?? '');
+
+  /** Thiết bị để phân loại tài liệu — chỉ chọn được thiết bị thuộc Trạm/đường dây đã chọn của hồ sơ. */
+  equipmentOptions = signal<{ id: string; code: string; name: string }[]>([]);
+  loadingEquipments = signal(false);
+  selectedEquipmentIds = signal<string[]>([]);
+
   ocrMode: OcrMode = 'OcrAndExtract';
 
   /**
@@ -109,7 +130,7 @@ export class DossierFolderPickerDialogComponent {
     this.selectedDocIds.set(new Set());
     this.docSearch.set('');
     this.page.set(1);
-    this.selectedDocumentTypeId.set('');
+    this.selectedEquipmentIds.set([]);
     this.ocrMode = 'OcrAndExtract';
     this.extractionScope = 'FirstAndLastPage';
     if (this.flatFolderList().length === 0) {
@@ -117,6 +138,29 @@ export class DossierFolderPickerDialogComponent {
     } else if (this.selectedFolder()) {
       this.loadDocuments();
     }
+    this.loadEquipments();
+  }
+
+  private loadEquipments(): void {
+    if (!this.infrastructureIds?.length) {
+      this.equipmentOptions.set([]);
+      return;
+    }
+    this.loadingEquipments.set(true);
+    this.dossierManagementService
+      .getEquipmentLookup({ infrastructureIds: this.infrastructureIds, pageSize: 200 })
+      .pipe(finalize(() => this.loadingEquipments.set(false)))
+      .subscribe({
+        next: (res: any) => {
+          const items = res?.items ?? res ?? [];
+          this.equipmentOptions.set(
+            items.map((eq: any) => ({ id: eq.id, code: eq.code, name: eq.name }))
+          );
+        },
+        error: () => {
+          this.equipmentOptions.set([]);
+        },
+      });
   }
 
   close(): void {
@@ -320,7 +364,7 @@ export class DossierFolderPickerDialogComponent {
 
     this.moving.set(true);
     this.dossierDocumentService
-      .moveFromFolder(this.dossierId, ids, documentTypeId)
+      .moveFromFolder(this.dossierId, ids, documentTypeId, this.selectedEquipmentIds())
       .pipe(finalize(() => this.moving.set(false)))
       .subscribe({
         next: (res) => {

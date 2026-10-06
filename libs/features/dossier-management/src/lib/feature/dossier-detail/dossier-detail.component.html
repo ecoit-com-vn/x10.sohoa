@@ -1,5 +1,5 @@
 <div class="dossier-detail-view-container animate-fade-in" *ngIf="dossier()">
-  <div class="wf-card pt-0">
+  <div class="dossier-detail-tabs-container">
     <div class="tab-bar">
       <button
         type="button"
@@ -32,7 +32,7 @@
       <button
         type="button"
         *ngIf="isDetailTabVisible('workflow')"
-        class="detail-tab-item"
+        class="tab-item"
         [class.tab-active]="activeTab() === 'workflow'"
         (click)="activeTab.set('workflow')"
       >
@@ -41,7 +41,7 @@
       </button>
     </div>
 
-    <div class="tab-content">
+    <div class="tab-content" [class.tab-content--bare]="activeTab() === 'documents'">
       <div
         *ngIf="activeTab() === 'info'"
         class="tab-pane-container animate-fade-in"
