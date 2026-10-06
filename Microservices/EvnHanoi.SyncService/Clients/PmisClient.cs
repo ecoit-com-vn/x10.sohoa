@@ -198,6 +198,61 @@ public class PmisClient : IPmisClient
         return await response.Content.ReadAsStringAsync();
     }
 
+    public async Task<DocumentFileProbe> ProbeDocumentFileAsync(string maTaiLieu, string endpointApiCode)
+    {
+        var probe = new DocumentFileProbe();
+        try
+        {
+            var httpClient = _httpClientFactory.CreateClient(_httpClientName);
+            var endpoint = await _endpointConfigProvider.GetEndpointAsync(endpointApiCode);
+            probe.RequestUrl = PmisFileUrlResolver.Resolve(
+                $"/api/PmisDongBo/TaiFileTaiLieu?maTaiLieu={Uri.EscapeDataString(maTaiLieu)}", httpClient.BaseAddress, endpoint?.Url);
+            using var request = new HttpRequestMessage(HttpMethod.Get, probe.RequestUrl);
+            if (endpoint != null)
+            {
+                foreach (var header in endpoint.Headers) request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            }
+
+            using var response = await httpClient.SendAsync(request);
+            probe.StatusCode = (int)response.StatusCode;
+            probe.ContentType = response.Content.Headers.ContentType?.ToString();
+            probe.ContentLength = response.Content.Headers.ContentLength;
+
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            probe.BodyBytes = bytes.Length;
+            probe.HeadHex = Convert.ToHexString(bytes.AsSpan(0, Math.Min(16, bytes.Length)));
+
+            var text = System.Text.Encoding.UTF8.GetString(bytes, 0, Math.Min(bytes.Length, 400));
+            var isPrintable = text.All(c => !char.IsControl(c) || c is '\r' or '\n' or '\t');
+            probe.HeadText = isPrintable ? (text.Length > 300 ? text[..300] : text) : null;
+
+            // Nhận dạng định dạng: JSON (có thể chứa base64), base64 thuần, hay nhị phân (PDF/ảnh/zip theo magic bytes).
+            if (bytes.Length >= 4 && bytes[0] == 0x25 && bytes[1] == 0x50 && bytes[2] == 0x44 && bytes[3] == 0x46) probe.DetectedFormat = "PDF (nhị phân)";
+            else if (bytes.Length >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8) probe.DetectedFormat = "JPEG (nhị phân)";
+            else if (bytes.Length >= 4 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) probe.DetectedFormat = "PNG (nhị phân)";
+            else if (bytes.Length >= 2 && bytes[0] == 0x50 && bytes[1] == 0x4B) probe.DetectedFormat = "ZIP/OOXML (nhị phân)";
+            else if (bytes.Length > 0 && (bytes[0] == (byte)'{' || bytes[0] == (byte)'['))
+            {
+                probe.DetectedFormat = "JSON";
+                try
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(bytes);
+                    if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object)
+                        probe.JsonKeys = doc.RootElement.EnumerateObject().Select(p => $"{p.Name}:{p.Value.ValueKind}" + (p.Value.ValueKind == System.Text.Json.JsonValueKind.String ? $"(len={p.Value.GetString()!.Length})" : "")).ToList();
+                }
+                catch { /* không phải JSON hợp lệ — giữ HeadText */ }
+            }
+            else if (bytes.Length > 0 && System.Text.RegularExpressions.Regex.IsMatch(text, "^[A-Za-z0-9+/=\\r\\n]+$")) probe.DetectedFormat = "Có vẻ là base64 thuần";
+            else probe.DetectedFormat = bytes.Length == 0 ? "Rỗng" : "Không xác định";
+        }
+        catch (Exception ex)
+        {
+            probe.Error = ex.Message;
+        }
+
+        return probe;
+    }
+
     private async Task<HttpResponseMessage> SendAsync(string apiCode, object request) =>
         (await SendCoreAsync(apiCode, request, suppressSuccessLog: false)).Response;
 
