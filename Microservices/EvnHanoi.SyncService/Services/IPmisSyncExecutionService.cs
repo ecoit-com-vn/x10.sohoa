@@ -21,13 +21,13 @@ public interface IPmisSyncExecutionService
     /// KHÔNG ĐỔI so với lần đẩy thành công gần nhất (ghi vào <see cref="IncrementalContext.UnchangedCodes"/>) và
     /// điền <see cref="IncrementalContext.ToSave"/> cho các bản ghi đẩy thành công — caller tự ghi PMIS_SYNC_STATE.</summary>
     Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncInfrastructureAsync(int infraTypeId, string syncHistoryId, IReadOnlyList<JsonElement> rawItems, bool syncDocuments = true, IncrementalContext? inc = null);
-    Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncEquipmentAsync(string syncHistoryId, IReadOnlyList<JsonElement> rawItems, string? parentPmisCodeFallback = null, IncrementalContext? inc = null);
+    /// <param name="syncDocuments">false (luồng AUTO): KHÔNG đồng bộ tài liệu lồng trong từng thiết bị — tài liệu do job DOCUMENT riêng
+    /// (PmisDocumentListSyncJob) đảm nhiệm ở cấp Trạm/Đường dây (API trả cả tài liệu thiết bị con). Mặc định true cho luồng Manual.</param>
+    Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncEquipmentAsync(string syncHistoryId, IReadOnlyList<JsonElement> rawItems, string? parentPmisCodeFallback = null, IncrementalContext? inc = null, bool syncDocuments = true);
 
-    /// <summary>Đồng bộ tài liệu đính kèm cho ĐÚNG 1 Trạm/Đường dây theo mã PMIS — dùng bởi
-    /// PmisScheduledSyncJob.SyncDocumentsRotatingAsync (pass riêng, có rotation qua
-    /// SyncConfig.DocumentSyncCursor). Tự tôn trọng <see cref="DocumentSyncBudgetExhausted"/> giống hệt
-    /// nhánh đồng bộ tài liệu lồng trong SyncInfrastructureAsync trước đây.</summary>
-    Task<(int Warnings, List<SyncHistoryDetail> Details)> SyncDocumentsForInfrastructureOwnerAsync(string ownerPmisCode, int infraTypeId, string syncHistoryId);
+    /// <summary>Đồng bộ tài liệu đính kèm cho ĐÚNG 1 Trạm/Đường dây theo mã PMIS (hoặc 1 khoảng ngày của nó, tiếp tục theo skip) — dùng bởi
+    /// PmisDocumentListSyncJob. Xử lý từng trang, có thể dừng mềm giữa chừng (<see cref="DocumentScanOptions.ShouldStop"/>).</summary>
+    Task<DocumentOwnerSyncResult> SyncDocumentsForInfrastructureOwnerAsync(string ownerPmisCode, int infraTypeId, string syncHistoryId, DocumentScanOptions? scan = null);
 
     /// <summary>true nếu lượt chạy hiện tại (Scoped: 1 instance/lượt job) đã dùng hết ngân sách gọi PMIS
     /// thật cho Thiết bị (ChiTietThietBi/QR) — PmisScheduledSyncJob.RunEquipmentAsync dùng để biết từ cha

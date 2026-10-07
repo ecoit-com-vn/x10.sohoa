@@ -151,7 +151,8 @@ public class PmisSubstationDocumentDto
     public string MaTaiLieu { get; set; } = string.Empty;
     public string? TenTaiLieu { get; set; }
     public string? LoaiTaiLieu { get; set; }
-    public string? File { get; set; }
+    // Trường "file" của PMIS (link rồi base64) KHÔNG còn dùng: file tải qua API DOCUMENT_FILE_DOWNLOAD theo maTaiLieu.
+    // Cố ý KHÔNG khai báo ở đây để System.Text.Json bỏ qua — không cấp phát chuỗi base64 hàng MB cho mỗi tài liệu.
 }
 
 /// <summary>Item — API 9: Tài liệu thiết bị đường dây.</summary>
@@ -168,5 +169,6 @@ public class PmisLineDocumentDto
     public string? TenTaiLieu { get; set; }
     public string? LoaiTaiLieu { get; set; }
     public DateTime? NgayTaiLieu { get; set; }
-    public string? File { get; set; }
+    // Trường "file" của PMIS (link rồi base64) KHÔNG còn dùng: file tải qua API DOCUMENT_FILE_DOWNLOAD theo maTaiLieu.
+    // Cố ý KHÔNG khai báo ở đây để System.Text.Json bỏ qua — không cấp phát chuỗi base64 hàng MB cho mỗi tài liệu.
 }

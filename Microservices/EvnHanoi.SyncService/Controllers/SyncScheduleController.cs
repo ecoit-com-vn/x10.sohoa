@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using EvnHanoi.SyncService.Models;
 using EvnHanoi.SyncService.Repositories;
+using EvnHanoi.SyncService.Services;
+using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,10 +15,12 @@ namespace EvnHanoi.SyncService.Controllers;
 public class SyncScheduleController : ControllerBase
 {
     private readonly ISyncConfigRepository _syncConfigRepository;
+    private readonly IOptions<SyncScheduleOptions> _scheduleOptions;
 
-    public SyncScheduleController(ISyncConfigRepository syncConfigRepository)
+    public SyncScheduleController(ISyncConfigRepository syncConfigRepository, IOptions<SyncScheduleOptions> scheduleOptions)
     {
         _syncConfigRepository = syncConfigRepository;
+        _scheduleOptions = scheduleOptions;
     }
 
     [HttpGet]
@@ -30,7 +34,7 @@ public class SyncScheduleController : ControllerBase
     public async Task<IActionResult> Update(string objectType, [FromBody] UpdateSyncConfigRequest request)
     {
         var normalizedType = objectType.ToUpperInvariant();
-        if (!SyncObjectType.IsValid(normalizedType))
+        if (!SyncObjectType.IsSchedulable(normalizedType))
             return BadRequest(new { message = "Đối tượng đồng bộ không hợp lệ." });
 
         if (request.FrequencyValue <= 0)
@@ -38,6 +42,14 @@ public class SyncScheduleController : ControllerBase
 
         if (request.FrequencyUnit is not ("MINUTE" or "HOUR" or "DAY"))
             return BadRequest(new { message = "Đơn vị tần suất không hợp lệ (MINUTE/HOUR/DAY)." });
+
+        // Tần suất tối thiểu (mặc định 2 giờ): thời gian chạy tối đa của 1 lượt = tần suất − đệm nên tần suất quá thấp
+        // không đủ thời gian đồng bộ khối lượng PMIS thật.
+        if (SyncRunBudget.IsBelowMinimum(request.FrequencyValue, request.FrequencyUnit, _scheduleOptions.Value))
+        {
+            var min = _scheduleOptions.Value.MinFrequencyMinutes;
+            return BadRequest(new { message = $"Tần suất đồng bộ tối thiểu là {FormatMinutes(min)}." });
+        }
 
         var existing = await _syncConfigRepository.GetByObjectTypeAsync(normalizedType);
         if (existing == null) return NotFound(new { message = "Không tìm thấy cấu hình lịch đồng bộ." });
@@ -53,6 +65,9 @@ public class SyncScheduleController : ControllerBase
 
         return NoContent();
     }
+
+    private static string FormatMinutes(int minutes) =>
+        minutes % 60 == 0 ? $"{minutes / 60} giờ" : $"{minutes} phút";
 
     private string? CurrentUserName() =>
         User.FindFirstValue("full_name") ?? User.FindFirstValue(ClaimTypes.Name) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);

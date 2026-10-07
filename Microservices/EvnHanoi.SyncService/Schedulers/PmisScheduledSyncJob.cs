@@ -56,9 +56,8 @@ public class PmisScheduledSyncJob : IJob
     // phần lớn cha (Trạm/Đường dây nhỏ) trả về RẤT ÍT/0 thiết bị — vòng foreach vẫn phải round-trip PMIS
     // tuần tự cho MỖI cha trong ~38.000 cha dù tổng bản ghi thu về thấp, nên trần theo SỐ CHA đã thăm mới
     // thật sự chặn được thời lượng 1 lượt chạy (đã quan sát thật trên production: lượt Equipment chạy
-    // 7+ giờ). 4000 cha × ước lượng &lt;1s/cha (network round-trip PMIS thật) ≈ dưới 60-70 phút, để lại
-    // biên an toàn trước ngưỡng watchdog (SyncHistoryWatchdogJob.StaleThreshold = 60 phút) mà không cắt
-    // quá sâu số cha xử lý được mỗi lượt.
+    // 7+ giờ). 4000 cha × ước lượng &lt;1s/cha (network round-trip PMIS thật) ≈ dưới 60-70 phút. Đây là trần
+    // theo SỐ CHA; thời gian chạy tối đa thật của lượt do ngân sách = tần suất − đệm quyết định (RunBudgetClock).
     private const int MaxParentsPerRunEquipment = 4000;
 
     private readonly ISyncConfigRepository _syncConfigRepository;
@@ -71,6 +70,25 @@ public class PmisScheduledSyncJob : IJob
     private readonly IPmisEndpointConfigProvider _endpointConfigProvider;
     private readonly IPmisSyncStateRepository _stateRepository;
     private readonly IOptions<PmisIncrementalOptions> _incrementalOptions;
+    private readonly IOptions<SyncScheduleOptions> _scheduleOptions;
+
+    /// <summary>Đồng hồ ngân sách thời gian của lượt này (tần suất cấu hình − đệm, xem <see cref="SyncRunBudget"/>) — tạo trong
+    /// RunIfDueAsync sau khi giành được khoá. Quartz tạo 1 instance job mới cho mỗi lần chạy nên lưu ở field là an toàn.</summary>
+    private RunBudgetClock _budget = new(TimeSpan.MaxValue);
+
+    /// <summary>true nếu lượt này dừng sớm vì hết ngân sách thời gian (không phải lỗi, lượt sau tiếp tục theo cursor/LAST_SCAN_AT).</summary>
+    private bool _stoppedByTimeBudget;
+
+    private bool BudgetExceeded()
+    {
+        if (!_budget.Exceeded) return false;
+        if (!_stoppedByTimeBudget)
+        {
+            _stoppedByTimeBudget = true;
+            Log.Information("PmisScheduledSyncJob: hết ngân sách thời gian {Minutes:0} phút (tần suất − đệm) — dừng mềm, lượt sau tiếp tục.", _budget.Budget.TotalMinutes);
+        }
+        return true;
+    }
 
     /// <summary>true nếu lượt Thiết bị này không có cha nào đến hạn quét (đồng bộ tăng dần đang rảnh) — không phải
     /// bất thường nên không cảnh báo "0 bản ghi" (xem RunIfDueAsync). Quartz tạo 1 instance mới cho mỗi lần chạy.</summary>
@@ -90,7 +108,8 @@ public class PmisScheduledSyncJob : IJob
         IMessageProducer messageProducer,
         IPmisEndpointConfigProvider endpointConfigProvider,
         IPmisSyncStateRepository stateRepository,
-        IOptions<PmisIncrementalOptions> incrementalOptions)
+        IOptions<PmisIncrementalOptions> incrementalOptions,
+        IOptions<SyncScheduleOptions> scheduleOptions)
     {
         _syncConfigRepository = syncConfigRepository;
         _syncHistoryRepository = syncHistoryRepository;
@@ -102,6 +121,7 @@ public class PmisScheduledSyncJob : IJob
         _endpointConfigProvider = endpointConfigProvider;
         _stateRepository = stateRepository;
         _incrementalOptions = incrementalOptions;
+        _scheduleOptions = scheduleOptions;
     }
 
     /// <summary>Kiểm tra + xử lý (log Warning, tăng warnings) khi 1 vòng phân trang chạm giới hạn an toàn
@@ -294,6 +314,12 @@ public class PmisScheduledSyncJob : IJob
             return;
         }
 
+        // Thời gian chạy tối đa = tần suất (không thấp hơn mức tối thiểu) − đệm — thay cho ngưỡng 60/35 phút cố định.
+        var effectiveFrequency = SyncRunBudget.EffectiveFrequency(config.FrequencyValue, config.FrequencyUnit, _scheduleOptions.Value);
+        _budget = new RunBudgetClock(SyncRunBudget.For(effectiveFrequency, _scheduleOptions.Value));
+        if (_budget.Budget < TimeSpan.FromMinutes(20))
+            Log.Warning("PmisScheduledSyncJob: ngân sách thời gian của {ObjectType} chỉ {Minutes:0} phút (tần suất {Frequency}) — mỗi lượt làm được rất ít việc.", objectType, _budget.Budget.TotalMinutes, effectiveFrequency);
+
         var historyId = await _syncHistoryRepository.CreateAsync(new SyncHistory
         {
             SyncConfigId = config.Id,
@@ -346,7 +372,7 @@ public class PmisScheduledSyncJob : IJob
             var completed = await _syncHistoryRepository.CompleteAsync(historyId, status, total, success, failed,
                 errors.Count > 0 ? string.Join("; ", errors.Take(5)) : null);
             if (!completed)
-                Log.Warning("PmisScheduledSyncJob: {ObjectType} hoàn tất với kết quả thật ({Status}, total={Total}, success={Success}) nhưng syncHistoryId={SyncHistoryId} đã bị SyncHistoryWatchdogJob đánh FAILED trước đó (chạy quá ngưỡng an toàn, xem SyncHistoryWatchdogJob.StaleThreshold) — giữ nguyên FAILED của watchdog, bỏ kết quả thật này.", objectType, status, total, success, historyId);
+                Log.Warning("PmisScheduledSyncJob: {ObjectType} hoàn tất với kết quả thật ({Status}, total={Total}, success={Success}) nhưng syncHistoryId={SyncHistoryId} đã bị SyncHistoryWatchdogJob đánh FAILED trước đó (chạy quá ngưỡng an toàn, xem SyncRunBudget.StaleAfter) — giữ nguyên FAILED của watchdog, bỏ kết quả thật này.", objectType, status, total, success, historyId);
 
             if (_incrementalOptions.Value.Enabled)
             {
@@ -357,7 +383,7 @@ public class PmisScheduledSyncJob : IJob
             // Lượt chạy hoàn tất bình thường (kể cả Failed do 0/n item thành công vẫn là 1 lượt đã thử
             // xong) — đẩy NextSyncAt theo tần suất cấu hình, và reset bộ đếm lỗi liên tiếp vì PMIS đã
             // phản hồi được (dù dữ liệu bên trong có lỗi riêng lẻ hay không).
-            var nextSyncAt = now.Add(ToTimeSpan(config.FrequencyValue, config.FrequencyUnit));
+            var nextSyncAt = now.Add(effectiveFrequency);
             await _syncConfigRepository.UpdateRunResultAsync(objectType, now, nextSyncAt, consecutiveFailureCount: 0);
         }
         catch (Exception ex)
@@ -371,7 +397,7 @@ public class PmisScheduledSyncJob : IJob
             // kế tiếp theo tần suất đã cấu hình mới thử lại, giống hệt nhánh thành công — không rút
             // ngắn chu kỳ. Chỉ cảnh báo admin đúng 1 lần khi chạm ngưỡng FailureNotifyThreshold.
             var newFailureCount = config.ConsecutiveFailureCount + 1;
-            var nextSyncAtOnFailure = now.Add(ToTimeSpan(config.FrequencyValue, config.FrequencyUnit));
+            var nextSyncAtOnFailure = now.Add(effectiveFrequency);
             await _syncConfigRepository.UpdateRunResultAsync(objectType, now, nextSyncAtOnFailure, newFailureCount);
 
             if (newFailureCount == FailureNotifyThreshold)
@@ -476,7 +502,7 @@ public class PmisScheduledSyncJob : IJob
             }
             skip += pageSize;
 
-            if (HasHitSafetyCap(total, "Trạm biến áp", ref warnings))
+            if (HasHitSafetyCap(total, "Trạm biến áp", ref warnings) || BudgetExceeded())
             {
                 await _syncConfigRepository.UpdateSyncCursorAsync(SyncObjectType.Substation, skip.ToString());
                 return await FinishSubstationOrLineAsync(SyncObjectType.Substation, 1, config, historyId, total, success, failed, warnings, errors);
@@ -523,7 +549,7 @@ public class PmisScheduledSyncJob : IJob
             }
             skip += pageSize;
 
-            if (HasHitSafetyCap(total, "Đường dây", ref warnings))
+            if (HasHitSafetyCap(total, "Đường dây", ref warnings) || BudgetExceeded())
             {
                 await _syncConfigRepository.UpdateSyncCursorAsync(SyncObjectType.TransmissionLine, skip.ToString());
                 return await FinishSubstationOrLineAsync(SyncObjectType.TransmissionLine, 2, config, historyId, total, success, failed, warnings, errors);
@@ -545,65 +571,14 @@ public class PmisScheduledSyncJob : IJob
         catch (Exception ex) { Log.Warning(ex, "PmisScheduledSyncJob: lỗi ghi mốc quét đầy đủ ({ObjectType}).", objectType); }
     }
 
-    /// <summary>Gọi ở MỌI điểm thoát của RunSubstationAsync/RunLineAsync (kể cả lỗi gọi PMIS, hoàn tất
-    /// trọn vẹn, chạm trần an toàn) — chạy pass đồng bộ tài liệu RIÊNG có rotation (xem
-    /// SyncDocumentsRotatingAsync) rồi gộp warnings/errors vào kết quả cuối cùng của lượt. Chạy độc lập với
-    /// kết quả phân trang chính ở trên (kể cả khi lấy danh sách PMIS thất bại ngay từ đầu, vẫn còn owner đã
-    /// đồng bộ TỪ TRƯỚC trong DB để tiếp tục xoay vòng đồng bộ tài liệu cho họ).</summary>
-    private async Task<(int Total, int Success, int Failed, int Warnings, List<string> Errors)> FinishSubstationOrLineAsync(
+    /// <summary>Gọi ở MỌI điểm thoát của RunSubstationAsync/RunLineAsync. TRƯỚC ĐÂY chạy thêm 1 pass đồng bộ tài liệu đính kèm lồng trong
+    /// lượt này (SyncDocumentsRotatingAsync) — nhưng pass đó kéo lại danh sách tài liệu (kèm base64 file) của mọi owner mỗi chu kỳ,
+    /// chiếm hết thời gian và làm lượt bị đánh FAILED. Tài liệu giờ do job DOCUMENT riêng đảm nhiệm
+    /// (<see cref="PmisDocumentListSyncJob"/>: đếm trước, chỉ lấy phần mới theo ngày, ngân sách thời gian riêng).</summary>
+    private static Task<(int Total, int Success, int Failed, int Warnings, List<string> Errors)> FinishSubstationOrLineAsync(
         string objectType, int infraTypeId, SyncConfig config, string historyId,
-        int total, int success, int failed, int warnings, List<string> errors)
-    {
-        var (docWarnings, docErrors) = await SyncDocumentsRotatingAsync(objectType, infraTypeId, historyId, config.DocumentSyncCursor);
-        warnings += docWarnings;
-        errors.AddRange(docErrors);
-        return (total, success, failed, warnings, errors);
-    }
-
-    /// <summary>Pass RIÊNG (chạy SAU vòng lặp phân trang chính của RunSubstationAsync/RunLineAsync) đồng bộ
-    /// tài liệu đính kèm/ảnh QR cho Trạm/Đường dây, có ROTATION qua SyncConfig.DocumentSyncCursor — giống
-    /// hệt cách RunEquipmentAsync xoay vòng ưu tiên ngân sách ChiTietThietBi/QR qua SyncCursor. Danh sách
-    /// owner lấy từ CHÍNH DB mình (đã đồng bộ từ trước, rẻ — không phải live PMIS pagination), nên xoay
-    /// vòng được TRƯỚC khi lặp, khác hẳn cách dữ liệu chính (Trạm/Đường dây) phải fetch trực tiếp từ PMIS
-    /// theo trang. Xem Migration0013_AddDocumentSyncCursorToSyncConfig để biết lý do cần cursor riêng
-    /// (không dùng chung SyncCursor — 2 mục đích khác nhau: SyncCursor = vị trí phân trang dữ liệu chính,
-    /// DocumentSyncCursor = owner nào được ưu tiên đồng bộ tài liệu ở lượt này).</summary>
-    private async Task<(int Warnings, List<string> Errors)> SyncDocumentsRotatingAsync(
-        string objectType, int infraTypeId, string historyId, string? cursor)
-    {
-        List<SyncedInfrastructurePmisCode> owners;
-        try
-        {
-            var all = await _equipmentServiceClient.GetSyncedInfrastructurePmisCodesAsync();
-            owners = RotateParentsByCursor(all.Where(o => o.InfraTypeId == infraTypeId).ToList(), cursor);
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "PmisScheduledSyncJob: lỗi khi lấy danh sách owner để đồng bộ tài liệu ({ObjectType}).", objectType);
-            return (0, [$"Đồng bộ tài liệu {objectType}: {SyncErrorFormatter.FormatShort(ex)}"]);
-        }
-
-        var warnings = 0;
-        var allDetails = new List<SyncHistoryDetail>();
-        string? cursorForNextRun = null;
-        foreach (var owner in owners)
-        {
-            var (w, details) = await _executionService.SyncDocumentsForInfrastructureOwnerAsync(owner.PmisCode, infraTypeId, historyId);
-            warnings += w;
-            allDetails.AddRange(details);
-
-            if (_executionService.DocumentSyncBudgetExhausted)
-            {
-                cursorForNextRun = owner.PmisCode;
-                break;
-            }
-        }
-        if (allDetails.Count > 0) await _syncHistoryRepository.InsertDetailsAsync(allDetails);
-        // null nếu ngân sách KHÔNG BAO GIỜ cạn (mọi owner đều được đồng bộ tài liệu) — xoá cursor, lượt sau
-        // bắt đầu lại từ đầu danh sách.
-        await _syncConfigRepository.UpdateDocumentSyncCursorAsync(objectType, cursorForNextRun);
-        return (warnings, []);
-    }
+        int total, int success, int failed, int warnings, List<string> errors) =>
+        Task.FromResult((total, success, failed, warnings, errors));
 
     private async Task<(int Total, int Success, int Failed, int Warnings, List<string> Errors)> RunEquipmentAsync(SyncConfig config, string historyId)
     {
@@ -655,8 +630,10 @@ public class PmisScheduledSyncJob : IJob
         string? budgetExhaustedAtParent = null;
         string? safetyCapAtParent = null;
         var parentsVisited = 0;
-        var runWatch = Stopwatch.StartNew();
-        var timeBudget = TimeSpan.FromMinutes(opt.EquipmentRunBudgetMinutes);
+        // Chế độ xoay vòng (không gia tăng): mã cha đã quét TRỌN VẸN gần nhất — nếu hết ngân sách thời gian giữa chừng
+        // 1 cha thì cursor trỏ về cha này để lượt sau bắt đầu lại đúng cha dở (RotateParentsByCursor bắt đầu SAU cursor).
+        string? lastCompletedParent = null;
+        string? timeBudgetCursor = null;
 
         foreach (var parent in parents)
         {
@@ -666,6 +643,14 @@ public class PmisScheduledSyncJob : IJob
             var skip = 0;
             while (true)
             {
+                // Hết ngân sách thời gian giữa chừng 1 cha lớn (nhiều trang): dừng trước khi gọi PMIS trang kế, cha này chưa
+                // coi là quét xong (parentOk=false) nên lượt sau quét lại.
+                if (BudgetExceeded())
+                {
+                    parentOk = false;
+                    break;
+                }
+
                 List<JsonElement> pageItems;
                 int pageCount;
                 try
@@ -720,7 +705,7 @@ public class PmisScheduledSyncJob : IJob
                     };
                 }
                 var (pageSuccess, pageFailed, pageWarnings, pageErrors) = await PushPageAsync(
-                    (hId, items) => _executionService.SyncEquipmentAsync(hId, items, parent.PmisCode, inc),
+                    (hId, items) => _executionService.SyncEquipmentAsync(hId, items, parent.PmisCode, inc, syncDocuments: false),
                     historyId, pageItems, $"Thiết bị cha={parent.PmisCode} skip={skip}");
                 if (inc != null)
                 {
@@ -760,12 +745,15 @@ public class PmisScheduledSyncJob : IJob
                 catch (Exception ex) { Log.Warning(ex, "PmisScheduledSyncJob: lỗi ghi mốc quét cha {PmisCode}.", parent.PmisCode); }
             }
 
-            if (opt.Enabled && runWatch.Elapsed >= timeBudget)
+            if (parentOk) lastCompletedParent = parent.PmisCode;
+
+            if (BudgetExceeded())
             {
-                // Hành vi bình thường của chế độ tăng dần (không tăng warnings): lượt sau tiếp tục với các cha có
-                // LAST_SCAN_AT cũ nhất. Trần này phải < SyncHistoryWatchdogJob.StaleThreshold (60 phút).
+                // Hành vi bình thường (không tăng warnings): lượt sau tiếp tục — chế độ tăng dần theo LAST_SCAN_AT cũ nhất,
+                // chế độ xoay vòng theo cursor. Ngân sách = tần suất − đệm (SyncRunBudget).
                 Log.Information("PmisScheduledSyncJob: Thiết bị đã quét {Visited}/{Total} cha trong {Minutes:0} phút (ngân sách thời gian), dừng — lượt sau tiếp tục.",
-                    parentsVisited, parents.Count, runWatch.Elapsed.TotalMinutes);
+                    parentsVisited, parents.Count, _budget.Elapsed.TotalMinutes);
+                timeBudgetCursor = lastCompletedParent ?? config.SyncCursor;
                 break;
             }
 
@@ -791,17 +779,9 @@ public class PmisScheduledSyncJob : IJob
         }
         else
         {
-            await _syncConfigRepository.UpdateSyncCursorAsync(SyncObjectType.Equipment, safetyCapAtParent ?? budgetExhaustedAtParent);
+            await _syncConfigRepository.UpdateSyncCursorAsync(SyncObjectType.Equipment, safetyCapAtParent ?? timeBudgetCursor ?? budgetExhaustedAtParent);
         }
 
         return (total, success, failed, warnings, errors);
     }
-
-    private static TimeSpan ToTimeSpan(int value, string unit) => unit switch
-    {
-        "MINUTE" => TimeSpan.FromMinutes(value),
-        "HOUR" => TimeSpan.FromHours(value),
-        "DAY" => TimeSpan.FromDays(value),
-        _ => TimeSpan.FromMinutes(value)
-    };
 }

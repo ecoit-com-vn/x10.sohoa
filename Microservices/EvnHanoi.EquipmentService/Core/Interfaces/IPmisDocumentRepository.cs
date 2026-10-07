@@ -17,20 +17,39 @@ public interface IPmisDocumentRepository
     Task InsertAsync(UpsertPmisDocumentRequest item, Guid ownerId, string? objectKey, long? fileSize);
 
     /// <summary>Cập nhật ObjectKey/FileSize cho 1 dòng đã có nhưng trước đó chưa tải được file.</summary>
-    Task UpdateFileAsync(string id, string objectKey, long fileSize, string? syncHistoryId);
+    Task UpdateFileAsync(string id, string objectKey, long fileSize, string? syncHistoryId, string? contentSha256 = null);
 
-    /// <summary>Cập nhật URL file + mã endpoint nguồn cho dòng CHƯA có file. Dòng đang NO_URL (hoặc URL đổi)
-    /// chuyển về PENDING với FILE_ATTEMPTS=0 để job nền tải; dòng đang PENDING/FAILED cùng URL giữ nguyên
-    /// lịch thử lại. fileUrl rỗng thì không làm gì.</summary>
-    Task UpdateFileSourceAsync(string id, string? fileUrl, string? fileSourceApi);
+    /// <summary>ObjectKey của 1 tài liệu KHÁC đã tải xong có cùng SHA-256 + kích thước (null nếu chưa có) — để dùng lại object, không lưu trùng.</summary>
+    /// <summary>Số tài liệu (chưa xoá) theo Trạm/Đường dây: gồm tài liệu của chính hạ tầng + của thiết bị thuộc hạ tầng đó — đúng phạm vi mà
+    /// API tài liệu PMIS cấp Trạm/Đường dây trả về. Dùng làm mốc bootstrap để KHÔNG kéo lại owner đã đủ tài liệu.</summary>
+    Task<IReadOnlyList<DocumentCountByInfrastructure>> GetDocumentCountsByInfrastructureAsync();
 
-    /// <summary>Hàng đợi tải file: dòng chưa có ObjectKey, FILE_STATUS PENDING/FAILED và đã tới hạn thử lại.
+    /// <summary>Lưu mã thiết bị PMIS kèm tài liệu (dùng khi tài liệu đã tồn tại nhưng chưa ghi DEVICE_CODE).</summary>
+    Task SetDeviceCodeAsync(string id, string deviceCode);
+
+    /// <summary>Thiết bị vừa được tạo: chuyển các tài liệu đang gán tạm cho Trạm/Đường dây (khớp DEVICE_CODE) sang thiết bị này. Trả số dòng đã đổi.</summary>
+    /// <summary>Chuyển TBA tự động: chuyển mọi tài liệu của thiết bị cũ ("hồn ma") sang thiết bị mới đang sống.</summary>
+    Task<int> MoveDocumentsBetweenEquipmentAsync(Guid oldEquipmentId, Guid newEquipmentId);
+
+    Task<int> ReassignDocumentsToEquipmentAsync(string equipmentPmisCode, Guid equipmentId);
+
+    Task<string?> FindObjectKeyByHashAsync(string contentSha256, long fileSize);
+
+    /// <summary>Lỗi TẠM THỜI của PMIS (5xx/429/timeout): KHÔNG tăng FILE_ATTEMPTS, chỉ ghi lý do và hẹn thử lại sau <paramref name="retryMinutes"/> phút (+ jitter).</summary>
+    Task MarkFileTransientFailureAsync(string id, string? errorMessage, int retryMinutes);
+
+    /// <summary>Đưa dòng CHƯA có file đang ở trạng thái NO_URL (di sản trước khi PMIS bỏ link) về PENDING, FILE_ATTEMPTS=0 để job
+    /// nền tải. Dòng đã PENDING/FAILED/DONE giữ nguyên (không đụng lịch thử lại).</summary>
+    Task EnsureFilePendingAsync(string id);
+
+    /// <summary>Hàng đợi tải file: dòng chưa có ObjectKey, FILE_STATUS PENDING/FAILED và đã tới hạn thử lại (không còn phụ thuộc FILE_URL).
     /// Ưu tiên dòng ít lần thử nhất (dòng mới trước, dòng hay lỗi sau).</summary>
-    Task<IReadOnlyList<PendingPmisDocumentFile>> GetPendingFilesAsync(int take);
+    /// <param name="excludePrefixes">Tiền tố mã tài liệu bỏ qua (vd "TA-") — null/rỗng = không loại.</param>
+    Task<IReadOnlyList<PendingPmisDocumentFile>> GetPendingFilesAsync(int take, IReadOnlyList<string>? excludePrefixes = null);
 
     /// <summary>Tóm tắt hàng đợi tải file (số đang chờ + lần tải thành công gần nhất) — dùng cho watchdog
     /// phát hiện job tải file ngừng tiến triển (xem PendingDocumentFileSummary).</summary>
-    Task<PendingDocumentFileSummary> GetPendingSummaryAsync();
+    Task<PendingDocumentFileSummary> GetPendingSummaryAsync(IReadOnlyList<string>? excludePrefixes = null);
 
     /// <summary>Danh sách Trạm/Đường dây (mã PMIS + loại) có ít nhất 1 tài liệu CHƯA có file (PENDING/FAILED/NO_URL).
     /// Tài liệu của Thiết bị được quy về Trạm/Đường dây chứa nó — API danh sách tài liệu PMIS gọi theo

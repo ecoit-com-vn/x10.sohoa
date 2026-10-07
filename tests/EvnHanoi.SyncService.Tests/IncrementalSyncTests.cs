@@ -284,3 +284,42 @@ public class ExecutorIncrementalTests
         Assert.False(saved.DetailSynced);  // lượt sau (hoặc lượt quét đầy đủ) sẽ lấy lại QR
     }
 }
+
+public class SyncRunBudgetTests
+{
+    private static readonly SyncScheduleOptions Opt = new() { MinFrequencyMinutes = 120, RunBudgetBufferMinutes = 10 };
+
+    [Theory]
+    [InlineData(2, "HOUR", 110)]
+    [InlineData(3, "HOUR", 170)]
+    [InlineData(1, "DAY", 1430)]
+    public void Budget_IsFrequencyMinusBuffer(int value, string unit, int expectedMinutes) =>
+        Assert.Equal(TimeSpan.FromMinutes(expectedMinutes), SyncRunBudget.For(value, unit, Opt));
+
+    [Fact]
+    public void Frequency_BelowMinimum_IsRaisedToMinimum()
+    {
+        Assert.Equal(TimeSpan.FromHours(2), SyncRunBudget.EffectiveFrequency(30, "MINUTE", Opt));
+        Assert.Equal(TimeSpan.FromHours(2), SyncRunBudget.EffectiveFrequency(1, "HOUR", Opt));
+        Assert.True(SyncRunBudget.IsBelowMinimum(119, "MINUTE", Opt));
+        Assert.False(SyncRunBudget.IsBelowMinimum(2, "HOUR", Opt));
+        Assert.Equal(TimeSpan.FromMinutes(110), SyncRunBudget.For(30, "MINUTE", Opt));
+    }
+
+    [Fact]
+    public void Budget_WithSmallFrequency_NeverZeroOrNegative()
+    {
+        var low = new SyncScheduleOptions { MinFrequencyMinutes = 1, RunBudgetBufferMinutes = 10 };
+        Assert.Equal(TimeSpan.FromMinutes(5), SyncRunBudget.For(10, "MINUTE", low));   // 10-10=0 -> sàn max(5, 5)
+        Assert.Equal(TimeSpan.FromMinutes(7.5), SyncRunBudget.For(15, "MINUTE", low)); // 15-10=5 < 7,5 -> 7,5
+        Assert.Equal(TimeSpan.FromMinutes(5), SyncRunBudget.For(5, "MINUTE", low));    // sàn 5, không vượt tần suất
+    }
+
+    [Theory]
+    [InlineData("AUTO", 2, "HOUR", 125)]     // ngân sách 110 + 15
+    [InlineData("AUTO", 30, "MINUTE", 125)]  // nâng lên 2h trước khi tính
+    [InlineData("MANUAL", 2, "HOUR", 60)]
+    [InlineData("AUTO", null, null, 60)]
+    public void StaleAfter_IsBudgetPlusGrace(string syncType, int? value, string? unit, int expectedMinutes) =>
+        Assert.Equal(TimeSpan.FromMinutes(expectedMinutes), SyncRunBudget.StaleAfter(syncType, value, unit, Opt));
+}

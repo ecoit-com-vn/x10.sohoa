@@ -1,3 +1,5 @@
+using EvnHanoi.SyncService.Services;
+
 namespace EvnHanoi.SyncService.Repositories;
 
 public class PmisSyncStateRow
@@ -43,4 +45,13 @@ public interface IPmisSyncStateRepository
     Task<DateTime?> GetSweepAtAsync(string objectType);
 
     Task SetSweepAtAsync(string objectType);
+
+    /// <summary>Trạng thái đồng bộ tài liệu theo owner ('DOC_OWNER') hoặc khoảng ngày ('DOC_WINDOW'); mã không có = chưa từng.</summary>
+    Task<Dictionary<string, DocumentOwnerState>> GetDocumentStatesAsync(string objectType);
+
+    /// <summary>Như trên nhưng chỉ các mã bắt đầu bằng <paramref name="codePrefix"/> (vd "owner|" cho các khoảng ngày của 1 owner).</summary>
+    Task<Dictionary<string, DocumentOwnerState>> GetDocumentStatesByPrefixAsync(string objectType, string codePrefix);
+
+    /// <summary>Ghi (MERGE) toàn bộ trạng thái tài liệu của 1 dòng.</summary>
+    Task UpsertDocumentStateAsync(string objectType, DocumentOwnerState state);
 }

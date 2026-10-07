@@ -23,18 +23,26 @@ public class PmisDocumentFileDownloadWatchdogJob : IJob
 {
     private static readonly TimeSpan StaleThreshold = TimeSpan.FromHours(4);
 
+    private readonly Microsoft.Extensions.Options.IOptions<EvnHanoi.SyncService.Services.PmisDocumentFileOptions> _options;
     private readonly IEquipmentServiceClient _equipmentServiceClient;
+    private readonly IPmisClient _pmisClient;
 
-    public PmisDocumentFileDownloadWatchdogJob(IEquipmentServiceClient equipmentServiceClient)
+    public PmisDocumentFileDownloadWatchdogJob(IEquipmentServiceClient equipmentServiceClient, IPmisClient pmisClient, Microsoft.Extensions.Options.IOptions<EvnHanoi.SyncService.Services.PmisDocumentFileOptions> options)
     {
+        _options = options;
         _equipmentServiceClient = equipmentServiceClient;
+        _pmisClient = pmisClient;
     }
 
     public async Task Execute(IJobExecutionContext context)
     {
         try
         {
-            var summary = await _equipmentServiceClient.GetPendingDocumentSummaryAsync();
+            // API DOCUMENT_FILE_DOWNLOAD chưa cấu hình/đang tắt (admin chủ động hoặc mới deploy, chưa nhập URL): job tải file tự dừng
+            // có chủ đích — không phải "job biến mất", nên không cảnh báo (tránh ồn log mỗi 5 phút).
+            if (!await _pmisClient.IsDocumentFileEndpointActiveAsync()) return;
+
+            var summary = await _equipmentServiceClient.GetPendingDocumentSummaryAsync(_options.Value.ExcludedPrefixList);
             if (summary.PendingCount == 0) return; // hàng đợi rỗng — không có gì để cảnh báo.
 
             var staleSince = summary.LastDownloadedAt == null

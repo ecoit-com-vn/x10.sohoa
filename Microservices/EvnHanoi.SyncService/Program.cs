@@ -68,6 +68,12 @@ builder.Services.AddScoped<IEquipmentServiceClient, EquipmentServiceClient>();
 builder.Services.AddScoped<IPmisSyncExecutionService, PmisSyncExecutionService>();
 builder.Services.Configure<EvnHanoi.SyncService.Services.PmisIncrementalOptions>(
     builder.Configuration.GetSection(EvnHanoi.SyncService.Services.PmisIncrementalOptions.SectionName));
+builder.Services.Configure<EvnHanoi.SyncService.Services.PmisDocumentFileOptions>(
+    builder.Configuration.GetSection(EvnHanoi.SyncService.Services.PmisDocumentFileOptions.SectionName));
+builder.Services.Configure<EvnHanoi.SyncService.Services.PmisDocumentSyncOptions>(
+    builder.Configuration.GetSection(EvnHanoi.SyncService.Services.PmisDocumentSyncOptions.SectionName));
+builder.Services.Configure<EvnHanoi.SyncService.Services.SyncScheduleOptions>(
+    builder.Configuration.GetSection(EvnHanoi.SyncService.Services.SyncScheduleOptions.SectionName));
 builder.Services.AddScoped<IPmisSyncStateRepository, PmisSyncStateRepository>();
 
 // RemoveAllResilienceHandlers(): builder.AddServiceDefaults() gắn "Standard Resilience Handler" (timeout
@@ -79,6 +85,15 @@ builder.Services.AddHttpClient("EquipmentServiceInternal", client =>
 {
     var baseUrl = builder.Configuration["Services:EquipmentService"] ?? "http://localhost:5254";
     client.BaseAddress = new Uri(baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/");
+})
+.RemoveAllResilienceHandlers();
+
+// Client RIÊNG cho gửi file (luồng, có thể hàng chục MB) sang EquipmentService — timeout 15 phút thay vì 100 giây của client nhanh phía trên.
+builder.Services.AddHttpClient("EquipmentServiceInternalUpload", client =>
+{
+    var baseUrl = builder.Configuration["Services:EquipmentService"] ?? "http://localhost:5254";
+    client.BaseAddress = new Uri(baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/");
+    client.Timeout = TimeSpan.FromMinutes(15);
 })
 .RemoveAllResilienceHandlers();
 #pragma warning restore EXTEXP0001
@@ -217,6 +232,16 @@ builder.Services.AddQuartz(q =>
             .WithSimpleSchedule(x => x.WithIntervalInMinutes(1).RepeatForever())
         );
     }
+
+    // Đồng bộ DANH SÁCH tài liệu (đếm trước, chỉ lấy phần mới, ngân sách thời gian riêng) — job riêng, lịch riêng (SYNC_CONFIG 'DOCUMENT'),
+    // xem PmisDocumentListSyncJob. Tick mỗi phút, tự kiểm tra tới hạn.
+    var documentListJobKey = new JobKey("PmisDocumentListSyncJob");
+    q.AddJob<PmisDocumentListSyncJob>(opts => opts.WithIdentity(documentListJobKey));
+    q.AddTrigger(opts => opts
+        .ForJob(documentListJobKey)
+        .WithIdentity("PmisDocumentListSyncJob-trigger")
+        .WithSimpleSchedule(x => x.WithIntervalInMinutes(1).RepeatForever())
+    );
 
     // Dọn PMIS_API_CALL_LOG (lịch sử gọi PMIS thật) cũ hơn 30 ngày — bảng có thể phình rất nhanh vì
     // mỗi trang trong 1 lượt đồng bộ là 1 dòng log, xem PmisApiCallLogCleanupJob.

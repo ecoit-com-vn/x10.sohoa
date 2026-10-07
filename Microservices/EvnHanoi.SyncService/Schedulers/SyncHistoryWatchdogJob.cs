@@ -1,4 +1,6 @@
 using EvnHanoi.SyncService.Repositories;
+using EvnHanoi.SyncService.Services;
+using Microsoft.Extensions.Options;
 using Quartz;
 using Serilog;
 
@@ -9,36 +11,45 @@ namespace EvnHanoi.SyncService.Schedulers;
 /// (crash/OOMKilled/rollout) đúng lúc PmisScheduledSyncJob đang chạy — dòng SYNC_HISTORY của lượt bị crash
 /// không còn ai gọi CompleteAsync, đứng ở RUNNING vĩnh viễn, làm sai lệch màn hình lịch sử đồng bộ.
 ///
-/// Ngưỡng 60 phút KHÔNG còn dựa vào TTL RedLock (RedLockNet.SERedis tự động gia hạn khoá theo chu kỳ
-/// trong suốt thời gian tiến trình còn sống — xem comment tại RedLock trong PmisScheduledSyncJob — nên TTL
-/// không giới hạn thời lượng 1 lượt chạy hợp lệ, và trước đây lấy nó làm cơ sở chọn ngưỡng là SAI). Chọn
-/// độc lập: đủ RỘNG để không đánh FAILED oan 1 lượt Equipment hợp lệ đang chạy thật (lồng 2 vòng phân
-/// trang qua hàng chục nghìn Trạm/Đường dây cha, mỗi cha lại round-trip PMIS tuần tự — có thể mất hàng
-/// chục phút với khối lượng dữ liệu thật đã ghi nhận, xem PmisScheduledSyncJob.MaxTotalRecords), nhưng vẫn
-/// đủ HẸP để không để 1 lượt crash thật hiện RUNNING quá lâu trên màn hình. Cùng tần suất quét (5 phút) với
-/// OcrJobWatchdogService (EquipmentService).
+/// Ngưỡng KHÔNG còn cố định 60 phút: tính riêng cho từng dòng theo tần suất cấu hình của đối tượng (Trạm/Đường dây/
+/// Thiết bị) = ngân sách thời gian của lượt (tần suất − đệm, xem <see cref="SyncRunBudget"/>) + 15 phút. Lượt tự
+/// dừng mềm khi hết ngân sách nên chỉ lượt thật sự chết mới vượt ngưỡng này. Lượt thủ công / dòng không gắn cấu hình
+/// lịch giữ ngưỡng 60 phút. Không dựa vào TTL RedLock (RedLockNet.SERedis tự gia hạn khoá trong lúc tiến trình còn sống).
+/// Quét 5 phút/lần, giống OcrJobWatchdogService (EquipmentService).
 /// </summary>
 public class SyncHistoryWatchdogJob : IJob
 {
-    private static readonly TimeSpan StaleThreshold = TimeSpan.FromMinutes(60);
-
     private readonly ISyncHistoryRepository _repository;
+    private readonly IOptions<SyncScheduleOptions> _options;
 
-    public SyncHistoryWatchdogJob(ISyncHistoryRepository repository)
+    public SyncHistoryWatchdogJob(ISyncHistoryRepository repository, IOptions<SyncScheduleOptions> options)
     {
         _repository = repository;
+        _options = options;
     }
 
     public async Task Execute(IJobExecutionContext context)
     {
         try
         {
-            var affected = await _repository.FailStaleRunningAsync(
-                StaleThreshold,
-                $"Tự động đánh dấu thất bại: RUNNING quá {StaleThreshold.TotalMinutes:0} phút không hoàn tất — có thể do khối lượng dữ liệu lớn hoặc SyncService bị dừng đột ngột giữa lượt chạy. Vui lòng chạy lại; nếu lỗi lặp lại nhiều lần, kiểm tra log SyncService.");
+            var now = DateTime.UtcNow;
+            var failed = 0;
+            foreach (var row in await _repository.GetRunningAsync())
+            {
+                var staleAfter = SyncRunBudget.StaleAfter(row.SyncType, row.FrequencyValue, row.FrequencyUnit, _options.Value);
+                if (now - row.StartTime < staleAfter) continue;
 
-            if (affected > 0)
-                Log.Warning("SyncHistoryWatchdogJob: đã đánh dấu FAILED cho {Count} dòng SYNC_HISTORY bị kẹt RUNNING quá {Minutes} phút.", affected, StaleThreshold.TotalMinutes);
+                var message = $"Tự động đánh dấu thất bại: RUNNING quá {staleAfter.TotalMinutes:0} phút không hoàn tất — có thể SyncService bị dừng đột ngột giữa lượt chạy. Vui lòng chạy lại; nếu lỗi lặp lại nhiều lần, kiểm tra log SyncService.";
+                if (await _repository.FailRunningAsync(row.Id, message))
+                {
+                    failed++;
+                    Log.Warning("SyncHistoryWatchdogJob: đánh dấu FAILED dòng SYNC_HISTORY {Id} ({ObjectType}, {SyncType}) kẹt RUNNING quá {Minutes:0} phút.",
+                        row.Id, row.ObjectType, row.SyncType, staleAfter.TotalMinutes);
+                }
+            }
+
+            if (failed > 0)
+                Log.Warning("SyncHistoryWatchdogJob: đã đánh dấu FAILED {Count} dòng SYNC_HISTORY bị kẹt RUNNING.", failed);
         }
         catch (Exception ex)
         {
