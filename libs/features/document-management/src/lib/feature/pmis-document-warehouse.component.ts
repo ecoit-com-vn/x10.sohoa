@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
 import { ToastModule } from 'primeng/toast';
@@ -39,6 +40,7 @@ const PAGE_SIZE = 10;
 export class PmisDocumentWarehouseComponent {
   private readonly catalogService = inject(PmisDocumentCatalogService);
   private readonly messageService = inject(MessageService);
+  private readonly sanitizer = inject(DomSanitizer);
 
   nodeIcons = NODE_ICONS;
 
@@ -74,6 +76,15 @@ export class PmisDocumentWarehouseComponent {
   page = signal(1);
   pageSize = PAGE_SIZE;
   downloadingId = signal<string | null>(null);
+
+  // Xem trước file (PDF/ảnh) ngay trong trang, không cần tải về.
+  previewDialogVisible = signal(false);
+  previewLoading = signal(false);
+  previewingId = signal<string | null>(null);
+  previewDoc = signal<PmisDocumentItem | null>(null);
+  previewKind = signal<'pdf' | 'image' | 'unsupported'>('unsupported');
+  private previewBlobUrl = '';
+  previewSafeUrl = signal<SafeResourceUrl | null>(null);
 
   // Upload thủ công — dùng khi đồng bộ tự động từ PMIS lỗi.
   uploadDialogVisible = signal(false);
@@ -351,6 +362,42 @@ export class PmisDocumentWarehouseComponent {
       default:
         return 'PMIS không đính kèm file cho tài liệu này.';
     }
+  }
+
+  /** Mở hộp thoại xem trước file. Không có file (chưa tải về từ PMIS) thì nút bị vô hiệu ở giao diện. */
+  async preview(doc: PmisDocumentItem): Promise<void> {
+    if (!doc.objectKey || this.previewingId()) return;
+    this.closePreview();
+    this.previewDoc.set(doc);
+    this.previewKind.set('unsupported');
+    this.previewingId.set(doc.id);
+    this.previewLoading.set(true);
+    this.previewDialogVisible.set(true);
+    try {
+      const result = await this.catalogService.getPreview(doc.id, doc.documentName);
+      // Người dùng đã đóng hộp thoại / mở file khác trong lúc đang tải → bỏ kết quả.
+      if (this.previewDoc()?.id !== doc.id || !this.previewDialogVisible()) {
+        this.catalogService.revokePreviewUrl(result.url);
+        return;
+      }
+      this.previewBlobUrl = result.url;
+      this.previewSafeUrl.set(result.url ? this.sanitizer.bypassSecurityTrustResourceUrl(result.url) : null);
+      this.previewKind.set(result.kind);
+    } catch (err: unknown) {
+      this.previewDialogVisible.set(false);
+      this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: (err as Error)?.message || 'Không thể xem file.' });
+    } finally {
+      this.previewLoading.set(false);
+      this.previewingId.set(null);
+    }
+  }
+
+  closePreview(): void {
+    this.catalogService.revokePreviewUrl(this.previewBlobUrl);
+    this.previewBlobUrl = '';
+    this.previewSafeUrl.set(null);
+    this.previewDialogVisible.set(false);
+    this.previewDoc.set(null);
   }
 
   download(doc: PmisDocumentItem): void {
