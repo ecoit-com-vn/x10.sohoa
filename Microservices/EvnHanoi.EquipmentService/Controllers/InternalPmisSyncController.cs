@@ -164,6 +164,20 @@ public class InternalPmisSyncController : ControllerBase
                     continue;
                 }
 
+                if (upsertResult.SkippedOwnedByTba)
+                {
+                    // Thiết bị thuộc TBA, lần liệt kê ở đường dây bị bỏ qua hoàn toàn: không ghi thông số kỹ thuật/biểu mẫu (dữ liệu đường dây không được
+                    // ghi đè dữ liệu của TBA).
+                    results.Add(new UpsertEquipmentFromPmisResult
+                    {
+                        PmisCode = item.PmisCode,
+                        Success = true,
+                        EquipmentId = upsertResult.EquipmentId,
+                        HasChanged = false
+                    });
+                    continue;
+                }
+
                 if (upsertResult.WasTransferred)
                 {
                     // Tài liệu đi theo thiết bị đang sống (job danh sách tài liệu chỉ lấy phần mới nên không còn tự đẩy lại để sửa owner).

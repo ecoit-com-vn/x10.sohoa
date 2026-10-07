@@ -63,6 +63,10 @@ public class EquipmentPmisUpsertResult
     public long? OldUnitId { get; set; }
     public long? NewUnitId { get; set; }
 
+    /// <summary>true nếu thiết bị đang thuộc TBA nhưng PMIS cũng liệt kê nó ở đường dây — KHÔNG chuyển, KHÔNG cập nhật gì (TBA là chủ thật). Controller bỏ qua
+    /// các bước thông số kỹ thuật/biểu mẫu để dữ liệu của đường dây không ghi đè dữ liệu của TBA.</summary>
+    public bool SkippedOwnedByTba { get; set; }
+
     public static EquipmentPmisUpsertResult Ok(Guid id, bool wasCreated, bool hasChanged, Guid equipmentTypeId) =>
         new() { Success = true, EquipmentId = id, WasCreated = wasCreated, HasChanged = hasChanged, EquipmentTypeId = equipmentTypeId };
 
