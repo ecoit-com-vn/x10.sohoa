@@ -1,0 +1,67 @@
+-- ============================================================================
+-- BẢN SQL DỰ PHÒNG cho Migrations/EquipmentService/Migration0076_AddContentSha256ToPmisDocument.cs
+-- ============================================================================
+-- KHÔNG chạy tự động — xem giải thích đầy đủ ở Migrations/Manual/SyncService_0003_AddRowVersionAndIsDeletedToSyncConfig.sql.
+--
+-- CÁCH CHẠY: sqlplus <user>/<pass>@<host>:1521/<service> @EquipmentService_0076_AddContentSha256ToPmisDocument.sql
+-- Sau khi chạy tay, ghi journal:
+--   INSERT INTO SCHEMAVERSIONS (SCRIPTNAME, APPLIED)
+--   VALUES ('EvnHanoi.Infrastructure.Migrations.EquipmentService.Migration0076_AddContentSha256ToPmisDocument.cs', SYSTIMESTAMP);
+--   COMMIT;
+--
+-- NỘI DUNG: thêm cột CONTENT_SHA256 + index (CONTENT_SHA256, FileSize), FILE_TRANSIENT_FAILS, DEVICE_CODE + index trên PMIS_DOCUMENT. Idempotent.
+-- SCHEMA: tiền tố "QLSHX10." tường minh (xem EquipmentService_0061_RestoreFalselyGhostedPmisEquipment.sql).
+--
+-- ROLLBACK:
+--   DROP INDEX QLSHX10.IDX_PMIS_DOCUMENT_SHA256;
+--   ALTER TABLE QLSHX10.PMIS_DOCUMENT DROP COLUMN CONTENT_SHA256;
+--   DROP INDEX QLSHX10.IDX_PMIS_DOCUMENT_DEVICE_CODE;
+--   ALTER TABLE QLSHX10.PMIS_DOCUMENT DROP (FILE_TRANSIENT_FAILS, DEVICE_CODE);
+--   DELETE FROM SCHEMAVERSIONS WHERE SCRIPTNAME LIKE '%0076_AddContentSha256ToPmisDocument%';
+--   COMMIT;
+-- ============================================================================
+SET SERVEROUTPUT ON
+
+DECLARE
+    v_count NUMBER;
+BEGIN
+    SELECT COUNT(*) INTO v_count FROM ALL_TAB_COLUMNS
+     WHERE OWNER = 'QLSHX10' AND TABLE_NAME = 'PMIS_DOCUMENT' AND COLUMN_NAME = 'CONTENT_SHA256';
+    IF v_count = 0 THEN
+        EXECUTE IMMEDIATE 'ALTER TABLE QLSHX10.PMIS_DOCUMENT ADD CONTENT_SHA256 VARCHAR2(64) NULL';
+        DBMS_OUTPUT.PUT_LINE('Đã thêm cột CONTENT_SHA256.');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('Cột CONTENT_SHA256 đã có — bỏ qua.');
+    END IF;
+
+    SELECT COUNT(*) INTO v_count FROM ALL_INDEXES
+     WHERE OWNER = 'QLSHX10' AND INDEX_NAME = 'IDX_PMIS_DOCUMENT_SHA256';
+    IF v_count = 0 THEN
+        EXECUTE IMMEDIATE 'CREATE INDEX QLSHX10.IDX_PMIS_DOCUMENT_SHA256 ON QLSHX10.PMIS_DOCUMENT (CONTENT_SHA256, FileSize)';
+        DBMS_OUTPUT.PUT_LINE('Đã tạo index IDX_PMIS_DOCUMENT_SHA256.');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('Index IDX_PMIS_DOCUMENT_SHA256 đã có — bỏ qua.');
+    END IF;
+
+    SELECT COUNT(*) INTO v_count FROM ALL_TAB_COLUMNS
+     WHERE OWNER = 'QLSHX10' AND TABLE_NAME = 'PMIS_DOCUMENT' AND COLUMN_NAME = 'FILE_TRANSIENT_FAILS';
+    IF v_count = 0 THEN
+        EXECUTE IMMEDIATE 'ALTER TABLE QLSHX10.PMIS_DOCUMENT ADD FILE_TRANSIENT_FAILS NUMBER(5) DEFAULT 0 NOT NULL';
+        DBMS_OUTPUT.PUT_LINE('Đã thêm cột FILE_TRANSIENT_FAILS.');
+    END IF;
+
+    SELECT COUNT(*) INTO v_count FROM ALL_TAB_COLUMNS
+     WHERE OWNER = 'QLSHX10' AND TABLE_NAME = 'PMIS_DOCUMENT' AND COLUMN_NAME = 'DEVICE_CODE';
+    IF v_count = 0 THEN
+        EXECUTE IMMEDIATE 'ALTER TABLE QLSHX10.PMIS_DOCUMENT ADD DEVICE_CODE VARCHAR2(150) NULL';
+        DBMS_OUTPUT.PUT_LINE('Đã thêm cột DEVICE_CODE.');
+    END IF;
+
+    SELECT COUNT(*) INTO v_count FROM ALL_INDEXES
+     WHERE OWNER = 'QLSHX10' AND INDEX_NAME = 'IDX_PMIS_DOCUMENT_DEVICE_CODE';
+    IF v_count = 0 THEN
+        EXECUTE IMMEDIATE 'CREATE INDEX QLSHX10.IDX_PMIS_DOCUMENT_DEVICE_CODE ON QLSHX10.PMIS_DOCUMENT (DEVICE_CODE)';
+        DBMS_OUTPUT.PUT_LINE('Đã tạo index IDX_PMIS_DOCUMENT_DEVICE_CODE.');
+    END IF;
+END;
+/

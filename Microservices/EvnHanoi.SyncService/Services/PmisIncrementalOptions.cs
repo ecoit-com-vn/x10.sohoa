@@ -12,9 +12,6 @@ public class PmisIncrementalOptions
     /// (mặc định 7 ngày) — bù cho thay đổi mà hash không phát hiện (vd. chi tiết thiết bị, tài liệu đính kèm).</summary>
     public int FullSweepIntervalHours { get; set; } = 168;
 
-    /// <summary>Trần thời gian vòng quét thiết bị mỗi lượt (phải nhỏ hơn SyncHistoryWatchdogJob.StaleThreshold = 60 phút).</summary>
-    public int EquipmentRunBudgetMinutes { get; set; } = 35;
-
     /// <summary>Trạm/Đường dây cha không đổi chỉ được quét lại thiết bị con sau khoảng này.</summary>
     public int ParentRescanIntervalHours { get; set; } = 24;
 

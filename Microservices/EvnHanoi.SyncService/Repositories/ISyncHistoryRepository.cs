@@ -28,8 +28,21 @@ public interface ISyncHistoryRepository
     /// <paramref name="retentionDays"/> ngày, Oracle tự tính cutoff bằng SYSTIMESTAMP.</summary>
     Task<int> DeleteOlderThanAsync(int retentionDays);
 
-    /// <summary>Watchdog tự động (Quartz, xem SyncHistoryWatchdogJob) — đánh dấu FAILED cho các dòng còn
-    /// STATUS = RUNNING nhưng START_TIME đã cũ hơn <paramref name="staleAfter"/>: dấu hiệu tiến trình đã
-    /// chết giữa chừng (crash/OOMKilled/rollout) trước khi kịp gọi CompleteAsync. Trả về số dòng đã sửa.</summary>
-    Task<int> FailStaleRunningAsync(TimeSpan staleAfter, string errorMessage);
+    /// <summary>Watchdog tự động (Quartz, xem SyncHistoryWatchdogJob) — các dòng đang STATUS = RUNNING kèm tần suất
+    /// cấu hình của đối tượng (null nếu dòng không gắn SYNC_CONFIG) để watchdog tự tính ngưỡng "kẹt" riêng cho từng dòng.</summary>
+    Task<IReadOnlyList<RunningSyncHistory>> GetRunningAsync();
+
+    /// <summary>Đánh dấu FAILED cho 1 dòng CHỈ KHI còn RUNNING (không ghi đè lượt vừa hoàn tất). Trả về true nếu đã sửa.</summary>
+    Task<bool> FailRunningAsync(string id, string errorMessage);
+}
+
+/// <summary>Dòng SYNC_HISTORY đang RUNNING kèm tần suất cấu hình — đầu vào tính ngưỡng của SyncHistoryWatchdogJob.</summary>
+public class RunningSyncHistory
+{
+    public string Id { get; set; } = string.Empty;
+    public string ObjectType { get; set; } = string.Empty;
+    public string SyncType { get; set; } = string.Empty;
+    public DateTime StartTime { get; set; }
+    public int? FrequencyValue { get; set; }
+    public string? FrequencyUnit { get; set; }
 }

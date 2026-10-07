@@ -14,13 +14,27 @@ public interface IEquipmentServiceClient
     Task<List<UpsertPmisDocumentResult>> UpsertDocumentsAsync(List<UpsertPmisDocumentRequest> items);
 
     /// <summary>Tài liệu PMIS đang chờ tải file vật lý (đã tới hạn thử lại) — cho PmisDocumentFileDownloadJob.</summary>
-    Task<List<PendingPmisDocumentFile>> GetPendingDocumentFilesAsync(int take);
+    Task<List<PendingPmisDocumentFile>> GetPendingDocumentFilesAsync(int take, IReadOnlyList<string>? excludePrefixes = null);
 
     /// <summary>Gửi kết quả tải 1 file (FileBase64) hoặc lý do lỗi (ErrorMessage) cho EquipmentService.</summary>
     Task AttachDocumentFileAsync(AttachPmisDocumentFileRequest request);
 
+    /// <summary>Gửi file dạng LUỒNG (octet-stream, Content-Length biết trước) cho EquipmentService lưu MinIO + đánh dấu DONE —
+    /// không base64 hoá, không nạp cả file vào RAM. Trả true nếu lưu xong.</summary>
+    Task<bool> UploadDocumentFileAsync(string pmisDocumentCode, Stream content, long length, string sha256Hex, CancellationToken ct = default);
+
+    /// <summary>Hỏi EquipmentService đã có file cùng SHA-256 (+ kích thước) chưa; nếu có thì gắn lại object cũ cho tài liệu này,
+    /// đánh dấu DONE và trả true — không cần gửi/ghi file nữa (chống trùng nội dung).</summary>
+    Task<bool> TryAttachExistingFileByHashAsync(string pmisDocumentCode, string sha256Hex, long length, CancellationToken ct = default);
+
+    /// <summary>Ghi nhận lần tải lỗi: PERMANENT (tính vào số lần thử, backoff dài) hoặc TRANSIENT (không tính, thử lại sau ít phút).</summary>
+    Task ReportDocumentFileFailureAsync(string pmisDocumentCode, bool transient, string? message, int transientRetryMinutes, CancellationToken ct = default);
+
+    /// <summary>Số tài liệu đã có trong DB theo mã Trạm/Đường dây (gồm thiết bị con) — mốc bootstrap của job DOCUMENT.</summary>
+    Task<Dictionary<string, int>> GetDocumentCountsByInfrastructureAsync();
+
     /// <summary>Tóm tắt hàng đợi tải file — cho PmisDocumentFileDownloadWatchdogJob.</summary>
-    Task<PendingDocumentFileSummary> GetPendingDocumentSummaryAsync();
+    Task<PendingDocumentFileSummary> GetPendingDocumentSummaryAsync(IReadOnlyList<string>? excludePrefixes = null);
 
     /// <summary>Trạm/Đường dây còn tài liệu chưa có file (gồm cả tài liệu của thiết bị con) — cho backfill.</summary>
     Task<List<SyncedInfrastructurePmisCode>> GetPendingDocumentOwnersAsync();

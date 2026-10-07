@@ -6,11 +6,13 @@ namespace EvnHanoi.SyncService.Clients;
 public class EquipmentServiceClient : IEquipmentServiceClient
 {
     private readonly HttpClient _httpClient;
+    private readonly HttpClient _uploadClient; // timeout dài cho file lớn (xem Program.cs)
     private readonly string? _internalToken;
 
     public EquipmentServiceClient(IHttpClientFactory httpClientFactory, IConfiguration configuration)
     {
         _httpClient = httpClientFactory.CreateClient("EquipmentServiceInternal");
+        _uploadClient = httpClientFactory.CreateClient("EquipmentServiceInternalUpload");
         _internalToken = configuration["Internal:Token"];
     }
 
@@ -79,14 +81,62 @@ public class EquipmentServiceClient : IEquipmentServiceClient
         return await response.Content.ReadFromJsonAsync<List<UpsertPmisDocumentResult>>() ?? [];
     }
 
-    public async Task<List<PendingPmisDocumentFile>> GetPendingDocumentFilesAsync(int take)
+    public async Task<List<PendingPmisDocumentFile>> GetPendingDocumentFilesAsync(int take, IReadOnlyList<string>? excludePrefixes = null)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, $"internal/v1/documents/pending-files?take={take}");
+        var url = $"internal/v1/documents/pending-files?take={take}";
+        if (excludePrefixes is { Count: > 0 }) url += "&excludePrefixes=" + Uri.EscapeDataString(string.Join(',', excludePrefixes));
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Add("X-Internal-Token", _internalToken);
 
         var response = await _httpClient.SendAsync(request);
         await EnsureSuccessOrThrowWithBodyAsync(response);
         return await response.Content.ReadFromJsonAsync<List<PendingPmisDocumentFile>>() ?? [];
+    }
+
+    public async Task<bool> UploadDocumentFileAsync(string pmisDocumentCode, Stream content, long length, string sha256Hex, CancellationToken ct = default)
+    {
+        using var body = new StreamContent(content, 81920);
+        body.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+        body.Headers.ContentLength = length;
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"internal/v1/documents/{Uri.EscapeDataString(pmisDocumentCode)}/file") { Content = body };
+        request.Headers.Add("X-Internal-Token", _internalToken);
+        request.Headers.Add("X-File-Sha256", sha256Hex);
+
+        using var response = await _uploadClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+        await EnsureSuccessOrThrowWithBodyAsync(response);
+        var result = await response.Content.ReadFromJsonAsync<DocumentFileStoredResponse>(cancellationToken: ct);
+        return result?.Attached ?? false;
+    }
+
+    public async Task<bool> TryAttachExistingFileByHashAsync(string pmisDocumentCode, string sha256Hex, long length, CancellationToken ct = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"internal/v1/documents/{Uri.EscapeDataString(pmisDocumentCode)}/file-by-hash")
+        {
+            Content = JsonContent.Create(new { sha256 = sha256Hex, size = length })
+        };
+        request.Headers.Add("X-Internal-Token", _internalToken);
+
+        using var response = await _httpClient.SendAsync(request, ct);
+        await EnsureSuccessOrThrowWithBodyAsync(response);
+        var result = await response.Content.ReadFromJsonAsync<DocumentFileStoredResponse>(cancellationToken: ct);
+        return result?.Attached ?? false;
+    }
+
+    public async Task ReportDocumentFileFailureAsync(string pmisDocumentCode, bool transient, string? message, int transientRetryMinutes, CancellationToken ct = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"internal/v1/documents/{Uri.EscapeDataString(pmisDocumentCode)}/file-failure")
+        {
+            Content = JsonContent.Create(new { kind = transient ? "TRANSIENT" : "PERMANENT", message, retryMinutes = transientRetryMinutes })
+        };
+        request.Headers.Add("X-Internal-Token", _internalToken);
+
+        using var response = await _httpClient.SendAsync(request, ct);
+        await EnsureSuccessOrThrowWithBodyAsync(response);
+    }
+
+    private class DocumentFileStoredResponse
+    {
+        public bool Attached { get; set; }
     }
 
     public async Task<List<PmisDocumentFileStatusDto>> GetDocumentFileStatusAsync(IReadOnlyCollection<string> codes)
@@ -112,9 +162,28 @@ public class EquipmentServiceClient : IEquipmentServiceClient
         return await response.Content.ReadFromJsonAsync<List<SyncedInfrastructurePmisCode>>() ?? [];
     }
 
-    public async Task<PendingDocumentFileSummary> GetPendingDocumentSummaryAsync()
+    public async Task<Dictionary<string, int>> GetDocumentCountsByInfrastructureAsync()
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "internal/v1/documents/pending-summary");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "internal/v1/documents/counts-by-infrastructure");
+        request.Headers.Add("X-Internal-Token", _internalToken);
+
+        using var response = await _httpClient.SendAsync(request);
+        await EnsureSuccessOrThrowWithBodyAsync(response);
+        var rows = await response.Content.ReadFromJsonAsync<List<DocumentCountRow>>() ?? [];
+        return rows.GroupBy(r => r.PmisCode, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.Sum(r => r.DocumentCount), StringComparer.OrdinalIgnoreCase);
+    }
+
+    private class DocumentCountRow
+    {
+        public string PmisCode { get; set; } = string.Empty;
+        public int DocumentCount { get; set; }
+    }
+
+    public async Task<PendingDocumentFileSummary> GetPendingDocumentSummaryAsync(IReadOnlyList<string>? excludePrefixes = null)
+    {
+        var url = "internal/v1/documents/pending-summary";
+        if (excludePrefixes is { Count: > 0 }) url += "?excludePrefixes=" + Uri.EscapeDataString(string.Join(',', excludePrefixes));
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Add("X-Internal-Token", _internalToken);
 
         var response = await _httpClient.SendAsync(request);

@@ -1,9 +1,16 @@
 using EvnHanoi.SyncService.Models.Pmis;
+using EvnHanoi.SyncService.Services;
 
 namespace EvnHanoi.SyncService.Clients;
 
 /// <summary>9 API pull PMIS theo tài liệu "[EVNHANOI_SHHSKT] Phương án đồng bộ PMIS", cộng thêm API ảnh QR
 /// (phát hiện khi gọi thật vào gateway PMIS — xem BAO_CAO_TEST_API_PMIS_GATEWAY_THAT.md).</summary>
+/// <summary>Mã API cấu hình (PMIS_API_ENDPOINT_CONFIG.API_CODE) dùng trực tiếp trong code.</summary>
+public static class PmisApiCodes
+{
+    public const string DocumentFileDownload = "DOCUMENT_FILE_DOWNLOAD";
+}
+
 public interface IPmisClient
 {
     Task<PmisListResponse<PmisSubstationDto>> GetSubstationsAsync(PmisSubstationSearchRequest request);
@@ -20,14 +27,21 @@ public interface IPmisClient
     /// (không chặn phần còn lại của đồng bộ). Field maQRCode ở các API khác chỉ là URL, không phải base64.</summary>
     Task<byte[]?> GetDeviceQrImageBytesAsync(string idPmis);
 
-    /// <summary>Tải file nhị phân tài liệu đính kèm theo URL động (field "File" của API 8/9) — trả
-    /// Bytes=null nếu lỗi (không throw, đồng bộ tài liệu không được chặn lượt đồng bộ chính), kèm
-    /// ErrorReason (rút gọn qua SyncErrorFormatter — không lộ stack trace) để caller lưu lại làm bằng
-    /// chứng debug thay vì chỉ có trong log Serilog của pod (trước đây lỗi bị bỏ hẳn, EquipmentService
-    /// chỉ thấy "file rỗng" mà không biết vì sao). <paramref name="endpointApiCode"/> chỉ định lấy header
-    /// xác thực từ đúng cấu hình endpoint nguồn (SUBSTATION_DOCUMENT_LIST hoặc LINE_DOCUMENT_LIST) —
-    /// không dùng cố định 1 endpoint cho cả 2 nguồn.</summary>
-    Task<(byte[]? Bytes, string? ErrorReason)> DownloadDocumentFileAsync(string fileUrl, string endpointApiCode);
+    /// <summary>Tải file nhị phân tài liệu theo MÃ tài liệu qua API cấu hình DOCUMENT_FILE_DOWNLOAD (URL, phương thức, timeout,
+    /// header lấy từ PMIS_API_ENDPOINT_CONFIG; tham số maTaiLieu do code thêm vào query). ĐỌC LUỒNG: nội dung vào bộ nhớ (≤ ngưỡng)
+    /// hoặc file tạm, kèm SHA-256 — không nạp cả file vào RAM. Không throw: mọi lỗi trả về dưới dạng
+    /// <see cref="DocumentFileDownloadResult"/> đã phân loại (Permanent / Transient / Unauthorized / CircuitOpen / NotConfigured).
+    /// Caller phải DisposeAsync kết quả để xoá file tạm.</summary>
+    Task<DocumentFileDownloadResult> DownloadDocumentFileByCodeAsync(string maTaiLieu, long maxBytes, int spoolThresholdBytes, CancellationToken ct = default);
+
+    /// <summary>Số tài liệu PMIS báo cho 1 Trạm/Đường dây mà KHÔNG kéo dữ liệu: gọi API danh sách với skip vượt xa tổng
+    /// (phản hồi chỉ ~50 byte, items rỗng). Trả null nếu API danh sách chưa cấu hình. PMIS có thể mất tới ~40 giây để đếm owner
+    /// rất lớn nên dùng timeout của endpoint.</summary>
+    Task<int?> GetDocumentTotalAsync(bool isSubstation, string ownerPmisCode, DateTime? tuNgay = null, DateTime? denNgay = null);
+
+    /// <summary>true nếu API DOCUMENT_FILE_DOWNLOAD đã cấu hình URL và đang bật — job tải file dừng cả lượt khi false
+    /// (không gọi PMIS, không tăng số lần thử của tài liệu nào).</summary>
+    Task<bool> IsDocumentFileEndpointActiveAsync();
 
     /// <summary>Gọi API danh sách tài liệu (8/9) và trả NGUYÊN VĂN body JSON PMIS (không qua DTO) — chỉ để chẩn đoán
     /// khi nghi PMIS đổi tên/định dạng trường "File" (hệ thống không lưu phản hồi thô ở đâu khác).</summary>

@@ -201,20 +201,33 @@ public class SyncHistoryRepository : ISyncHistoryRepository
             new { RetentionDays = retentionDays });
     }
 
-    public async Task<int> FailStaleRunningAsync(TimeSpan staleAfter, string errorMessage)
+    public async Task<IReadOnlyList<RunningSyncHistory>> GetRunningAsync()
+    {
+        EnsureOpen();
+        const string sql = @"
+            SELECT h.ID AS Id, h.OBJECT_TYPE AS ObjectType, h.SYNC_TYPE AS SyncType, h.START_TIME AS StartTime,
+                   c.FREQUENCY_VALUE AS FrequencyValue, c.FREQUENCY_UNIT AS FrequencyUnit
+            FROM SYNC_HISTORY h
+            LEFT JOIN SYNC_CONFIG c ON c.ID = h.SYNC_CONFIG_ID
+            WHERE h.STATUS = :RunningStatus";
+        return (await _connection.QueryAsync<RunningSyncHistory>(sql, new { RunningStatus = SyncHistoryStatus.Running })).ToList();
+    }
+
+    public async Task<bool> FailRunningAsync(string id, string errorMessage)
     {
         EnsureOpen();
         const string sql = @"
             UPDATE SYNC_HISTORY
             SET STATUS = :FailedStatus, END_TIME = SYSTIMESTAMP, ERROR_MESSAGE = :ErrorMessage
-            WHERE STATUS = :RunningStatus AND START_TIME < :Cutoff";
-        return await _connection.ExecuteAsync(sql, new
+            WHERE ID = :Id AND STATUS = :RunningStatus";
+        var rows = await _connection.ExecuteAsync(sql, new
         {
             FailedStatus = SyncHistoryStatus.Failed,
             RunningStatus = SyncHistoryStatus.Running,
             ErrorMessage = errorMessage,
-            Cutoff = DateTime.UtcNow - staleAfter
+            Id = id
         });
+        return rows > 0;
     }
 
     private void EnsureOpen()

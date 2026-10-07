@@ -166,6 +166,13 @@ public class InternalPmisSyncController : ControllerBase
 
                 if (upsertResult.WasTransferred)
                 {
+                    // Tài liệu đi theo thiết bị đang sống (job danh sách tài liệu chỉ lấy phần mới nên không còn tự đẩy lại để sửa owner).
+                    if (upsertResult.OldEquipmentId is Guid oldEqId && upsertResult.EquipmentId is Guid newEqId)
+                    {
+                        try { await _pmisDocumentRepository.MoveDocumentsBetweenEquipmentAsync(oldEqId, newEqId); }
+                        catch (Exception ex) { Log.Warning(ex, "InternalPmisSyncController: lỗi chuyển tài liệu theo thiết bị khi chuyển TBA {PmisCode}.", item.PmisCode); }
+                    }
+
                     // Tái nạp đầy đủ dữ liệu bản ghi cũ/mới (thay vì tự dựng object rút gọn) — worker
                     // EquipmentIndexWorker REPLACE nguyên document Elasticsearch theo đúng payload gửi lên,
                     // gửi thiếu trường sẽ làm mất dữ liệu đã index trước đó, không phải update từng phần.
@@ -246,6 +253,14 @@ public class InternalPmisSyncController : ControllerBase
                     }
                 }
 
+                // Thiết bị MỚI tạo: nhận lại các tài liệu đã lưu tạm cho Trạm/Đường dây khi thiết bị chưa tồn tại (DEVICE_CODE khớp).
+                // Job danh sách tài liệu chỉ lấy phần mới nên không còn tự sửa owner như khi mỗi chu kỳ đẩy lại mọi tài liệu. Lỗi ở đây chỉ log.
+                if (upsertResult.WasCreated && upsertResult.EquipmentId is Guid newEquipmentId)
+                {
+                    try { await _pmisDocumentRepository.ReassignDocumentsToEquipmentAsync(item.PmisCode, newEquipmentId); }
+                    catch (Exception ex) { Log.Warning(ex, "InternalPmisSyncController: lỗi chuyển tài liệu sang thiết bị mới {PmisCode}.", item.PmisCode); }
+                }
+
                 results.Add(new UpsertEquipmentFromPmisResult
                 {
                     PmisCode = item.PmisCode,
@@ -286,6 +301,8 @@ public class InternalPmisSyncController : ControllerBase
             try
             {
                 var existing = await _pmisDocumentRepository.GetByCodeAsync(item.PmisDocumentCode);
+                if (existing != null && !string.IsNullOrWhiteSpace(item.DeviceCode))
+                    await _pmisDocumentRepository.SetDeviceCodeAsync(existing.Id, item.DeviceCode);
 
                 // Ưu tiên gán theo ĐÚNG thiết bị nếu tài liệu có kèm mã thiết bị (DeviceCode) — kể cả khi
                 // gọi từ lượt đồng bộ cấp Trạm/Đường dây (item.OwnerType="INFRASTRUCTURE" ở đây chỉ là
@@ -354,7 +371,6 @@ public class InternalPmisSyncController : ControllerBase
                     fileSize = bytes.Length;
                 }
 
-                var hasUrl = !string.IsNullOrWhiteSpace(item.FileUrl);
                 if (existing != null)
                 {
                     // Đã có dòng metadata (chưa có file) — chỉ cập nhật file/URL, không INSERT lại vì
@@ -370,15 +386,15 @@ public class InternalPmisSyncController : ControllerBase
                     if (objectKey != null)
                         await _pmisDocumentRepository.UpdateFileAsync(existing.Id, objectKey, fileSize!.Value, item.SyncHistoryId);
                     else
-                        await _pmisDocumentRepository.UpdateFileSourceAsync(existing.Id, item.FileUrl, item.FileSourceApi);
+                        await _pmisDocumentRepository.EnsureFilePendingAsync(existing.Id);
 
-                    results.Add(BuildUpsertResult(item.PmisDocumentCode, objectKey != null, hasUrl));
+                    results.Add(BuildUpsertResult(item.PmisDocumentCode));
                     continue;
                 }
 
                 item.OwnerType = ownerType; // ghi đúng OwnerType đã phân giải (có thể khác giá trị gửi lên nếu resolve theo DeviceCode thành công)
                 await _pmisDocumentRepository.InsertAsync(item, ownerId.Value, objectKey, fileSize);
-                var created = BuildUpsertResult(item.PmisDocumentCode, objectKey != null, hasUrl);
+                var created = BuildUpsertResult(item.PmisDocumentCode);
                 created.WasCreated = true;
                 results.Add(created);
             }
@@ -396,35 +412,32 @@ public class InternalPmisSyncController : ControllerBase
         return Ok(results);
     }
 
-    /// <summary>Success=true khi đã có file HOẶC đang chờ job nền tải (có URL) — đó là trạng thái bình thường
-    /// của pha danh sách, không phải lỗi. Chỉ khi PMIS không kèm URL file mới báo cảnh báo (chưa có gì để tải).</summary>
-    private static UpsertPmisDocumentResult BuildUpsertResult(string code, bool hasFile, bool hasUrl) =>
-        new()
-        {
-            PmisDocumentCode = code,
-            Success = hasFile || hasUrl,
-            ErrorMessage = hasFile || hasUrl ? null : "PMIS không trả về URL file cho tài liệu này — đã lưu thông tin, chưa có file."
-        };
+    /// <summary>Lưu metadata tài liệu thành công = Success (file có sẵn hoặc đang chờ job nền tải theo mã qua DOCUMENT_FILE_DOWNLOAD —
+    /// trạng thái bình thường của pha danh sách, không phải lỗi).</summary>
+    private static UpsertPmisDocumentResult BuildUpsertResult(string code) =>
+        new() { PmisDocumentCode = code, Success = true };
 
     /// <summary>Lấy các tài liệu đang chờ tải file (đã tới hạn thử lại) cho job nền của SyncService.</summary>
     [HttpGet("documents/pending-files")]
     public async Task<IActionResult> GetPendingDocumentFiles(
         [FromHeader(Name = "X-Internal-Token")] string? internalToken,
-        [FromQuery] int take = 40)
+        [FromQuery] int take = 40,
+        [FromQuery] string? excludePrefixes = null)
     {
         if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
         take = Math.Clamp(take, 1, 200);
-        return Ok(await _pmisDocumentRepository.GetPendingFilesAsync(take));
+        return Ok(await _pmisDocumentRepository.GetPendingFilesAsync(take, ParsePrefixes(excludePrefixes)));
     }
 
     /// <summary>Tóm tắt hàng đợi tải file cho watchdog của SyncService (PmisDocumentFileDownloadWatchdogJob)
     /// — phát hiện khi job tải file ngừng tiến triển mà không ai biết.</summary>
     [HttpGet("documents/pending-summary")]
     public async Task<IActionResult> GetPendingDocumentSummary(
-        [FromHeader(Name = "X-Internal-Token")] string? internalToken)
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken,
+        [FromQuery] string? excludePrefixes = null)
     {
         if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
-        return Ok(await _pmisDocumentRepository.GetPendingSummaryAsync());
+        return Ok(await _pmisDocumentRepository.GetPendingSummaryAsync(ParsePrefixes(excludePrefixes)));
     }
 
     /// <summary>Trạm/Đường dây còn tài liệu chưa có file — SyncService dùng để backfill đồng bộ lại danh sách
@@ -436,6 +449,16 @@ public class InternalPmisSyncController : ControllerBase
         if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
         var rows = await _pmisDocumentRepository.GetPendingOwnerInfrastructuresAsync();
         return Ok(rows.Select(r => new { pmisCode = r.PmisCode, infraTypeId = r.InfraTypeId }));
+    }
+
+    /// <summary>Số tài liệu đã có trong DB theo từng Trạm/Đường dây (gồm tài liệu thiết bị con) — job DOCUMENT của SyncService dùng làm mốc
+    /// bootstrap: owner đã đủ tài liệu so với tổng PMIS thì chỉ ghi trạng thái, không kéo lại.</summary>
+    [HttpGet("documents/counts-by-infrastructure")]
+    public async Task<IActionResult> GetDocumentCountsByInfrastructure(
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken)
+    {
+        if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
+        return Ok(await _pmisDocumentRepository.GetDocumentCountsByInfrastructureAsync());
     }
 
     /// <summary>Trạng thái tải file hiện tại theo danh sách mã tài liệu (tối đa 200) — màn Lịch sử đồng bộ của
@@ -478,6 +501,91 @@ public class InternalPmisSyncController : ControllerBase
             target.OwnerType, target.OwnerId);
         await _pmisDocumentRepository.UpdateFileAsync(target.Id, key, bytes.Length, null);
         return Ok(new { attached = true });
+    }
+
+    private static IReadOnlyList<string>? ParsePrefixes(string? csv) =>
+        string.IsNullOrWhiteSpace(csv) ? null : csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    /// <summary>Nhận file DẠNG LUỒNG (octet-stream) từ job tải file: ghi thẳng lên MinIO (không đệm toàn bộ vào RAM, không base64),
+    /// lưu ObjectKey/FileSize/CONTENT_SHA256 + FILE_STATUS='DONE'. Bắt buộc có Content-Length (MinIO cần biết kích thước trước).</summary>
+    [HttpPost("documents/{code}/file")]
+    public async Task<IActionResult> UploadDocumentFile(
+        string code,
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken,
+        [FromHeader(Name = "X-File-Sha256")] string? sha256,
+        CancellationToken cancellationToken)
+    {
+        if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
+
+        var length = Request.ContentLength;
+        if (length is null or <= 0) return StatusCode(411, new { message = "Thiếu Content-Length." });
+
+        var maxBytes = _configuration.GetValue<long?>("Pmis:DocumentFile:MaxBytes") ?? 100L * 1024 * 1024;
+        if (length > maxBytes) return StatusCode(413, new { message = $"File lớn hơn giới hạn {maxBytes / 1024 / 1024} MB." });
+        var sizeFeature = HttpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
+        if (sizeFeature is { IsReadOnly: false }) sizeFeature.MaxRequestBodySize = maxBytes;
+
+        var target = await _pmisDocumentRepository.GetFileTargetByCodeAsync(code);
+        if (target == null) return NotFound(new { message = "Không tìm thấy tài liệu." });
+        if (!string.IsNullOrEmpty(target.ObjectKey)) return Ok(new { attached = true, alreadyHadFile = true });
+
+        var (key, _) = await _fileStorageService.UploadPmisDocumentAsync(
+            Request.Body, target.DocumentName ?? target.PmisDocumentCode, "application/octet-stream", length.Value,
+            target.OwnerType, target.OwnerId, cancellationToken);
+        await _pmisDocumentRepository.UpdateFileAsync(target.Id, key, length.Value, null, NormalizeSha256(sha256));
+        return Ok(new { attached = true });
+    }
+
+    /// <summary>Chống trùng nội dung: nếu đã có tài liệu KHÁC với cùng SHA-256 + kích thước, gắn lại object đó cho tài liệu này
+    /// (DONE) — job khỏi gửi/ghi lại file. Trả attached=false nếu chưa có file trùng (job gửi file như bình thường).
+    /// An toàn vì object PMIS không bao giờ bị xoá/ghi đè khi sao chép vào hồ sơ (DossierDocumentService chỉ đọc theo ObjectKey).</summary>
+    [HttpPost("documents/{code}/file-by-hash")]
+    public async Task<IActionResult> AttachDocumentFileByHash(
+        string code,
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken,
+        [FromBody] DocumentFileHashRequest request)
+    {
+        if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
+        var sha = NormalizeSha256(request?.Sha256);
+        if (sha == null || request!.Size <= 0) return BadRequest(new { message = "Thiếu/sai sha256 hoặc size." });
+
+        var target = await _pmisDocumentRepository.GetFileTargetByCodeAsync(code);
+        if (target == null) return NotFound(new { message = "Không tìm thấy tài liệu." });
+        if (!string.IsNullOrEmpty(target.ObjectKey)) return Ok(new { attached = true, alreadyHadFile = true });
+
+        var existingKey = await _pmisDocumentRepository.FindObjectKeyByHashAsync(sha, request.Size);
+        if (existingKey == null) return Ok(new { attached = false });
+
+        await _pmisDocumentRepository.UpdateFileAsync(target.Id, existingKey, request.Size, null, sha);
+        return Ok(new { attached = true, deduplicated = true });
+    }
+
+    /// <summary>Ghi nhận lần tải lỗi từ job: PERMANENT (lỗi riêng của tài liệu — tính lần thử, backoff luỹ thừa) hoặc
+    /// TRANSIENT (PMIS quá tải/mạng — KHÔNG tính lần thử, hẹn thử lại sau retryMinutes).</summary>
+    [HttpPost("documents/{code}/file-failure")]
+    public async Task<IActionResult> ReportDocumentFileFailure(
+        string code,
+        [FromHeader(Name = "X-Internal-Token")] string? internalToken,
+        [FromBody] DocumentFileFailureRequest request)
+    {
+        if (!ValidateInternalToken(internalToken, out var tokenError)) return tokenError!;
+        if (request is null) return BadRequest(new { message = "Thiếu nội dung." });
+
+        var target = await _pmisDocumentRepository.GetFileTargetByCodeAsync(code);
+        if (target == null) return NotFound(new { message = "Không tìm thấy tài liệu." });
+        if (!string.IsNullOrEmpty(target.ObjectKey)) return Ok(new { recorded = false, reason = "Tài liệu đã có file." });
+
+        if (string.Equals(request.Kind, "TRANSIENT", StringComparison.OrdinalIgnoreCase))
+            await _pmisDocumentRepository.MarkFileTransientFailureAsync(target.Id, request.Message, request.RetryMinutes);
+        else
+            await _pmisDocumentRepository.MarkFileFailedAsync(target.Id, request.Message);
+        return Ok(new { recorded = true });
+    }
+
+    private static string? NormalizeSha256(string? value)
+    {
+        var v = value?.Trim().ToLowerInvariant();
+        return v is { Length: 64 } && v.All(Uri.IsHexDigit) ? v : null;
     }
 
     /// <summary>

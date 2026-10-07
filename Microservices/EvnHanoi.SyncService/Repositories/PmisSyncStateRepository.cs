@@ -1,6 +1,7 @@
 using System.Data;
 using System.Text;
 using Dapper;
+using EvnHanoi.SyncService.Services;
 
 namespace EvnHanoi.SyncService.Repositories;
 
@@ -130,6 +131,51 @@ public class PmisSyncStateRepository : IPmisSyncStateRepository
         {
             Code1 = code, ObjectType1 = objectType, Now1 = now, Now2 = now,
             ObjectType2 = objectType, Now3 = now, Now4 = now
+        });
+    }
+
+    private const string DocSelect = @"
+        PMIS_CODE AS PmisCode, REMOTE_TOTAL AS RemoteTotal, LOCAL_COUNT AS LocalCount, LAST_DOC_FETCH_AT AS LastFetchAt,
+        LAST_DOC_COUNT_AT AS LastCountAt, LAST_DOC_FULL_AT AS LastFullAt, DOC_SCAN_SKIP AS ScanSkip";
+
+    public async Task<Dictionary<string, DocumentOwnerState>> GetDocumentStatesAsync(string objectType)
+    {
+        EnsureOpen();
+        var rows = await _connection.QueryAsync<DocumentOwnerState>(
+            $"SELECT {DocSelect} FROM PMIS_SYNC_STATE WHERE OBJECT_TYPE = :ObjectType", new { ObjectType = objectType });
+        return rows.ToDictionary(r => r.PmisCode, StringComparer.OrdinalIgnoreCase);
+    }
+
+    public async Task<Dictionary<string, DocumentOwnerState>> GetDocumentStatesByPrefixAsync(string objectType, string codePrefix)
+    {
+        EnsureOpen();
+        var escaped = codePrefix.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+        var rows = await _connection.QueryAsync<DocumentOwnerState>(
+            $"SELECT {DocSelect} FROM PMIS_SYNC_STATE WHERE OBJECT_TYPE = :ObjectType AND PMIS_CODE LIKE :Prefix ESCAPE '\\'",
+            new { ObjectType = objectType, Prefix = escaped + "%" });
+        return rows.ToDictionary(r => r.PmisCode, StringComparer.OrdinalIgnoreCase);
+    }
+
+    public async Task UpsertDocumentStateAsync(string objectType, DocumentOwnerState st)
+    {
+        EnsureOpen();
+        // Tham số đặt tên riêng theo từng lần xuất hiện, đúng thứ tự trong SQL — không phụ thuộc ODP.NET bind theo tên hay vị trí.
+        const string sql = @"
+            MERGE INTO PMIS_SYNC_STATE t
+            USING (SELECT :Code1 AS PMIS_CODE FROM DUAL) s
+            ON (t.OBJECT_TYPE = :Type1 AND t.PMIS_CODE = s.PMIS_CODE)
+            WHEN MATCHED THEN UPDATE SET t.REMOTE_TOTAL = :Rt1, t.LOCAL_COUNT = :Lc1, t.LAST_DOC_FETCH_AT = :Lf1,
+                t.LAST_DOC_COUNT_AT = :Lcn1, t.LAST_DOC_FULL_AT = :Lfu1, t.DOC_SCAN_SKIP = :Sk1, t.LAST_SEEN_AT = :Se1
+            WHEN NOT MATCHED THEN INSERT (OBJECT_TYPE, PMIS_CODE, REMOTE_TOTAL, LOCAL_COUNT, LAST_DOC_FETCH_AT,
+                LAST_DOC_COUNT_AT, LAST_DOC_FULL_AT, DOC_SCAN_SKIP, LAST_SEEN_AT)
+            VALUES (:Type2, s.PMIS_CODE, :Rt2, :Lc2, :Lf2, :Lcn2, :Lfu2, :Sk2, :Se2)";
+        var now = DateTime.UtcNow;
+        await _connection.ExecuteAsync(sql, new
+        {
+            Code1 = st.PmisCode, Type1 = objectType,
+            Rt1 = st.RemoteTotal, Lc1 = st.LocalCount, Lf1 = st.LastFetchAt, Lcn1 = st.LastCountAt, Lfu1 = st.LastFullAt, Sk1 = st.ScanSkip, Se1 = now,
+            Type2 = objectType,
+            Rt2 = st.RemoteTotal, Lc2 = st.LocalCount, Lf2 = st.LastFetchAt, Lcn2 = st.LastCountAt, Lfu2 = st.LastFullAt, Sk2 = st.ScanSkip, Se2 = now
         });
     }
 
