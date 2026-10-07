@@ -39,7 +39,9 @@ public interface IPmisSyncStateRepository
     Task TouchSeenAsync(string objectType, IReadOnlyCollection<string> codes);
 
     /// <summary>Đánh dấu vừa quét xong thiết bị con của 1 cha (OBJECT_TYPE='PARENT_SCAN').</summary>
-    Task MarkParentScannedAsync(string parentPmisCode);
+    /// <param name="detailComplete">true nếu MỌI thiết bị của cha đã đủ chi tiết/QR (DETAIL_SYNCED=1); false → cha còn chờ pha bổ sung chi tiết.</param>
+    /// <param name="scanned">false (cha quét có LỖI): KHÔNG đẩy LAST_SCAN_AT lên bây giờ (cha chưa quét sạch, không được tính vào đợt quét đầy đủ và vẫn được thử lại sớm) — chỉ đặt DETAIL_SYNCED=0.</param>
+    Task MarkParentScannedAsync(string parentPmisCode, bool detailComplete, bool scanned = true);
 
     /// <summary>Lần quét đầy đủ gần nhất của 1 loại đối tượng (dòng SWEEP); null nếu chưa từng.</summary>
     Task<DateTime?> GetSweepAtAsync(string objectType);

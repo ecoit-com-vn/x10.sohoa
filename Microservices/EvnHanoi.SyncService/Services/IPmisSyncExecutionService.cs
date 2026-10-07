@@ -23,7 +23,8 @@ public interface IPmisSyncExecutionService
     Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncInfrastructureAsync(int infraTypeId, string syncHistoryId, IReadOnlyList<JsonElement> rawItems, bool syncDocuments = true, IncrementalContext? inc = null);
     /// <param name="syncDocuments">false (luồng AUTO): KHÔNG đồng bộ tài liệu lồng trong từng thiết bị — tài liệu do job DOCUMENT riêng
     /// (PmisDocumentListSyncJob) đảm nhiệm ở cấp Trạm/Đường dây (API trả cả tài liệu thiết bị con). Mặc định true cho luồng Manual.</param>
-    Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncEquipmentAsync(string syncHistoryId, IReadOnlyList<JsonElement> rawItems, string? parentPmisCodeFallback = null, IncrementalContext? inc = null, bool syncDocuments = true);
+    /// <param name="fetchDetail">false (pha quét cha của luồng AUTO tăng dần): KHÔNG gọi ChiTietThietBi/QR, chỉ lưu dữ liệu có sẵn trong danh sách; thiết bị cần chi tiết được đánh dấu chưa đủ (DetailSynced=false) để pha bổ sung chi tiết xử lý. Mặc định true.</param>
+    Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncEquipmentAsync(string syncHistoryId, IReadOnlyList<JsonElement> rawItems, string? parentPmisCodeFallback = null, IncrementalContext? inc = null, bool syncDocuments = true, bool fetchDetail = true);
 
     /// <summary>Đồng bộ tài liệu đính kèm cho ĐÚNG 1 Trạm/Đường dây theo mã PMIS (hoặc 1 khoảng ngày của nó, tiếp tục theo skip) — dùng bởi
     /// PmisDocumentListSyncJob. Xử lý từng trang, có thể dừng mềm giữa chừng (<see cref="DocumentScanOptions.ShouldStop"/>).</summary>

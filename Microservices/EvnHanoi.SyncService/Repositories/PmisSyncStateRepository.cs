@@ -100,8 +100,36 @@ public class PmisSyncStateRepository : IPmisSyncStateRepository
         }
     }
 
-    public Task MarkParentScannedAsync(string parentPmisCode) =>
-        MergeTimestampAsync("PARENT_SCAN", parentPmisCode, scanColumn: true);
+    public async Task MarkParentScannedAsync(string parentPmisCode, bool detailComplete, bool scanned = true)
+    {
+        EnsureOpen();
+        if (!scanned)
+        {
+            // Cha quét có lỗi: giữ nguyên LAST_SCAN_AT (NULL nếu chưa từng quét sạch), chỉ đánh dấu còn việc cần làm (DETAIL_SYNCED=0).
+            const string failedSql = @"
+                MERGE INTO PMIS_SYNC_STATE t
+                USING (SELECT :Code1 AS PMIS_CODE FROM DUAL) s
+                ON (t.OBJECT_TYPE = 'PARENT_SCAN' AND t.PMIS_CODE = s.PMIS_CODE)
+                WHEN MATCHED THEN UPDATE SET t.DETAIL_SYNCED = 0, t.LAST_SEEN_AT = :Now1
+                WHEN NOT MATCHED THEN INSERT (OBJECT_TYPE, PMIS_CODE, LAST_SEEN_AT, DETAIL_SYNCED)
+                VALUES ('PARENT_SCAN', s.PMIS_CODE, :Now2, 0)";
+            var failedNow = DateTime.UtcNow;
+            await _connection.ExecuteAsync(failedSql, new { Code1 = parentPmisCode, Now1 = failedNow, Now2 = failedNow });
+            return;
+        }
+
+        // Tham số đặt tên riêng theo từng lần xuất hiện, đúng thứ tự trong SQL (không phụ thuộc cách ODP.NET bind).
+        const string sql = @"
+            MERGE INTO PMIS_SYNC_STATE t
+            USING (SELECT :Code1 AS PMIS_CODE FROM DUAL) s
+            ON (t.OBJECT_TYPE = 'PARENT_SCAN' AND t.PMIS_CODE = s.PMIS_CODE)
+            WHEN MATCHED THEN UPDATE SET t.LAST_SCAN_AT = :Now1, t.LAST_SEEN_AT = :Now2, t.DETAIL_SYNCED = :Detail1
+            WHEN NOT MATCHED THEN INSERT (OBJECT_TYPE, PMIS_CODE, LAST_SCAN_AT, LAST_SEEN_AT, DETAIL_SYNCED)
+            VALUES ('PARENT_SCAN', s.PMIS_CODE, :Now3, :Now4, :Detail2)";
+        var now = DateTime.UtcNow;
+        var detail = detailComplete ? 1 : 0;
+        await _connection.ExecuteAsync(sql, new { Code1 = parentPmisCode, Now1 = now, Now2 = now, Detail1 = detail, Now3 = now, Now4 = now, Detail2 = detail });
+    }
 
     public async Task<DateTime?> GetSweepAtAsync(string objectType)
     {

@@ -73,4 +73,7 @@ public sealed class RunBudgetClock
     public TimeSpan Budget { get; }
     public TimeSpan Elapsed => _watch.Elapsed;
     public bool Exceeded => _watch.Elapsed >= Budget;
+
+    /// <summary>true nếu đã dùng ≥ <paramref name="fraction"/> (0..1) ngân sách — để chia thời gian giữa các pha của 1 lượt.</summary>
+    public bool ExceededFraction(double fraction) => _watch.Elapsed >= TimeSpan.FromTicks((long)(Budget.Ticks * Math.Clamp(fraction, 0, 1)));
 }

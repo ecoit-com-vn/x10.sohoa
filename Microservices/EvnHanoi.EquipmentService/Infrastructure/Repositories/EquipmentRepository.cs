@@ -841,6 +841,34 @@ StatusTransition,
                 :LastSyncedFromPmisAt
             )";
 
+            // AND StatusTransition IS NULL: khoá kiểu compare-and-swap — nếu 2 tiến trình cùng chuyển 1
+            // thiết bị đồng thời (vd. job đồng bộ tự động + người dùng bấm "Cập nhật từ PMIS" cùng lúc),
+            // chỉ tiến trình đầu tiên cập nhật được dòng nguồn; tiến trình sau sẽ update 0 dòng (vì dòng
+            // nguồn đã có StatusTransition khác NULL), rơi vào nhánh throw bên dưới và toàn bộ transaction
+            // (kể cả bản ghi mới vừa insert) bị rollback — tránh tạo ra 2 bản ghi mới trùng PmisCode.
+            // PHẢI cập nhật dòng nguồn (ghost) TRƯỚC khi INSERT bản ghi thay thế: UX_EQUIPMENTS_ACTIVE_PMIS_CODE (Migration0060) chỉ cho phép 1 dòng SỐNG
+            // mỗi PMIS_CODE — INSERT trước khi dòng nguồn bị ghost luôn vi phạm ORA-00001 (mọi lần chuyển TBA tự động từ PMIS đều thất bại với thông báo
+            // "mã PMIS đã được dùng cho 1 thiết bị khác đang hoạt động", ví dụ PD.250085).
+            var sourceUpdated = await _connection.ExecuteAsync(@"UPDATE EQUIPMENTS
+                SET IS_ACTIVE = 0,
+                    ModifiedBy = :ModifiedBy,
+                    ModifiedDate = :ModifiedDate,
+                    StatusTransition = :StatusTransition
+                WHERE Id = :Id
+                  AND IsDeleted = 0
+                  AND StatusTransition IS NULL",
+                new
+                {
+                    Id = sourceEquipment.Id.ToString(),
+                    sourceEquipment.ModifiedBy,
+                    sourceEquipment.ModifiedDate,
+                    sourceEquipment.StatusTransition
+                },
+                transaction);
+
+            if (sourceUpdated != 1)
+                throw new InvalidOperationException("Thiết bị nguồn không còn tồn tại, đã bị xóa, hoặc đã được chuyển bởi 1 thao tác khác.");
+
             await _connection.ExecuteAsync(insertEquipmentSql, new
             {
                 Id = replacementEquipment.Id.ToString(),
@@ -892,30 +920,6 @@ StatusTransition,
                     )", copiedAttributes, transaction);
             }
 
-            // AND StatusTransition IS NULL: khoá kiểu compare-and-swap — nếu 2 tiến trình cùng chuyển 1
-            // thiết bị đồng thời (vd. job đồng bộ tự động + người dùng bấm "Cập nhật từ PMIS" cùng lúc),
-            // chỉ tiến trình đầu tiên cập nhật được dòng nguồn; tiến trình sau sẽ update 0 dòng (vì dòng
-            // nguồn đã có StatusTransition khác NULL), rơi vào nhánh throw bên dưới và toàn bộ transaction
-            // (kể cả bản ghi mới vừa insert) bị rollback — tránh tạo ra 2 bản ghi mới trùng PmisCode.
-            var sourceUpdated = await _connection.ExecuteAsync(@"UPDATE EQUIPMENTS
-                SET IS_ACTIVE = 0,
-                    ModifiedBy = :ModifiedBy,
-                    ModifiedDate = :ModifiedDate,
-                    StatusTransition = :StatusTransition
-                WHERE Id = :Id
-                  AND IsDeleted = 0
-                  AND StatusTransition IS NULL",
-                new
-                {
-                    Id = sourceEquipment.Id.ToString(),
-                    sourceEquipment.ModifiedBy,
-                    sourceEquipment.ModifiedDate,
-                    sourceEquipment.StatusTransition
-                },
-                transaction);
-
-            if (sourceUpdated != 1)
-                throw new InvalidOperationException("Thiết bị nguồn không còn tồn tại, đã bị xóa, hoặc đã được chuyển bởi 1 thao tác khác.");
 
             // Ghi lịch sử di chuyển trong cùng transaction với việc tạo bản ghi mới/khoá bản ghi cũ —
             // đảm bảo lịch sử luôn khớp với dữ liệu thực tế (không thể có 1 lần chuyển thành công mà
@@ -1892,12 +1896,33 @@ StatusTransition,
 
             if (infrastructureChanged)
             {
+                // PMIS liệt kê CÙNG 1 thiết bị ở cả API thiết bị của TBA (maThietBi/maTBA) lẫn API thiết bị của đường dây (maTB/maDuongDay) — vd. "ATM tổng
+                // TBA Đồng Lạc 8" (PD.250085) có mặt ở cả TBA PD.250078 lẫn nhánh đường dây PD.250060. Thiết bị đang thuộc TBA thì lần quét đường dây KHÔNG được
+                // "chuyển" nó sang đường dây (TBA là nơi sở hữu thật) — nếu không 2 lần quét đảo chủ qua lại mãi. Ngược lại (đang ở đường dây, PMIS báo ở TBA)
+                // thì vẫn chuyển vào TBA như bình thường.
+                var infraTypes = (await _connection.QueryAsync<(string Id, int? InfraTypeId)>(
+                    "SELECT Id, INFRA_TYPE_ID AS InfraTypeId FROM INFRASTRUCTURE WHERE Id IN (:OldInfra, :NewInfra)",
+                    new { OldInfra = existing.InfrastructureId, NewInfra = infrastructureId })).ToDictionary(x => x.Id, x => x.InfraTypeId);
+                infraTypes.TryGetValue(existing.InfrastructureId!, out var oldInfraType);
+                infraTypes.TryGetValue(infrastructureId!, out var newInfraType);
+                if (oldInfraType == 1 && newInfraType == 2)
+                {
+                    Serilog.Log.Debug("EquipmentRepository: thiết bị {PmisCode} đang thuộc TBA, PMIS cũng liệt kê ở đường dây — giữ nguyên TBA (không chuyển).", pmisCode);
+                    var skipped = EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Ok(
+                        Guid.Parse(existing.Id!), false, false,
+                        Guid.Parse(existing.EquipmentTypeId ?? equipmentTypeId)); // loại của CHÍNH dòng TBA, không phải loại suy từ cấp điện áp đường dây
+                    skipped.SkippedOwnedByTba = true;
+                    return skipped;
+                }
+
                 var oldId = Guid.Parse(existing.Id!);
                 var replacementId = Guid.Parse(EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid());
 
                 var sourceEquipment = new Equipment
                 {
                     Id = oldId,
+                    InfrastructureId = Guid.Parse(existing.InfrastructureId!), // để EQUIPMENT_TRANSFER_HISTORY ghi đúng nguồn
+                    UnitId = existing.UnitId,
                     StatusTransition = 0, // 0: Đã chuyển TBA
                     ModifiedBy = "PMIS_SYNC",
                     ModifiedDate = DateTime.UtcNow,

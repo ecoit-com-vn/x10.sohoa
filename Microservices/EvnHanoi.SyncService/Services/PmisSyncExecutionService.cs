@@ -62,13 +62,14 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
     // danh sách cha theo SyncConfig.SyncCursor (xem PmisScheduledSyncJob.RunEquipmentAsync +
     // EquipmentDetailBudgetExhausted bên dưới) — mỗi lượt ưu tiên ngân sách cho nhóm cha KHÁC nhau, đảm bảo
     // mọi thiết bị cuối cùng đều được enrich qua nhiều lượt chạy.
-    private const int MaxEquipmentDetailCallsPerRun = 500;
+    // Trần số lượt gọi chi tiết/QR mỗi lượt lấy từ cấu hình Pmis:IncrementalSync:EquipmentDetailCallsPerRun (mặc định 2000).
+    private readonly int _maxEquipmentDetailCallsPerRun;
     private int _equipmentDetailCallsThisRun;
 
     /// <summary>true nếu lượt này đã dùng hết ngân sách gọi PMIS thật cho Thiết bị (ChiTietThietBi/QR) —
     /// PmisScheduledSyncJob dùng để biết TỪ CHA NÀO trở đi trong lượt này không còn được enrich, làm điểm
     /// bắt đầu xoay vòng ưu tiên cho lượt kế tiếp (xem SyncConfig.SyncCursor).</summary>
-    public bool EquipmentDetailBudgetExhausted => _equipmentDetailCallsThisRun >= MaxEquipmentDetailCallsPerRun;
+    public bool EquipmentDetailBudgetExhausted => _equipmentDetailCallsThisRun >= _maxEquipmentDetailCallsPerRun;
 
     private readonly IEquipmentServiceClient _equipmentServiceClient;
     private readonly ISyncHistoryRepository _syncHistoryRepository;
@@ -85,8 +86,10 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
 
     public PmisSyncExecutionService(
         IEquipmentServiceClient equipmentServiceClient, ISyncHistoryRepository syncHistoryRepository, IPmisClient pmisClient,
-        IPmisEndpointConfigProvider endpointConfigProvider)
+        IPmisEndpointConfigProvider endpointConfigProvider,
+        Microsoft.Extensions.Options.IOptions<PmisIncrementalOptions>? incrementalOptions = null)
     {
+        _maxEquipmentDetailCallsPerRun = Math.Max(1, incrementalOptions?.Value.EquipmentDetailCallsPerRun ?? 2000);
         _equipmentServiceClient = equipmentServiceClient;
         _syncHistoryRepository = syncHistoryRepository;
         _pmisClient = pmisClient;
@@ -449,24 +452,24 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         return (successCount, (results.Count - successCount) + deserializeFailedDetails.Count, warnings, errors);
     }
 
-    /// <summary>Trả false (và log cảnh báo đúng 1 lần khi chạm trần) nếu đã đạt <see cref="MaxEquipmentDetailCallsPerRun"/>
+    /// <summary>Trả false (và log cảnh báo đúng 1 lần khi chạm trần) nếu đã đạt <see cref="_maxEquipmentDetailCallsPerRun"/>
     /// — xem giải thích rủi ro ở khai báo hằng số. Gọi ngay TRƯỚC mỗi lượt gọi PMIS thật (ChiTietThietBi
     /// hoặc tải QR), không phải sau — tính đúng số round-trip PMIS thật đã/sẽ thực hiện.</summary>
     private bool TryConsumeEquipmentDetailCallBudget()
     {
-        if (_equipmentDetailCallsThisRun >= MaxEquipmentDetailCallsPerRun)
+        if (_equipmentDetailCallsThisRun >= _maxEquipmentDetailCallsPerRun)
             return false;
 
         _equipmentDetailCallsThisRun++;
-        if (_equipmentDetailCallsThisRun == MaxEquipmentDetailCallsPerRun)
+        if (_equipmentDetailCallsThisRun == _maxEquipmentDetailCallsPerRun)
         {
-            Log.Warning("PmisSyncExecutionService: đồng bộ Thiết bị đạt trần {Max} lượt gọi PMIS (ChiTietThietBi/QR) trong lượt này — các thiết bị TBA còn lại vẫn được lưu nhưng thiếu thông số kỹ thuật/QR mới, sẽ tự enrich lại ở lượt sau.", MaxEquipmentDetailCallsPerRun);
+            Log.Warning("PmisSyncExecutionService: đồng bộ Thiết bị đạt trần {Max} lượt gọi PMIS (ChiTietThietBi/QR) trong lượt này — các thiết bị TBA còn lại vẫn được lưu nhưng thiếu thông số kỹ thuật/QR mới, sẽ tự enrich lại ở lượt sau.", _maxEquipmentDetailCallsPerRun);
         }
         return true;
     }
 
     public async Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncEquipmentAsync(
-        string syncHistoryId, IReadOnlyList<JsonElement> rawItems, string? parentPmisCodeFallback = null, IncrementalContext? inc = null, bool syncDocuments = true)
+        string syncHistoryId, IReadOnlyList<JsonElement> rawItems, string? parentPmisCodeFallback = null, IncrementalContext? inc = null, bool syncDocuments = true, bool fetchDetail = true)
     {
         var upsertRequests = new List<UpsertEquipmentFromPmisRequest>();
         // Song song 1:1 với upsertRequests — giữ lại ngữ cảnh gốc (TBA hay đường dây, mã cha) để đồng bộ
@@ -512,7 +515,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 continue;
             }
             // Đồng bộ tăng dần: thiết bị KHÔNG ĐỔI và đã lấy đủ chi tiết ở lần trước thì bỏ qua hẳn — không gọi
-            // ChiTietThietBi/QR (không tốn ngân sách MaxEquipmentDetailCallsPerRun), không lưu, không đồng bộ tài
+            // ChiTietThietBi/QR (không tốn ngân sách _maxEquipmentDetailCallsPerRun), không lưu, không đồng bộ tài
             // liệu (tài liệu của thiết bị không đổi chỉ được cập nhật ở lượt quét đầy đủ).
             string? itemHash = null;
             if (inc != null)
@@ -546,7 +549,23 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             var maQRCode = item.MaQRCode;
             var detailOk = true; // false nếu thiếu ChiTietThietBi/QR do hết ngân sách hoặc lỗi → lượt sau phải lấy lại
 
-            if (isSubstationDevice)
+            if (!fetchDetail)
+            {
+                // Pha quét cha (nhanh): chỉ lưu dữ liệu có sẵn trong danh sách, KHÔNG gọi ChiTietThietBi/QR — việc đó thuộc pha bổ sung chi tiết
+                // riêng (xem PmisScheduledSyncJob.RunEquipmentAsync). Thiết bị cần chi tiết (TBA: lấy QR; hoặc có maQRCode cần tải ảnh) đánh dấu
+                // detailOk=false để pha bổ sung xử lý sau; thiết bị không cần gì thêm thì đã đủ.
+                detailOk = !(isSubstationDevice || !string.IsNullOrWhiteSpace(maQRCode));
+                // Thiết bị KHÔNG đổi (cùng hash) và đã đủ chi tiết ở lần trước nhưng bị đẩy lại chỉ vì đợt quét đầy đủ hằng tuần (SweepStartUtc): giữ nguyên
+                // "đã đủ chi tiết" — nếu không, mỗi tuần toàn bộ thiết bị TBA bị đánh dấu chưa đủ và pha bổ sung phải gọi lại chi tiết cho tất cả.
+                if (!detailOk && inc != null && itemHash != null
+                    && inc.Existing.TryGetValue(maTB, out var prevState)
+                    && prevState.ContentHash == itemHash && prevState.HashVersion == inc.HashVersion && prevState.DetailSynced)
+                {
+                    detailOk = true;
+                }
+                maQRCode = null;
+            }
+            else if (isSubstationDevice)
             {
                 if (!TryConsumeEquipmentDetailCallBudget())
                 {
