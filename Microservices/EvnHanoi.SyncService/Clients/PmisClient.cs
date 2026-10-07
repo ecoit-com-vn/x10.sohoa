@@ -33,6 +33,10 @@ public class PmisClient : IPmisClient
             .HandleTransientHttpError()
             .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30)));
 
+    // PmisClient (Scoped) dùng chung 1 IDbConnection với endpoint provider + repo log; ODP.NET connection KHÔNG thread-safe, nên khi
+    // job tải file gọi song song nhiều DownloadDocumentFileByCodeAsync trên cùng instance, mọi truy cập DB phải tuần tự.
+    private readonly SemaphoreSlim _dbGate = new(1, 1);
+
     private readonly IPmisEndpointConfigProvider _endpointConfigProvider;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IPmisApiCallLogRepository _apiCallLogRepository;
@@ -98,64 +102,152 @@ public class PmisClient : IPmisClient
     public Task<PmisListResponse<PmisLineDocumentDto>> GetLineDocumentsAsync(PmisLineDocumentSearchRequest request) =>
         GetListAsync<PmisLineDocumentDto>("LINE_DOCUMENT_LIST", request);
 
+    public async Task<bool> IsDocumentFileEndpointActiveAsync() =>
+        await _endpointConfigProvider.GetEndpointAsync(PmisApiCodes.DocumentFileDownload) != null;
+
     /// <summary>
-    /// Tải file nhị phân tài liệu từ URL PMIS trả về trong field "File" (API 8/9) — khác các API khác,
-    /// URL này ĐỘNG theo từng tài liệu nên không resolve qua cấu hình endpoint như <see cref="SendAsync"/>.
-    /// Vẫn đính kèm header đã cấu hình cho đúng endpoint nguồn (<paramref name="endpointApiCode"/> —
-    /// SUBSTATION_DOCUMENT_LIST hoặc LINE_DOCUMENT_LIST, mỗi endpoint có thể cấu hình header/API key
-    /// khác nhau) phòng trường hợp cần xác thực như AnhQRCode.
-    /// Trả Bytes=null nếu tải lỗi — KHÔNG throw, để caller tự quyết định ghi cảnh báo mà không chặn đồng
-    /// bộ — kèm ErrorReason để caller lưu lại phục vụ debug (trước đây lỗi chỉ có trong log Serilog của
-    /// pod, EquipmentService/màn hình Lịch sử đồng bộ không biết được nguyên nhân thật).
+    /// Tải file tài liệu theo mã qua API cấu hình DOCUMENT_FILE_DOWNLOAD (xem <see cref="IPmisClient.DownloadDocumentFileByCodeAsync"/>).
+    /// PMIS không còn trả URL file trong API danh sách (trường "file" bỏ không dùng) — mọi file lấy bằng 1 API cố định
+    /// TaiFileTaiLieu?maTaiLieu=..., nên URL/phương thức/timeout/header là cấu hình admin, KHÔNG suy từ dữ liệu từng tài liệu.
     /// </summary>
-    public async Task<(byte[]? Bytes, string? ErrorReason)> DownloadDocumentFileAsync(string fileUrl, string endpointApiCode)
+    public async Task<DocumentFileDownloadResult> DownloadDocumentFileByCodeAsync(
+        string maTaiLieu, long maxBytes, int spoolThresholdBytes, CancellationToken ct = default)
     {
+        const string apiCode = PmisApiCodes.DocumentFileDownload;
+        ResolvedPmisEndpoint? endpoint;
+        await _dbGate.WaitAsync(ct);
+        try { endpoint = await _endpointConfigProvider.GetEndpointAsync(apiCode); }
+        finally { _dbGate.Release(); }
+        if (endpoint == null)
+            return DocumentFileDownloadResult.Fail(DocumentFileOutcomeKind.NotConfigured, "API DOCUMENT_FILE_DOWNLOAD chưa cấu hình hoặc đang tắt (màn Cấu hình kết nối API).");
+
+        var query = $"maTaiLieu={Uri.EscapeDataString(maTaiLieu)}";
+        var uri = endpoint.Url.Contains('?') ? $"{endpoint.Url}&{query}" : $"{endpoint.Url}?{query}";
+
         var sw = Stopwatch.StartNew();
         HttpResponseMessage? response = null;
         Exception? callError = null;
-        var httpClient = _httpClientFactory.CreateClient(_httpClientName);
-        // URL PMIS trả về có thể là IP nội bộ/gateway khác/đường dẫn tương đối — chuẩn hoá về gateway cấu hình
-        // (Endpoints:PMIS), xem PmisFileUrlResolver. Log ghi URL thực sự đã gọi.
-        var requestUrl = fileUrl;
         try
         {
-            var endpoint = await _endpointConfigProvider.GetEndpointAsync(endpointApiCode);
-            requestUrl = PmisFileUrlResolver.Resolve(fileUrl, httpClient.BaseAddress, endpoint?.Url);
-            using var request = new HttpRequestMessage(HttpMethod.Get, requestUrl);
-            if (endpoint != null)
+            using var request = new HttpRequestMessage(new HttpMethod(endpoint.HttpMethod), uri);
+            foreach (var header in endpoint.Headers) request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+
+            var httpClient = _httpClientFactory.CreateClient(_httpClientName);
+            if (endpoint.TimeoutSeconds is > 0) httpClient.Timeout = TimeSpan.FromSeconds(endpoint.TimeoutSeconds.Value);
+
+            // HttpClient.Timeout và Polly timeout chỉ phủ tới khi nhận HEADER (ResponseHeadersRead) — thời gian đọc body tự giới hạn
+            // bằng CancellationToken riêng (gấp 3 lần timeout cấu hình, tối thiểu 5 phút) để file lớn tải chậm không treo vô hạn.
+            using var bodyCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            bodyCts.CancelAfter(TimeSpan.FromSeconds(Math.Max(300, (endpoint.TimeoutSeconds ?? 100) * 3)));
+
+            // Circuit breaker RIÊNG theo mã API này (không dùng chung với API danh sách) — tải file lỗi hàng loạt
+            // không được mở mạch của API danh sách tài liệu vẫn gọi PMIS bình thường.
+            var circuitBreaker = GetCircuitBreaker($"{_httpClientName}:{apiCode}");
+            response = await circuitBreaker.ExecuteAsync(
+                () => httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, bodyCts.Token));
+
+            var status = (int)response.StatusCode;
+            var kind = DocumentFileErrorClassifier.ClassifyStatus(status);
+            if (kind != DocumentFileOutcomeKind.Ok)
             {
-                foreach (var header in endpoint.Headers)
-                {
-                    request.Headers.TryAddWithoutValidation(header.Key, header.Value);
-                }
+                var snippet = await ReadSnippetAsync(response.Content);
+                var reason = $"PMIS trả về HTTP {status} {response.ReasonPhrase} ({uri}){(snippet.Length > 0 ? ": " + snippet : string.Empty)}";
+                callError = new HttpRequestException(reason);
+                return DocumentFileDownloadResult.Fail(kind, reason, status);
             }
 
-            // Key RIÊNG với hậu tố ":File" — endpointApiCode ở đây chỉ dùng để lấy header cấu hình, còn
-            // request thật sự gọi tới requestUrl (fileUrl động đã chuẩn hoá về gateway), khác hẳn API danh sách
-            // (SendCoreAsync dùng key "{httpClientName}:{apiCode}" không hậu tố cho endpoint.Url cố định
-            // của chính apiCode đó). Nếu dùng chung key, tải file lỗi 5 lần (server lưu trữ tài liệu sập)
-            // sẽ mở luôn circuit của API danh sách tài liệu dù bản thân API đó vẫn gọi PMIS bình thường.
-            var circuitBreaker = GetCircuitBreaker($"{_httpClientName}:{endpointApiCode}:File");
-            response = await circuitBreaker.ExecuteAsync(() => httpClient.SendAsync(request));
-            response.EnsureSuccessStatusCode();
-            return (await response.Content.ReadAsByteArrayAsync(), null);
+            // 200 nhưng là JSON (thông báo lỗi nghiệp vụ của PMIS/gateway) thì KHÔNG phải file — không được lưu nhầm vào MinIO.
+            if (DocumentFileErrorClassifier.IsJsonMediaType(response.Content.Headers.ContentType?.MediaType))
+            {
+                var snippet = await ReadSnippetAsync(response.Content);
+                var reason = $"PMIS trả JSON thay vì file ({uri}): {snippet}";
+                callError = new HttpRequestException(reason);
+                return DocumentFileDownloadResult.Fail(DocumentFileOutcomeKind.Permanent, reason, status);
+            }
+
+            var declared = response.Content.Headers.ContentLength;
+            if (declared > maxBytes)
+            {
+                var reason = $"File {declared / 1024 / 1024} MB vượt giới hạn {maxBytes / 1024 / 1024} MB (TOO_LARGE).";
+                callError = new HttpRequestException(reason);
+                return DocumentFileDownloadResult.Fail(DocumentFileOutcomeKind.Permanent, reason, status);
+            }
+
+            await using var body = await response.Content.ReadAsStreamAsync(bodyCts.Token);
+            var spooled = await DocumentFileDownloadResult.SpoolAsync(body, declared, spoolThresholdBytes, maxBytes, status, bodyCts.Token);
+            if (spooled == null)
+            {
+                var reason = $"File vượt giới hạn {maxBytes / 1024 / 1024} MB (TOO_LARGE).";
+                callError = new HttpRequestException(reason);
+                return DocumentFileDownloadResult.Fail(DocumentFileOutcomeKind.Permanent, reason, status);
+            }
+
+            if (spooled.Length == 0)
+            {
+                await spooled.DisposeAsync();
+                callError = new HttpRequestException("PMIS trả về file rỗng.");
+                return DocumentFileDownloadResult.Fail(DocumentFileOutcomeKind.Permanent, "PMIS trả về file rỗng.", status);
+            }
+
+            return spooled;
+        }
+        catch (OperationCanceledException ocex) when (ct.IsCancellationRequested)
+        {
+            callError = ocex; // bị huỷ chủ động (job dừng) — ghi log gọi API là chưa hoàn tất, không phải thành công
+            throw;
         }
         catch (Exception ex)
         {
             callError = ex;
-            Serilog.Log.Warning(ex, "PmisClient: lỗi tải file tài liệu từ URL {FileUrl} (URL gốc PMIS: {RawUrl}).", requestUrl, fileUrl);
-            // Dùng Format (đầy đủ: lớp vỏ bọc Polly + nguyên nhân gốc, tối đa 1900 ký tự) thay vì
-            // FormatShort (chỉ nguyên nhân gốc, tối đa 300 ký tự) — ErrorReason ở đây không bị nối chung
-            // với lỗi khác (khác PmisScheduledSyncJob.PushPageAsync nối nhiều dòng bằng "; "), nên không
-            // cần rút ngắn; đích đến là cột FILE_LAST_ERROR NVARCHAR2(2000) riêng của đúng 1 tài liệu này
-            // (cột FILE_LAST_ERROR của PMIS_DOCUMENT, qua attach-file) — admin cần thấy rõ HTTP
-            // status/host lỗi thật (404, timeout, DNS...) ngay trên UI thay vì chỉ 1 câu chung chung.
-            return (null, SyncErrorFormatter.Format(ex));
+            var kind = DocumentFileErrorClassifier.ClassifyException(ex);
+            if (kind != DocumentFileOutcomeKind.CircuitOpen)
+                Serilog.Log.Warning(ex, "PmisClient: lỗi tải file tài liệu {MaTaiLieu} qua {Uri}.", maTaiLieu, uri);
+            // Format (đầy đủ: lớp vỏ Polly + nguyên nhân gốc) vì đích là cột FILE_LAST_ERROR riêng của đúng tài liệu này.
+            return DocumentFileDownloadResult.Fail(kind, SyncErrorFormatter.Format(ex));
         }
         finally
         {
             sw.Stop();
-            await LogCallAsync(endpointApiCode, "GET", requestUrl, null, response, callError, sw.ElapsedMilliseconds, null);
+            await LogCallAsync(apiCode, endpoint.HttpMethod, uri, null, response, callError, sw.ElapsedMilliseconds, null);
+            response?.Dispose();
+        }
+    }
+
+    public async Task<int?> GetDocumentTotalAsync(bool isSubstation, string ownerPmisCode, DateTime? tuNgay = null, DateTime? denNgay = null)
+    {
+        // skip vượt xa mọi tổng thực tế → PMIS trả {total, items: []} (vài chục byte) — KHÔNG dùng take=0 (trả TOÀN BỘ tài liệu).
+        const int skipBeyondAnyTotal = 10_000_000;
+        try
+        {
+            if (isSubstation)
+            {
+                var r = await GetSubstationDocumentsAsync(new PmisSubstationDocumentSearchRequest
+                    { MaTBA = ownerPmisCode, TuNgay = tuNgay, DenNgay = denNgay, Skip = skipBeyondAnyTotal, Take = 1 });
+                return r.Total;
+            }
+
+            var l = await GetLineDocumentsAsync(new PmisLineDocumentSearchRequest
+                { MaDuongDay = ownerPmisCode, TuNgay = tuNgay, DenNgay = denNgay, Skip = skipBeyondAnyTotal, Take = 1 });
+            return l.Total;
+        }
+        catch (PmisEndpointNotConfiguredException)
+        {
+            return null;
+        }
+    }
+
+    private static async Task<string> ReadSnippetAsync(HttpContent content)
+    {
+        try
+        {
+            var bytes = await ReadCappedAsync(content, 400);
+            var text = System.Text.Encoding.UTF8.GetString(bytes);
+            text = text.Length > 200 ? text[..200] : text;
+            return text.All(c => !char.IsControl(c) || c is '\r' or '\n' or '\t') ? text.Replace("\r", " ").Replace("\n", " ").Trim() : string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
         }
     }
 
@@ -403,6 +495,7 @@ public class PmisClient : IPmisClient
         string apiCode, string httpMethod, string uri, string? payload,
         HttpResponseMessage? response, Exception? error, long durationMs, int? recordCount)
     {
+        await _dbGate.WaitAsync();
         try
         {
             await _apiCallLogRepository.InsertAsync(new PmisApiCallLog
@@ -422,6 +515,10 @@ public class PmisClient : IPmisClient
         catch (Exception logEx)
         {
             Serilog.Log.Warning(logEx, "PmisClient: lỗi khi ghi lịch sử gọi API {ApiCode}.", apiCode);
+        }
+        finally
+        {
+            _dbGate.Release();
         }
     }
 

@@ -93,20 +93,12 @@ public class UpsertPmisDocumentRequest
     /// gán OwnerType=EQUIPMENT theo mã này khi thiết bị đã tồn tại (xem EquipmentService.InternalPmisSyncController).</summary>
     public string? DeviceCode { get; set; }
 
-    /// <summary>URL tải file vật lý (trường "File" của API 8/9) — pha đồng bộ danh sách chỉ gửi URL, job
-    /// PmisDocumentFileDownloadJob tải file thật sau. Null/rỗng = PMIS không đính kèm file.</summary>
-    public string? FileUrl { get; set; }
-
-    /// <summary>Mã endpoint nguồn (SUBSTATION_DOCUMENT_LIST | LINE_DOCUMENT_LIST) để job tải file lấy đúng header.</summary>
-    public string? FileSourceApi { get; set; }
 }
 
 /// <summary>Tài liệu đang chờ tải file (GET internal/v1/documents/pending-files).</summary>
 public class PendingPmisDocumentFile
 {
     public string PmisDocumentCode { get; set; } = string.Empty;
-    public string FileUrl { get; set; } = string.Empty;
-    public string? FileSourceApi { get; set; }
     public int FileAttempts { get; set; }
 }
 

@@ -2,6 +2,8 @@ using EvnHanoi.SyncService.Clients;
 using EvnHanoi.SyncService.Models;
 using EvnHanoi.SyncService.Models.Internal;
 using EvnHanoi.SyncService.Repositories;
+using EvnHanoi.SyncService.Services;
+using Microsoft.Extensions.Options;
 using Quartz;
 using RedLockNet;
 using Serilog;
@@ -11,44 +13,54 @@ namespace EvnHanoi.SyncService.Schedulers;
 /// <summary>
 /// Pha 2 của đồng bộ tài liệu PMIS: tải FILE VẬT LÝ, tách hẳn khỏi pha đồng bộ danh sách (xem
 /// PmisSyncExecutionService — pha đó chỉ lưu metadata + URL, FILE_STATUS=PENDING). Mỗi phút job lấy tối đa
-/// <see cref="BatchSize"/> tài liệu đang chờ (đã tới hạn thử lại) từ EquipmentService, tải song song tối đa
-/// <see cref="MaxParallelDownloads"/> file rồi gửi lại (attach-file). Tải lỗi thì EquipmentService ghi lý do
-/// và đặt lịch thử lại theo backoff — 1 file PMIS chậm/treo chỉ chiếm 1 slot song song, không chặn đồng bộ
-/// danh sách hay các file khác.
+/// <c>BatchSize</c> tài liệu đang chờ (đã tới hạn thử lại) từ EquipmentService, tải song song (số luồng do
+/// <see cref="DocumentFileThrottle"/> điều tốc, tối đa <c>MaxParallel</c>) rồi đẩy sang EquipmentService DẠNG LUỒNG
+/// (không base64, không nạp cả file vào RAM; file lớn đi qua file tạm). Kết quả lỗi được phân loại: lỗi riêng của tài liệu
+/// (404/JSON/rỗng/quá lớn) tính vào số lần thử; lỗi tạm thời của PMIS (5xx/429/timeout) KHÔNG tính, chỉ hẹn thử lại sau ít
+/// phút. Trước khi gửi byte, hỏi EquipmentService đã có file trùng SHA-256 chưa — có thì gắn lại object cũ (chống trùng).
 ///
-/// RedLock theo tên job chặn nhiều pod cùng tải một lô; [DisallowConcurrentExecution] chặn chồng lượt trong
-/// 1 pod (lượt chậm hơn 1 phút thì lượt sau bỏ qua, không dồn).
+/// RedLock theo tên job chặn nhiều pod cùng tải một lô; [DisallowConcurrentExecution] chặn chồng lượt trong 1 pod
+/// (lượt chậm hơn 1 phút thì lượt sau bỏ qua, không dồn).
 /// </summary>
 [DisallowConcurrentExecution]
 public class PmisDocumentFileDownloadJob : IJob
 {
-    // Nâng 40/4 → 200/8 (2026-10-03): với ~299.000 tài liệu chờ tải, 40 file/phút mất ~80 giờ. 200 file
-    // x 8 luồng ≈ 5 lần nhanh hơn; vẫn trong khoá RedLock 10 phút và job [DisallowConcurrentExecution] nên
-    // lượt chậm không dồn lượt. Nếu PMIS bắt đầu trả timeout/429 hàng loạt thì hạ MaxParallelDownloads trước.
-    private const int BatchSize = 200;
-    private const int MaxParallelDownloads = 8;
+    // Điều tốc dùng chung giữa các lượt (Quartz tạo job mới mỗi lượt) — tĩnh để giữ trạng thái.
+    private static readonly object ThrottleGate = new();
+    private static DocumentFileThrottle? _throttle;
 
     private readonly ISyncConfigRepository _syncConfigRepository;
     private readonly IEquipmentServiceClient _equipmentServiceClient;
     private readonly IPmisClient _pmisClient;
     private readonly IDistributedLockFactory _lockFactory;
+    private readonly IOptions<PmisDocumentFileOptions> _options;
 
     public PmisDocumentFileDownloadJob(
         ISyncConfigRepository syncConfigRepository,
         IEquipmentServiceClient equipmentServiceClient,
         IPmisClient pmisClient,
-        IDistributedLockFactory lockFactory)
+        IDistributedLockFactory lockFactory,
+        IOptions<PmisDocumentFileOptions> options)
     {
         _syncConfigRepository = syncConfigRepository;
         _equipmentServiceClient = equipmentServiceClient;
         _pmisClient = pmisClient;
         _lockFactory = lockFactory;
+        _options = options;
+    }
+
+    private DocumentFileThrottle GetThrottle()
+    {
+        lock (ThrottleGate)
+            return _throttle ??= new DocumentFileThrottle(Math.Min(_options.Value.InitialParallel, _options.Value.MaxParallel));
     }
 
     public async Task Execute(IJobExecutionContext context)
     {
         try
         {
+            var opt = _options.Value;
+
             // Tôn trọng công tắc đồng bộ của admin: cả Trạm lẫn Đường dây đều đang tắt thì không tải file
             // (tài liệu chỉ phát sinh từ 2 đối tượng này) — tránh tiếp tục gọi PMIS khi admin chủ ý dừng.
             var substationConfig = await _syncConfigRepository.GetByObjectTypeAsync(SyncObjectType.Substation);
@@ -56,6 +68,21 @@ public class PmisDocumentFileDownloadJob : IJob
             if (substationConfig is not { IsEnabled: true } && lineConfig is not { IsEnabled: true })
             {
                 Log.Information("PmisDocumentFileDownloadJob: bỏ qua lượt này vì cả 2 switch Trạm biến áp/Đường dây đều đang tắt.");
+                return;
+            }
+
+            // API DOCUMENT_FILE_DOWNLOAD (màn Cấu hình kết nối API) chưa nhập URL / đang tắt → không gọi PMIS và KHÔNG tăng
+            // số lần thử của tài liệu nào (admin chủ động tắt hoặc chưa cấu hình, không phải lỗi của tài liệu).
+            if (!await _pmisClient.IsDocumentFileEndpointActiveAsync())
+            {
+                Log.Information("PmisDocumentFileDownloadJob: bỏ qua lượt này vì API {ApiCode} chưa cấu hình URL hoặc đang tắt.", PmisApiCodes.DocumentFileDownload);
+                return;
+            }
+
+            var throttle = GetThrottle();
+            if (throttle.InCooldown(DateTime.UtcNow))
+            {
+                Log.Information("PmisDocumentFileDownloadJob: đang nghỉ sau khi PMIS trả lỗi tạm thời dồn dập (số luồng hiện {Parallel}), bỏ qua lượt này.", throttle.Parallel);
                 return;
             }
 
@@ -67,30 +94,38 @@ public class PmisDocumentFileDownloadJob : IJob
                 return;
             }
 
-            var pending = await _equipmentServiceClient.GetPendingDocumentFilesAsync(BatchSize);
+            var pending = await _equipmentServiceClient.GetPendingDocumentFilesAsync(Math.Max(1, opt.BatchSize), opt.ExcludedPrefixList);
             if (pending.Count == 0)
             {
-                // Mức Debug (không phải Info/Warning): đây là trạng thái bình thường khi hàng đợi đã tải
-                // hết — không nên gây ồn log mỗi phút. Giúp phân biệt "job có chạy nhưng không có gì để
-                // làm" (có dòng Debug này) với "job không hề được Quartz đăng ký" (im lặng tuyệt đối, kể cả
-                // ở mức Debug) — phát hiện thật 2026-10-01: PmisDocumentFileDownloadJob thiếu hẳn khỏi danh
-                // sách "Adding N jobs" lúc khởi động trên production vì image cũ hơn lúc job này được thêm.
+                // Mức Debug: trạng thái bình thường khi hàng đợi đã tải hết — không gây ồn log mỗi phút. Giúp phân biệt "job có chạy
+                // nhưng không có gì làm" với "job không được Quartz đăng ký" (phát hiện thật 2026-10-01).
                 Log.Debug("PmisDocumentFileDownloadJob: không có tài liệu nào đang chờ tải.");
                 return;
             }
 
-            int ok = 0, failed = 0;
+            throttle.ResetBatch();
+            var parallel = Math.Max(1, Math.Min(throttle.Parallel, opt.MaxParallel));
+            var stats = new BatchStats();
+            var watch = System.Diagnostics.Stopwatch.StartNew();
             await Parallel.ForEachAsync(
                 pending,
-                new ParallelOptions { MaxDegreeOfParallelism = MaxParallelDownloads, CancellationToken = context.CancellationToken },
-                async (doc, _) =>
+                new ParallelOptions { MaxDegreeOfParallelism = parallel, CancellationToken = context.CancellationToken },
+                async (doc, ct) =>
                 {
-                    if (await ProcessOneAsync(doc)) Interlocked.Increment(ref ok);
-                    else Interlocked.Increment(ref failed);
+                    // Dừng sớm: lỗi xác thực toàn cục, hoặc PMIS trả lỗi tạm thời dồn dập — không đụng tài liệu còn lại của lô.
+                    if (stats.Unauthorized || throttle.ShouldAbortBatch)
+                    {
+                        Interlocked.Increment(ref stats.Skipped);
+                        return;
+                    }
+                    await ProcessOneAsync(doc, opt, throttle, stats, ct);
                 });
 
-            Log.Information("PmisDocumentFileDownloadJob: xử lý {Total} tài liệu chờ tải file — {Ok} thành công, {Failed} lỗi (sẽ thử lại theo backoff).",
-                pending.Count, ok, failed);
+            Log.Information("PmisDocumentFileDownloadJob: {Total} tài liệu / {Parallel} luồng / {Seconds:0}s — {Ok} thành công ({Dedup} dùng lại file trùng, {MB:0.0} MB), {Permanent} lỗi riêng tài liệu, {Transient} lỗi tạm thời của PMIS, {Internal} lỗi lưu nội bộ, {Skipped} bỏ qua.",
+                pending.Count, parallel, watch.Elapsed.TotalSeconds, stats.Ok, stats.Dedup, Interlocked.Read(ref stats.Bytes) / 1048576.0, stats.Permanent, stats.Transient, stats.Internal, stats.Skipped);
+
+            if (stats.Unauthorized)
+                Log.Error("PmisDocumentFileDownloadJob: PMIS trả 401/403 cho API {ApiCode} — kiểm tra header xác thực ở màn Cấu hình kết nối API. Đã dừng cả lô, không tính lần thử của tài liệu nào.", PmisApiCodes.DocumentFileDownload);
         }
         catch (Exception ex)
         {
@@ -98,25 +133,99 @@ public class PmisDocumentFileDownloadJob : IJob
         }
     }
 
-    private async Task<bool> ProcessOneAsync(PendingPmisDocumentFile doc)
+    private sealed class BatchStats
     {
+        public int Ok, Dedup, Permanent, Transient, Internal, Skipped;
+        public long Bytes;
+        public volatile bool Unauthorized;
+    }
+
+    /// <summary>Best-effort: báo lỗi lưu nội bộ như lỗi TẠM THỜI (không tính lần thử) để EquipmentService hẹn lại — không throw.</summary>
+    private async Task TryReportInternalFailureAsync(string code, string message, PmisDocumentFileOptions opt, CancellationToken ct)
+    {
+        try { await _equipmentServiceClient.ReportDocumentFileFailureAsync(code, true, message, opt.TransientRetryMinutes, ct); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { Log.Debug(ex, "PmisDocumentFileDownloadJob: không báo được lỗi nội bộ của {Code}.", code); }
+    }
+
+    private async Task ProcessOneAsync(PendingPmisDocumentFile doc, PmisDocumentFileOptions opt, DocumentFileThrottle throttle, BatchStats stats, CancellationToken ct)
+    {
+        DocumentFileDownloadResult? result = null;
         try
         {
-            var (bytes, errorReason) = await _pmisClient.DownloadDocumentFileAsync(
-                doc.FileUrl, doc.FileSourceApi ?? "SUBSTATION_DOCUMENT_LIST");
-            var hasFile = bytes is { Length: > 0 };
-            await _equipmentServiceClient.AttachDocumentFileAsync(new AttachPmisDocumentFileRequest
+            result = await _pmisClient.DownloadDocumentFileByCodeAsync(doc.PmisDocumentCode, opt.MaxBytes, opt.SpoolThresholdBytes, ct);
+            switch (result.Kind)
             {
-                PmisDocumentCode = doc.PmisDocumentCode,
-                FileBase64 = hasFile ? Convert.ToBase64String(bytes!) : null,
-                ErrorMessage = hasFile ? null : (errorReason ?? "PMIS trả về file rỗng.")
-            });
-            return hasFile;
+                case DocumentFileOutcomeKind.Ok:
+                    throttle.Record(false, opt.MaxParallel, DateTime.UtcNow);
+                    try
+                    {
+                        if (await _equipmentServiceClient.TryAttachExistingFileByHashAsync(doc.PmisDocumentCode, result.Sha256Hex!, result.Length, ct))
+                        {
+                            Interlocked.Increment(ref stats.Dedup);
+                        }
+                        else
+                        {
+                            await using var content = result.OpenRead();
+                            if (!await _equipmentServiceClient.UploadDocumentFileAsync(doc.PmisDocumentCode, content, result.Length, result.Sha256Hex!, ct))
+                            {
+                                Interlocked.Increment(ref stats.Internal);
+                                await TryReportInternalFailureAsync(doc.PmisDocumentCode, "EquipmentService không lưu được file.", opt, ct);
+                                return;
+                            }
+                        }
+                        Interlocked.Increment(ref stats.Ok);
+                        Interlocked.Add(ref stats.Bytes, result.Length);
+                    }
+                    catch (Exception ex) when (!ct.IsCancellationRequested)
+                    {
+                        // Lỗi phía EquipmentService/MinIO (kể cả HttpClient timeout 15 phút = TaskCanceledException khi ct chưa huỷ) — KHÔNG phải lỗi của tài liệu hay PMIS: không ghi lỗi tài liệu, lượt sau thử lại.
+                        Interlocked.Increment(ref stats.Internal);
+                        Log.Warning(ex, "PmisDocumentFileDownloadJob: lưu file tài liệu {Code} sang EquipmentService thất bại (không tính lần thử).", doc.PmisDocumentCode);
+                        // Hẹn thử lại sau (backoff) — nếu không, lô cũ nhất bị tải lại từ PMIS mỗi phút khi MinIO/EquipmentService hỏng kéo dài.
+                        await TryReportInternalFailureAsync(doc.PmisDocumentCode, "Lỗi lưu nội bộ: " + SyncErrorFormatter.FormatShort(ex), opt, ct);
+                    }
+                    return;
+
+                case DocumentFileOutcomeKind.Permanent:
+                    throttle.Record(false, opt.MaxParallel, DateTime.UtcNow);
+                    Interlocked.Increment(ref stats.Permanent);
+                    await _equipmentServiceClient.ReportDocumentFileFailureAsync(doc.PmisDocumentCode, false, result.Reason, opt.TransientRetryMinutes, ct);
+                    return;
+
+                case DocumentFileOutcomeKind.Transient:
+                    throttle.Record(true, opt.MaxParallel, DateTime.UtcNow);
+                    Interlocked.Increment(ref stats.Transient);
+                    await _equipmentServiceClient.ReportDocumentFileFailureAsync(doc.PmisDocumentCode, true, result.Reason, opt.TransientRetryMinutes, ct);
+                    return;
+
+                case DocumentFileOutcomeKind.Unauthorized:
+                    stats.Unauthorized = true;
+                    return;
+
+                case DocumentFileOutcomeKind.CircuitOpen:
+                    // Mạch đang mở = PMIS vừa lỗi dồn dập: ghi vào điều tốc để hạ số luồng/nghỉ, không đụng tài liệu.
+                    throttle.Record(true, opt.MaxParallel, DateTime.UtcNow);
+                    Interlocked.Increment(ref stats.Skipped);
+                    return;
+
+                default: // NotConfigured: chưa gọi PMIS thật — để nguyên, lượt sau thử lại.
+                    Interlocked.Increment(ref stats.Skipped);
+                    return;
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            Interlocked.Increment(ref stats.Skipped);
         }
         catch (Exception ex)
         {
+            Interlocked.Increment(ref stats.Internal);
             Log.Warning(ex, "PmisDocumentFileDownloadJob: lỗi xử lý tài liệu {Code}.", doc.PmisDocumentCode);
-            return false;
+            await TryReportInternalFailureAsync(doc.PmisDocumentCode, "Lỗi xử lý: " + SyncErrorFormatter.FormatShort(ex), opt, CancellationToken.None);
+        }
+        finally
+        {
+            if (result != null) await result.DisposeAsync();
         }
     }
 }

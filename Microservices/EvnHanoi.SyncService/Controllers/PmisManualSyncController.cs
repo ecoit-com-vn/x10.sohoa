@@ -171,7 +171,7 @@ public class PmisManualSyncController : ControllerBase
             historyId, finalStatus, request.Items.Count, successCount, failedCount,
             errors.Count > 0 ? string.Join("; ", errors.Take(5)) : null);
         if (!completedOk)
-            Log.Warning("PmisManualSyncController.Save: hoàn tất với kết quả thật ({Status}, success={Success}/{Total}) nhưng syncHistoryId={SyncHistoryId} đã bị SyncHistoryWatchdogJob đánh FAILED trước đó (chạy quá ngưỡng an toàn, xem SyncHistoryWatchdogJob.StaleThreshold) — giữ nguyên FAILED của watchdog, bỏ kết quả thật này.", finalStatus, successCount, request.Items.Count, historyId);
+            Log.Warning("PmisManualSyncController.Save: hoàn tất với kết quả thật ({Status}, success={Success}/{Total}) nhưng syncHistoryId={SyncHistoryId} đã bị SyncHistoryWatchdogJob đánh FAILED trước đó (chạy quá ngưỡng an toàn, xem SyncRunBudget.StaleAfter) — giữ nguyên FAILED của watchdog, bỏ kết quả thật này.", finalStatus, successCount, request.Items.Count, historyId);
 
         return Ok(new PmisManualSaveResponse
         {

@@ -466,7 +466,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
     }
 
     public async Task<(int Success, int Failed, int Warnings, List<string> Errors)> SyncEquipmentAsync(
-        string syncHistoryId, IReadOnlyList<JsonElement> rawItems, string? parentPmisCodeFallback = null, IncrementalContext? inc = null)
+        string syncHistoryId, IReadOnlyList<JsonElement> rawItems, string? parentPmisCodeFallback = null, IncrementalContext? inc = null, bool syncDocuments = true)
     {
         var upsertRequests = new List<UpsertEquipmentFromPmisRequest>();
         // Song song 1:1 với upsertRequests — giữ lại ngữ cảnh gốc (TBA hay đường dây, mã cha) để đồng bộ
@@ -696,7 +696,7 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         // SyncDocumentsForOwnerAsync).
         var warnings = 0;
         var docDetails = new List<SyncHistoryDetail>();
-        for (var i = 0; i < results.Count; i++)
+        for (var i = 0; syncDocuments && i < results.Count; i++)
         {
             if (!results[i].Success) continue;
             var origin = origins[i];
@@ -718,19 +718,14 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
     }
 
     /// <summary>
-    /// Đồng bộ tài liệu đính kèm (API 8 SUBSTATION_DOCUMENT_LIST / API 9 LINE_DOCUMENT_LIST) cho 1 Trạm/
-    /// Đường dây/Thiết bị đã lưu thành công — tải file thật qua URL PMIS trả về, gửi base64 sang
-    /// EquipmentService để lưu MinIO. Lỗi ở BẤT KỲ bước nào (gọi API danh sách, tải file, lưu) đều CHỈ
-    /// tạo dòng SyncHistoryDetail trạng thái Warning — không throw ra ngoài, không được cộng vào
-    /// successCount/errors của bản ghi chính (Trạm/Đường dây/Thiết bị đã lưu xong trước khi gọi hàm này).
+    /// Đồng bộ METADATA tài liệu đính kèm (API 8 SUBSTATION_DOCUMENT_LIST / API 9 LINE_DOCUMENT_LIST) cho 1 Trạm/Đường dây/Thiết bị
+    /// đã lưu thành công. File vật lý KHÔNG tải ở đây — mọi tài liệu lưu với FILE_STATUS=PENDING, job nền PmisDocumentFileDownloadJob
+    /// tải theo mã qua API DOCUMENT_FILE_DOWNLOAD. Xử lý TỪNG TRANG (không gom cả owner trong bộ nhớ) để có thể dừng giữa chừng khi
+    /// hết ngân sách thời gian rồi tiếp tục đúng vị trí (<see cref="DocumentOwnerSyncResult.NextSkip"/>). Lỗi ở BẤT KỲ bước nào chỉ
+    /// tạo dòng SyncHistoryDetail Warning — không throw ra ngoài, không cộng vào successCount/errors của bản ghi chính.
     /// </summary>
-    /// <summary>Wrapper công khai cho <see cref="SyncDocumentsForOwnerAsync"/> — dùng bởi
-    /// PmisScheduledSyncJob.SyncDocumentsRotatingAsync (pass riêng có rotation, xem
-    /// IPmisSyncExecutionService.SyncDocumentsForInfrastructureOwnerAsync). Chỉ có "mã PMIS + loại" (không
-    /// có tên) vì nguồn dữ liệu là InfrastructureRepository.GetSyncedPmisCodesAsync (rẻ, không SELECT tên)
-    /// — SourceName trong SyncHistoryDetail dùng tạm chính mã PMIS.</summary>
-    public Task<(int Warnings, List<SyncHistoryDetail> Details)> SyncDocumentsForInfrastructureOwnerAsync(
-        string ownerPmisCode, int infraTypeId, string syncHistoryId)
+    public Task<DocumentOwnerSyncResult> SyncDocumentsForInfrastructureOwnerAsync(
+        string ownerPmisCode, int infraTypeId, string syncHistoryId, DocumentScanOptions? scan = null)
     {
         var isSubstationOrigin = infraTypeId == 1;
         return SyncDocumentsForOwnerAsync(
@@ -741,19 +736,20 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             maTBA: isSubstationOrigin ? ownerPmisCode : null,
             maDuongDay: isSubstationOrigin ? null : ownerPmisCode,
             maTB: null,
-            syncHistoryId: syncHistoryId);
+            syncHistoryId: syncHistoryId,
+            scan: scan ?? new DocumentScanOptions { UseCallBudget = false });
     }
 
-    private async Task<(int Warning, List<SyncHistoryDetail> Details)> SyncDocumentsForOwnerAsync(
+    private async Task<DocumentOwnerSyncResult> SyncDocumentsForOwnerAsync(
         string ownerType, string ownerPmisCode, string sourceName, bool isSubstationOrigin,
-        string? maTBA, string? maDuongDay, string? maTB, string syncHistoryId)
+        string? maTBA, string? maDuongDay, string? maTB, string syncHistoryId, DocumentScanOptions? scan = null)
     {
-        var details = new List<SyncHistoryDetail>();
+        scan ??= new DocumentScanOptions();
+        var result = new DocumentOwnerSyncResult { NextSkip = scan.StartSkip };
+        var details = result.Details;
 
-        // Đạt trần MaxDocumentSyncCallsPerRun — bỏ qua HẲN owner này (không gọi PMIS), caller
-        // (PmisScheduledSyncJob) sẽ dừng phân trang tại đây và lưu SyncConfig.SyncCursor để tiếp tục đúng
-        // owner này ở lượt sau, không mất dữ liệu.
-        if (!TryConsumeDocumentSyncCallBudget())
+        // Đạt trần MaxDocumentSyncCallsPerRun (chỉ luồng Manual/inline) — bỏ qua HẲN owner này (không gọi PMIS).
+        if (scan.UseCallBudget && !TryConsumeDocumentSyncCallBudget())
         {
             details.Add(new SyncHistoryDetail
             {
@@ -766,189 +762,75 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 ErrorMessage = $"Chưa đồng bộ tài liệu đính kèm — lượt này đã đạt trần {MaxDocumentSyncCallsPerRun} owner, sẽ tự tiếp tục ở lượt sau.",
                 RecordKind = SyncRecordKind.Document
             });
-            return (1, details);
+            result.Warnings = 1;
+            return result;
         }
 
         try
         {
             var pageSize = await GetPageSizeAsync(isSubstationOrigin ? "SUBSTATION_DOCUMENT_LIST" : "LINE_DOCUMENT_LIST");
-            var items = new List<(string MaTaiLieu, string? TenTaiLieu, string? LoaiTaiLieu, string? File, string? MaTB)>();
-            var skip = 0;
-            var hitRecordCap = false;
+            var skip = scan.StartSkip;
             while (true)
             {
+                if (scan.ShouldStop?.Invoke() == true)
+                {
+                    result.Stopped = true;
+                    break;
+                }
+
+                List<(string MaTaiLieu, string? TenTaiLieu, string? LoaiTaiLieu, string? MaTB)> pageDocs;
+                int pageCount, remoteTotal;
                 if (isSubstationOrigin)
                 {
                     var resp = await _pmisClient.GetSubstationDocumentsAsync(new PmisSubstationDocumentSearchRequest
                     {
-                        MaTBA = maTBA,
-                        MaTB = maTB,
-                        Skip = skip,
-                        Take = pageSize
+                        MaTBA = maTBA, MaTB = maTB, TuNgay = scan.TuNgay, DenNgay = scan.DenNgay, Skip = skip, Take = pageSize
                     });
-                    items.AddRange(resp.Items.Select(d => (d.MaTaiLieu, d.TenTaiLieu, d.LoaiTaiLieu, d.File, d.MaTB)));
-                    if (resp.Items.Count < pageSize || items.Count >= resp.Total) break;
+                    pageDocs = resp.Items.Select(d => (d.MaTaiLieu, d.TenTaiLieu, d.LoaiTaiLieu, d.MaTB)).ToList();
+                    pageCount = resp.Items.Count;
+                    remoteTotal = resp.Total;
                 }
                 else
                 {
                     var resp = await _pmisClient.GetLineDocumentsAsync(new PmisLineDocumentSearchRequest
                     {
-                        MaDuongDay = maDuongDay,
-                        MaTB = maTB,
-                        Skip = skip,
-                        Take = pageSize
+                        MaDuongDay = maDuongDay, MaTB = maTB, TuNgay = scan.TuNgay, DenNgay = scan.DenNgay, Skip = skip, Take = pageSize
                     });
-                    items.AddRange(resp.Items.Select(d => (d.MaTaiLieu, d.TenTaiLieu, d.LoaiTaiLieu, d.File, d.MaTB)));
-                    if (resp.Items.Count < pageSize || items.Count >= resp.Total) break;
+                    pageDocs = resp.Items.Select(d => (d.MaTaiLieu, d.TenTaiLieu, d.LoaiTaiLieu, d.MaTB)).ToList();
+                    pageCount = resp.Items.Count;
+                    remoteTotal = resp.Total;
                 }
-                skip += pageSize;
+
+                result.Received += pageCount;
+                result.RemoteTotal = remoteTotal;
+                await SaveDocumentPageAsync(pageDocs, ownerType, ownerPmisCode, sourceName, isSubstationOrigin, syncHistoryId, result);
+
+                skip += pageCount;
+                result.NextSkip = skip;
+                if (pageCount < pageSize || pageCount == 0 || skip >= remoteTotal)
+                {
+                    result.Completed = true;
+                    break;
+                }
 
                 if (skip >= DocumentMaxTotalRecords)
                 {
                     Log.Warning("PmisSyncExecutionService: tài liệu của {OwnerType} {OwnerPmisCode} đã đạt giới hạn an toàn {Max} bản ghi/lượt, dừng lại dù PMIS có thể còn dữ liệu (skip={Skip}).",
                         ownerType, ownerPmisCode, DocumentMaxTotalRecords, skip);
-                    hitRecordCap = true;
+                    result.Truncated = true;
+                    result.Warnings++;
                     break;
                 }
             }
 
-            if (items.Count == 0) return (hitRecordCap ? 1 : 0, details);
-
-            // Gửi lỗi 1 lô KHÔNG được làm mất kết quả của các lô trước đã gửi thành công — mỗi lô tự bắt
-            // lỗi riêng và báo Warning cho đúng các tài liệu trong lô đó, thay vì để exception bay lên
-            // catch ngoài cùng (vốn chỉ tạo 1 dòng cảnh báo chung, xoá mất kết quả các lô đã xong).
-            async Task SendBatchAsync(List<UpsertPmisDocumentRequest> batch, List<UpsertPmisDocumentResult> sink)
-            {
-                if (batch.Count == 0) return;
-                try
-                {
-                    sink.AddRange(await _equipmentServiceClient.UpsertDocumentsAsync(batch));
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning(ex, "PmisSyncExecutionService: lỗi gửi 1 lô tài liệu cho {OwnerType} {OwnerPmisCode}.", ownerType, ownerPmisCode);
-                    sink.AddRange(batch.Select(b => new UpsertPmisDocumentResult
-                    {
-                        PmisDocumentCode = b.PmisDocumentCode,
-                        Success = false,
-                        ErrorMessage = $"Lỗi gửi lô tài liệu: {ex.Message}"
-                    }));
-                }
-            }
-
-            var endpointApiCode = isSubstationOrigin ? "SUBSTATION_DOCUMENT_LIST" : "LINE_DOCUMENT_LIST";
-            var results = new List<UpsertPmisDocumentResult>();
-            var requests = new List<UpsertPmisDocumentRequest>();
-            // Chi tiết riêng từng tài liệu (tên, loại, URL file thật, trạng thái tải file) để đưa vào
-            // SyncHistoryDetail.DataContent — trước đây "Lịch sử đồng bộ" chỉ hiện mã/tên của TRẠM/ĐƯỜNG
-            // DÂY (owner) lặp lại y hệt cho mọi tài liệu, không cách nào phân biệt tài liệu nào với tài
-            // liệu nào, cũng không thấy được URL/kích thước file đã tải hay lỗi tải file thật sự (khác lỗi
-            // lưu bản ghi ở EquipmentService) — xem PmisSyncExecutionService.cs (feedback người dùng
-            // 2026-09-23: "thiếu log chi tiết cho api tải file vật lý").
-            var docInfoByCode = new Dictionary<string, (string? TenTaiLieu, string? LoaiTaiLieu, string? FileUrl, string? FileDownloadError)>();
-            foreach (var doc in items)
-            {
-                if (string.IsNullOrWhiteSpace(doc.MaTaiLieu)) continue;
-
-                // Pha đồng bộ DANH SÁCH KHÔNG tải file vật lý nữa — chỉ gửi URL để EquipmentService lưu
-                // (FILE_STATUS=PENDING), job nền PmisDocumentFileDownloadJob tải dần sau, có thử lại theo
-                // backoff. Nhờ vậy 1 file PMIS chậm/treo không còn chặn cả lượt đồng bộ danh sách.
-                string? fileDownloadError = null;
-                if (string.IsNullOrWhiteSpace(doc.File))
-                {
-                    // PMIS trả về tài liệu này nhưng KHÔNG kèm URL file (trường "File" rỗng/null) — chưa có gì
-                    // để tải; khả năng cao PMIS chưa đính kèm file cho bản ghi tài liệu này.
-                    fileDownloadError = "PMIS không trả về URL file cho tài liệu này (trường \"File\" rỗng) — chưa có file để tải.";
-                }
-
-                docInfoByCode[doc.MaTaiLieu] = (doc.TenTaiLieu, doc.LoaiTaiLieu, doc.File, fileDownloadError);
-
-                requests.Add(new UpsertPmisDocumentRequest
-                {
-                    PmisDocumentCode = doc.MaTaiLieu,
-                    OwnerType = ownerType,
-                    OwnerPmisCode = ownerPmisCode,
-                    DocumentName = doc.TenTaiLieu,
-                    DocumentType = doc.LoaiTaiLieu,
-                    FileName = doc.TenTaiLieu ?? doc.MaTaiLieu,
-                    FileUrl = string.IsNullOrWhiteSpace(doc.File) ? null : doc.File,
-                    FileSourceApi = endpointApiCode,
-                    FileDownloadError = fileDownloadError,
-                    SyncHistoryId = syncHistoryId,
-                    // Đồng bộ cấp Trạm/Đường dây (maTB tham số = null, không lọc) PMIS trả về CẢ tài liệu
-                    // thuộc riêng 1 thiết bị con (doc.MaTB có giá trị) LẪN tài liệu thuộc chính trạm/đường
-                    // dây — luôn gửi kèm doc.MaTB để EquipmentService tự ưu tiên gán đúng OwnerType=
-                    // EQUIPMENT nếu thiết bị đó đã tồn tại (xem InternalPmisSyncController.UpsertDocumentsFromPmis),
-                    // KHÔNG tự bỏ qua tài liệu ở đây — thiết bị chưa tồn tại thì vẫn giữ được tài liệu
-                    // (gán tạm theo OwnerType/OwnerPmisCode ở trên) thay vì mất hẳn.
-                    DeviceCode = doc.MaTB
-                });
-
-                // Gửi theo lô cố định thay vì gộp hết rồi gửi 1 request duy nhất ở cuối — tránh 1 owner
-                // có nhiều tài liệu thật (base64 hoá) tạo ra request khổng lồ dễ vượt timeout/OOM.
-                if (requests.Count >= DocumentUpsertBatchSize)
-                {
-                    await SendBatchAsync(requests, results);
-                    requests.Clear();
-                }
-            }
-
-            await SendBatchAsync(requests, results);
-
-            if (results.Count == 0) return (hitRecordCap ? 1 : 0, details);
-
-            var warningCount = 0;
-            foreach (var result in results)
-            {
-                docInfoByCode.TryGetValue(result.PmisDocumentCode, out var info);
-
-                // Tải file lỗi (info.FileDownloadError != null) vẫn có thể đi kèm result.Success=true phía
-                // EquipmentService (bản ghi tài liệu vẫn lưu được, chỉ thiếu file) — trước đây trường hợp
-                // này hiện "Thành công"/"---" y hệt 1 tài liệu tải file trót lọt, không ai biết file thật
-                // sự chưa có (chỉ lộ ra sau, khi bấm tải về mới báo "Tài liệu chưa có file"). Coi đây là
-                // Warning ngay từ lúc đồng bộ, không chờ tới lúc người dùng tự phát hiện.
-                var isWarning = !result.Success || info.FileDownloadError != null;
-                if (isWarning) warningCount++;
-
-                // Pha danh sách CHỈ lưu metadata + link; file thật do PmisDocumentFileDownloadJob tải sau. Dòng
-                // đã lưu thành công, có link nhưng chưa có file (không phải "đã có file từ trước" =
-                // WasSkippedAsExisting) trước đây hiện "Bỏ qua / Thành công" y hệt 1 file đã tải xong — gây hiểu
-                // nhầm (PRO 2026-10: 0 file DONE dù lịch sử toàn "Thành công"). Đánh dấu Warning ở MỨC DÒNG để
-                // người xem biết file chưa về, nhưng KHÔNG cộng vào warningCount (đó là trạng thái bình thường
-                // của pha 1, nếu cộng thì mọi lượt có tài liệu mới đều thành WARNING với hàng chục nghìn cảnh báo).
-                var fileNotYetDownloaded = result.Success && !result.WasSkippedAsExisting && info.FileUrl != null && info.FileDownloadError == null;
-                var actionType = result.WasSkippedAsExisting ? SyncActionType.Skip
-                    : result.WasCreated ? SyncActionType.Create
-                    : SyncActionType.Update;
-
-                // Dùng ĐÚNG khoá TenTBA/TenDuongDay (không bịa khoá "OwnerName" mới) — đây là 2 khoá mà
-                // FE (getParentName) đã đọc sẵn từ dataContent của dòng Trạm/Đường dây/Thiết bị chính
-                // (item PMIS thô, xem dòng ~726/912 dưới), nên dòng tài liệu tái dùng đúng quy ước đó,
-                // FE không cần thêm nhánh đặc biệt nào cho riêng dòng tài liệu.
-                object dataContentObj = isSubstationOrigin
-                    ? new { info.TenTaiLieu, info.LoaiTaiLieu, OwnerType = ownerType, OwnerPmisCode = ownerPmisCode, TenTBA = sourceName, FileUrl = info.FileUrl, FileDownload = info.FileUrl != null ? "PENDING" : "NO_URL", result.WasSkippedAsExisting }
-                    : new { info.TenTaiLieu, info.LoaiTaiLieu, OwnerType = ownerType, OwnerPmisCode = ownerPmisCode, TenDuongDay = sourceName, FileUrl = info.FileUrl, FileDownload = info.FileUrl != null ? "PENDING" : "NO_URL", result.WasSkippedAsExisting };
-                var dataContent = JsonSerializer.Serialize(dataContentObj);
-
-                details.Add(new SyncHistoryDetail
-                {
-                    SyncHistoryId = syncHistoryId,
-                    SourceId = result.PmisDocumentCode,
-                    SourceCode = result.PmisDocumentCode,
-                    SourceName = info.TenTaiLieu ?? result.PmisDocumentCode,
-                    DataContent = dataContent,
-                    ActionType = actionType,
-                    Status = isWarning || fileNotYetDownloaded ? SyncDetailStatus.Warning : SyncDetailStatus.Success,
-                    ErrorMessage = result.ErrorMessage ?? info.FileDownloadError
-                        ?? (fileNotYetDownloaded ? "Đã lưu thông tin; file chưa tải về (đang chờ job tải file)." : null),
-                    RecordKind = SyncRecordKind.Document
-                });
-            }
-            return (hitRecordCap ? warningCount + 1 : warningCount, details);
+            return result;
         }
         catch (Exception ex)
         {
-            Log.Warning(ex, "PmisSyncExecutionService: lỗi đồng bộ tài liệu cho {OwnerType} {OwnerPmisCode}.", ownerType, ownerPmisCode);
+            Log.Warning(ex, "PmisSyncExecutionService: lỗi đồng bộ tài liệu cho {OwnerType} {OwnerPmisCode} (skip={Skip}).", ownerType, ownerPmisCode, result.NextSkip);
+            result.Error = ex.Message;
+            result.CircuitOpen = ex is Polly.CircuitBreaker.BrokenCircuitException || ex.InnerException is Polly.CircuitBreaker.BrokenCircuitException;
+            result.Warnings++;
             details.Add(new SyncHistoryDetail
             {
                 SyncHistoryId = syncHistoryId,
@@ -960,7 +842,93 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 ErrorMessage = $"Lỗi đồng bộ tài liệu đính kèm: {ex.Message}",
                 RecordKind = SyncRecordKind.Document
             });
-            return (1, details);
+            return result;
+        }
+    }
+
+    /// <summary>Lưu 1 trang tài liệu (theo lô <see cref="DocumentUpsertBatchSize"/>) sang EquipmentService và ghi SyncHistoryDetail
+    /// cho từng tài liệu. Lỗi gửi 1 lô chỉ làm Warning đúng các tài liệu của lô đó (không mất kết quả lô khác).</summary>
+    private async Task SaveDocumentPageAsync(
+        List<(string MaTaiLieu, string? TenTaiLieu, string? LoaiTaiLieu, string? MaTB)> pageDocs,
+        string ownerType, string ownerPmisCode, string sourceName, bool isSubstationOrigin, string syncHistoryId,
+        DocumentOwnerSyncResult result)
+    {
+        var docInfoByCode = new Dictionary<string, (string? TenTaiLieu, string? LoaiTaiLieu)>();
+        var requests = new List<UpsertPmisDocumentRequest>();
+        foreach (var doc in pageDocs)
+        {
+            if (string.IsNullOrWhiteSpace(doc.MaTaiLieu)) continue;
+            docInfoByCode[doc.MaTaiLieu] = (doc.TenTaiLieu, doc.LoaiTaiLieu);
+            requests.Add(new UpsertPmisDocumentRequest
+            {
+                PmisDocumentCode = doc.MaTaiLieu,
+                OwnerType = ownerType,
+                OwnerPmisCode = ownerPmisCode,
+                DocumentName = doc.TenTaiLieu,
+                DocumentType = doc.LoaiTaiLieu,
+                FileName = doc.TenTaiLieu ?? doc.MaTaiLieu,
+                SyncHistoryId = syncHistoryId,
+                // Đồng bộ cấp Trạm/Đường dây (maTB tham số = null, không lọc) PMIS trả về CẢ tài liệu thuộc riêng 1 thiết bị con
+                // (doc.MaTB có giá trị) LẪN tài liệu thuộc chính trạm/đường dây — luôn gửi kèm doc.MaTB để EquipmentService tự ưu tiên
+                // gán đúng OwnerType=EQUIPMENT nếu thiết bị đó đã tồn tại (xem InternalPmisSyncController.UpsertDocumentsFromPmis),
+                // KHÔNG tự bỏ qua tài liệu ở đây — thiết bị chưa tồn tại thì vẫn giữ được tài liệu (gán tạm theo owner trên).
+                DeviceCode = doc.MaTB
+            });
+        }
+
+        var results = new List<UpsertPmisDocumentResult>();
+        for (var i = 0; i < requests.Count; i += DocumentUpsertBatchSize)
+        {
+            var batch = requests.Skip(i).Take(DocumentUpsertBatchSize).ToList();
+            try
+            {
+                results.AddRange(await _equipmentServiceClient.UpsertDocumentsAsync(batch));
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "PmisSyncExecutionService: lỗi gửi 1 lô tài liệu cho {OwnerType} {OwnerPmisCode}.", ownerType, ownerPmisCode);
+                results.AddRange(batch.Select(b => new UpsertPmisDocumentResult
+                {
+                    PmisDocumentCode = b.PmisDocumentCode,
+                    Success = false,
+                    ErrorMessage = $"Lỗi gửi lô tài liệu: {ex.Message}"
+                }));
+            }
+        }
+
+        foreach (var r in results)
+        {
+            docInfoByCode.TryGetValue(r.PmisDocumentCode, out var info);
+
+            // Warning thật chỉ khi lưu bản ghi tài liệu lỗi.
+            var isWarning = !r.Success;
+            if (isWarning) { result.Warnings++; result.Failed++; }
+            else if (r.WasCreated) result.Created++;
+
+            // Pha danh sách CHỈ lưu metadata; file thật do PmisDocumentFileDownloadJob tải sau. Dòng đã lưu thành công nhưng chưa có
+            // file (không phải "đã có file từ trước" = WasSkippedAsExisting) đánh dấu Warning Ở MỨC DÒNG để người xem biết file chưa
+            // về, nhưng KHÔNG cộng vào số cảnh báo (trạng thái bình thường — nếu cộng thì mọi lượt có tài liệu mới đều thành WARNING).
+            var fileNotYetDownloaded = r.Success && !r.WasSkippedAsExisting;
+            var actionType = r.WasSkippedAsExisting ? SyncActionType.Skip : r.WasCreated ? SyncActionType.Create : SyncActionType.Update;
+
+            // Dùng ĐÚNG khoá TenTBA/TenDuongDay — 2 khoá FE (getParentName) đã đọc sẵn từ dataContent của dòng chính.
+            object dataContentObj = isSubstationOrigin
+                ? new { info.TenTaiLieu, info.LoaiTaiLieu, OwnerType = ownerType, OwnerPmisCode = ownerPmisCode, TenTBA = sourceName, FileDownload = r.WasSkippedAsExisting ? "DONE" : "PENDING", r.WasSkippedAsExisting }
+                : new { info.TenTaiLieu, info.LoaiTaiLieu, OwnerType = ownerType, OwnerPmisCode = ownerPmisCode, TenDuongDay = sourceName, FileDownload = r.WasSkippedAsExisting ? "DONE" : "PENDING", r.WasSkippedAsExisting };
+
+            result.Details.Add(new SyncHistoryDetail
+            {
+                SyncHistoryId = syncHistoryId,
+                SourceId = r.PmisDocumentCode,
+                SourceCode = r.PmisDocumentCode,
+                SourceName = info.TenTaiLieu ?? r.PmisDocumentCode,
+                DataContent = JsonSerializer.Serialize(dataContentObj),
+                ActionType = actionType,
+                Status = isWarning || fileNotYetDownloaded ? SyncDetailStatus.Warning : SyncDetailStatus.Success,
+                ErrorMessage = r.ErrorMessage
+                    ?? (fileNotYetDownloaded ? "Đã lưu thông tin; file chưa tải về (đang chờ job tải file)." : null),
+                RecordKind = SyncRecordKind.Document
+            });
         }
     }
 

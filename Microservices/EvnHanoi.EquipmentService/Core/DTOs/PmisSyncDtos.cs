@@ -181,13 +181,12 @@ public class UpsertPmisDocumentRequest
     /// cấp Trạm/Đường dây (không lọc theo thiết bị) chạy trước lượt đồng bộ Thiết bị.</summary>
     public string? DeviceCode { get; set; }
 
-    /// <summary>URL tải file vật lý PMIS trả về (trường "File" của API 8/9). Pha đồng bộ danh sách chỉ LƯU
-    /// URL này (FILE_STATUS=PENDING), việc tải file thật do job nền riêng của SyncService đảm nhiệm — xem
-    /// Migration0069. Null/rỗng = PMIS không đính kèm file (FILE_STATUS=NO_URL).</summary>
+    /// <summary>[LEGACY — bỏ qua] Trước đây là URL file PMIS trả về. PMIS không còn dùng trường "file" của API danh sách:
+    /// file tải theo mã tài liệu qua API cấu hình DOCUMENT_FILE_DOWNLOAD (SyncService). Giữ thuộc tính chỉ để client SyncService
+    /// bản cũ (còn gửi trường này trong lúc deploy lệch phiên bản) không bị lỗi deserialize — server KHÔNG lưu/dùng nữa.</summary>
     public string? FileUrl { get; set; }
 
-    /// <summary>Mã endpoint nguồn (SUBSTATION_DOCUMENT_LIST | LINE_DOCUMENT_LIST) — job tải file dùng để
-    /// đính kèm đúng header/API key cấu hình cho endpoint đó.</summary>
+    /// <summary>[LEGACY — bỏ qua] Xem <see cref="FileUrl"/>.</summary>
     public string? FileSourceApi { get; set; }
 }
 
@@ -195,8 +194,6 @@ public class UpsertPmisDocumentRequest
 public class PendingPmisDocumentFile
 {
     public string PmisDocumentCode { get; set; } = string.Empty;
-    public string FileUrl { get; set; } = string.Empty;
-    public string? FileSourceApi { get; set; }
     public int FileAttempts { get; set; }
 }
 
@@ -377,4 +374,26 @@ public class CreatePmisUnitCodeMappingResult
 
     public static CreatePmisUnitCodeMappingResult Ok(Guid id) => new() { Id = id };
     public static CreatePmisUnitCodeMappingResult Fail(PmisUnitCodeMappingCreateError error) => new() { Error = error };
+}
+
+/// <summary>POST internal/v1/documents/{code}/file-by-hash — hỏi đã có file cùng SHA-256 + kích thước chưa.</summary>
+public class DocumentFileHashRequest
+{
+    public string? Sha256 { get; set; }
+    public long Size { get; set; }
+}
+
+/// <summary>POST internal/v1/documents/{code}/file-failure — Kind: PERMANENT | TRANSIENT.</summary>
+public class DocumentFileFailureRequest
+{
+    public string Kind { get; set; } = "PERMANENT";
+    public string? Message { get; set; }
+    public int RetryMinutes { get; set; } = 10;
+}
+
+/// <summary>Số tài liệu của 1 Trạm/Đường dây (gồm tài liệu thiết bị con) — GET internal/v1/documents/counts-by-infrastructure.</summary>
+public class DocumentCountByInfrastructure
+{
+    public string PmisCode { get; set; } = string.Empty;
+    public int DocumentCount { get; set; }
 }

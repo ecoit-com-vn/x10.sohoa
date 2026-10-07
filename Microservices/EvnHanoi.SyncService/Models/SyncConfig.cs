@@ -42,13 +42,20 @@ public class UpdateSyncConfigRequest
     public int RowVersion { get; set; }
 }
 
-/// <summary>3 đối tượng đồng bộ cố định — khớp CHECK constraint CK_SYNC_CONFIG_OBJECT_TYPE.</summary>
+/// <summary>Các đối tượng đồng bộ cố định — khớp CHECK constraint CK_SYNC_CONFIG_OBJECT_TYPE (thêm DOCUMENT ở Migration0017).</summary>
 public static class SyncObjectType
 {
     public const string Substation = "SUBSTATION";
     public const string TransmissionLine = "TRANSMISSION_LINE";
     public const string Equipment = "EQUIPMENT";
 
+    /// <summary>Đồng bộ DANH SÁCH tài liệu đính kèm (PmisDocumentListSyncJob) — job riêng, lịch riêng; KHÔNG phải đối tượng đồng bộ thủ công.</summary>
+    public const string Document = "DOCUMENT";
+
+    /// <summary>3 đối tượng đồng bộ thủ công/lịch Trạm-Đường dây-Thiết bị.</summary>
     public static bool IsValid(string value) =>
         value is Substation or TransmissionLine or Equipment;
+
+    /// <summary>Đối tượng có dòng cấu hình lịch (SYNC_CONFIG): 3 đối tượng trên + Tài liệu.</summary>
+    public static bool IsSchedulable(string value) => IsValid(value) || value == Document;
 }

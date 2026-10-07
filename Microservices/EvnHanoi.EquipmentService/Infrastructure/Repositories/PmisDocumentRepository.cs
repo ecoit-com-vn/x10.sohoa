@@ -62,64 +62,67 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         const string sql = @"
             INSERT INTO PMIS_DOCUMENT (
                 Id, PmisDocumentCode, OwnerType, OwnerId, DocumentName, DocumentType, ObjectKey, FileSize, SyncHistoryId, CreatedBy,
-                FILE_URL, FILE_SOURCE_API, FILE_STATUS
+                FILE_STATUS, DEVICE_CODE
             ) VALUES (
                 :Id, :PmisDocumentCode, :OwnerType, :OwnerId, :DocumentName, :DocumentType, :ObjectKey, :FileSize, :SyncHistoryId, 'PMIS_SYNC',
-                :FileUrl, :FileSourceApi, :FileStatus
+                :FileStatus, :DeviceCode
             )";
 
-        var hasUrl = !string.IsNullOrWhiteSpace(item.FileUrl);
+        // FILE_URL/FILE_SOURCE_API không còn ghi (PMIS bỏ link; file tải theo mã qua DOCUMENT_FILE_DOWNLOAD) — cột giữ lại, để NULL.
         await _connection.ExecuteAsync(sql, new
         {
             Id = EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid(),
             PmisDocumentCode = item.PmisDocumentCode,
             OwnerType = item.OwnerType,
             OwnerId = ownerId.ToString(),
-            DocumentName = item.DocumentName,
-            DocumentType = item.DocumentType,
+            DocumentName = Truncate(item.DocumentName, 500),
+            DocumentType = Truncate(item.DocumentType, 200),
             ObjectKey = objectKey,
             FileSize = fileSize,
             SyncHistoryId = item.SyncHistoryId,
-            FileUrl = hasUrl ? item.FileUrl : null,
-            FileSourceApi = hasUrl ? item.FileSourceApi : null,
-            FileStatus = objectKey != null ? "DONE" : (hasUrl ? "PENDING" : "NO_URL")
+            FileStatus = objectKey != null ? "DONE" : "PENDING",
+            DeviceCode = NormalizeDeviceCode(item.DeviceCode)
         });
     }
 
-    public async Task UpdateFileSourceAsync(string id, string? fileUrl, string? fileSourceApi)
+    public async Task EnsureFilePendingAsync(string id)
     {
-        if (string.IsNullOrWhiteSpace(fileUrl)) return;
         EnsureOpen();
-        // Chỉ dòng CHƯA có file (ObjectKey IS NULL). "Cần đặt lại" = đang NO_URL hoặc URL đã đổi: khi đó về
-        // PENDING + reset bộ đếm/lịch thử lại; ngược lại giữ nguyên lịch backoff hiện có.
-        const string sql = @"
+        await _connection.ExecuteAsync(@"
             UPDATE PMIS_DOCUMENT
-            SET FILE_STATUS = CASE WHEN FILE_STATUS = 'NO_URL' OR NVL(FILE_URL, '~') <> :FileUrl1 THEN 'PENDING' ELSE FILE_STATUS END,
-                FILE_ATTEMPTS = CASE WHEN FILE_STATUS = 'NO_URL' OR NVL(FILE_URL, '~') <> :FileUrl2 THEN 0 ELSE FILE_ATTEMPTS END,
-                FILE_NEXT_RETRY_AT = CASE WHEN FILE_STATUS = 'NO_URL' OR NVL(FILE_URL, '~') <> :FileUrl3 THEN NULL ELSE FILE_NEXT_RETRY_AT END,
-                FILE_URL = :FileUrl4, FILE_SOURCE_API = :FileSourceApi
-            WHERE Id = :Id AND ObjectKey IS NULL";
-        await _connection.ExecuteAsync(sql, new
-        {
-            // Mỗi lần xuất hiện trong SQL dùng 1 tên tham số riêng, thứ tự khai báo khớp thứ tự xuất hiện —
-            // không phụ thuộc việc ODP.NET bind theo tên hay theo vị trí.
-            FileUrl1 = fileUrl, FileUrl2 = fileUrl, FileUrl3 = fileUrl, FileUrl4 = fileUrl,
-            FileSourceApi = fileSourceApi, Id = id
-        });
+            SET FILE_STATUS = 'PENDING', FILE_ATTEMPTS = 0, FILE_NEXT_RETRY_AT = NULL
+            WHERE Id = :Id AND ObjectKey IS NULL AND FILE_STATUS = 'NO_URL'", new { Id = id });
     }
 
-    public async Task<IReadOnlyList<PendingPmisDocumentFile>> GetPendingFilesAsync(int take)
+    /// <summary>Mỗi tiền tố loại 1 điều kiện NOT LIKE (escape % _ \\); số tiền tố nhỏ nên ghép tham số theo chỉ số là đủ.</summary>
+    private static (string Sql, DynamicParameters Parameters) BuildExcludeClause(IReadOnlyList<string>? excludePrefixes)
+    {
+        var sb = new System.Text.StringBuilder();
+        var parameters = new DynamicParameters();
+        var prefixes = (excludePrefixes ?? []).Where(p => !string.IsNullOrWhiteSpace(p)).Take(10).ToList();
+        for (var i = 0; i < prefixes.Count; i++)
+        {
+            sb.Append($" AND PmisDocumentCode NOT LIKE :Ex{i} ESCAPE '\\'");
+            parameters.Add($"Ex{i}", prefixes[i].Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%");
+        }
+        return (sb.ToString(), parameters);
+    }
+
+    public async Task<IReadOnlyList<PendingPmisDocumentFile>> GetPendingFilesAsync(int take, IReadOnlyList<string>? excludePrefixes = null)
     {
         EnsureOpen();
-        const string sql = @"
-            SELECT PmisDocumentCode, FILE_URL AS FileUrl, FILE_SOURCE_API AS FileSourceApi, FILE_ATTEMPTS AS FileAttempts
+        var (excludeSql, parameters) = BuildExcludeClause(excludePrefixes);
+        parameters.Add("Take", take);
+
+        var sql = $@"
+            SELECT PmisDocumentCode, FILE_ATTEMPTS AS FileAttempts
             FROM PMIS_DOCUMENT
-            WHERE ObjectKey IS NULL AND IsDeleted = 0 AND FILE_URL IS NOT NULL
+            WHERE ObjectKey IS NULL AND IsDeleted = 0
               AND FILE_STATUS IN ('PENDING', 'FAILED')
-              AND (FILE_NEXT_RETRY_AT IS NULL OR FILE_NEXT_RETRY_AT <= SYSTIMESTAMP)
+              AND (FILE_NEXT_RETRY_AT IS NULL OR FILE_NEXT_RETRY_AT <= SYSTIMESTAMP){excludeSql}
             ORDER BY FILE_ATTEMPTS, CreatedDate
             FETCH FIRST :Take ROWS ONLY";
-        return (await _connection.QueryAsync<PendingPmisDocumentFile>(sql, new { Take = take })).ToList();
+        return (await _connection.QueryAsync<PendingPmisDocumentFile>(sql, parameters)).ToList();
     }
 
     // Dùng SyncedAt (không phải ModifiedDate) để tính LastDownloadedAt bên dưới — ModifiedDate còn bị
@@ -127,18 +130,19 @@ public class PmisDocumentRepository : IPmisDocumentRepository
     // lại đúng owner hơn, không liên quan gì tới việc tải file), khiến watchdog tưởng vừa có hoạt động dù
     // PmisDocumentFileDownloadJob đã chết thật. SyncedAt chỉ được set đúng 1 chỗ duy nhất (UpdateFileAsync,
     // ngay khi 1 file được tải và lưu thành công thật) nên không bị lẫn như vậy.
-    public async Task<PendingDocumentFileSummary> GetPendingSummaryAsync()
+    public async Task<PendingDocumentFileSummary> GetPendingSummaryAsync(IReadOnlyList<string>? excludePrefixes = null)
     {
         EnsureOpen();
-        const string sql = @"
+        var (excludeSql, parameters) = BuildExcludeClause(excludePrefixes);
+        var sql = $@"
             SELECT
                 (SELECT COUNT(*) FROM PMIS_DOCUMENT
-                  WHERE ObjectKey IS NULL AND IsDeleted = 0 AND FILE_URL IS NOT NULL
+                  WHERE ObjectKey IS NULL AND IsDeleted = 0
                     AND FILE_STATUS IN ('PENDING', 'FAILED')
-                    AND (FILE_NEXT_RETRY_AT IS NULL OR FILE_NEXT_RETRY_AT <= SYSTIMESTAMP)) AS PendingCount,
+                    AND (FILE_NEXT_RETRY_AT IS NULL OR FILE_NEXT_RETRY_AT <= SYSTIMESTAMP){excludeSql}) AS PendingCount,
                 (SELECT MAX(SyncedAt) FROM PMIS_DOCUMENT WHERE FILE_STATUS = 'DONE') AS LastDownloadedAt
             FROM DUAL";
-        return await _connection.QuerySingleAsync<PendingDocumentFileSummary>(sql);
+        return await _connection.QuerySingleAsync<PendingDocumentFileSummary>(sql, parameters);
     }
 
     public async Task<IReadOnlyList<PmisDocumentFileStatus>> GetFileStatusByCodesAsync(IReadOnlyCollection<string> codes)
@@ -185,7 +189,7 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         // Backoff luỹ thừa 1,2,4,...,128 phút (tối đa 8 lần); từ lần thứ 8 trở đi FAILED, thử lại mỗi 24 giờ.
         const string sql = @"
             UPDATE PMIS_DOCUMENT
-            SET FILE_ATTEMPTS = FILE_ATTEMPTS + 1,
+            SET FILE_ATTEMPTS = FILE_ATTEMPTS + 1, FILE_TRANSIENT_FAILS = 0,
                 FILE_LAST_ERROR = :ErrorText,
                 FILE_STATUS = CASE WHEN FILE_ATTEMPTS + 1 >= 8 THEN 'FAILED' ELSE 'PENDING' END,
                 FILE_NEXT_RETRY_AT = SYSTIMESTAMP + CASE WHEN FILE_ATTEMPTS + 1 >= 8 THEN INTERVAL '24' HOUR
@@ -196,7 +200,99 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         await _connection.ExecuteAsync(sql, new { ErrorText = err, Id = id });
     }
 
-    public async Task UpdateFileAsync(string id, string objectKey, long fileSize, string? syncHistoryId)
+    public async Task<IReadOnlyList<DocumentCountByInfrastructure>> GetDocumentCountsByInfrastructureAsync()
+    {
+        EnsureOpen();
+        const string sql = @"
+            SELECT i.PMIS_CODE AS PmisCode, COUNT(*) AS DocumentCount
+            FROM (
+                SELECT d.OwnerId AS InfraId FROM PMIS_DOCUMENT d
+                 WHERE d.IsDeleted = 0 AND d.OwnerType = 'INFRASTRUCTURE' AND d.PmisDocumentCode NOT LIKE 'MANUAL\_%' ESCAPE '\'
+                UNION ALL
+                SELECT e.INFRASTRUCTURE_ID AS InfraId FROM PMIS_DOCUMENT d
+                  JOIN EQUIPMENTS e ON e.Id = d.OwnerId
+                 WHERE d.IsDeleted = 0 AND d.OwnerType = 'EQUIPMENT' AND d.PmisDocumentCode NOT LIKE 'MANUAL\_%' ESCAPE '\'
+            ) x
+            JOIN INFRASTRUCTURE i ON i.Id = x.InfraId
+            WHERE i.PMIS_CODE IS NOT NULL AND i.IsDeleted = 0
+            GROUP BY i.PMIS_CODE";
+        return (await _connection.QueryAsync<DocumentCountByInfrastructure>(sql, commandTimeout: 300)).ToList();
+    }
+
+    public async Task SetDeviceCodeAsync(string id, string deviceCode)
+    {
+        EnsureOpen();
+        await _connection.ExecuteAsync(
+            "UPDATE PMIS_DOCUMENT SET DEVICE_CODE = :DeviceCode WHERE Id = :Id AND (DEVICE_CODE IS NULL OR DEVICE_CODE <> :DeviceCode2)",
+            new { DeviceCode = NormalizeDeviceCode(deviceCode), Id = id, DeviceCode2 = NormalizeDeviceCode(deviceCode) });
+    }
+
+    public async Task<int> ReassignDocumentsToEquipmentAsync(string equipmentPmisCode, Guid equipmentId)
+    {
+        EnsureOpen();
+        // Thiết bị vừa được tạo: nhận lại các tài liệu từng lưu tạm cho Trạm/Đường dây vì lúc đó thiết bị chưa tồn tại (khớp DEVICE_CODE đã lưu).
+        return await _connection.ExecuteAsync(@"
+            UPDATE PMIS_DOCUMENT
+            SET OwnerType = 'EQUIPMENT', OwnerId = :EquipmentId, ModifiedBy = 'PMIS_SYNC', ModifiedDate = SYSTIMESTAMP
+            WHERE DEVICE_CODE = :DeviceCode AND OwnerType = 'INFRASTRUCTURE' AND IsDeleted = 0",
+            new { EquipmentId = equipmentId.ToString(), DeviceCode = NormalizeDeviceCode(equipmentPmisCode) });
+    }
+
+    public async Task<int> MoveDocumentsBetweenEquipmentAsync(Guid oldEquipmentId, Guid newEquipmentId)
+    {
+        EnsureOpen();
+        // Chuyển TBA tự động: thiết bị cũ thành "hồn ma" (ẩn khỏi danh mục), thiết bị mới nhận hồ sơ — tài liệu phải đi theo thiết bị đang sống.
+        return await _connection.ExecuteAsync(@"
+            UPDATE PMIS_DOCUMENT
+            SET OwnerId = :NewId, ModifiedBy = 'PMIS_SYNC', ModifiedDate = SYSTIMESTAMP
+            WHERE OwnerType = 'EQUIPMENT' AND OwnerId = :OldId AND IsDeleted = 0",
+            new { NewId = newEquipmentId.ToString(), OldId = oldEquipmentId.ToString() });
+    }
+
+    /// <summary>Mã thiết bị chuẩn hoá để so khớp: UPPER(TRIM) — cùng cách ResolveOwnerIdAsync so PMIS_CODE.</summary>
+    private static string? NormalizeDeviceCode(string? code) =>
+        string.IsNullOrWhiteSpace(code) ? null : code.Trim().ToUpperInvariant();
+
+    private static string? Truncate(string? value, int max) =>
+        value is { } v && v.Length > max ? v[..max] : value;
+
+    public async Task<string?> FindObjectKeyByHashAsync(string contentSha256, long fileSize)
+    {
+        EnsureOpen();
+        return await _connection.QueryFirstOrDefaultAsync<string?>(@"
+            SELECT ObjectKey FROM PMIS_DOCUMENT
+            WHERE CONTENT_SHA256 = :ContentSha AND FileSize = :ContentSize AND ObjectKey IS NOT NULL AND IsDeleted = 0
+            FETCH FIRST 1 ROWS ONLY", new { ContentSha = contentSha256, ContentSize = fileSize });
+    }
+
+    /// <summary>Số lần tải lỗi TẠM THỜI liên tiếp đạt ngưỡng này thì coi là lỗi của chính tài liệu (tính vào FILE_ATTEMPTS, backoff dài).</summary>
+    private const int MaxTransientFailures = 12;
+
+    public async Task MarkFileTransientFailureAsync(string id, string? errorMessage, int retryMinutes)
+    {
+        EnsureOpen();
+        // KHÔNG đụng FILE_ATTEMPTS/FILE_STATUS: PMIS quá tải không phải lỗi của tài liệu. Lùi dần theo số lần liên tiếp (tối đa 6×) + jitter
+        // 0-5 phút để không dồn cả lô. Đủ MaxTransientFailures lần liên tiếp (tài liệu luôn làm PMIS lỗi 5xx) → chuyển thành lỗi của tài liệu.
+        const string sql = @"
+            UPDATE PMIS_DOCUMENT
+            SET FILE_TRANSIENT_FAILS = FILE_TRANSIENT_FAILS + 1,
+                FILE_LAST_ERROR = :ErrorText,
+                FILE_NEXT_RETRY_AT = SYSTIMESTAMP + NUMTODSINTERVAL(:RetryMinutes * LEAST(FILE_TRANSIENT_FAILS + 1, 6) + DBMS_RANDOM.VALUE(0, 5), 'MINUTE'),
+                ModifiedBy = 'PMIS_SYNC', ModifiedDate = SYSTIMESTAMP
+            WHERE Id = :Id AND ObjectKey IS NULL";
+        var err = errorMessage is { Length: > 1880 } ? "[tạm thời] " + errorMessage[..1880] : "[tạm thời] " + errorMessage;
+        await _connection.ExecuteAsync(sql, new { ErrorText = err, RetryMinutes = Math.Max(1, retryMinutes), Id = id });
+
+        var fails = await _connection.QuerySingleOrDefaultAsync<int?>(
+            "SELECT FILE_TRANSIENT_FAILS FROM PMIS_DOCUMENT WHERE Id = :Id", new { Id = id });
+        if (fails >= MaxTransientFailures)
+        {
+            // MarkFileFailedAsync đồng thời đặt lại FILE_TRANSIENT_FAILS = 0 trong cùng câu UPDATE (không còn bước reset riêng dễ hỏng giữa chừng).
+            await MarkFileFailedAsync(id, $"PMIS lỗi tạm thời {fails} lần liên tiếp — coi là lỗi của tài liệu. Lỗi cuối: {errorMessage}");
+        }
+    }
+
+    public async Task UpdateFileAsync(string id, string objectKey, long fileSize, string? syncHistoryId, string? contentSha256 = null)
     {
         EnsureOpen();
         // IsDeleted = 0: khôi phục nếu dòng đang bị xoá mềm (xem comment ở GetByCodeAsync) — vô hại nếu
@@ -205,6 +301,7 @@ public class PmisDocumentRepository : IPmisDocumentRepository
             UPDATE PMIS_DOCUMENT
             SET ObjectKey = :ObjectKey, FileSize = :FileSize, SyncHistoryId = COALESCE(:SyncHistoryId, SyncHistoryId),
                 FILE_STATUS = 'DONE', FILE_LAST_ERROR = NULL, FILE_NEXT_RETRY_AT = NULL,
+                CONTENT_SHA256 = COALESCE(:ContentSha256, CONTENT_SHA256), FILE_TRANSIENT_FAILS = 0,
                 SyncedAt = SYSTIMESTAMP, ModifiedBy = 'PMIS_SYNC', ModifiedDate = SYSTIMESTAMP, IsDeleted = 0
             WHERE Id = :Id";
         await _connection.ExecuteAsync(sql, new
@@ -212,6 +309,7 @@ public class PmisDocumentRepository : IPmisDocumentRepository
             Id = id,
             ObjectKey = objectKey,
             FileSize = fileSize,
+            ContentSha256 = contentSha256,
             SyncHistoryId = syncHistoryId
         });
     }

@@ -34,6 +34,7 @@ public class SyncController : ControllerBase
         {
             await scheduler.TriggerJob(new JobKey($"PmisSyncJob-{objectType}"));
         }
+        await scheduler.TriggerJob(new JobKey("PmisDocumentListSyncJob"));
 
         // 2. Trigger the Background Worker (PmisSyncWorker)
         _triggerService.TriggerSync();
