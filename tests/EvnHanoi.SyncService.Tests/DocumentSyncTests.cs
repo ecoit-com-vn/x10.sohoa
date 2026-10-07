@@ -250,3 +250,40 @@ public class DocumentOwnerSyncPlannerTests
         Assert.Equal((new DateTime(2024, 2, 1), new DateTime(2024, 2, 29, 23, 59, 59)), DocumentOwnerSyncPlanner.WindowRange(2024, 2));
     }
 }
+
+public class EquipmentEnrichmentTests
+{
+    private static readonly DateTime Now = new(2026, 10, 7, 8, 0, 0, DateTimeKind.Utc);
+
+    private static EvnHanoi.SyncService.Clients.SyncedInfrastructurePmisCode P(string code) => new() { PmisCode = code, InfraTypeId = 1 };
+
+    private static Dictionary<string, EvnHanoi.SyncService.Repositories.PmisSyncStateRow> Rows(params EvnHanoi.SyncService.Repositories.PmisSyncStateRow[] rows) =>
+        rows.ToDictionary(r => r.PmisCode, StringComparer.OrdinalIgnoreCase);
+
+    [Fact]
+    public void PickEnrichmentParents_OnlyScannedWithPendingDetail_OldestFirst()
+    {
+        var all = new List<EvnHanoi.SyncService.Clients.SyncedInfrastructurePmisCode> { P("NEVER"), P("DONE"), P("OLD"), P("NEW"), P("OLD2") };
+        var state = Rows(
+            new() { PmisCode = "DONE", LastScanAt = Now.AddHours(-9), DetailSynced = true },
+            new() { PmisCode = "OLD", LastScanAt = Now.AddHours(-5), DetailSynced = false },
+            new() { PmisCode = "OLD2", LastScanAt = Now.AddHours(-5), DetailSynced = false },
+            new() { PmisCode = "NEW", LastScanAt = Now.AddMinutes(-5), DetailSynced = false });
+
+        var result = EvnHanoi.SyncService.Schedulers.PmisScheduledSyncJob.PickEnrichmentParents(all, state).Select(x => x.PmisCode).ToList();
+
+        // NEVER (chưa quét) thuộc pha quét cha; DONE đã đủ chi tiết; còn lại cũ nhất trước, cùng thời điểm thì theo mã.
+        Assert.Equal(new[] { "OLD", "OLD2", "NEW" }, result);
+    }
+
+    [Fact]
+    public void RunBudgetClock_ExceededFraction()
+    {
+        var clock = new RunBudgetClock(TimeSpan.FromMilliseconds(200));
+        Assert.False(clock.ExceededFraction(0.5));
+        Thread.Sleep(120);
+        Assert.True(clock.ExceededFraction(0.5));
+        Assert.False(clock.Exceeded);
+        Assert.True(clock.ExceededFraction(0)); // 0% = luôn vượt
+    }
+}

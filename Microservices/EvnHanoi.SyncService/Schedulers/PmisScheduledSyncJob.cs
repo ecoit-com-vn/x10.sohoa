@@ -596,7 +596,7 @@ public class PmisScheduledSyncJob : IJob
         {
             var parentScanState = await _stateRepository.GetAllAsync("PARENT_SCAN");
             // Đợt quét đầy đủ xong khi mọi cha đã được quét kể từ mốc bắt đầu → ghi mốc hoàn tất và quay về chế độ thường.
-            if (sweepStart != null && !allParents.Any(p => !parentScanState.TryGetValue(p.PmisCode, out var sc) || sc.LastScanAt == null || sc.LastScanAt < sweepStart))
+            if (sweepStart != null && allParents.Count > 0 && !allParents.Any(p => !parentScanState.TryGetValue(p.PmisCode, out var sc) || sc.LastScanAt == null || sc.LastScanAt < sweepStart))
             {
                 try { await _stateRepository.SetSweepAtAsync(SyncObjectType.Equipment); }
                 catch (Exception ex) { Log.Warning(ex, "PmisScheduledSyncJob: lỗi ghi mốc quét đầy đủ (EQUIPMENT)."); }
@@ -611,13 +611,7 @@ public class PmisScheduledSyncJob : IJob
                 await _stateRepository.GetAllAsync(SyncObjectType.Substation),
                 await _stateRepository.GetAllAsync(SyncObjectType.TransmissionLine),
                 sweepStart, TimeSpan.FromHours(opt.ParentRescanIntervalHours), DateTime.UtcNow);
-            if (parents.Count == 0)
-            {
-                // Không có cha nào đến hạn quét — bình thường ở chế độ tăng dần, không phải bất thường (xem RunIfDueAsync).
-                _incrementalIdle = true;
-                await _syncConfigRepository.UpdateSyncCursorAsync(SyncObjectType.Equipment, null);
-                return (0, 0, 0, 0, []);
-            }
+            // parents.Count == 0 (không cha nào đến hạn quét) là bình thường ở chế độ tăng dần — vẫn chạy tiếp pha bổ sung chi tiết bên dưới.
         }
         else
         {
@@ -635,19 +629,22 @@ public class PmisScheduledSyncJob : IJob
         string? lastCompletedParent = null;
         string? timeBudgetCursor = null;
 
-        foreach (var parent in parents)
+        // Quét thiết bị của 1 cha (mọi trang). fetchDetail=false: pha quét cha nhanh — KHÔNG gọi ChiTietThietBi/QR (để pha bổ sung chi tiết lo).
+        // Interrupted=true khi dừng giữa chừng vì hết ngân sách thời gian (cha chưa quét xong → KHÔNG ghi mốc quét).
+        async Task<(bool ParentOk, bool DetailComplete, bool Interrupted)> ScanParentAsync(SyncedInfrastructurePmisCode parent, bool fetchDetail)
         {
-            parentsVisited++;
-            var parentOk = true; // false nếu lấy danh sách PMIS hoặc lưu thiết bị của cha này có lỗi → chưa coi là đã quét
+            var parentOk = true; // false nếu lấy danh sách PMIS hoặc lưu thiết bị của cha này có lỗi → chưa coi là quét sạch lỗi
+            var detailComplete = true; // false nếu còn thiết bị thiếu chi tiết/QR
+            var interrupted = false;
             var pageSize = parent.InfraTypeId == 1 ? substationDevicePageSize : lineDevicePageSize;
             var skip = 0;
             while (true)
             {
-                // Hết ngân sách thời gian giữa chừng 1 cha lớn (nhiều trang): dừng trước khi gọi PMIS trang kế, cha này chưa
-                // coi là quét xong (parentOk=false) nên lượt sau quét lại.
+                // Hết ngân sách thời gian giữa chừng 1 cha lớn (nhiều trang): dừng trước khi gọi PMIS trang kế.
                 if (BudgetExceeded())
                 {
                     parentOk = false;
+                    interrupted = true;
                     break;
                 }
 
@@ -681,11 +678,8 @@ public class PmisScheduledSyncJob : IJob
                 }
                 catch (Exception ex)
                 {
-                    // Lỗi khi GỌI PMIS cho ĐÚNG 1 trạm/đường dây cha (vd. timeout, PMIS lỗi tạm thời) —
-                    // TRƯỚC ĐÂY exception này văng thẳng ra ngoài foreach, làm cả lượt EQUIPMENT coi là
-                    // Failed và bỏ dở TẤT CẢ trạm/đường dây cha còn lại chưa xử lý tới (vd. nếu đường dây
-                    // đứng sau trạm biến áp trong danh sách cha, 1 trạm lỗi là không bao giờ chạm tới
-                    // thiết bị đường dây). Giờ chỉ ghi nhận lỗi cho riêng cha này rồi sang cha tiếp theo.
+                    // Lỗi khi GỌI PMIS cho ĐÚNG 1 trạm/đường dây cha (vd. timeout, PMIS lỗi tạm thời) — chỉ ghi nhận lỗi cho riêng cha này rồi
+                    // sang cha tiếp theo (không bỏ dở cả lượt).
                     Log.Error(ex, "PmisScheduledSyncJob: lỗi khi lấy danh sách thiết bị cho {PmisCode} (skip={Skip}), bỏ qua, tiếp tục các trạm/đường dây khác.", parent.PmisCode, skip);
                     errors.Add($"Thiết bị cha={parent.PmisCode} skip={skip}: {SyncErrorFormatter.FormatShort(ex)}");
                     parentOk = false;
@@ -705,7 +699,7 @@ public class PmisScheduledSyncJob : IJob
                     };
                 }
                 var (pageSuccess, pageFailed, pageWarnings, pageErrors) = await PushPageAsync(
-                    (hId, items) => _executionService.SyncEquipmentAsync(hId, items, parent.PmisCode, inc, syncDocuments: false),
+                    (hId, items) => _executionService.SyncEquipmentAsync(hId, items, parent.PmisCode, inc, syncDocuments: false, fetchDetail: fetchDetail),
                     historyId, pageItems, $"Thiết bị cha={parent.PmisCode} skip={skip}");
                 if (inc != null)
                 {
@@ -714,6 +708,7 @@ public class PmisScheduledSyncJob : IJob
                     _incrementalPushed += inc.ToSave.Count;
                     pageSuccess += inc.UnchangedCodes.Count; // không đổi tính là thành công
                     pageFailed = FailedExcludingUnchanged(pageFailed, pageItems.Count, inc);
+                    if (inc.ToSave.Any(x => !x.DetailSynced)) detailComplete = false;
                 }
                 if (pageFailed > 0) parentOk = false;
                 success += pageSuccess;
@@ -731,41 +726,84 @@ public class PmisScheduledSyncJob : IJob
                 }
             }
 
-            // Ghi nhận cha ĐẦU TIÊN (theo thứ tự đã xoay vòng) mà ngân sách gọi PMIS thật cạn ngay sau khi
-            // xử lý xong — mọi cha SAU nó trong lượt này chắc chắn không còn ngân sách để enrich
-            // ThongSoKyThuat/QR. Lượt sau sẽ xoay vòng bắt đầu NGAY SAU cha này, ưu tiên đúng nhóm bị bỏ lỡ.
+            return (parentOk, detailComplete && parentOk, interrupted);
+        }
+
+        async Task MarkParentAsync(string parentCode, bool detailComplete, bool scanned = true)
+        {
+            try { await _stateRepository.MarkParentScannedAsync(parentCode, detailComplete, scanned); }
+            catch (Exception ex) { Log.Warning(ex, "PmisScheduledSyncJob: lỗi ghi mốc quét cha {PmisCode}.", parentCode); }
+        }
+
+        // ===== PHA 1: quét cha =====
+        // Chế độ tăng dần: KHÔNG gọi chi tiết/QR ở đây và ghi mốc quét cho MỌI cha đã quét xong (kể cả còn thiết bị chờ chi tiết hoặc có lỗi — cha đó
+        // được đánh dấu DETAIL_SYNCED=0 để pha 2 bổ sung/thử lại). TRƯỚC ĐÂY chỉ ghi mốc khi ngân sách chi tiết chưa cạn → ngân sách luôn cạn ở đúng
+        // nhóm cha đầu danh sách, không cha nào được đánh dấu, mỗi lượt quét lại y hệt nhóm đầu, các trạm còn lại không bao giờ được tới.
+        var allParentCodes = allParents.Select(p => p.PmisCode).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var enrichmentPending = opt.Enabled && (await _stateRepository.GetAllAsync("PARENT_SCAN"))
+            .Any(kv => kv.Value.LastScanAt != null && !kv.Value.DetailSynced && allParentCodes.Contains(kv.Key)); // chỉ tính cha còn tồn tại
+        var maxParents = opt.Enabled ? int.MaxValue : MaxParentsPerRunEquipment; // chế độ tăng dần: ngân sách thời gian là giới hạn, không cần trần số cha
+
+        foreach (var parent in parents)
+        {
+            parentsVisited++;
+            var (parentOk, detailComplete, interrupted) = await ScanParentAsync(parent, fetchDetail: !opt.Enabled);
+
+            // Ghi nhận cha ĐẦU TIÊN mà ngân sách gọi PMIS thật cạn (chỉ có nghĩa ở chế độ xoay vòng không gia tăng — nơi chi tiết gọi inline).
             if (budgetExhaustedAtParent == null && _executionService.EquipmentDetailBudgetExhausted)
                 budgetExhaustedAtParent = parent.PmisCode;
 
-            // Đồng bộ tăng dần: ghi mốc quét cha CHỈ khi cha này quét trọn vẹn không lỗi VÀ ngân sách enrich chưa
-            // cạn (cạn nghĩa là có thiết bị TBA chưa lấy đủ chi tiết → cha phải được quét lại sớm ở lượt sau).
-            if (opt.Enabled && parentOk && !_executionService.EquipmentDetailBudgetExhausted)
+            // Cha quét có lỗi (parentOk=false, không phải bị ngắt giờ): KHÔNG đẩy LAST_SCAN_AT — nếu không nó được tính là "đã quét" cho đợt quét đầy đủ và
+            // bị lùi ra sau toàn bộ hàng đợi; giữ nguyên để lượt sau thử lại sớm, chỉ đánh dấu DETAIL_SYNCED=0.
+            if (opt.Enabled && !interrupted)
             {
-                try { await _stateRepository.MarkParentScannedAsync(parent.PmisCode); }
-                catch (Exception ex) { Log.Warning(ex, "PmisScheduledSyncJob: lỗi ghi mốc quét cha {PmisCode}.", parent.PmisCode); }
+                await MarkParentAsync(parent.PmisCode, detailComplete, scanned: parentOk);
+                if (!detailComplete) enrichmentPending = true;
             }
 
             if (parentOk) lastCompletedParent = parent.PmisCode;
 
-            if (BudgetExceeded())
+            // Khi còn cha chờ bổ sung chi tiết, pha quét cha chỉ dùng ParentScanTimeShare ngân sách để chừa thời gian cho pha 2.
+            if (BudgetExceeded() || (opt.Enabled && enrichmentPending && _budget.ExceededFraction(opt.ParentScanTimeShare)))
             {
-                // Hành vi bình thường (không tăng warnings): lượt sau tiếp tục — chế độ tăng dần theo LAST_SCAN_AT cũ nhất,
-                // chế độ xoay vòng theo cursor. Ngân sách = tần suất − đệm (SyncRunBudget).
-                Log.Information("PmisScheduledSyncJob: Thiết bị đã quét {Visited}/{Total} cha trong {Minutes:0} phút (ngân sách thời gian), dừng — lượt sau tiếp tục.",
+                Log.Information("PmisScheduledSyncJob: Thiết bị đã quét {Visited}/{Total} cha trong {Minutes:0} phút (ngân sách thời gian), dừng pha quét cha — lượt sau tiếp tục.",
                     parentsVisited, parents.Count, _budget.Elapsed.TotalMinutes);
                 timeBudgetCursor = lastCompletedParent ?? config.SyncCursor;
                 break;
             }
 
-            if (parentsVisited >= MaxParentsPerRunEquipment)
+            if (parentsVisited >= maxParents)
             {
-                Log.Warning("PmisScheduledSyncJob: Thiết bị đã thăm {Visited} cha (giới hạn an toàn {Max}), dừng lại dù danh sách cha có thể còn nữa — sẽ tiếp tục ở lượt sau.", parentsVisited, MaxParentsPerRunEquipment);
-                // Chế độ tăng dần: dừng ở trần số cha là bình thường (lượt sau tiếp tục theo LAST_SCAN_AT), không phải cảnh báo.
-                if (!opt.Enabled) warnings++;
+                Log.Warning("PmisScheduledSyncJob: Thiết bị đã thăm {Visited} cha (giới hạn an toàn {Max}), dừng lại dù danh sách cha có thể còn nữa — sẽ tiếp tục ở lượt sau.", parentsVisited, maxParents);
+                warnings++;
                 safetyCapAtParent = parent.PmisCode;
                 break;
             }
         }
+
+        // ===== PHA 2: bổ sung chi tiết/QR (chỉ chế độ tăng dần) =====
+        // Quét lại các cha có thiết bị chưa đủ chi tiết (DETAIL_SYNCED=0 trên PARENT_SCAN), cũ nhất trước, có gọi ChiTietThietBi/QR cho đúng
+        // các thiết bị còn thiếu (thiết bị không đổi + đã đủ chi tiết được bỏ qua nhờ hash). Dừng khi hết giờ hoặc hết trần số lần gọi chi tiết.
+        var enrichedParents = 0;
+        if (opt.Enabled && !BudgetExceeded())
+        {
+            var scanState = await _stateRepository.GetAllAsync("PARENT_SCAN");
+            foreach (var parent in PickEnrichmentParents(allParents, scanState))
+            {
+                if (BudgetExceeded() || _executionService.EquipmentDetailBudgetExhausted) break;
+
+                enrichedParents++;
+                var (parentOk, detailComplete, interrupted) = await ScanParentAsync(parent, fetchDetail: true);
+                if (interrupted) break;
+                await MarkParentAsync(parent.PmisCode, detailComplete, scanned: parentOk);
+            }
+            if (enrichedParents > 0)
+                Log.Information("PmisScheduledSyncJob: pha bổ sung chi tiết Thiết bị xử lý {Count} cha (đã dùng {Calls}).", enrichedParents, _executionService.EquipmentDetailBudgetExhausted ? "hết trần gọi chi tiết" : "chưa hết trần gọi chi tiết");
+        }
+
+        // Không quét cha nào và không bổ sung chi tiết cho cha nào: chế độ tăng dần đang rảnh — bình thường, không phải bất thường (xem RunIfDueAsync).
+        // allParents rỗng (EquipmentService không trả cha nào) là BẤT THƯỜNG — không được coi là "rảnh" để giữ cảnh báo "0 bản ghi".
+        if (opt.Enabled && allParents.Count > 0 && parents.Count == 0 && enrichedParents == 0) _incrementalIdle = true;
 
         // Ưu tiên cursor theo trần an toàn số-cha (nếu chạm — nghĩa là còn cha CHƯA thăm tới, quan trọng
         // hơn để không bỏ sót) hơn cursor theo ngân sách enrich (nếu chỉ ngân sách cạn nhưng đã thăm hết
@@ -784,4 +822,16 @@ public class PmisScheduledSyncJob : IJob
 
         return (total, success, failed, warnings, errors);
     }
+
+    /// <summary>Các cha cần bổ sung chi tiết/QR: đã từng quét (LAST_SCAN_AT có giá trị) nhưng DETAIL_SYNCED=0, quét lâu nhất trước (xoay vòng — cha lỗi
+    /// dai dẳng không chặn cha khác vì mỗi lần xử lý đều ghi lại LAST_SCAN_AT = bây giờ). Logic thuần để kiểm thử.</summary>
+    internal static List<SyncedInfrastructurePmisCode> PickEnrichmentParents(
+        List<SyncedInfrastructurePmisCode> all, IReadOnlyDictionary<string, PmisSyncStateRow> scanState) =>
+        all
+            .Select(p => (Parent: p, State: scanState.GetValueOrDefault(p.PmisCode)))
+            .Where(x => x.State is { LastScanAt: not null, DetailSynced: false })
+            .OrderBy(x => x.State!.LastScanAt)
+            .ThenBy(x => x.Parent.PmisCode, StringComparer.Ordinal)
+            .Select(x => x.Parent)
+            .ToList();
 }
