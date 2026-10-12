@@ -76,9 +76,9 @@
                 display: block;
                 color: #374151;
               ">Trạm / đường dây</label>
-            <p-select [options]="infrastructures()" [ngModel]="searchInfrastructureId()"
+            <p-select [options]="infrastructures()" [ngModel]="searchInfrastructureId() || null"
               (ngModelChange)="searchInfrastructureId.set($event || ''); onSearch()" optionLabel="name" optionValue="id"
-              placeholder="-- Chọn trạm/đường dây --" [filter]="true"
+              placeholder="-- Chọn trạm/đường dây --" [filter]="true" [showClear]="true"
               (onShow)="loadSearchInfrastructuresOnDemand()" [style]="{
                 width: '100%',
                 height: '38px',
@@ -99,9 +99,9 @@
                 display: block;
                 color: #374151;
               ">Loại thiết bị</label>
-            <p-select [options]="equipmentTypes()" [ngModel]="searchEquipmentTypeId()"
+            <p-select [options]="equipmentTypes()" [ngModel]="searchEquipmentTypeId() || null"
               (ngModelChange)="searchEquipmentTypeId.set($event || ''); onSearch()" optionLabel="name" optionValue="id"
-              placeholder="-- Chọn loại thiết bị --" [filter]="true"
+              placeholder="-- Chọn loại thiết bị --" [filter]="true" [showClear]="true"
               (onShow)="loadEquipmentTypesOnDemand()" [style]="{
                 width: '100%',
                 height: '38px',
@@ -125,8 +125,8 @@
             <p-select [options]="[
                 { label: 'Hoạt động', value: '1' },
                 { label: 'Ngừng hoạt động', value: '0' }
-              ]" [ngModel]="searchStatus()" (ngModelChange)="searchStatus.set($event || ''); onSearch()"
-              optionLabel="label" optionValue="value" placeholder="-- Chọn trạng thái --" [style]="{
+              ]" [ngModel]="searchStatus() || null" (ngModelChange)="searchStatus.set($event || ''); onSearch()"
+              optionLabel="label" optionValue="value" placeholder="-- Chọn trạng thái --" [showClear]="true" [style]="{
                 width: '100%',
                 height: '38px',
                 'line-height': '24px',

@@ -169,6 +169,11 @@
           optionValue="id"
           [filter]="true"
           filterBy="name,code"
+          (onFilter)="onEquipmentFilter($event)"
+          [lazy]="true"
+          [virtualScroll]="true"
+          [virtualScrollItemSize]="36"
+          (onLazyLoad)="onEquipmentLazyLoad($event)"
           display="comma"
           [maxSelectedLabels]="2"
           selectedItemsLabel="{0} thiết bị đã chọn"
@@ -179,8 +184,15 @@
           styleClass="w-full"
         >
           <ng-template #item let-item>
-            <span>{{ item.name }}</span>
-            <small *ngIf="item.code"> ({{ item.code }})</small>
+            <ng-container *ngIf="item">
+              <span>{{ item.name }}</span>
+              <small *ngIf="item.code"> ({{ item.code }})</small>
+            </ng-container>
+          </ng-template>
+          <ng-template #loader>
+            <div class="equipment-option-loading-row">
+              <i class="pi pi-spin pi-spinner"></i>
+            </div>
           </ng-template>
         </p-multiSelect>
         <p class="step-note">Chỉ chọn được thiết bị thuộc Trạm/đường dây đã chọn của hồ sơ này. 1 tài liệu có thể gắn nhiều thiết bị.</p>

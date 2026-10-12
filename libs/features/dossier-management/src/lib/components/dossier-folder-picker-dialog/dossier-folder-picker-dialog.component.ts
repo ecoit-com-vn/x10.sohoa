@@ -89,10 +89,16 @@ export class DossierFolderPickerDialogComponent {
   loadingDocTypes = signal(false);
   readonly selectedDocumentTypeId = computed(() => this.documentTypeIdSignal() ?? '');
 
-  /** Thiết bị để phân loại tài liệu — chỉ chọn được thiết bị thuộc Trạm/đường dây đã chọn của hồ sơ. */
-  equipmentOptions = signal<{ id: string; code: string; name: string }[]>([]);
+  /** Thiết bị để phân loại tài liệu — chỉ chọn được thiết bị thuộc Trạm/đường dây đã chọn của hồ sơ.
+   * Dùng virtual scroll + lazy load (xem DossierDirectUploadDialogComponent — cùng khuôn) thay vì tải
+   * hết 1 lần, vì danh sách có thể rất lớn. */
+  equipmentOptions = signal<({ id: string; code: string; name: string } | undefined)[]>([]);
+  equipmentTotalCount = signal(0);
   loadingEquipments = signal(false);
   selectedEquipmentIds = signal<string[]>([]);
+  private readonly EQUIPMENT_PAGE_SIZE = 50;
+  private equipmentLoadedPages = new Set<number>();
+  private equipmentFilterKeyword = '';
 
   ocrMode: OcrMode = 'OcrAndExtract';
 
@@ -142,25 +148,65 @@ export class DossierFolderPickerDialogComponent {
   }
 
   private loadEquipments(): void {
+    this.equipmentOptions.set([]);
+    this.equipmentTotalCount.set(0);
+    this.equipmentLoadedPages.clear();
+    this.equipmentFilterKeyword = '';
     if (!this.infrastructureIds?.length) {
-      this.equipmentOptions.set([]);
       return;
     }
+    this.fetchEquipmentPage(1);
+  }
+
+  private fetchEquipmentPage(page: number): void {
+    if (!this.infrastructureIds?.length || this.equipmentLoadedPages.has(page)) return;
+    this.equipmentLoadedPages.add(page);
     this.loadingEquipments.set(true);
     this.dossierManagementService
-      .getEquipmentLookup({ infrastructureIds: this.infrastructureIds, pageSize: 200 })
+      .getEquipmentLookup({
+        infrastructureIds: this.infrastructureIds,
+        keyword: this.equipmentFilterKeyword || undefined,
+        page,
+        pageSize: this.EQUIPMENT_PAGE_SIZE,
+      })
       .pipe(finalize(() => this.loadingEquipments.set(false)))
       .subscribe({
         next: (res: any) => {
-          const items = res?.items ?? res ?? [];
-          this.equipmentOptions.set(
-            items.map((eq: any) => ({ id: eq.id, code: eq.code, name: eq.name }))
-          );
+          const items = (res?.items ?? []).map((eq: any) => ({ id: eq.id, code: eq.code, name: eq.name }));
+          const total = res?.totalCount ?? items.length;
+          const next = this.equipmentOptions().length === total
+            ? this.equipmentOptions().slice()
+            : new Array(total);
+          const offset = (page - 1) * this.EQUIPMENT_PAGE_SIZE;
+          for (let i = 0; i < items.length; i++) {
+            next[offset + i] = items[i];
+          }
+          this.equipmentTotalCount.set(total);
+          this.equipmentOptions.set(next);
         },
         error: () => {
-          this.equipmentOptions.set([]);
+          this.equipmentLoadedPages.delete(page);
         },
       });
+  }
+
+  /** Cuộn tới vùng [first, last) chưa tải — tải (các) trang tương ứng. */
+  onEquipmentLazyLoad(event: { first: number; last: number }): void {
+    const firstPage = Math.floor(event.first / this.EQUIPMENT_PAGE_SIZE) + 1;
+    const lastPage = Math.floor(Math.max(event.last - 1, 0) / this.EQUIPMENT_PAGE_SIZE) + 1;
+    this.fetchEquipmentPage(firstPage);
+    if (lastPage !== firstPage) {
+      this.fetchEquipmentPage(lastPage);
+    }
+  }
+
+  /** Gõ tìm kiếm trong select — gọi lại API theo từ khoá thay vì lọc client-side trên dữ liệu đã tải. */
+  onEquipmentFilter(event: { filter: string }): void {
+    this.equipmentFilterKeyword = event.filter?.trim() ?? '';
+    this.equipmentOptions.set([]);
+    this.equipmentTotalCount.set(0);
+    this.equipmentLoadedPages.clear();
+    this.fetchEquipmentPage(1);
   }
 
   close(): void {
