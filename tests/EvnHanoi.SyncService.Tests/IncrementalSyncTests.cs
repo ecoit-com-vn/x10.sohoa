@@ -130,6 +130,55 @@ public class OrderParentsForScanTests
     }
 
     [Fact]
+    public void NeverScanned_SubstationBeforeLine_EvenWhenLineCodeSortsFirst()
+    {
+        // "PD-" < "PD." < "PD0" theo thứ tự ordinal: mã đường dây PD-0022D00-DZ… đứng trước mã trạm PD0600_TBA_… nếu chỉ sắp theo mã.
+        var all = new List<SyncedInfrastructurePmisCode> { P("PD-0022D00-DZ1", 2), P("PD0600_TBA_1", 1), P("PD.237971", 1), P("PD-0022D00-DZ0", 2) };
+
+        var result = PmisScheduledSyncJob.OrderParentsForScan(all, Rows(), Rows(), Rows(), null, Rescan, Now)
+            .Select(x => x.PmisCode).ToList();
+
+        Assert.Equal(new[] { "PD.237971", "PD0600_TBA_1", "PD-0022D00-DZ0", "PD-0022D00-DZ1" }, result);
+    }
+
+    [Fact]
+    public void Priority_StillBeatsType_NeverScannedLineBeforeDueSubstation()
+    {
+        var all = new List<SyncedInfrastructurePmisCode> { P("TBA_DUE", 1), P("LINE_NEVER", 2) };
+        var scan = Rows(new PmisSyncStateRow { PmisCode = "TBA_DUE", LastScanAt = Now.AddHours(-30) });
+
+        var result = PmisScheduledSyncJob.OrderParentsForScan(all, scan, Rows(), Rows(), null, Rescan, Now)
+            .Select(x => x.PmisCode).ToList();
+
+        Assert.Equal(new[] { "LINE_NEVER", "TBA_DUE" }, result);
+    }
+
+    [Fact]
+    public void DueRescan_StaysFairByLastScan_LineNotStarvedBySubstation()
+    {
+        var all = new List<SyncedInfrastructurePmisCode> { P("TBA_NEWER", 1), P("LINE_OLDER", 2) };
+        var scan = Rows(
+            new PmisSyncStateRow { PmisCode = "TBA_NEWER", LastScanAt = Now.AddHours(-26) },
+            new PmisSyncStateRow { PmisCode = "LINE_OLDER", LastScanAt = Now.AddHours(-40) });
+
+        var result = PmisScheduledSyncJob.OrderParentsForScan(all, scan, Rows(), Rows(), null, Rescan, Now)
+            .Select(x => x.PmisCode).ToList();
+
+        Assert.Equal(new[] { "LINE_OLDER", "TBA_NEWER" }, result);
+    }
+
+    [Fact]
+    public void Rotation_KeepsSubstationsBeforeLines_AfterWrappingAtCursor()
+    {
+        var all = new List<SyncedInfrastructurePmisCode> { P("PD-0022D00-DZ1", 2), P("PD.2", 1), P("PD0600_TBA_3", 1), P("PD0600_TBA_4", 1) };
+
+        // Cursor đứng giữa nhóm Trạm: xoay phải bắt đầu SAU cursor nhưng Đường dây vẫn đứng sau MỌI Trạm.
+        var result = PmisScheduledSyncJob.OrderParentsForRotation(all, "PD0600_TBA_3").Select(x => x.PmisCode).ToList();
+
+        Assert.Equal(new[] { "PD0600_TBA_4", "PD.2", "PD0600_TBA_3", "PD-0022D00-DZ1" }, result);
+    }
+
+    [Fact]
     public void LineParent_UsesLineState_NotSubstationState()
     {
         var all = new List<SyncedInfrastructurePmisCode> { P("L1", 2) };
