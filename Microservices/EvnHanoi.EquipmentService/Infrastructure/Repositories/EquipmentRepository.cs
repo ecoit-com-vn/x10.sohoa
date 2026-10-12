@@ -1928,6 +1928,58 @@ StatusTransition,
                     return skipped;
                 }
 
+                if (oldInfraType == 2 && newInfraType == 1)
+                {
+                    // Đường dây → Trạm: PMIS xác nhận thiết bị thuộc Trạm (danh sách thiết bị của Trạm / ChiTietThietBi.maTBA); việc nó đang ở đường dây
+                    // chỉ do lần quét đường dây đến trước (danh sách thiết bị đường dây không có maTBA). Đây KHÔNG phải "chuyển TBA" thật nên chuyển TẠI CHỖ:
+                    // giữ nguyên Id (tài liệu, thông số kỹ thuật, QR đi theo), không tạo bản sao, không sinh bản "hờ" StatusTransition=0.
+                    var reassignHasQr = !string.IsNullOrEmpty(qrCodeBase64);
+                    // Không tra được đơn vị mới (mã đơn vị rỗng/chưa có trong PMIS_UNIT_CODE_MAPPING) thì GIỮ đơn vị đang lưu — không xoá trắng chỉ vì thiếu ánh xạ.
+                    var reassignUnitId = unitId ?? existing.UnitId;
+                    var reassignSql = $@"UPDATE EQUIPMENTS
+                        SET Name = :Name, Code = :Code, SerialNumber = :SerialNumber,
+                            INFRASTRUCTURE_ID = :NewInfrastructureId, MANUFACTURE_YEAR = :ManufactureYear,
+                            UnitId = :UnitId, EquipmentTypeId = :EquipmentTypeId, {(reassignHasQr ? "QR_CODE = :QrCode," : string.Empty)}
+                            LAST_SYNCED_FROM_PMIS_AT = SYSTIMESTAMP,
+                            ModifiedBy = :ModifiedBy, ModifiedDate = SYSTIMESTAMP
+                        WHERE Id = :Id AND INFRASTRUCTURE_ID = :OldInfrastructureId AND StatusTransition IS NULL AND IsDeleted = 0";
+                    var reassignParameters = new DynamicParameters(new
+                    {
+                        Id = existing.Id,
+                        Name = name,
+                        Code = code,
+                        SerialNumber = serialNumber,
+                        NewInfrastructureId = infrastructureId,
+                        OldInfrastructureId = existing.InfrastructureId,
+                        ManufactureYear = manufactureYear,
+                        UnitId = reassignUnitId,
+                        EquipmentTypeId = equipmentTypeId,
+                        ModifiedBy = "PMIS_SYNC"
+                    });
+                    if (reassignHasQr)
+                        reassignParameters.Add("QrCode", EvnHanoi.Infrastructure.Database.OracleClob.Param(qrCodeBase64));
+
+                    int reassigned;
+                    try
+                    {
+                        reassigned = await _connection.ExecuteAsync(reassignSql, reassignParameters);
+                    }
+                    catch (Exception ex) when (ex.Message.Contains("ORA-00001", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Trạm đích đã có thiết bị sống khác cùng Code — xung đột thật, không tự đoán merge (xem FailDuplicateActiveCode).
+                        return FailDuplicateActiveCode(ex, "chuyển thiết bị về trạm", code, pmisCode);
+                    }
+
+                    // 0 dòng: thiết bị vừa bị tiến trình khác chuyển/xoá (CAS theo INFRASTRUCTURE_ID cũ) — cùng ý nghĩa guard ở CloneForInfrastructureTransferAsync.
+                    if (reassigned == 0)
+                        return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
+                            EvnHanoi.Infrastructure.Pmis.PmisSyncErrorCodes.TransferConflict,
+                            "Không thể chuyển thiết bị về trạm — thiết bị vừa được thay đổi bởi 1 thao tác khác, vui lòng đồng bộ lại.");
+
+                    return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Reassigned(
+                        Guid.Parse(existing.Id!), Guid.Parse(equipmentTypeId), existing.UnitId, reassignUnitId);
+                }
+
                 var oldId = Guid.Parse(existing.Id!);
                 var replacementId = Guid.Parse(EvnHanoi.Infrastructure.Database.UuidHelper.NewUuid());
 

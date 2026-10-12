@@ -71,6 +71,18 @@ public class EquipmentPmisUpsertResult
     /// các bước thông số kỹ thuật/biểu mẫu để dữ liệu của đường dây không ghi đè dữ liệu của TBA.</summary>
     public bool SkippedOwnedByTba { get; set; }
 
+    /// <summary>true nếu thiết bị đang ở Đường dây (do lần quét đường dây đến trước) nhưng PMIS liệt kê nó ở Trạm — đã CHUYỂN TẠI CHỖ sang Trạm
+    /// (cùng <see cref="EquipmentId"/>, KHÔNG tạo bản sao/bản "hờ", tài liệu/thông số đi theo vì Id không đổi). Khác <see cref="WasTransferred"/>
+    /// (đổi chủ thật giữa 2 Trạm/2 Đường dây, cần lịch sử). Controller chỉ gửi lại bản ghi lên Elasticsearch (không phát sự kiện thông báo chuyển TBA — đây là sửa dữ liệu).</summary>
+    public bool WasReassigned { get; set; }
+
+    public static EquipmentPmisUpsertResult Reassigned(Guid id, Guid equipmentTypeId, long? oldUnitId, long? newUnitId) =>
+        new()
+        {
+            Success = true, EquipmentId = id, WasCreated = false, HasChanged = true, EquipmentTypeId = equipmentTypeId,
+            WasReassigned = true, OldUnitId = oldUnitId, NewUnitId = newUnitId
+        };
+
     public static EquipmentPmisUpsertResult Ok(Guid id, bool wasCreated, bool hasChanged, Guid equipmentTypeId) =>
         new() { Success = true, EquipmentId = id, WasCreated = wasCreated, HasChanged = hasChanged, EquipmentTypeId = equipmentTypeId };
 
