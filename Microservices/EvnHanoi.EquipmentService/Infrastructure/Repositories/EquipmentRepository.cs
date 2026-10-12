@@ -1845,6 +1845,7 @@ StatusTransition,
             if (effectiveGridTypeId == null)
             {
                 return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
+                    EvnHanoi.Infrastructure.Pmis.PmisSyncErrorCodes.MissingVoltage,
                     "Không xác định được cấp điện áp của thiết bị nên chưa thể tự động tạo/ánh xạ loại thiết bị (capDienAp trống hoặc không đọc được).");
             }
 
@@ -1854,6 +1855,7 @@ StatusTransition,
             if (string.IsNullOrWhiteSpace(equipmentTypeCode))
             {
                 return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
+                    EvnHanoi.Infrastructure.Pmis.PmisSyncErrorCodes.MissingTypeCode,
                     "PMIS không trả về mã loại thiết bị (maLoaiTB) cho thiết bị này nên chưa thể tự động tạo/ánh xạ loại thiết bị.");
             }
 
@@ -1959,6 +1961,7 @@ StatusTransition,
                     // "AND StatusTransition IS NULL" trong CloneForInfrastructureTransferAsync) — không phải
                     // lỗi hệ thống, chỉ báo lỗi thân thiện thay vì để exception kỹ thuật lộ ra ngoài.
                     return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
+                        EvnHanoi.Infrastructure.Pmis.PmisSyncErrorCodes.TransferConflict,
                         "Không thể tự động chuyển thiết bị sang trạm/đường dây mới — thiết bị vừa được chuyển bởi 1 thao tác khác, vui lòng đồng bộ lại.");
                 }
                 catch (Exception ex) when (ex.Message.Contains("ORA-00001", StringComparison.OrdinalIgnoreCase))
@@ -2050,6 +2053,7 @@ StatusTransition,
         if (infraLookupFailed)
         {
             return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(
+                EvnHanoi.Infrastructure.Pmis.PmisSyncErrorCodes.ParentNotFound,
                 $"Không tìm thấy Trạm/Đường dây cha (mã PMIS '{parentPmisCode}') nên chưa thể lưu thiết bị — tránh tạo bản ghi không thuộc trạm/đường dây nào. Trạm/Đường dây có thể chưa đồng bộ tới, hoặc mã PMIS lệch định dạng — thử lại ở lượt sau.");
         }
 
@@ -2099,7 +2103,7 @@ StatusTransition,
         var message = ex.Message.Contains("UX_EQUIPMENTS_ACTIVE_PMIS_CODE", StringComparison.OrdinalIgnoreCase)
             ? $"Không thể {action}: mã PMIS '{pmisCode}' đã được dùng cho 1 thiết bị khác đang hoạt động — có thể do 2 lượt đồng bộ chạy đồng thời hoặc PMIS trả trùng mã, vui lòng đồng bộ lại."
             : $"Không thể {action}: mã '{code}' đã được dùng cho 1 thiết bị khác đang hoạt động tại đúng trạm/đường dây này — có thể PMIS trả trùng mã thiết bị, vui lòng kiểm tra lại trên PMIS.";
-        return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(message);
+        return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(EvnHanoi.Infrastructure.Pmis.PmisSyncErrorCodes.DuplicateActiveCode, message);
     }
 
     public async Task<bool> SetFormValuesIfEmptyAsync(Guid equipmentId, string formValuesJson)

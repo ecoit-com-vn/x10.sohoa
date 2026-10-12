@@ -27,6 +27,10 @@ public interface IPmisClient
     /// (không chặn phần còn lại của đồng bộ). Field maQRCode ở các API khác chỉ là URL, không phải base64.</summary>
     Task<byte[]?> GetDeviceQrImageBytesAsync(string idPmis);
 
+    /// <summary>Như <see cref="GetDeviceQrImageBytesAsync"/> nhưng phân biệt rõ kết quả: có ảnh / PMIS báo không có ảnh (404, kết quả cuối) /
+    /// lỗi tạm thời / API chưa cấu hình. Không throw với lỗi HTTP.</summary>
+    Task<QrImageResult> GetDeviceQrImageAsync(string idPmis);
+
     /// <summary>Tải file nhị phân tài liệu theo MÃ tài liệu qua API cấu hình DOCUMENT_FILE_DOWNLOAD (URL, phương thức, timeout,
     /// header lấy từ PMIS_API_ENDPOINT_CONFIG; tham số maTaiLieu do code thêm vào query). ĐỌC LUỒNG: nội dung vào bộ nhớ (≤ ngưỡng)
     /// hoặc file tạm, kèm SHA-256 — không nạp cả file vào RAM. Không throw: mọi lỗi trả về dưới dạng

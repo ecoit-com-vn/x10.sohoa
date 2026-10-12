@@ -243,7 +243,7 @@ public class ExecutorIncrementalTests
 
         Assert.Equal(new[] { "TB1" }, inc.UnchangedCodes);
         _equipment.Verify(e => e.UpsertEquipmentAsync(It.IsAny<List<UpsertEquipmentFromPmisRequest>>()), Times.Never);
-        _pmis.Verify(p => p.GetDeviceQrImageBytesAsync(It.IsAny<string>()), Times.Never);
+        _pmis.Verify(p => p.GetDeviceQrImageAsync(It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -251,7 +251,7 @@ public class ExecutorIncrementalTests
     {
         var item = Json(new PmisLineDeviceDto { MaTB = "TB1", TenTB = "May 1", MaQRCode = "http://qr/1" });
         var inc = Ctx(new PmisSyncStateRow { PmisCode = "TB1", ContentHash = PmisRecordHasher.Compute(item), HashVersion = 1, DetailSynced = false });
-        _pmis.Setup(p => p.GetDeviceQrImageBytesAsync("TB1")).ReturnsAsync(new byte[] { 1, 2, 3 });
+        _pmis.Setup(p => p.GetDeviceQrImageAsync("TB1")).ReturnsAsync(new QrImageResult(QrImageOutcome.Ok, new byte[] { 1, 2, 3 }));
         _equipment.Setup(e => e.UpsertEquipmentAsync(It.IsAny<List<UpsertEquipmentFromPmisRequest>>()))
             .ReturnsAsync((List<UpsertEquipmentFromPmisRequest> reqs) =>
                 reqs.Select(r => new UpsertEquipmentFromPmisResult { PmisCode = r.PmisCode, Success = true }).ToList());
@@ -271,7 +271,7 @@ public class ExecutorIncrementalTests
     {
         var item = Json(new PmisLineDeviceDto { MaTB = "TB1", TenTB = "May 1", MaQRCode = "http://qr/1" });
         var inc = Ctx();
-        _pmis.Setup(p => p.GetDeviceQrImageBytesAsync("TB1")).ThrowsAsync(new HttpRequestException("timeout"));
+        _pmis.Setup(p => p.GetDeviceQrImageAsync("TB1")).ThrowsAsync(new HttpRequestException("timeout"));
         _equipment.Setup(e => e.UpsertEquipmentAsync(It.IsAny<List<UpsertEquipmentFromPmisRequest>>()))
             .ReturnsAsync((List<UpsertEquipmentFromPmisRequest> reqs) =>
                 reqs.Select(r => new UpsertEquipmentFromPmisResult { PmisCode = r.PmisCode, Success = true }).ToList());
@@ -283,6 +283,67 @@ public class ExecutorIncrementalTests
         var saved = Assert.Single(inc.ToSave);
         Assert.False(saved.DetailSynced);  // lượt sau (hoặc lượt quét đầy đủ) sẽ lấy lại QR
     }
+
+    [Fact]
+    public async Task Equipment_QrNotFound404_IsTreatedAsFinal_DetailSynced()
+    {
+        var item = Json(new PmisLineDeviceDto { MaTB = "TB1", TenTB = "May 1", MaQRCode = "http://qr/1" });
+        var inc = Ctx();
+        _pmis.Setup(p => p.GetDeviceQrImageAsync("TB1")).ReturnsAsync(new QrImageResult(QrImageOutcome.NotFound));
+        _equipment.Setup(e => e.UpsertEquipmentAsync(It.IsAny<List<UpsertEquipmentFromPmisRequest>>()))
+            .ReturnsAsync((List<UpsertEquipmentFromPmisRequest> reqs) =>
+                reqs.Select(r => new UpsertEquipmentFromPmisResult { PmisCode = r.PmisCode, Success = true }).ToList());
+        _pmis.Setup(p => p.GetLineDocumentsAsync(It.IsAny<PmisLineDocumentSearchRequest>()))
+            .ReturnsAsync(new PmisListResponse<PmisLineDocumentDto>());
+
+        await Sut().SyncEquipmentAsync("h1", new[] { item }, "D1", inc);
+
+        var saved = Assert.Single(inc.ToSave);
+        Assert.True(saved.DetailSynced);   // 404 = PMIS không có ảnh QR → kết quả cuối, không bị gọi lại mỗi lượt
+    }
+
+    [Fact]
+    public async Task Equipment_QrTransientError_StaysDetailNotSynced()
+    {
+        var item = Json(new PmisLineDeviceDto { MaTB = "TB1", TenTB = "May 1", MaQRCode = "http://qr/1" });
+        var inc = Ctx();
+        _pmis.Setup(p => p.GetDeviceQrImageAsync("TB1")).ReturnsAsync(new QrImageResult(QrImageOutcome.Error, null, "HTTP 503"));
+        _equipment.Setup(e => e.UpsertEquipmentAsync(It.IsAny<List<UpsertEquipmentFromPmisRequest>>()))
+            .ReturnsAsync((List<UpsertEquipmentFromPmisRequest> reqs) =>
+                reqs.Select(r => new UpsertEquipmentFromPmisResult { PmisCode = r.PmisCode, Success = true }).ToList());
+        _pmis.Setup(p => p.GetLineDocumentsAsync(It.IsAny<PmisLineDocumentSearchRequest>()))
+            .ReturnsAsync(new PmisListResponse<PmisLineDocumentDto>());
+
+        await Sut().SyncEquipmentAsync("h1", new[] { item }, "D1", inc);
+
+        Assert.False(Assert.Single(inc.ToSave).DetailSynced);
+    }
+}
+
+public class QrImageResultTests
+{
+    [Fact]
+    public void FromException_404_IsNotFound_Final()
+    {
+        var r = QrImageResult.FromException(new HttpRequestException("nf", null, System.Net.HttpStatusCode.NotFound));
+        Assert.Equal(QrImageOutcome.NotFound, r.Outcome);
+        Assert.True(r.IsFinal);
+    }
+
+    [Theory]
+    [InlineData(System.Net.HttpStatusCode.InternalServerError)]
+    [InlineData(System.Net.HttpStatusCode.BadGateway)]
+    [InlineData(System.Net.HttpStatusCode.TooManyRequests)]
+    public void FromException_Transient_IsError_NotFinal(System.Net.HttpStatusCode status)
+    {
+        var r = QrImageResult.FromException(new HttpRequestException("x", null, status));
+        Assert.Equal(QrImageOutcome.Error, r.Outcome);
+        Assert.False(r.IsFinal);
+    }
+
+    [Fact]
+    public void FromException_NoStatus_IsError() =>
+        Assert.Equal(QrImageOutcome.Error, QrImageResult.FromException(new HttpRequestException("timeout")).Outcome);
 }
 
 public class SyncRunBudgetTests

@@ -43,6 +43,10 @@ public class EquipmentUpsertPrefetch
 public class EquipmentPmisUpsertResult
 {
     public bool Success { get; set; }
+
+    /// <summary>Mã lỗi ổn định (xem <see cref="EvnHanoi.Infrastructure.Pmis.PmisSyncErrorCodes"/>) khi <see cref="Success"/>=false — SyncService dùng để
+    /// ghi nhận/cách ly thay vì phân tích chuỗi thông báo.</summary>
+    public string? ErrorCode { get; set; }
     public Guid? EquipmentId { get; set; }
     public bool WasCreated { get; set; }
 
@@ -78,7 +82,10 @@ public class EquipmentPmisUpsertResult
         };
 
     public static EquipmentPmisUpsertResult Fail(string message) =>
-        new() { Success = false, ErrorMessage = message };
+        new() { Success = false, ErrorMessage = message, ErrorCode = EvnHanoi.Infrastructure.Pmis.PmisSyncErrorCodes.Unknown };
+
+    public static EquipmentPmisUpsertResult Fail(string errorCode, string message) =>
+        new() { Success = false, ErrorMessage = message, ErrorCode = errorCode };
 }
 
 /// <summary>Payload endpoint nội bộ POST /api/v1/infrastructure/internal/upsert-from-pmis (gọi bởi SyncService).</summary>
@@ -108,6 +115,8 @@ public class UpsertInfrastructureFromPmisRequest
 
 public class UpsertInfrastructureFromPmisResult
 {
+    /// <summary>Mã lỗi ổn định khi Success=false (xem PmisSyncErrorCodes).</summary>
+    public string? ErrorCode { get; set; }
     public string PmisCode { get; set; } = string.Empty;
     public bool Success { get; set; }
     public Guid? InfrastructureId { get; set; }
@@ -152,6 +161,8 @@ public class UpsertEquipmentFromPmisRequest
 
 public class UpsertEquipmentFromPmisResult
 {
+    /// <summary>Mã lỗi ổn định khi Success=false (xem PmisSyncErrorCodes).</summary>
+    public string? ErrorCode { get; set; }
     public string PmisCode { get; set; } = string.Empty;
     public bool Success { get; set; }
     public Guid? EquipmentId { get; set; }
@@ -243,6 +254,8 @@ public class AttachPmisDocumentFileRequest
 
 public class UpsertPmisDocumentResult
 {
+    /// <summary>Mã lỗi ổn định khi Success=false (xem PmisSyncErrorCodes).</summary>
+    public string? ErrorCode { get; set; }
     public string PmisDocumentCode { get; set; } = string.Empty;
     public bool Success { get; set; }
     public bool WasSkippedAsExisting { get; set; }
