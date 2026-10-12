@@ -13,7 +13,8 @@ public static class PmisSyncErrorCodes
     /// <summary>PMIS không trả mã loại thiết bị (maLoaiTB).</summary>
     public const string MissingTypeCode = "MISSING_TYPE_CODE";
 
-    /// <summary>Không tìm thấy Trạm/Đường dây cha của thiết bị (chưa đồng bộ tới hoặc mã lệch).</summary>
+    /// <summary>Không tìm thấy Trạm/Đường dây cha của thiết bị (chưa đồng bộ tới hoặc mã lệch). KHÔNG cách ly: hash nguồn của thiết bị không đổi khi
+    /// trạm cha được đồng bộ xong, nên cách ly sẽ chặn thử lại dù nguyên nhân đã hết.</summary>
     public const string ParentNotFound = "PARENT_NOT_FOUND";
 
     /// <summary>Mã PMIS (hoặc Code trong cùng trạm) đã được dùng cho 1 thiết bị khác đang hoạt động.</summary>
@@ -32,7 +33,7 @@ public static class PmisSyncErrorCodes
     public const string Unknown = "UNKNOWN";
 
     /// <summary>true nếu lỗi do dữ liệu nguồn và nên được CÁCH LY sau nhiều lần liên tiếp (không thử lại mỗi lượt).</summary>
-    public static bool IsQuarantinable(string? code) => code is MissingVoltage or MissingTypeCode or ParentNotFound or DuplicateActiveCode;
+    public static bool IsQuarantinable(string? code) => code is MissingVoltage or MissingTypeCode or DuplicateActiveCode;
 
     /// <summary>Chuẩn hoá mã (null/rỗng → UNKNOWN).</summary>
     public static string Normalize(string? code) => string.IsNullOrWhiteSpace(code) ? Unknown : code.Trim().ToUpperInvariant();

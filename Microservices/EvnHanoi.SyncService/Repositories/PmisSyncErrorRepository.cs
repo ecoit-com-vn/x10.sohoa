@@ -159,6 +159,6 @@ public class PmisSyncErrorRepository : IPmisSyncErrorRepository
         if (!string.IsNullOrWhiteSpace(kind)) { where += " AND ENTITY_KIND = :Kind"; p.Add("Kind", kind.Trim().ToUpperInvariant()); }
         if (!string.IsNullOrWhiteSpace(errorCode)) { where += " AND ERROR_CODE = :ErrorCode"; p.Add("ErrorCode", errorCode.Trim().ToUpperInvariant()); }
         if (!string.IsNullOrWhiteSpace(pmisCode)) { where += " AND PMIS_CODE = :PmisCode"; p.Add("PmisCode", pmisCode.Trim()); }
-        return await _connection.ExecuteAsync($"UPDATE PMIS_SYNC_ERROR SET STATE = 'OPEN', NEXT_RETRY_AT = NULL {where}", p);
+        return await _connection.ExecuteAsync($"UPDATE PMIS_SYNC_ERROR SET STATE = 'OPEN', NEXT_RETRY_AT = NULL, OCCURRENCES = 0 {where}", p);
     }
 }

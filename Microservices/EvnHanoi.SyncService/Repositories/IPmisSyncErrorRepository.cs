@@ -20,6 +20,6 @@ public interface IPmisSyncErrorRepository
 
     Task<(List<SyncErrorRow> Items, int Total)> ListAsync(string? kind, string? errorCode, string? state, string? keyword, int page, int pageSize);
 
-    /// <summary>Mở lại để thử lại ngay (STATE=OPEN, NEXT_RETRY_AT=NULL) cho các dòng khớp bộ lọc. Trả số dòng đã mở lại.</summary>
+    /// <summary>Mở lại để thử lại ngay (STATE=OPEN, NEXT_RETRY_AT=NULL, OCCURRENCES=0 để phải thất bại đủ QuarantineAfter lần nữa mới bị cách ly lại) cho các dòng khớp bộ lọc. Trả số dòng đã mở lại.</summary>
     Task<int> RetryAsync(string? kind, string? errorCode, string? pmisCode);
 }

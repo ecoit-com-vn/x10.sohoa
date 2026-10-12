@@ -453,7 +453,7 @@ public class SyncErrorStateTests
     [Theory]
     [InlineData(PmisSyncErrorCodes.MissingVoltage, true)]
     [InlineData(PmisSyncErrorCodes.MissingTypeCode, true)]
-    [InlineData(PmisSyncErrorCodes.ParentNotFound, true)]
+    [InlineData(PmisSyncErrorCodes.ParentNotFound, false)]
     [InlineData(PmisSyncErrorCodes.DuplicateActiveCode, true)]
     [InlineData(PmisSyncErrorCodes.TransferConflict, false)]
     [InlineData(PmisSyncErrorCodes.StorageError, false)]
