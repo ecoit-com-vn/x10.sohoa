@@ -180,6 +180,27 @@ public class InternalPmisSyncController : ControllerBase
                     continue;
                 }
 
+                if (upsertResult.WasReassigned)
+                {
+                    // Chuyển TẠI CHỖ đường dây → Trạm (xem EquipmentPmisUpsertResult.WasReassigned): Id không đổi nên tài liệu đi theo, không cần MoveDocuments.
+                    Log.Information("InternalPmisSyncController: thiết bị {PmisCode} chuyển từ đường dây về trạm theo PMIS (ưu tiên trạm).", item.PmisCode);
+
+                    // Worker EquipmentIndexWorker REPLACE nguyên document Elasticsearch — tải lại đầy đủ bản ghi rồi gửi (xem chú thích ở nhánh WasTransferred).
+                    try
+                    {
+                        var reassignedEquipment = await _equipmentRepository.GetByIdAsync(upsertResult.EquipmentId!.Value);
+                        if (reassignedEquipment != null)
+                            await _messageProducer.SendMessageAsync(reassignedEquipment, "equipment_sync_queue");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "InternalPmisSyncController: lỗi khi gửi message đồng bộ index cho thiết bị {PmisCode} sau khi chuyển về trạm.", item.PmisCode);
+                    }
+
+                    // KHÔNG phát EquipmentTbaTransferredEvent: đây là sửa dữ liệu (thiết bị vốn thuộc Trạm) chứ không phải chuyển TBA thật; phát sẽ gửi
+                    // thông báo "đã chuyển sang TBA mới" hàng loạt cho người dùng mỗi khi quét xong 1 trạm.
+                }
+
                 if (upsertResult.WasTransferred)
                 {
                     // Tài liệu đi theo thiết bị đang sống (job danh sách tài liệu chỉ lấy phần mới nên không còn tự đẩy lại để sửa owner).

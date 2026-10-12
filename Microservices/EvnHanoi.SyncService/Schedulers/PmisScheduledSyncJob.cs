@@ -143,6 +143,14 @@ public class PmisScheduledSyncJob : IJob
     /// sách mỗi lượt — nếu không, các cha ở cuối danh sách sẽ không bao giờ được ưu tiên ngân sách (xem
     /// PmisSyncExecutionService.MaxEquipmentDetailCallsPerRun). Cursor không còn tồn tại (cha đã bị xoá
     /// giữa 2 lượt) hoặc null/rỗng → giữ nguyên thứ tự gốc, bắt đầu lại từ đầu.</summary>
+    /// <summary>Thứ tự quét ở chế độ xoay vòng (không gia tăng): Trạm trước Đường dây — cùng nguyên tắc với <see cref="OrderParentsForScan"/>
+    /// (thứ tự gốc của EquipmentService chỉ theo mã PMIS nên đường dây "PD-…" đứng trước trạm "PD0…"). Xoay theo cursor TRONG danh sách đã
+    /// sắp (Trạm rồi Đường dây), sau đó gom ổn định theo loại để phần xoay không đưa Đường dây lên trước Trạm đứng trước cursor.</summary>
+    internal static List<SyncedInfrastructurePmisCode> OrderParentsForRotation(List<SyncedInfrastructurePmisCode> parents, string? cursor) =>
+        RotateParentsByCursor(parents.OrderBy(p => p.InfraTypeId).ThenBy(p => p.PmisCode, StringComparer.Ordinal).ToList(), cursor)
+            .OrderBy(p => p.InfraTypeId)
+            .ToList();
+
     private static List<SyncedInfrastructurePmisCode> RotateParentsByCursor(List<SyncedInfrastructurePmisCode> parents, string? cursor)
     {
         if (string.IsNullOrEmpty(cursor)) return parents;
@@ -224,7 +232,7 @@ public class PmisScheduledSyncJob : IJob
     /// <summary>Chọn và sắp xếp Trạm/Đường dây cha cần quét thiết bị con ở chế độ tăng dần. Ưu tiên: 0 = chưa từng
     /// quét; 1 = cha vừa được đẩy (mới/đổi) SAU lần quét gần nhất; 2 = đến hạn quét lại (hoặc chưa quét kể từ mốc bắt đầu đợt quét đầy đủ);
     /// cha còn "mới" (đã quét trong khoảng <paramref name="rescanInterval"/> và — khi đang quét đầy đủ — sau mốc
-    /// <paramref name="sweepStartUtc"/>) bị loại. Trong cùng mức ưu tiên:
+    /// <paramref name="sweepStartUtc"/>) bị loại. Trong cùng mức ưu tiên: mức 0/1 → Trạm trước Đường dây; rồi
     /// LAST_SCAN_AT cũ nhất trước, rồi theo mã PMIS để thứ tự ổn định.</summary>
     internal static List<SyncedInfrastructurePmisCode> OrderParentsForScan(
         List<SyncedInfrastructurePmisCode> all,
@@ -248,10 +256,15 @@ public class PmisScheduledSyncJob : IJob
             return (3, scan.LastScanAt.Value);
         }
 
+        // Cha chưa quét (0) / vừa đổi (1): Trạm (InfraTypeId=1) quét TRƯỚC Đường dây (2). PMIS liệt kê cùng 1 thiết bị ở cả danh sách Trạm lẫn
+        // danh sách Đường dây (danh sách đường dây không có maTBA) — thiết bị phải về đúng Trạm; quét Trạm trước thì lần quét Đường dây
+        // sau đó bỏ qua thiết bị đã thuộc Trạm (EquipmentRepository: SkippedOwnedByTba) thay vì gán nhầm rồi phải chuyển lại. Mức 2
+        // (đến hạn quét lại) giữ công bằng theo LAST_SCAN_AT để Đường dây không bị bỏ đói.
         return all
             .Select(p => (Parent: p, Rank: Rank(p)))
             .Where(x => x.Rank.Priority < 3)
             .OrderBy(x => x.Rank.Priority)
+            .ThenBy(x => x.Rank.Priority <= 1 ? x.Parent.InfraTypeId : 0)
             .ThenBy(x => x.Rank.LastScan)
             .ThenBy(x => x.Parent.PmisCode, StringComparer.Ordinal)
             .Select(x => x.Parent)
@@ -615,7 +628,7 @@ public class PmisScheduledSyncJob : IJob
         }
         else
         {
-            parents = RotateParentsByCursor(allParents, config.SyncCursor);
+            parents = OrderParentsForRotation(allParents, config.SyncCursor);
         }
         var substationDevicePageSize = await GetPageSizeAsync("SUBSTATION_DEVICE_LIST");
         var lineDevicePageSize = await GetPageSizeAsync("LINE_DEVICE_LIST");
