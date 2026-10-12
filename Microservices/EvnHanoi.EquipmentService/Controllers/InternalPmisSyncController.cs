@@ -111,6 +111,7 @@ public class InternalPmisSyncController : ControllerBase
                 {
                     PmisCode = item.PmisCode,
                     Success = false,
+                    ErrorCode = EvnHanoi.Infrastructure.Pmis.PmisSyncErrorCodes.Unknown,
                     ErrorMessage = ex.Message
                 });
             }
@@ -159,6 +160,7 @@ public class InternalPmisSyncController : ControllerBase
                     {
                         PmisCode = item.PmisCode,
                         Success = false,
+                        ErrorCode = upsertResult.ErrorCode,
                         ErrorMessage = upsertResult.ErrorMessage
                     });
                     continue;
@@ -293,6 +295,7 @@ public class InternalPmisSyncController : ControllerBase
                 {
                     PmisCode = item.PmisCode,
                     Success = false,
+                    ErrorCode = EvnHanoi.Infrastructure.Pmis.PmisSyncErrorCodes.Unknown,
                     ErrorMessage = ex.Message
                 });
             }
@@ -364,6 +367,7 @@ public class InternalPmisSyncController : ControllerBase
                     {
                         PmisDocumentCode = item.PmisDocumentCode,
                         Success = false,
+                        ErrorCode = EvnHanoi.Infrastructure.Pmis.PmisSyncErrorCodes.OwnerNotFound,
                         ErrorMessage = "Không tìm thấy đối tượng sở hữu tài liệu (Trạm/Đường dây/Thiết bị)."
                     });
                     continue;
@@ -418,6 +422,7 @@ public class InternalPmisSyncController : ControllerBase
                 {
                     PmisDocumentCode = item.PmisDocumentCode,
                     Success = false,
+                    ErrorCode = EvnHanoi.Infrastructure.Pmis.PmisSyncErrorCodes.Unknown,
                     ErrorMessage = ex.Message
                 });
             }

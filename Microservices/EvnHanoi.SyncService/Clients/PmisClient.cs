@@ -82,6 +82,30 @@ public class PmisClient : IPmisClient
         return await response.Content.ReadFromJsonAsync<PmisDeviceDetailDto>(JsonOptions);
     }
 
+    public async Task<QrImageResult> GetDeviceQrImageAsync(string idPmis)
+    {
+        try
+        {
+            using var response = await SendAsync("DEVICE_QR_IMAGE", new PmisDeviceQrImageRequest { IdPmis = idPmis });
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            return bytes.Length > 0
+                ? new QrImageResult(QrImageOutcome.Ok, bytes)
+                : new QrImageResult(QrImageOutcome.Error, null, "PMIS trả ảnh QR rỗng");
+        }
+        catch (PmisEndpointNotConfiguredException)
+        {
+            return new QrImageResult(QrImageOutcome.NotConfigured);
+        }
+        catch (Polly.CircuitBreaker.BrokenCircuitException ex)
+        {
+            return new QrImageResult(QrImageOutcome.Error, null, ex.Message);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+        {
+            return QrImageResult.FromException(ex);
+        }
+    }
+
     public async Task<byte[]?> GetDeviceQrImageBytesAsync(string idPmis)
     {
         try

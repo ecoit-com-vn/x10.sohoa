@@ -28,6 +28,8 @@ public class UpsertInfrastructureFromPmisRequest
 
 public class UpsertInfrastructureFromPmisResult
 {
+    /// <summary>Mã lỗi ổn định (EvnHanoi.Infrastructure.Pmis.PmisSyncErrorCodes) khi Success=false; null với EquipmentService bản cũ.</summary>
+    public string? ErrorCode { get; set; }
     public string PmisCode { get; set; } = string.Empty;
     public bool Success { get; set; }
     public Guid? InfrastructureId { get; set; }
@@ -63,6 +65,8 @@ public class UpsertEquipmentFromPmisRequest
 
 public class UpsertEquipmentFromPmisResult
 {
+    /// <summary>Mã lỗi ổn định (EvnHanoi.Infrastructure.Pmis.PmisSyncErrorCodes) khi Success=false; null với EquipmentService bản cũ.</summary>
+    public string? ErrorCode { get; set; }
     public string PmisCode { get; set; } = string.Empty;
     public bool Success { get; set; }
     public Guid? EquipmentId { get; set; }
@@ -120,6 +124,8 @@ public class AttachPmisDocumentFileRequest
 
 public class UpsertPmisDocumentResult
 {
+    /// <summary>Mã lỗi ổn định (EvnHanoi.Infrastructure.Pmis.PmisSyncErrorCodes) khi Success=false; null với EquipmentService bản cũ.</summary>
+    public string? ErrorCode { get; set; }
     public string PmisDocumentCode { get; set; } = string.Empty;
     public bool Success { get; set; }
     public bool WasSkippedAsExisting { get; set; }

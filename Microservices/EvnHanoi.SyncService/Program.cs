@@ -75,6 +75,9 @@ builder.Services.Configure<EvnHanoi.SyncService.Services.PmisDocumentSyncOptions
 builder.Services.Configure<EvnHanoi.SyncService.Services.SyncScheduleOptions>(
     builder.Configuration.GetSection(EvnHanoi.SyncService.Services.SyncScheduleOptions.SectionName));
 builder.Services.AddScoped<IPmisSyncStateRepository, PmisSyncStateRepository>();
+builder.Services.AddScoped<IPmisSyncErrorRepository, PmisSyncErrorRepository>();
+builder.Services.Configure<EvnHanoi.SyncService.Services.PmisSyncErrorOptions>(
+    builder.Configuration.GetSection(EvnHanoi.SyncService.Services.PmisSyncErrorOptions.SectionName));
 
 // RemoveAllResilienceHandlers(): builder.AddServiceDefaults() gắn "Standard Resilience Handler" (timeout
 // 10 phút/lần thử, 22 phút tổng — tinh chỉnh cho LLM/OCR) làm mặc định cho MỌI HttpClient, kể cả client

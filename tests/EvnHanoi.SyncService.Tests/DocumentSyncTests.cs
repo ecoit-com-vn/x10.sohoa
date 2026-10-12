@@ -1,4 +1,11 @@
+using System.Text.Json;
+using EvnHanoi.Infrastructure.Pmis;
+using EvnHanoi.SyncService.Clients;
+using EvnHanoi.SyncService.Models.Internal;
+using EvnHanoi.SyncService.Models.Pmis;
+using EvnHanoi.SyncService.Repositories;
 using EvnHanoi.SyncService.Services;
+using Moq;
 using Xunit;
 
 namespace EvnHanoi.SyncService.Tests;
@@ -285,5 +292,180 @@ public class EquipmentEnrichmentTests
         Assert.True(clock.ExceededFraction(0.5));
         Assert.False(clock.Exceeded);
         Assert.True(clock.ExceededFraction(0)); // 0% = luôn vượt
+    }
+}
+
+
+public class SyncErrorTrackingTests
+{
+    private readonly Mock<IEquipmentServiceClient> _equipment = new();
+    private readonly Mock<ISyncHistoryRepository> _history = new();
+    private readonly Mock<IPmisClient> _pmis = new();
+    private readonly Mock<IPmisEndpointConfigProvider> _endpoints = new();
+    private readonly Mock<IPmisSyncErrorRepository> _errors = new();
+
+    private PmisSyncExecutionService Sut(bool enabled = true) =>
+        new(_equipment.Object, _history.Object, _pmis.Object, _endpoints.Object, null, _errors.Object,
+            Microsoft.Extensions.Options.Options.Create(new PmisSyncErrorOptions { Enabled = enabled }));
+
+    private static JsonElement Json(object o) => JsonSerializer.SerializeToElement(o);
+
+    private static IncrementalContext Ctx() => new() { Existing = new Dictionary<string, PmisSyncStateRow>(StringComparer.OrdinalIgnoreCase), HashVersion = 1 };
+
+    private static JsonElement Line(string code, string name = "May") => Json(new PmisLineDeviceDto { MaTB = code, TenTB = name });
+
+    private void SetupUpsert(Func<UpsertEquipmentFromPmisRequest, UpsertEquipmentFromPmisResult> map)
+    {
+        _equipment.Setup(e => e.UpsertEquipmentAsync(It.IsAny<List<UpsertEquipmentFromPmisRequest>>()))
+            .ReturnsAsync((List<UpsertEquipmentFromPmisRequest> reqs) => reqs.Select(map).ToList());
+        _pmis.Setup(p => p.GetLineDocumentsAsync(It.IsAny<PmisLineDocumentSearchRequest>())).ReturnsAsync(new PmisListResponse<PmisLineDocumentDto>());
+    }
+
+    [Fact]
+    public async Task Quarantined_SameHash_NotYetDue_IsSkipped_WithoutUpsert()
+    {
+        var item = Line("TB1");
+        var hash = PmisRecordHasher.Compute(item);
+        _errors.Setup(e => e.GetUnresolvedAsync(SyncErrorKinds.Equipment, It.IsAny<IReadOnlyCollection<string>>()))
+            .ReturnsAsync(new Dictionary<string, SyncErrorState>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["TB1"] = new(PmisSyncErrorCodes.MissingVoltage, SyncErrorStates.Quarantined, DateTime.UtcNow.AddHours(5), hash)
+            });
+        var inc = Ctx();
+
+        await Sut().SyncEquipmentAsync("h1", new[] { item }, "D1", inc);
+
+        Assert.Equal(new[] { "TB1" }, inc.QuarantinedCodes);
+        Assert.Empty(inc.ToSave);
+        _equipment.Verify(e => e.UpsertEquipmentAsync(It.IsAny<List<UpsertEquipmentFromPmisRequest>>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Quarantined_ButHashChanged_IsPushedAgain()
+    {
+        var item = Line("TB1", "ten moi");
+        _errors.Setup(e => e.GetUnresolvedAsync(SyncErrorKinds.Equipment, It.IsAny<IReadOnlyCollection<string>>()))
+            .ReturnsAsync(new Dictionary<string, SyncErrorState>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["TB1"] = new(PmisSyncErrorCodes.MissingVoltage, SyncErrorStates.Quarantined, DateTime.UtcNow.AddHours(5), "HASH-CU")
+            });
+        SetupUpsert(r => new UpsertEquipmentFromPmisResult { PmisCode = r.PmisCode, Success = true });
+        var inc = Ctx();
+
+        await Sut().SyncEquipmentAsync("h1", new[] { item }, "D1", inc);
+
+        Assert.Empty(inc.QuarantinedCodes);
+        Assert.Single(inc.ToSave);
+        // thành công mà trước đó có lỗi → đánh dấu RESOLVED
+        _errors.Verify(e => e.ResolveAsync(SyncErrorKinds.Equipment, It.Is<IReadOnlyCollection<string>>(c => c.Contains("TB1"))), Times.Once);
+    }
+
+    [Fact]
+    public async Task Quarantined_DueForRetry_IsPushedAgain()
+    {
+        var item = Line("TB1");
+        _errors.Setup(e => e.GetUnresolvedAsync(SyncErrorKinds.Equipment, It.IsAny<IReadOnlyCollection<string>>()))
+            .ReturnsAsync(new Dictionary<string, SyncErrorState>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["TB1"] = new(PmisSyncErrorCodes.MissingVoltage, SyncErrorStates.Quarantined, DateTime.UtcNow.AddMinutes(-1), PmisRecordHasher.Compute(item))
+            });
+        SetupUpsert(r => new UpsertEquipmentFromPmisResult { PmisCode = r.PmisCode, Success = false, ErrorCode = PmisSyncErrorCodes.MissingVoltage, ErrorMessage = "van thieu" });
+        var inc = Ctx();
+
+        await Sut().SyncEquipmentAsync("h1", new[] { item }, "D1", inc);
+
+        Assert.Empty(inc.QuarantinedCodes);
+        _equipment.Verify(e => e.UpsertEquipmentAsync(It.IsAny<List<UpsertEquipmentFromPmisRequest>>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task FailedResult_IsRecorded_WithStableErrorCodeAndSourceHash()
+    {
+        var item = Line("TB1");
+        SetupUpsert(r => new UpsertEquipmentFromPmisResult { PmisCode = r.PmisCode, Success = false, ErrorCode = PmisSyncErrorCodes.MissingVoltage, ErrorMessage = "thieu cap dien ap" });
+        IReadOnlyCollection<SyncErrorRecord>? recorded = null;
+        _errors.Setup(e => e.RecordFailuresAsync(It.IsAny<IReadOnlyCollection<SyncErrorRecord>>(), It.IsAny<PmisSyncErrorOptions>()))
+            .Callback((IReadOnlyCollection<SyncErrorRecord> f, PmisSyncErrorOptions _) => recorded = f)
+            .Returns(Task.CompletedTask);
+
+        await Sut().SyncEquipmentAsync("h1", new[] { item }, "D1", Ctx());
+
+        var rec = Assert.Single(recorded!);
+        Assert.Equal(SyncErrorKinds.Equipment, rec.Kind);
+        Assert.Equal("TB1", rec.PmisCode);
+        Assert.Equal(PmisSyncErrorCodes.MissingVoltage, rec.ErrorCode);
+        Assert.Equal(PmisRecordHasher.Compute(item), rec.SourceHash);
+        Assert.Equal("h1", rec.SyncHistoryId);
+    }
+
+    [Fact]
+    public async Task Disabled_DoesNotTouchErrorRepository()
+    {
+        var item = Line("TB1");
+        SetupUpsert(r => new UpsertEquipmentFromPmisResult { PmisCode = r.PmisCode, Success = false, ErrorMessage = "x" });
+
+        await Sut(enabled: false).SyncEquipmentAsync("h1", new[] { item }, "D1", Ctx());
+
+        _errors.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task ErrorRepositoryFailure_DoesNotBreakSync()
+    {
+        var item = Line("TB1");
+        _errors.Setup(e => e.GetUnresolvedAsync(It.IsAny<string>(), It.IsAny<IReadOnlyCollection<string>>())).ThrowsAsync(new InvalidOperationException("db"));
+        _errors.Setup(e => e.RecordFailuresAsync(It.IsAny<IReadOnlyCollection<SyncErrorRecord>>(), It.IsAny<PmisSyncErrorOptions>())).ThrowsAsync(new InvalidOperationException("db"));
+        SetupUpsert(r => new UpsertEquipmentFromPmisResult { PmisCode = r.PmisCode, Success = false, ErrorMessage = "x" });
+
+        var (success, failed, _, _) = await Sut().SyncEquipmentAsync("h1", new[] { item }, "D1", Ctx());
+
+        Assert.Equal(0, success);
+        Assert.Equal(1, failed);   // kết quả đồng bộ vẫn đúng dù ghi PMIS_SYNC_ERROR lỗi
+    }
+
+    [Fact]
+    public async Task ManualFlow_WithoutIncrementalContext_DoesNotQuarantineOrTrack()
+    {
+        var item = Line("TB1");
+        SetupUpsert(r => new UpsertEquipmentFromPmisResult { PmisCode = r.PmisCode, Success = false, ErrorMessage = "x" });
+
+        await Sut().SyncEquipmentAsync("h1", new[] { item }, "D1");   // luồng thủ công: inc = null
+
+        _errors.VerifyNoOtherCalls();
+    }
+}
+
+public class SyncErrorStateTests
+{
+    private static readonly DateTime Now = new(2026, 10, 9, 8, 0, 0, DateTimeKind.Utc);
+
+    [Fact]
+    public void ShouldSkip_OnlyWhenQuarantined_NotDue_AndHashUnchanged()
+    {
+        Assert.True(new SyncErrorState("X", SyncErrorStates.Quarantined, Now.AddHours(1), "h").ShouldSkip("h", Now));
+        Assert.False(new SyncErrorState("X", SyncErrorStates.Quarantined, Now.AddHours(-1), "h").ShouldSkip("h", Now)); // tới hạn thử lại
+        Assert.False(new SyncErrorState("X", SyncErrorStates.Quarantined, Now.AddHours(1), "h").ShouldSkip("h2", Now)); // PMIS đã đổi dữ liệu
+        Assert.False(new SyncErrorState("X", SyncErrorStates.Open, Now.AddHours(1), "h").ShouldSkip("h", Now));        // chưa cách ly
+        Assert.False(new SyncErrorState("X", SyncErrorStates.Quarantined, null, "h").ShouldSkip("h", Now));            // không có hạn
+        Assert.False(new SyncErrorState("X", SyncErrorStates.Quarantined, Now.AddHours(1), "h").ShouldSkip(null, Now));
+    }
+
+    [Theory]
+    [InlineData(PmisSyncErrorCodes.MissingVoltage, true)]
+    [InlineData(PmisSyncErrorCodes.MissingTypeCode, true)]
+    [InlineData(PmisSyncErrorCodes.ParentNotFound, false)]
+    [InlineData(PmisSyncErrorCodes.DuplicateActiveCode, true)]
+    [InlineData(PmisSyncErrorCodes.TransferConflict, false)]
+    [InlineData(PmisSyncErrorCodes.StorageError, false)]
+    [InlineData(PmisSyncErrorCodes.Unknown, false)]
+    [InlineData(null, false)]
+    public void IsQuarantinable(string? code, bool expected) => Assert.Equal(expected, PmisSyncErrorCodes.IsQuarantinable(code));
+
+    [Fact]
+    public void Normalize_NullOrBlank_IsUnknown()
+    {
+        Assert.Equal(PmisSyncErrorCodes.Unknown, PmisSyncErrorCodes.Normalize(null));
+        Assert.Equal(PmisSyncErrorCodes.Unknown, PmisSyncErrorCodes.Normalize("  "));
+        Assert.Equal("MISSING_VOLTAGE", PmisSyncErrorCodes.Normalize(" missing_voltage "));
     }
 }

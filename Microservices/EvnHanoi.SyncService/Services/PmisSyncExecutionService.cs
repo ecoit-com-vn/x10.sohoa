@@ -64,6 +64,48 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
     // mọi thiết bị cuối cùng đều được enrich qua nhiều lượt chạy.
     // Trần số lượt gọi chi tiết/QR mỗi lượt lấy từ cấu hình Pmis:IncrementalSync:EquipmentDetailCallsPerRun (mặc định 2000).
     private readonly int _maxEquipmentDetailCallsPerRun;
+
+    // Ghi nhận/cách ly lỗi đồng bộ (PMIS_SYNC_ERROR). null (test/DI cũ) hoặc Enabled=false → hành vi cũ, chỉ ghi SYNC_HISTORY_DETAIL.
+    private readonly IPmisSyncErrorRepository? _errors;
+    private readonly PmisSyncErrorOptions _errorOptions;
+    private bool ErrorTrackingEnabled => _errors != null && _errorOptions.Enabled;
+
+    /// <summary>Nạp các lỗi chưa giải quyết của những mã trong trang (1 truy vấn) — dùng để cách ly/giải quyết. Lỗi hạ tầng không làm hỏng đồng bộ.</summary>
+    private async Task<Dictionary<string, SyncErrorState>?> PreloadErrorStatesAsync(string kind, IReadOnlyCollection<string> codes)
+    {
+        if (!ErrorTrackingEnabled || codes.Count == 0) return null;
+        try { return await _errors!.GetUnresolvedAsync(kind, codes); }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "PmisSyncExecutionService: không đọc được PMIS_SYNC_ERROR ({Kind}) — bỏ qua cách ly cho trang này.", kind);
+            return null;
+        }
+    }
+
+    /// <summary>Ghi nhận kết quả 1 trang: lỗi → PMIS_SYNC_ERROR (cách ly khi đủ điều kiện); thành công mà trước đó có lỗi → RESOLVED.</summary>
+    private async Task TrackErrorsAsync(
+        string kind, string syncHistoryId, Dictionary<string, SyncErrorState>? preloaded,
+        IEnumerable<(string Code, bool Success, string? ErrorCode, string? Message, string? Hash)> outcomes)
+    {
+        if (!ErrorTrackingEnabled) return;
+        try
+        {
+            var failures = new List<SyncErrorRecord>();
+            var resolved = new List<string>();
+            foreach (var o in outcomes)
+            {
+                if (string.IsNullOrWhiteSpace(o.Code)) continue;
+                if (!o.Success) failures.Add(new SyncErrorRecord(kind, o.Code, o.ErrorCode ?? EvnHanoi.Infrastructure.Pmis.PmisSyncErrorCodes.Unknown, o.Message, o.Hash, syncHistoryId));
+                else if (preloaded != null && preloaded.ContainsKey(o.Code)) resolved.Add(o.Code);
+            }
+            if (failures.Count > 0) await _errors!.RecordFailuresAsync(failures, _errorOptions);
+            if (resolved.Count > 0) await _errors!.ResolveAsync(kind, resolved);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "PmisSyncExecutionService: lỗi ghi nhận PMIS_SYNC_ERROR ({Kind}) — kết quả đồng bộ không bị ảnh hưởng.", kind);
+        }
+    }
     private int _equipmentDetailCallsThisRun;
 
     /// <summary>true nếu lượt này đã dùng hết ngân sách gọi PMIS thật cho Thiết bị (ChiTietThietBi/QR) —
@@ -87,8 +129,12 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
     public PmisSyncExecutionService(
         IEquipmentServiceClient equipmentServiceClient, ISyncHistoryRepository syncHistoryRepository, IPmisClient pmisClient,
         IPmisEndpointConfigProvider endpointConfigProvider,
-        Microsoft.Extensions.Options.IOptions<PmisIncrementalOptions>? incrementalOptions = null)
+        Microsoft.Extensions.Options.IOptions<PmisIncrementalOptions>? incrementalOptions = null,
+        IPmisSyncErrorRepository? errorRepository = null,
+        Microsoft.Extensions.Options.IOptions<PmisSyncErrorOptions>? errorOptions = null)
     {
+        _errors = errorRepository;
+        _errorOptions = errorOptions?.Value ?? new PmisSyncErrorOptions();
         _maxEquipmentDetailCallsPerRun = Math.Max(1, incrementalOptions?.Value.EquipmentDetailCallsPerRun ?? 2000);
         _equipmentServiceClient = equipmentServiceClient;
         _syncHistoryRepository = syncHistoryRepository;
@@ -289,6 +335,11 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
             rawItems = changedItems;
         }
 
+        // Lỗi chưa giải quyết của các mã trong trang (để đánh dấu RESOLVED khi đồng bộ thành công); trạm/đường dây không cách ly (mỗi cha chỉ 1 bản ghi).
+        var infraErrorStates = inc != null
+            ? await PreloadErrorStatesAsync(SyncErrorKinds.Infrastructure, rawItems.Select(r => PmisRecordHasher.InfrastructureCode(r, infraTypeId)).Where(c => c.Length > 0).ToList())
+            : null;
+
         List<UpsertInfrastructureFromPmisRequest> upsertRequests;
         List<UpsertInfrastructureFromPmisResult> results;
 
@@ -420,6 +471,13 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
 
         await _syncHistoryRepository.InsertDetailsAsync(details);
 
+        if (inc != null)
+        {
+            await TrackErrorsAsync(SyncErrorKinds.Infrastructure, syncHistoryId, infraErrorStates,
+                results.Select((r, idx) => (upsertRequests[idx].PmisCode, r.Success, r.ErrorCode, r.ErrorMessage,
+                    hashByCode != null && hashByCode.TryGetValue(upsertRequests[idx].PmisCode, out var h) ? h : null)));
+        }
+
         // Đồng bộ tài liệu đính kèm (API 8/9) cho từng Trạm/Đường dây vừa lưu thành công — lỗi ở bước này
         // CHỈ ghi cảnh báo, không ảnh hưởng successCount/errors ở trên (xem SyncDocumentsForOwnerAsync).
         // syncDocuments=false (luồng AUTO/PmisScheduledSyncJob): BỎ QUA hẳn ở đây, chạy pass riêng có
@@ -488,6 +546,13 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         // Failed riêng, các thiết bị còn lại trong trang xử lý bình thường.
         var deserializeFailedDetails = new List<SyncHistoryDetail>();
         var deserializeFailedErrors = new List<string>();
+
+        // Lỗi chưa giải quyết của các mã trong trang (chỉ khi đồng bộ tăng dần): bản ghi đang CÁCH LY, chưa tới hạn thử lại và hash nguồn không
+        // đổi thì bỏ qua hẳn (không gọi chi tiết/QR, không đẩy lại, không ghi chi tiết lịch sử) — tránh lặp lại hàng trăm lỗi cố định mỗi lượt.
+        var errorStates = inc != null
+            ? await PreloadErrorStatesAsync(SyncErrorKinds.Equipment, rawItems.Select(PmisRecordHasher.EquipmentCode).Where(c => c.Length > 0).ToList())
+            : null;
+        var nowUtc = DateTime.UtcNow;
         foreach (var raw in rawItems)
         {
             EquipmentSaveShape item;
@@ -525,6 +590,11 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 if (earlyCode.Length > 0 && inc.IsUnchanged(earlyCode, itemHash, requireDetail: true))
                 {
                     inc.UnchangedCodes.Add(earlyCode);
+                    continue;
+                }
+                if (errorStates != null && earlyCode.Length > 0 && errorStates.TryGetValue(earlyCode, out var quarantine) && quarantine.ShouldSkip(itemHash, nowUtc))
+                {
+                    inc.QuarantinedCodes.Add(earlyCode);
                     continue;
                 }
             }
@@ -612,9 +682,22 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
                 {
                     try
                     {
-                        var bytes = await _pmisClient.GetDeviceQrImageBytesAsync(maTB);
-                        if (bytes is { Length: > 0 }) qrCodeBase64 = Convert.ToBase64String(bytes);
-                        else detailOk = false;
+                        var qr = await _pmisClient.GetDeviceQrImageAsync(maTB);
+                        switch (qr.Outcome)
+                        {
+                            case QrImageOutcome.Ok:
+                                qrCodeBase64 = Convert.ToBase64String(qr.Bytes!);
+                                break;
+                            case QrImageOutcome.NotFound:
+                                // PMIS xác nhận KHÔNG có ảnh QR (404): kết quả cuối — thiết bị vẫn được coi là đủ chi tiết, không thử lại mỗi lượt.
+                                Log.Debug("PmisSyncExecutionService: thiết bị {MaTB} không có ảnh QR trên PMIS (404).", maTB);
+                                break;
+                            default: // Error / NotConfigured: lỗi tạm thời → chưa đủ chi tiết, lượt sau thử lại
+                                detailOk = false;
+                                if (qr.Outcome == QrImageOutcome.Error)
+                                    Log.Warning("PmisSyncExecutionService: lỗi tải ảnh QR cho thiết bị {MaTB}: {Reason}", maTB, qr.Reason);
+                                break;
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -709,6 +792,12 @@ public class PmisSyncExecutionService : IPmisSyncExecutionService
         }
 
         await _syncHistoryRepository.InsertDetailsAsync(details);
+
+        if (inc != null)
+        {
+            await TrackErrorsAsync(SyncErrorKinds.Equipment, syncHistoryId, errorStates,
+                results.Select((r, idx) => (upsertRequests[idx].PmisCode, r.Success, r.ErrorCode, r.ErrorMessage, hashByIndex[idx])));
+        }
 
         // Đồng bộ tài liệu đính kèm (API 8/9) cho từng thiết bị vừa lưu thành công — theo đúng nguyên
         // tắc "lỗi ở đây chỉ cảnh báo, không ảnh hưởng successCount/errors ở trên" (xem
