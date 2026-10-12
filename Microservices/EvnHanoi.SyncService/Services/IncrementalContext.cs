@@ -24,6 +24,10 @@ public class IncrementalContext
     /// <summary>Mã không đổi bị bỏ qua → job gọi TouchSeenAsync và cộng vào Success.</summary>
     public List<string> UnchangedCodes { get; } = new();
 
+    /// <summary>Mã bị bỏ qua vì đang CÁCH LY (lỗi do dữ liệu nguồn, chưa tới hạn thử lại và hash nguồn không đổi — xem PMIS_SYNC_ERROR). Không tính
+    /// là thành công cũng không là lỗi; job đối chiếu số lượng theo cha dùng số này (QUARANTINED_COUNT).</summary>
+    public List<string> QuarantinedCodes { get; } = new();
+
     /// <summary>true nếu bản ghi giữ nguyên (cùng hash, cùng phiên bản băm, và — nếu cần — đã lấy đủ chi tiết)
     /// so với lần đẩy thành công gần nhất, và (khi đang quét đầy đủ) đã được đẩy sau mốc bắt đầu đợt quét.</summary>
     public bool IsUnchanged(string code, string hash, bool requireDetail) =>

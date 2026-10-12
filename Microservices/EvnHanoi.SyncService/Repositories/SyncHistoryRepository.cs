@@ -43,6 +43,8 @@ public class SyncHistoryRepository : ISyncHistoryRepository
     public async Task<bool> CompleteAsync(string id, string status, int totalRecords, int successRecords, int failedRecords, string? errorMessage)
     {
         EnsureOpen();
+        // END_TIME ghi theo UTC (SYS_EXTRACT_UTC) — cùng hệ quy chiếu với START_TIME (DateTime.UtcNow phía .NET). TRƯỚC ĐÂY dùng SYSTIMESTAMP (giờ máy
+        // chủ Oracle, UTC+7) nên mọi thời lượng lượt chạy hiển thị lệch +7 giờ. Dòng lịch sử cũ trước bản này vẫn lệch (không chuyển đổi).
         // Guard bằng STATUS = RUNNING: nếu SyncHistoryWatchdogJob đã chạy trước và đánh FAILED dòng này
         // (vd. lượt chạy chỉ đang CHẬM chứ không thật sự treo, và job gốc vẫn sống, hoàn tất sau mốc 30
         // phút), UPDATE ở đây sẽ khớp 0 dòng thay vì âm thầm ghi đè ngược kết quả thật của watchdog —
@@ -50,7 +52,7 @@ public class SyncHistoryRepository : ISyncHistoryRepository
         // không có cảnh báo nào. Trả về false để caller log lại tình huống này.
         const string sql = @"
             UPDATE SYNC_HISTORY
-            SET STATUS = :Status, END_TIME = SYSTIMESTAMP,
+            SET STATUS = :Status, END_TIME = CAST(SYS_EXTRACT_UTC(SYSTIMESTAMP) AS TIMESTAMP),
                 TOTAL_RECORDS = :TotalRecords, SUCCESS_RECORDS = :SuccessRecords, FAILED_RECORDS = :FailedRecords,
                 ERROR_MESSAGE = :ErrorMessage
             WHERE ID = :Id AND STATUS = :RunningStatus";
@@ -218,7 +220,7 @@ public class SyncHistoryRepository : ISyncHistoryRepository
         EnsureOpen();
         const string sql = @"
             UPDATE SYNC_HISTORY
-            SET STATUS = :FailedStatus, END_TIME = SYSTIMESTAMP, ERROR_MESSAGE = :ErrorMessage
+            SET STATUS = :FailedStatus, END_TIME = CAST(SYS_EXTRACT_UTC(SYSTIMESTAMP) AS TIMESTAMP), ERROR_MESSAGE = :ErrorMessage
             WHERE ID = :Id AND STATUS = :RunningStatus";
         var rows = await _connection.ExecuteAsync(sql, new
         {
