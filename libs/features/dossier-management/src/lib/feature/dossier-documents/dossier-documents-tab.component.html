@@ -20,6 +20,7 @@
           >
             <i class="pi" [ngClass]="selectedDocumentTypeId() === null ? 'pi-folder-open' : 'pi-folder'"></i>
             <span>Tất cả tài liệu</span>
+            <span class="tree-item-count">{{ allDocumentsCount() }}</span>
           </button>
         </li>
         <li *ngFor="let dt of documentTypeFolders()">
@@ -32,6 +33,7 @@
           >
             <i class="pi" [ngClass]="selectedDocumentTypeId() === dt.id ? 'pi-folder-open' : 'pi-folder'"></i>
             <span>{{ dt.name }}</span>
+            <span class="tree-item-count">{{ documentTypeCounts()[dt.id] || 0 }}</span>
           </button>
         </li>
       </ul>
@@ -79,7 +81,7 @@
           <th class="col-stt">STT</th>
           <th>Loại tài liệu</th>
           <th>Tên tài liệu</th>
-          <th>Kích thước</th>
+          <th>Thiết bị</th>
           <th class="col-digitization">OCR</th>
           <th class="col-digitization">Bóc tách</th>
           <th>Ngày tạo</th>
@@ -120,7 +122,7 @@
               </span>
             </div>
           </td>
-          <td>{{ formatSize(doc.fileSize) }}</td>
+          <td>{{ doc.equipmentName || '-' }}</td>
           <td class="col-digitization">
             <ng-container *ngIf="getOcrProgress(doc) as ocr; else noOcr">
               <div class="digitization-progress-cell">
