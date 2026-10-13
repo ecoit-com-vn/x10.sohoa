@@ -132,7 +132,10 @@ export class EquipmentComponent implements OnInit {
     return buildPmisDiffRows(fields, this.formValuesObj() || {}, pmisValues, diff.fieldMappingWarnings);
   });
 
-  pmisDiffCount = computed(() => this.pmisDiffRows().filter((r) => r.hasDifference).length);
+  /** Số trường sai khác THẬT: cả hệ thống lẫn PMIS đều có dữ liệu mà khác nhau. */
+  pmisDiffCount = computed(() => this.pmisDiffRows().filter((r) => r.hasConflict).length);
+  /** Số trường đã ánh xạ nhưng chỉ 1 bên có dữ liệu (không tính là sai khác, nhưng không được báo "khớp"). */
+  pmisOneSidedCount = computed(() => this.pmisDiffRows().filter((r) => r.isOneSided).length);
   pmisDiffWarningCount = computed(() => this.pmisDiffRows().filter((r) => r.hasMappingWarning).length);
 
   /** Số trường thật sự so sánh được — 0 nghĩa là chưa khai ánh xạ nào, banner phải cảnh báo chứ không báo "không sai khác". */
@@ -142,11 +145,17 @@ export class EquipmentComponent implements OnInit {
    * Khoá PMIS có dữ liệu thật nhưng chưa trường nào dùng làm "Tên trường PMIS" — buildPmisDiffRows chỉ
    * duyệt schema nên các khoá này bị bỏ qua hoàn toàn; liệt kê ra để admin biết chọn gì trong Form Builder.
    */
-  unmappedPmisKeys = computed<{ key: string; value: string }[]>(() => {
+  unmappedPmisKeys = computed<{ key: string; label: string; value: string }[]>(() => {
     const diff = this.pmisSpecDiff();
     if (!diff?.pmisFormValues) return [];
 
     const pmisValues = parsePmisFormValues(diff.pmisFormValues) || {};
+    // Nhãn tiếng Việt PMIS (tenThongSoKyThuat) cùng bộ khoá với giá trị — tra không phân biệt hoa thường; khoá không có nhãn thì label rỗng.
+    const labelByKey = new Map(
+      Object.entries(parsePmisFormValues(diff.pmisFieldLabels))
+        .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim().length > 0)
+        .map(([k, v]) => [k.toLowerCase(), v.trim()] as const)
+    );
     const usedKeys = new Set(
       this.pmisDiffRows()
         .filter((r) => !r.hasMappingWarning)
@@ -155,7 +164,11 @@ export class EquipmentComponent implements OnInit {
 
     return Object.keys(pmisValues)
       .filter((key) => !usedKeys.has(key.toLowerCase()))
-      .map((key) => ({ key, value: String((pmisValues as Record<string, unknown>)[key] ?? '') }));
+      .map((key) => ({
+        key,
+        label: labelByKey.get(key.toLowerCase()) ?? '',
+        value: String((pmisValues as Record<string, unknown>)[key] ?? ''),
+      }));
   });
   isEditingGeneral = signal<boolean>(false);
   isEditingFormValues = signal<boolean>(false);
