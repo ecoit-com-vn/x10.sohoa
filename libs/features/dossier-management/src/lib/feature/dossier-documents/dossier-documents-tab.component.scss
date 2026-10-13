@@ -88,6 +88,23 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      flex: 1 1 auto;
+    }
+
+    .tree-item-count {
+      flex: 0 0 auto;
+      overflow: visible;
+      padding: 1px 7px;
+      border-radius: 9999px;
+      background: #f1f5f9;
+      color: #64748b;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+
+    &.active .tree-item-count {
+      background: #dbeafe;
+      color: #2563eb;
     }
 
     i {
