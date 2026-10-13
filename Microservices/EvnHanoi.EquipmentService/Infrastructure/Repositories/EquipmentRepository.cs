@@ -502,6 +502,17 @@ public class EquipmentRepository : IEquipmentRepository
                         LEFT JOIN APP_USER usr ON e.CreatorId = usr.Id";
         var selectSqlBase = sqlBase.Replace("WHERE e.IsDeleted = 0", $"{selectOnlyJoins}\n                        WHERE e.IsDeleted = 0");
 
+        // Số tài liệu — chỉ tính khi lọc theo đúng 1 Trạm/Đường dây (tab "Thiết bị" ở màn chi tiết).
+        // Subquery tương quan chỉ chạy cho đúng số dòng của 1 trang hiển thị ở màn đó (không phải toàn
+        // bảng EQUIPMENTS 160k+ dòng của /equipment/device-list — màn đó không lọc infrastructureId
+        // nên KHÔNG tính cột này, giữ nguyên hiệu năng đã tối ưu).
+        var documentCountSelect = infrastructureId.HasValue
+            ? $@"(SELECT COUNT(1)
+                                   FROM DOCUMENT_EQUIPMENTS de
+                                   INNER JOIN DOCUMENTS doc ON doc.ID = de.DocumentId AND doc.IS_DELETED = 0
+                                  WHERE de.EquipmentId = e.Id) AS {nameof(EquipmentListItemDto.DocumentCount)},"
+            : string.Empty;
+
         var selectSql = $@"SELECT e.Id AS {nameof(EquipmentListItemDto.Id)},
                                    e.Name AS {nameof(EquipmentListItemDto.Name)},
                                    e.Code AS {nameof(EquipmentListItemDto.Code)},
@@ -518,6 +529,7 @@ public class EquipmentRepository : IEquipmentRepository
                                    inf.Name AS {nameof(EquipmentListItemDto.InfrastructureName)},
                                    e.UnitId AS {nameof(EquipmentListItemDto.UnitId)},
                                    u.Name AS {nameof(EquipmentListItemDto.UnitName)},
+                                   {documentCountSelect}
                                    usr.Id AS CreatorId,
                                    usr.UserName AS Username,
                                    usr.FullName AS FullName

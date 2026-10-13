@@ -115,6 +115,12 @@ public class EquipmentListItemDto
     public DateTime CreatedAt { get; set; }
     public string? ModifiedBy { get; set; }
     public DateTime? ModifiedDate { get; set; }
+
+    /// <summary>Số tài liệu đã gắn thiết bị này (qua DOCUMENT_EQUIPMENTS) — chỉ tính khi danh sách lọc
+    /// theo đúng 1 Trạm/Đường dây cụ thể (tab "Thiết bị" ở màn chi tiết), để không ảnh hưởng hiệu năng
+    /// màn /equipment/device-list (danh sách không lọc theo hạ tầng, có thể tới 160k+ dòng) — xem
+    /// EquipmentRepository.GetPagedAsync. Luôn 0 ở các ngữ cảnh khác.</summary>
+    public int DocumentCount { get; set; }
 }
 
 public class EquipmentTypeDto
