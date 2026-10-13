@@ -84,6 +84,15 @@ public abstract partial class DossierControllerBase
         }
     }
 
+    /// <summary>Số tài liệu theo từng loại văn bản — badge số lượng trên cây thư mục "Loại văn bản"
+    /// ở tab Tài liệu đính kèm.</summary>
+    [HttpGet("{id:guid}/documents/type-counts")]
+    public async Task<IActionResult> GetDocumentTypeCounts(Guid id)
+    {
+        var counts = await _dossierDocumentService.GetDocumentCountsByTypeAsync(id);
+        return Ok(counts.Select(kv => new { documentTypeId = kv.Key, count = kv.Value }));
+    }
+
     [HttpGet("{id:guid}/documents/{versionId:guid}/download-url")]
     [BypassDynamicPermission]
     [SkipAudit]

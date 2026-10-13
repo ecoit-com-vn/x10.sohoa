@@ -51,6 +51,9 @@ public interface IDocumentRepository
 
     // Dossier document operations
     Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDocumentsByDossierAsync(Guid dossierId, DossierDocumentFilterDto filter);
+    /// <summary>Số tài liệu theo từng loại văn bản của 1 hồ sơ — phục vụ badge số lượng trên cây thư mục
+    /// "Loại văn bản" ở tab Tài liệu đính kèm. Chỉ trả các loại có ít nhất 1 tài liệu.</summary>
+    Task<IReadOnlyDictionary<Guid, int>> GetDocumentCountsByTypeForDossierAsync(Guid dossierId);
     Task<(IEnumerable<DocumentListItemDto> Items, int TotalCount)> GetDocumentsByDossierIdsAsync(IEnumerable<Guid> dossierIds, string? keyword, int page, int pageSize);
     Task<bool> AssignDocumentToDossierAsync(Guid documentId, Guid dossierId, Guid documentTypeId, string modifiedBy);
     Task<bool> UpdateDocumentVersionFilePathAsync(Guid versionId, string filePath, string modifiedBy);
