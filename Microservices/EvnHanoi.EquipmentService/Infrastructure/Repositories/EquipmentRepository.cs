@@ -18,16 +18,21 @@ public class EquipmentRepository : IEquipmentRepository
 {
     private readonly IDbConnection _connection;
     private readonly IFileStorageService _fileStorageService;
+    private readonly IEquipmentPmisSpecRepository _equipmentPmisSpecRepository;
 
     // Cache ngắn hạn cho COUNT(1) của danh sách thiết bị (GetPagedAsync) — xem giải thích đầy đủ tại
     // nơi dùng. Key = SQL COUNT + toàn bộ tham số lọc (2 bộ lọc khác nhau ra key khác nhau).
     private static readonly ConcurrentDictionary<string, (int Count, DateTime ExpiresAtUtc)> PagedCountCache = new();
     private static readonly TimeSpan PagedCountCacheTtl = TimeSpan.FromSeconds(20);
 
-    public EquipmentRepository(IDbConnection connection, IFileStorageService fileStorageService)
+    public EquipmentRepository(
+        IDbConnection connection,
+        IFileStorageService fileStorageService,
+        IEquipmentPmisSpecRepository equipmentPmisSpecRepository)
     {
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
         _fileStorageService = fileStorageService ?? throw new ArgumentNullException(nameof(fileStorageService));
+        _equipmentPmisSpecRepository = equipmentPmisSpecRepository ?? throw new ArgumentNullException(nameof(equipmentPmisSpecRepository));
     }
 
     private async Task<int> GetCachedCountAsync(string countSql, DynamicParameters parameters)
@@ -540,7 +545,7 @@ public class EquipmentRepository : IEquipmentRepository
         parameters.Add("Offset", (page - 1) * pageSize);
         parameters.Add("PageSize", pageSize);
 
-        var items = await _connection.QueryAsync<EquipmentListItemDto, CreatorInfoRow, EquipmentListItemDto>(
+        var items = (await _connection.QueryAsync<EquipmentListItemDto, CreatorInfoRow, EquipmentListItemDto>(
             selectSql,
             (eq, creatorRow) =>
             {
@@ -549,9 +554,55 @@ public class EquipmentRepository : IEquipmentRepository
             },
             parameters,
             splitOn: "CreatorId"
-        );
+        )).ToList();
+
+        // Đối chiếu PMIS — cùng điều kiện gate với DocumentCount ở trên (chỉ tính khi lọc theo đúng 1
+        // Trạm/Đường dây), vì cần thêm tối đa 3 round-trip (FormValues/FormSchema/PMIS spec) theo đúng
+        // số dòng của 1 trang — không gọi cho /equipment/device-list (160k+ dòng, không lọc hạ tầng).
+        if (infrastructureId.HasValue && items.Count > 0)
+        {
+            await PopulatePmisDiffCountsAsync(items);
+        }
 
         return (items, totalCount);
+    }
+
+    private async Task PopulatePmisDiffCountsAsync(List<EquipmentListItemDto> items)
+    {
+        var equipmentIds = items.Select(i => i.Id).ToArray();
+        var equipmentTypeIds = items.Select(i => i.EquipmentTypeId).Distinct().ToArray();
+
+        var formValuesRows = await _connection.QueryAsync<(string EquipmentId, string? FormValues)>(
+            "SELECT e.Id AS EquipmentId, e.FORM_VALUES AS FormValues FROM EQUIPMENTS e WHERE e.Id IN :Ids",
+            new { Ids = equipmentIds.Select(id => id.ToString()).ToArray() });
+        var localFormValuesById = formValuesRows.ToDictionary(r => Guid.Parse(r.EquipmentId), r => r.FormValues);
+
+        const string formSchemaByTypeSql = @"
+            SELECT EquipmentTypeId, FormSchema FROM (
+                SELECT t.EquipmentTypeId, v.FormSchema,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY t.EquipmentTypeId
+                           ORDER BY CASE WHEN v.Status = 'Hoàn thành' THEN 0 ELSE 1 END, v.Version DESC
+                       ) as rn
+                FROM EavFormTemplates t
+                INNER JOIN EavFormTemplateVersions v ON t.Id = v.FormTemplateId AND v.IsActive = 1 AND v.IsDeleted = 0
+                WHERE t.IsDeleted = 0 AND t.IsActive = 1 AND t.FormType = 'TEMPLATE'
+                  AND t.EquipmentTypeId IN :TypeIds
+            ) WHERE rn = 1";
+        var formSchemaRows = await _connection.QueryAsync<(string EquipmentTypeId, string? FormSchema)>(
+            formSchemaByTypeSql,
+            new { TypeIds = equipmentTypeIds.Select(id => id.ToString()).ToArray() });
+        var formSchemaByType = formSchemaRows.ToDictionary(r => Guid.Parse(r.EquipmentTypeId), r => r.FormSchema);
+
+        var pmisFormValuesById = await _equipmentPmisSpecRepository.GetFormValuesByEquipmentIdsAsync(equipmentIds);
+
+        foreach (var item in items)
+        {
+            var formSchema = formSchemaByType.GetValueOrDefault(item.EquipmentTypeId);
+            var localFormValues = localFormValuesById.GetValueOrDefault(item.Id);
+            var pmisFormValues = pmisFormValuesById.GetValueOrDefault(item.Id);
+            item.PmisDiffCount = EavSchemaHelper.CountPmisDifferences(formSchema, localFormValues, pmisFormValues);
+        }
     }
 
     public async Task<(IEnumerable<EquipmentLookupItemDto> Items, int TotalCount)> GetLookupPagedAsync(

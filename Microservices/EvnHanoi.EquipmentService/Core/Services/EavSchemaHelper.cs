@@ -73,6 +73,111 @@ public static class EavSchemaHelper
     /// giá trị đã có trong <paramref name="target"/> nếu đã khác rỗng — cho phép gọi lặp lại nhiều dòng
     /// (vd. gộp nhãn từ nhiều thiết bị cùng loại) mà dòng đọc trước luôn thắng.
     /// </summary>
+    /// <summary>
+    /// Đếm số trường trong FormSchema có giá trị khác nhau giữa dữ liệu nội bộ (localFormValuesJson) và
+    /// dữ liệu PMIS (pmisFormValuesJson) — dùng cho cột "Đối chiếu PMIS" ở danh sách thiết bị (tab
+    /// "Thiết bị" màn chi tiết Trạm/Đường dây). Trường chưa khai báo mapping PMIS (không khớp
+    /// pmisFieldName/key nào trong dữ liệu PMIS) bị bỏ qua, không tính là sai khác — cùng quy tắc với
+    /// EquipmentController.GetPmisSpecDiff (chỉ khác là ở đây chỉ cần ĐẾM, không cần trả raw data cho FE
+    /// tô màu). Trả về null nếu thiết bị chưa từng đồng bộ PMIS (pmisFormValuesJson rỗng) để phân biệt
+    /// "chưa đối chiếu" với "đối chiếu khớp 100%" (0 sai khác).
+    /// </summary>
+    public static int? CountPmisDifferences(string? formSchemaJson, string? localFormValuesJson, string? pmisFormValuesJson)
+    {
+        if (string.IsNullOrWhiteSpace(pmisFormValuesJson)) return null;
+        if (string.IsNullOrWhiteSpace(formSchemaJson)) return 0;
+
+        JsonDocument pmisDoc;
+        JsonDocument? localDoc = null;
+        try
+        {
+            pmisDoc = JsonDocument.Parse(pmisFormValuesJson);
+            if (!string.IsNullOrWhiteSpace(localFormValuesJson))
+                localDoc = JsonDocument.Parse(localFormValuesJson);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        using var pmisDocDisposable = pmisDoc;
+        using var localDocDisposable = localDoc;
+
+        var diffCount = 0;
+        foreach (var field in EnumerateSchemaFields(formSchemaJson))
+        {
+            var localKey = ResolveSchemaFieldName(field);
+            if (string.IsNullOrWhiteSpace(localKey)) continue;
+
+            var pmisKey = ReadSchemaString(field, "pmisFieldName", "PmisFieldName");
+            var resolvedKey = !string.IsNullOrWhiteSpace(pmisKey) ? pmisKey : localKey;
+
+            if (!TryGetPropertyIgnoreCase(pmisDoc.RootElement, resolvedKey, out var pmisValue))
+                continue; // Chưa khai báo mapping PMIS — không tính là sai khác dữ liệu.
+
+            JsonElement? localValue = localDoc != null &&
+                TryGetPropertyIgnoreCase(localDoc.RootElement, localKey, out var resolvedLocalValue)
+                ? resolvedLocalValue
+                : null;
+
+            if (FormatValueForDiff(field, localValue) != FormatValueForDiff(field, pmisValue))
+                diffCount++;
+        }
+
+        return diffCount;
+    }
+
+    /// <summary>
+    /// Quy đổi giá trị 1 field về chuỗi hiển thị để so sánh — cố gắng bám theo
+    /// dossier-form-schema.util.ts#formatFieldDisplayValue (checkbox/select/number+unit), nhưng KHÔNG cần
+    /// khớp chính xác định dạng hiển thị cuối (vd. ngày tháng không cần đổi sang vi-VN locale) vì hàm này
+    /// chỉ dùng để so sánh 2 bên — chỉ cần áp dụng NHẤT QUÁN cho cả local lẫn PMIS là đủ.
+    /// </summary>
+    private static string FormatValueForDiff(JsonElement field, JsonElement? valueElement)
+    {
+        if (valueElement is not { } value || value.ValueKind == JsonValueKind.Null || value.ValueKind == JsonValueKind.Undefined)
+            return "—";
+
+        var rawString = value.ValueKind switch
+        {
+            JsonValueKind.String => value.GetString() ?? string.Empty,
+            JsonValueKind.True => "true",
+            JsonValueKind.False => "false",
+            _ => value.GetRawText()
+        };
+
+        if (string.IsNullOrEmpty(rawString)) return "—";
+
+        var type = ReadSchemaString(field, "type", "Type");
+
+        if (string.Equals(type, "checkbox", StringComparison.OrdinalIgnoreCase))
+        {
+            var isTrue = value.ValueKind == JsonValueKind.True || rawString is "true" or "1";
+            return isTrue ? "Có" : "Không";
+        }
+
+        if (string.Equals(type, "select", StringComparison.OrdinalIgnoreCase) &&
+            TryGetPropertyIgnoreCase(field, "options", out var optionsEl) &&
+            optionsEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var option in optionsEl.EnumerateArray())
+            {
+                var optionValue = ReadSchemaString(option, "value", "Value");
+                if (string.Equals(optionValue, rawString, StringComparison.Ordinal))
+                    return ReadSchemaString(option, "label", "Label") ?? rawString;
+            }
+            return rawString;
+        }
+
+        if (string.Equals(type, "number", StringComparison.OrdinalIgnoreCase))
+        {
+            var unit = ReadSchemaString(field, "unit", "Unit");
+            if (!string.IsNullOrWhiteSpace(unit)) return $"{rawString} {unit}";
+        }
+
+        return rawString;
+    }
+
     public static void MergeJsonStringLabelsInto(Dictionary<string, string?> target, string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return;
