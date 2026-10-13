@@ -43,7 +43,6 @@ import {
 } from '../../data-access/dossier-document.service';
 import {
   formatDocumentDate,
-  formatDocumentFileSize,
   getDocumentFileIcon,
 } from '../../utils/document-display.util';
 import {
@@ -82,8 +81,6 @@ interface DocumentTableAction {
   btnClass: string;
   iconClasses: string;
   disabled: boolean;
-  /** Luôn hiển thị trong menu ba chấm, không đưa ra cột thao tác chính. */
-  overflowOnly?: boolean;
   run: (doc: DossierDocumentItem) => void;
 }
 
@@ -142,6 +139,12 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
   // Cây thư mục "Loại văn bản" bên trái tab — null = "Tất cả tài liệu" (không lọc theo loại văn bản).
   documentTypeFolders = signal<DocumentTypeLookupItem[]>([]);
   loadingDocumentTypeFolders = signal(false);
+  /** documentTypeId -> số tài liệu — badge số lượng trên mỗi nhánh cây. Tải lại cùng lúc với danh sách
+   * tài liệu (xem loadDocuments()) để luôn khớp sau khi thêm/xoá/chuyển tài liệu. */
+  documentTypeCounts = signal<Record<string, number>>({});
+  readonly allDocumentsCount = computed(() =>
+    Object.values(this.documentTypeCounts()).reduce((sum, n) => sum + n, 0)
+  );
   selectedDocumentTypeId = signal<string | null>(null);
   readonly selectedDocumentTypeFolder = computed(() =>
     this.documentTypeFolders().find((t) => t.id === this.selectedDocumentTypeId()) ?? null
@@ -443,7 +446,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
       .subscribe({
         next: (res) => {
           this.documents.set(res.items ?? []);
-          
+
           this.totalDocuments.set(res.totalCount ?? 0);
         },
         error: () => {
@@ -458,6 +461,8 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
           }
         },
       });
+
+    this.loadDocumentTypeCounts();
   }
 
   private loadDocumentTypeFolders(): void {
@@ -469,6 +474,17 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
         next: (items) => this.documentTypeFolders.set(items),
         error: () => this.documentTypeFolders.set([]),
       });
+  }
+
+  /** Badge số lượng trên cây thư mục — tải lại cùng lúc với loadDocuments() để luôn khớp sau khi
+   * thêm/xoá/chuyển tài liệu. */
+  private loadDocumentTypeCounts(): void {
+    this.documentService.getDocumentTypeCounts(this.dossierId).subscribe({
+      next: (counts) => this.documentTypeCounts.set(counts),
+      error: () => {
+        // không chặn UI — badge chỉ là thông tin phụ, giữ nguyên số liệu cũ nếu tải lại lỗi
+      },
+    });
   }
 
   /** Click 1 nhánh cây "Loại văn bản" bên trái — null = nhánh gốc "Tất cả tài liệu". */
@@ -530,18 +546,6 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
       },
     ];
 
-    if (this.showVersionHistory) {
-      actions.push({
-        key: 'history',
-        title: 'Lịch sử phiên bản',
-        btnClass: 'act-history',
-        iconClasses: 'pi pi-history',
-        disabled: !doc.latestVersionId,
-        overflowOnly: true,
-        run: (d) => this.onViewHistory(d),
-      });
-    }
-
     if (showDigitization && this.canSubmitOcrAndExtract(doc)) {
       actions.push({
         key: 'ocr-extract',
@@ -551,7 +555,6 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
           ? 'pi pi-spin pi-spinner'
           : 'pi pi-refresh',
         disabled: this.isRetryingDigitization(doc.id, this.retryingIds()),
-        overflowOnly: true,
         run: (d) => this.onOcrAndExtract(d),
       });
       actions.push({
@@ -562,7 +565,6 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
           ? 'pi pi-spin pi-spinner'
           : 'pi pi-file-import',
         disabled: this.isRetryingDigitization(doc.id, this.retryingIds()),
-        overflowOnly: true,
         run: (d) => this.onOcrOnly(d),
       });
     } else if (this.canRetryDigitization(doc) && this.canEdit) {
@@ -587,7 +589,6 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
           ? 'pi pi-spin pi-spinner'
           : 'pi pi-sync',
         disabled: this.isReExtracting(doc.id, this.reExtractingIds()),
-        overflowOnly: true,
         run: (d) => this.onReExtract(d),
       });
     } else if (this.canReExtract(doc) && this.canEdit) {
@@ -603,20 +604,7 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
           ? 'pi pi-spin pi-spinner'
           : 'pi pi-sync',
         disabled: this.isReExtracting(doc.id, this.reExtractingIds()),
-        overflowOnly: true,
         run: (d) => this.onReExtract(d),
-      });
-    }
-
-    if (showDigitization && this.canReExtract(doc)) {
-      actions.push({
-        key: 'ocr-insights',
-        title: 'Phân tích OCR nâng cao',
-        btnClass: 'act-ocr-insights',
-        iconClasses: 'pi pi-chart-bar',
-        disabled: false,
-        overflowOnly: true,
-        run: (d) => this.onOpenOcrInsights(d),
       });
     }
 
@@ -659,20 +647,40 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
       });
     }
 
+    if (this.showVersionHistory) {
+      actions.push({
+        key: 'history',
+        title: 'Lịch sử phiên bản',
+        btnClass: 'act-history',
+        iconClasses: 'pi pi-history',
+        disabled: !doc.latestVersionId,
+        run: (d) => this.onViewHistory(d),
+      });
+    }
+
+    if (showDigitization && this.canReExtract(doc)) {
+      actions.push({
+        key: 'ocr-insights',
+        title: 'Phân tích OCR nâng cao',
+        btnClass: 'act-ocr-insights',
+        iconClasses: 'pi pi-chart-bar',
+        disabled: false,
+        run: (d) => this.onOpenOcrInsights(d),
+      });
+    }
+
     return actions;
   }
 
   getPrimaryDocumentActions(doc: DossierDocumentItem): DocumentTableAction[] {
-    const inline = this.getDocumentActions(doc).filter((action) => !action.overflowOnly);
-    return inline.slice(0, MAX_INLINE_DOCUMENT_ACTIONS);
+    return this.getDocumentActions(doc).slice(0, MAX_INLINE_DOCUMENT_ACTIONS);
   }
 
+  // Giữ nguyên thứ tự getDocumentActions() đã sắp (xem comment ở đó) thay vì gom riêng overflowOnly
+  // lên đầu như trước — mọi thao tác đều rơi vào menu "..." (MAX_INLINE_DOCUMENT_ACTIONS = 0) nên việc
+  // tách nhóm chỉ làm sai thứ tự hiển thị mong muốn.
   getOverflowDocumentActions(doc: DossierDocumentItem): DocumentTableAction[] {
-    const actions = this.getDocumentActions(doc);
-    const overflowOnly = actions.filter((action) => action.overflowOnly);
-    const inline = actions.filter((action) => !action.overflowOnly);
-    const inlineOverflow = inline.slice(MAX_INLINE_DOCUMENT_ACTIONS);
-    return [...overflowOnly, ...inlineOverflow];
+    return this.getDocumentActions(doc).slice(MAX_INLINE_DOCUMENT_ACTIONS);
   }
 
   openDocActionMenu(doc: DossierDocumentItem, event: Event): void {
@@ -737,7 +745,6 @@ export class DossierDocumentsTabComponent implements OnInit, OnDestroy, OnChange
     this.loadDocuments();
   }
 
-  formatSize = formatDocumentFileSize;
   formatDate = formatDocumentDate;
   fileIcon = getDocumentFileIcon;
 

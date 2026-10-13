@@ -259,6 +259,21 @@ export class DossierDocumentService {
       .pipe(map((items) => (items ?? []).map((item) => normalizeDocumentTypeLookup(item))));
   }
 
+  /** Số tài liệu theo từng loại văn bản — badge số lượng trên cây thư mục "Loại văn bản". */
+  getDocumentTypeCounts(dossierId: string): Observable<Record<string, number>> {
+    return this.http
+      .get<{ documentTypeId: string; count: number }[]>(`${this.dossierBase(dossierId)}/type-counts`)
+      .pipe(
+        map((rows) => {
+          const result: Record<string, number> = {};
+          for (const row of rows ?? []) {
+            result[row.documentTypeId] = row.count;
+          }
+          return result;
+        })
+      );
+  }
+
   uploadFileDirect(
     dossierId: string,
     file: File,
