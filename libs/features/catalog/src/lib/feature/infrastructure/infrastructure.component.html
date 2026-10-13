@@ -170,7 +170,8 @@
                 <th>Mã CMIS</th>
                 <th>Tên Trạm</th>
                 <th>Ngày vận hành</th>
-                <th>Địa chỉ</th>
+                <th>Số hồ sơ</th>
+                <th>Số tài liệu</th>
                 <th>Đơn vị quản lý</th>
                 <th>Trạng thái</th>
                 <th class="col-hd">Thao tác</th>
@@ -182,7 +183,8 @@
                 <th>Mã đường dây</th>
                 <th>Mã CMIS</th>
                 <th>Tên đường dây</th>
-                <th>Địa chỉ</th>
+                <th>Số hồ sơ</th>
+                <th>Số tài liệu</th>
                 <th>Loại lưới điện</th>
                 <th>Đơn vị quản lý</th>
                 <th>Trạng thái</th>
@@ -192,7 +194,7 @@
           </thead>
           <tbody>
             <tr *ngIf="isLoadingList()">
-              <td colspan="9" class="empty-row" style="padding: 0;">
+              <td colspan="10" class="empty-row" style="padding: 0;">
                 <div *ngFor="let row of [1,2,3,4,5]"
                   style="display: flex; gap: 10px; padding: 12px; border-bottom: 1px solid #f1f5f9;">
                   <div class="skeleton-shimmer" style="height: 16px; flex: 1; border-radius: 4px;"></div>
@@ -241,7 +243,8 @@
                       : '-'
                   }}
                 </td>
-                <td>{{ item.address || '-' }}</td>
+                <td style="text-align: center;">{{ item.dossierCount || 0 }}</td>
+                <td style="text-align: center;">{{ item.documentCount || 0 }}</td>
                 <td>
                   <span *ngIf="item.organization">
                     {{ item.organization.name }}
@@ -299,7 +302,7 @@
             </ng-container>
             <tr *ngIf="!isLoadingList() && items().length === 0">
               <td
-                colspan="9"
+                colspan="10"
                 class="empty-row"
               >
                 <i class="pi pi-inbox"></i>
@@ -390,7 +393,8 @@
                 </span>
               </div>
             </td>
-            <td>{{ node.address || '-' }}</td>
+            <td style="text-align: center;">{{ node.dossierCount || 0 }}</td>
+            <td style="text-align: center;">{{ node.documentCount || 0 }}</td>
             <td>
               <span
                 class="status-pill"
@@ -1309,6 +1313,7 @@
                 <th>Tên thiết bị</th>
                 <th>Loại thiết bị</th>
                 <th>Năm sản xuất</th>
+                <th style="text-align: center;">Số tài liệu</th>
                 <th>Trạng thái</th>
                 <th class="col-hd">Thao tác</th>
               </tr>
@@ -1331,6 +1336,7 @@
                   }}
                 </td>
                 <td>{{ eq.manufactureYear || '-' }}</td>
+                <td style="text-align: center;">{{ eq.documentCount || 0 }}</td>
                 <td>
                   <span
                     class="status-pill"
@@ -1396,7 +1402,7 @@
               </tr>
               <tr *ngIf="equipmentItems().length === 0">
                 <td
-                  colspan="7"
+                  colspan="8"
                   class="empty-row"
                   style="text-align: center; padding: 32px; color: #64748b"
                 >
