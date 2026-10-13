@@ -1314,6 +1314,7 @@
                 <th>Loại thiết bị</th>
                 <th>Năm sản xuất</th>
                 <th style="text-align: center;">Số tài liệu</th>
+                <th style="text-align: center;">Đối chiếu PMIS</th>
                 <th>Trạng thái</th>
                 <th class="col-hd">Thao tác</th>
               </tr>
@@ -1337,6 +1338,18 @@
                 </td>
                 <td>{{ eq.manufactureYear || '-' }}</td>
                 <td style="text-align: center;">{{ eq.documentCount || 0 }}</td>
+                <td style="text-align: center;">
+                  <span
+                    *ngIf="eq.pmisDiffCount === null || eq.pmisDiffCount === undefined"
+                    class="text-muted"
+                    >-</span
+                  >
+                  <span
+                    *ngIf="eq.pmisDiffCount !== null && eq.pmisDiffCount !== undefined"
+                    [class.color-red]="eq.pmisDiffCount > 0"
+                    >{{ eq.pmisDiffCount }}</span
+                  >
+                </td>
                 <td>
                   <span
                     class="status-pill"
@@ -1402,7 +1415,7 @@
               </tr>
               <tr *ngIf="equipmentItems().length === 0">
                 <td
-                  colspan="8"
+                  colspan="9"
                   class="empty-row"
                   style="text-align: center; padding: 32px; color: #64748b"
                 >
