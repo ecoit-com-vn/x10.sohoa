@@ -2169,24 +2169,6 @@ StatusTransition,
         return EvnHanoi.EquipmentService.Core.DTOs.EquipmentPmisUpsertResult.Fail(EvnHanoi.Infrastructure.Pmis.PmisSyncErrorCodes.DuplicateActiveCode, message);
     }
 
-    public async Task<bool> SetFormValuesIfEmptyAsync(Guid equipmentId, string formValuesJson)
-    {
-        if (_connection.State != ConnectionState.Open)
-            _connection.Open();
-
-        const string sql = @"UPDATE EQUIPMENTS
-                    SET FORM_VALUES = :FormValues, ModifiedBy = :ModifiedBy, ModifiedDate = SYSTIMESTAMP
-                    WHERE Id = :Id AND IsDeleted = 0 AND FORM_VALUES IS NULL";
-
-        var affected = await _connection.ExecuteAsync(sql, new
-        {
-            Id = equipmentId.ToString(),
-            FormValues = OracleClob.Param(formValuesJson),
-            ModifiedBy = "PMIS_SYNC"
-        });
-        return affected > 0;
-    }
-
     public async Task<int> CountRecentlyTransferredAsync(DateTime sinceUtc)
     {
         if (_connection.State != ConnectionState.Open)

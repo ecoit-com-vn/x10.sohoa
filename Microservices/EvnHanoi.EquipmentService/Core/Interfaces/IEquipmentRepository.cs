@@ -89,10 +89,6 @@ public interface IEquipmentRepository
     Task<EquipmentUpsertPrefetch> PrefetchUpsertLookupsAsync(
         IReadOnlyList<(string PmisCode, string? ParentPmisCode, string? UnitCode)> items);
 
-    /// <summary>Ghi FormValues mặc định từ PMIS — CHỈ áp dụng khi thiết bị chưa từng có thông số nào
-    /// (FORM_VALUES đang NULL), không bao giờ ghi đè dữ liệu người dùng đã tự nhập/sửa.</summary>
-    Task<bool> SetFormValuesIfEmptyAsync(Guid equipmentId, string formValuesJson);
-
     /// <summary>Đếm số thiết bị bị đánh dấu "Đã chuyển TBA" (StatusTransition=0) bởi chính PMIS_SYNC trong
     /// <paramref name="sinceUtc"/> gần đây — dùng bởi PmisReconciliationJob (SyncService) làm compensating
     /// check nhẹ cho khả năng mất EquipmentTbaTransferredEvent nếu publish RabbitMQ lỗi ngay sau khi DB đã
