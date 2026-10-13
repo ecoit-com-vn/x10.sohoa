@@ -9,6 +9,8 @@ export interface PmisSpecDiffResponse {
   formSchema: string | null;
   localFormValues: string | null;
   pmisFormValues: string | null;
+  /** JSON {KHOA_PMIS: "Tên tiếng Việt"} (PMIS `tenThongSoKyThuat`) — cùng bộ khoá với pmisFormValues; có thể thiếu với bản ghi đồng bộ trước khi PMIS bổ sung nhãn. */
+  pmisFieldLabels?: string | null;
   pmisSyncedAt: string | null;
   fieldMappingWarnings: { fieldName: string; label: string }[];
 }
