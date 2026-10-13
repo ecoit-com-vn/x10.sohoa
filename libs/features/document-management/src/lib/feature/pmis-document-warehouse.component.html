@@ -268,6 +268,16 @@
                   <button
                     type="button"
                     class="btn-outlined btn-small"
+                    style="margin-right: 6px"
+                    [disabled]="!doc.objectKey || previewingId() === doc.id"
+                    (click)="preview(doc)"
+                    [title]="doc.objectKey ? 'Xem file' : fileStatusTooltip(doc)"
+                  >
+                    <i class="pi" [ngClass]="previewingId() === doc.id ? 'pi-spin pi-spinner' : 'pi-eye'"></i>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-outlined btn-small"
                     [disabled]="!doc.objectKey || downloadingId() === doc.id"
                     (click)="download(doc)"
                     [title]="doc.objectKey ? 'Tải về' : fileStatusTooltip(doc)"
@@ -347,5 +357,62 @@
       <i class="pi" [ngClass]="uploading() ? 'pi-spin pi-spinner' : 'pi-upload'"></i>
       {{ uploading() ? 'Đang upload...' : 'Upload' }}
     </button>
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  [header]="'Xem file: ' + (previewDoc()?.documentName || '')"
+  [visible]="previewDialogVisible()"
+  (visibleChange)="$event ? null : closePreview()"
+  [modal]="true"
+  [resizable]="true"
+  [draggable]="true"
+  [style]="{ width: '80vw', maxWidth: '1100px' }"
+  [closable]="true"
+>
+  <div style="min-height: 400px; display: flex; flex-direction: column; justify-content: center; align-items: center">
+    <div *ngIf="previewLoading()" style="text-align: center; padding: 40px">
+      <i class="pi pi-spin pi-spinner" style="font-size: 2.5rem; color: #3b82f6"></i>
+      <div style="margin-top: 12px; color: #64748b; font-size: 0.95rem">Đang tải file...</div>
+    </div>
+
+    <ng-container *ngIf="!previewLoading()">
+      <iframe
+        *ngIf="previewKind() === 'pdf' && previewSafeUrl()"
+        [src]="previewSafeUrl()"
+        style="width: 100%; height: 75vh; border: 1px solid #e2e8f0; border-radius: 6px"
+      ></iframe>
+
+      <div
+        *ngIf="previewKind() === 'image' && previewSafeUrl()"
+        style="width: 100%; max-height: 75vh; overflow: auto; text-align: center; background: #0f172a; padding: 16px; border-radius: 6px"
+      >
+        <img
+          [src]="previewSafeUrl()"
+          [alt]="previewDoc()?.documentName || 'Tài liệu'"
+          style="max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 4px"
+        />
+      </div>
+
+      <div *ngIf="previewKind() === 'unsupported'" style="text-align: center; padding: 50px 20px">
+        <i class="pi pi-file" style="font-size: 4rem; color: #94a3b8; margin-bottom: 16px; display: block"></i>
+        <h4 style="margin: 0 0 8px 0; color: #334155">Định dạng file không hỗ trợ xem trực tiếp</h4>
+        <p style="color: #64748b; margin-bottom: 20px; font-size: 0.9rem">
+          Trình duyệt không xem trực tiếp được định dạng này. Vui lòng tải về máy để xem nội dung đầy đủ.
+        </p>
+        <button *ngIf="previewDoc()" type="button" class="btn-save btn-small" (click)="download(previewDoc()!)">
+          <i class="pi pi-download"></i> Tải file về máy
+        </button>
+      </div>
+    </ng-container>
+  </div>
+
+  <ng-template #footer>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; padding-top: 12px; border-top: 1px solid #e2e8f0">
+      <button *ngIf="previewDoc()" type="button" class="btn-outlined btn-small" (click)="download(previewDoc()!)">
+        <i class="pi pi-download"></i> Tải về
+      </button>
+      <button type="button" class="btn-cancel btn-small" (click)="closePreview()"><i class="pi pi-times"></i> Đóng</button>
+    </div>
   </ng-template>
 </p-dialog>

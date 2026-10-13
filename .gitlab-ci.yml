@@ -36,7 +36,7 @@ frontend-deploy:
   script:
     - 'sed -i "s|image:\s*$REGISTRY/$CI_PROJECT_PATH:latest|image: $REGISTRY/$CI_PROJECT_PATH:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA|g" deploy/k8s-deploy.yaml'
     - kubectl apply -f deploy/k8s-deploy.yaml
-    - kubectl rollout status deployment/sohoa-frontend -n x10 --timeout=150s
+    - kubectl rollout status deployment/sohoa-frontend -n x10 --timeout=300s
 
 frontend-backup-github:
   stage: backup

@@ -398,8 +398,22 @@ export interface PmisFieldDiffRow {
   pmisDisplay: string | null;
   /** true nếu field chưa khai báo pmisFieldName khớp được key nào trong dữ liệu PMIS. */
   hasMappingWarning: boolean;
-  /** true nếu có mapping nhưng giá trị hiển thị khác nhau giữa hệ thống và PMIS. */
+  /** true nếu có mapping nhưng giá trị hiển thị khác nhau giữa hệ thống và PMIS (kể cả khi 1 bên còn trống — hộp thoại tài liệu dùng để gợi ý giá trị PMIS). */
   hasDifference: boolean;
+  /** true CHỈ khi có mapping, CẢ hệ thống LẪN PMIS đều có dữ liệu và giá trị hiển thị khác nhau — mới là "sai khác" thật (tô đỏ ở màn so sánh PMIS). */
+  hasConflict: boolean;
+  /** true khi có mapping và đúng 1 bên có dữ liệu (hệ thống thiếu hoặc PMIS thiếu) — không phải sai khác, nhưng cần báo để không hiểu nhầm là "khớp". */
+  isOneSided: boolean;
+}
+
+/** Giá trị có dữ liệu thật: khác null/undefined/NaN, không phải chuỗi rỗng/chỉ khoảng trắng, mảng/đối tượng rỗng (false/0 vẫn là dữ liệu). */
+function hasFieldData(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (typeof value === 'number') return !Number.isNaN(value);
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'object') return Object.keys(value as object).length > 0;
+  return true;
 }
 
 /** Tra cứu key không phân biệt hoa/thường (PMIS JSON không đảm bảo casing khớp field key hệ thống). */
@@ -444,6 +458,9 @@ export function buildPmisDiffRows(
     const localDisplay = formatFieldDisplayValue(field, localValue);
     const pmisDisplay = hasMappingWarning ? null : formatFieldDisplayValue(field, pmisRawValue);
 
+    const localHasData = hasFieldData(localValue);
+    const pmisHasData = hasFieldData(pmisRawValue);
+
     return {
       field,
       localValue,
@@ -452,6 +469,8 @@ export function buildPmisDiffRows(
       pmisDisplay,
       hasMappingWarning,
       hasDifference: !hasMappingWarning && localDisplay !== pmisDisplay,
+      hasConflict: !hasMappingWarning && localHasData && pmisHasData && localDisplay !== pmisDisplay,
+      isOneSided: !hasMappingWarning && localHasData !== pmisHasData,
     };
   });
 }

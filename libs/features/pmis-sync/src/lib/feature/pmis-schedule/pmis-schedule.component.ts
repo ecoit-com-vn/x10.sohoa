@@ -30,6 +30,7 @@ const OBJECT_TYPE_LABELS: Record<string, string> = {
   SUBSTATION: 'Trạm biến áp',
   TRANSMISSION_LINE: 'Đường dây',
   EQUIPMENT: 'Thiết bị',
+  DOCUMENT: 'Danh sách tài liệu',
 };
 
 const FREQUENCY_UNIT_LABELS: Record<PmisFrequencyUnit, string> = {
@@ -37,6 +38,10 @@ const FREQUENCY_UNIT_LABELS: Record<PmisFrequencyUnit, string> = {
   HOUR: 'Giờ',
   DAY: 'Ngày',
 };
+
+/** Tần suất tối thiểu (phút) — khớp mặc định Pmis:Schedule:MinFrequencyMinutes của SyncService; server vẫn là nơi kiểm tra chính thức. */
+const MIN_FREQUENCY_MINUTES = 120;
+const UNIT_MINUTES: Record<PmisFrequencyUnit, number> = { MINUTE: 1, HOUR: 60, DAY: 1440 };
 
 @Component({
   selector: 'lib-pmis-schedule',
@@ -54,6 +59,7 @@ export class PmisScheduleComponent implements OnInit {
   objectTypeLabels = OBJECT_TYPE_LABELS;
   frequencyUnitOptions: PmisFrequencyUnit[] = ['MINUTE', 'HOUR', 'DAY'];
   frequencyUnitLabels = FREQUENCY_UNIT_LABELS;
+  readonly minFrequencyHint = 'Tối thiểu 2 giờ. Mỗi lượt chạy tối đa bằng tần suất trừ 10 phút (vd 2 giờ → 110 phút), hết giờ tự dừng và lượt sau tiếp tục.';
 
   configs = signal<SyncConfig[]>([]);
   loading = signal(false);
@@ -126,6 +132,11 @@ export class PmisScheduleComponent implements OnInit {
       return;
     }
 
+    if (draft.frequencyValue * UNIT_MINUTES[draft.frequencyUnit] < MIN_FREQUENCY_MINUTES) {
+      this.messageService.add({ severity: 'warn', summary: 'Tần suất quá thấp', detail: 'Tần suất đồng bộ tối thiểu là 2 giờ.' });
+      return;
+    }
+
     this.savingType.set(objectType);
     this.scheduleService
       .update(objectType, {
@@ -160,8 +171,10 @@ export class PmisScheduleComponent implements OnInit {
   openHistoryDetail(history: SyncHistory): void {
     this.historyDetailTarget.set(history);
     this.historyDetailDialogVisible.set(true);
-    this.historyDetailView.set('MAIN');
-    this.loadHistoryDetailItems(history.id, history.objectType, 'MAIN');
+    // Lượt 'DOCUMENT' (job đồng bộ danh sách tài liệu) chỉ có dòng tài liệu — mở thẳng tab Tài liệu.
+    const initialView = history.objectType === 'DOCUMENT' ? 'DOCUMENT' : 'MAIN';
+    this.historyDetailView.set(initialView);
+    this.loadHistoryDetailItems(history.id, history.objectType, initialView);
   }
 
   /** objectType 'EQUIPMENT' → EQUIPMENT, còn lại (SUBSTATION/TRANSMISSION_LINE) → INFRASTRUCTURE. */
