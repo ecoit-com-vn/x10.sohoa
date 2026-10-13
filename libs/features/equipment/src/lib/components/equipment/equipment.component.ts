@@ -7,7 +7,6 @@ import {
 } from '@sohoa.frontend/shared/layout';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { DialogModule } from 'primeng/dialog';
 import { ToggleSwitch } from 'primeng/toggleswitch';
@@ -36,7 +35,6 @@ import { EavFormService } from '../../../../../../shared/core/src/lib/services/e
   imports: [
     CommonModule,
     FormsModule,
-    ToastModule,
     MenuModule,
     SelectModule,
     DialogModule,
@@ -48,7 +46,6 @@ import { EavFormService } from '../../../../../../shared/core/src/lib/services/e
     DatePickerModule,
     EquipmentTransferHistoryDialogComponent
   ],
-  providers: [MessageService],
   templateUrl: './equipment.component.html',
   styleUrls: ['./equipment.component.css']
 })

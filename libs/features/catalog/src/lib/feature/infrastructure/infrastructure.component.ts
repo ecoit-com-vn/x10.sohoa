@@ -7,7 +7,6 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer } from '@angular/platform-browser';
-import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { DatePickerModule } from 'primeng/datepicker';
 import { DialogModule } from 'primeng/dialog';
@@ -27,7 +26,6 @@ import { catchError, finalize, map, switchMap } from 'rxjs/operators';
   imports: [
     CommonModule,
     FormsModule,
-    ToastModule,
     SelectModule,
     DatePickerModule,
     DialogModule,
@@ -37,7 +35,6 @@ import { catchError, finalize, map, switchMap } from 'rxjs/operators';
     DeleteConfirmDialogComponent,
     EquipmentTransferHistoryDialogComponent
   ],
-  providers: [MessageService],
   templateUrl: './infrastructure.component.html',
   styleUrl: './infrastructure.component.scss'
 })
