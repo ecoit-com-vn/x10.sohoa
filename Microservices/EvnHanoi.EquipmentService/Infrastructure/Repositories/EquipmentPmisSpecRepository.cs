@@ -80,4 +80,20 @@ public class EquipmentPmisSpecRepository : IEquipmentPmisSpecRepository
 
         return rows.Select(r => ((string?)r.FORMVALUES, (string?)r.FIELDLABELS));
     }
+
+    public async Task<IReadOnlyDictionary<Guid, string?>> GetFormValuesByEquipmentIdsAsync(IEnumerable<Guid> equipmentIds)
+    {
+        var idList = equipmentIds.Distinct().ToArray();
+        if (idList.Length == 0) return new Dictionary<Guid, string?>();
+
+        if (_connection.State != ConnectionState.Open) _connection.Open();
+
+        var rows = await _connection.QueryAsync(
+            "SELECT EquipmentId, FormValues FROM EQUIPMENT_PMIS_SPEC WHERE EquipmentId IN :EquipmentIds",
+            new { EquipmentIds = idList.Select(id => id.ToString()).ToArray() });
+
+        return rows.ToDictionary(
+            r => Guid.Parse((string)r.EQUIPMENTID),
+            r => (string?)r.FORMVALUES);
+    }
 }
