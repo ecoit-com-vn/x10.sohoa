@@ -894,6 +894,10 @@ public partial class EquipmentController : ControllerBase
         var pmisSpec = await _equipmentPmisSpecRepository.GetByEquipmentIdAsync(id);
         var pmisFormValues = pmisSpec?.FormValues;
         var pmisFieldLabels = pmisSpec?.FieldLabels;
+        // Bản ghi đồng bộ trước khi PMIS bổ sung nhãn (tenThongSoKyThuat) có FieldLabels rỗng — dùng nhãn cấp LOẠI thiết bị (EquipmentTypes.PmisFieldLabels,
+        // ghi khi đồng bộ gặp nhãn đầu tiên của loại) làm dự phòng để màn hình vẫn hiện được tên thông số.
+        if (string.IsNullOrWhiteSpace(pmisFieldLabels) && dto.EquipmentTypeId != Guid.Empty)
+            pmisFieldLabels = await _equipmentTypeRepository.GetPmisFieldLabelsAsync(dto.EquipmentTypeId);
         var pmisSyncedAt = pmisSpec?.SyncedAt;
 
         var fieldMappingWarnings = new List<object>();
