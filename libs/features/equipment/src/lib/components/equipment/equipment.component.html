@@ -1241,8 +1241,11 @@
                       <span *ngIf="pmisMappedCount() > 0 && pmisDiffCount() > 0">
                         Phát hiện {{ pmisDiffCount() }} trường có sai khác giữa dữ liệu hệ thống và PMIS.
                       </span>
-                      <span *ngIf="pmisMappedCount() > 0 && pmisDiffCount() === 0">
+                      <span *ngIf="pmisMappedCount() > 0 && pmisDiffCount() === 0 && pmisOneSidedCount() === 0">
                         Không phát hiện sai khác giữa dữ liệu hệ thống và PMIS.
+                      </span>
+                      <span *ngIf="pmisMappedCount() > 0 && pmisDiffCount() === 0 && pmisOneSidedCount() > 0">
+                        Không có trường nào sai khác giá trị; {{ pmisOneSidedCount() }} trường chỉ có dữ liệu ở một bên (hệ thống hoặc PMIS).
                       </span>
                     </div>
 
@@ -1257,8 +1260,8 @@
                         </thead>
                         <tbody>
                           <tr *ngFor="let row of pmisDiffRows()" [hidden]="row.hasMappingWarning">
-                            <td [style.color]="row.hasDifference ? '#dc2626' : 'inherit'"
-                              [style.font-weight]="row.hasDifference ? '700' : '600'">
+                            <td [style.color]="row.hasConflict ? '#dc2626' : 'inherit'"
+                              [style.font-weight]="row.hasConflict ? '700' : '600'">
                               {{ row.field.label }}
                             </td>
                             <td>{{ row.localDisplay || '—' }}</td>
@@ -1303,7 +1306,8 @@
                             border-radius: 4px;
                           ">
                           <i class="pi pi-tag" style="margin-right: 6px"></i>
-                          <b>{{ item.key }}</b>
+                          <b>{{ item.label || item.key }}</b>
+                          <span *ngIf="item.label"> ({{ item.key }})</span>
                           <span *ngIf="item.value"> = {{ item.value }}</span>
                         </div>
                       </div>
