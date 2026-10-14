@@ -1873,6 +1873,14 @@ td:has(.act-btn) {
     transition: background-color 0.15s;
 }
 
+/* p-toast mặc định position:fixed;top:20px;right:20px (inline style do PrimeNG set) — trùng đúng vùng
+   icon chuông/avatar/đăng xuất ở góc trên-phải header (admin-layout, cao 56px), nên toast đè lên các
+   icon đó mỗi khi có thông báo mới. !important vì PrimeNG set qua inline style, CSS thường không thắng
+   được. */
+.p-toast.p-toast-top-right {
+    top: 72px !important;
+}
+
 .more-actions-dropdown .dropdown-item:hover {
     background-color: #f1f5f9;
 }
