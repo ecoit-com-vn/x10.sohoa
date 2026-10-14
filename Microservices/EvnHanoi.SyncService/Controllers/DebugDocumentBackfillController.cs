@@ -162,6 +162,8 @@ public class DebugDocumentBackfillController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Url)
             && (!request.Path.StartsWith("/api/", StringComparison.Ordinal) || request.Path.Contains("..") || request.Path.Contains("//") || request.Path.Contains('?')))
             return BadRequest(new { message = "path phải bắt đầu bằng /api/, không chứa '..', '//' hoặc '?' (dùng trường query)." });
+        if (request.HeadOffset < 0)
+            return BadRequest(new { message = "headOffset không được âm." });
         request.ExtraAllowedAuthorities = (_configuration["DebugSql:ProbeAllowedHosts"] ?? string.Empty)
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
         if (!new[] { "GET", "POST", "HEAD", "OPTIONS" }.Contains(request.Method.ToUpperInvariant()))
