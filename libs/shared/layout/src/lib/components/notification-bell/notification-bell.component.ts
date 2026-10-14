@@ -4,7 +4,6 @@ import { BadgeModule } from 'primeng/badge';
 import { ButtonModule } from 'primeng/button';
 import { PopoverModule } from 'primeng/popover';
 import { MessageService } from 'primeng/api';
-import { ToastModule } from 'primeng/toast';
 import { catchError, forkJoin, of } from 'rxjs';
 import {
   SignalRService,
@@ -16,8 +15,7 @@ import {
 @Component({
   selector: 'app-notification-bell',
   standalone: true,
-  imports: [CommonModule, BadgeModule, ButtonModule, PopoverModule, ToastModule],
-  providers: [MessageService],
+  imports: [CommonModule, BadgeModule, ButtonModule, PopoverModule],
   templateUrl: './notification-bell.component.html',
   styleUrl: './notification-bell.component.scss'
 })
