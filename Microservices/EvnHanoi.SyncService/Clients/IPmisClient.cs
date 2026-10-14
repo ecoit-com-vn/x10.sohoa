@@ -100,6 +100,12 @@ public class PmisProbeRequest
 
     /// <summary>Số ký tự đầu của nội dung trả về (mặc định 300, tối đa 4000).</summary>
     public int HeadChars { get; set; } = 300;
+
+    /// <summary>Vị trí ký tự bắt đầu lấy HeadChars (mặc định 0). Dùng để đọc LẦN LƯỢT các đoạn của phản hồi JSON dài hơn 4000 ký tự
+    /// (không có phân trang phía nguồn) — tăng dần theo <see cref="HeadChars"/> cho tới khi vượt <see cref="DocumentFileProbe.BodyChars"/>.
+    /// Lưu ý: mỗi lần gọi là 1 request mới tới nguồn (GET thì an toàn lặp lại); chỉ đọc tối đa 2 MB đầu — nếu <see cref="DocumentFileProbe.BodyTruncated"/>
+    /// thì BodyChars chỉ là số ký tự của phần đã đọc, KHÔNG phải toàn bộ phản hồi.</summary>
+    public int HeadOffset { get; set; }
 }
 
 /// <summary>Kết quả chẩn đoán 1 lần gọi API PMIS.</summary>
@@ -117,6 +123,9 @@ public class DocumentFileProbe
     public bool BodyTruncated { get; set; }
     public string? HeadHex { get; set; }
     public string? HeadText { get; set; }
+
+    /// <summary>Tổng số ký tự của phần body đã đọc (giải mã UTF-8) — biết khi nào đã đọc hết các đoạn theo HeadOffset.</summary>
+    public int BodyChars { get; set; }
     public string? DetectedFormat { get; set; }
     public List<string>? JsonKeys { get; set; }
     public string? Error { get; set; }

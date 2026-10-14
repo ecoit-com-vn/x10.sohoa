@@ -273,22 +273,10 @@ public class InternalPmisSyncController : ControllerBase
                     }
                 }
 
-                // Thiết bị chưa có thông số nào (FORM_VALUES NULL — mới tạo, hoặc chưa ai nhập tay) thì lấy
-                // luôn dữ liệu PMIS làm giá trị mặc định, khớp đúng field theo FormSchema hiện hành (đến
-                // đây template chắc chắn đã tồn tại, kể cả vừa mới tự tạo ở bước trên). KHÔNG bao giờ ghi
-                // đè nếu đã có dữ liệu — SetFormValuesIfEmptyAsync tự bảo đảm điều đó ở tầng SQL.
-                if (!string.IsNullOrWhiteSpace(item.ThongSoKyThuat) && upsertResult.EquipmentId is Guid equipmentIdForDefaults)
-                {
-                    var equipmentDto = await _equipmentRepository.GetDtoByIdAsync(equipmentIdForDefaults);
-                    if (equipmentDto != null && string.IsNullOrWhiteSpace(equipmentDto.FormValues) && !string.IsNullOrWhiteSpace(equipmentDto.FormSchema))
-                    {
-                        var defaultFormValues = BuildDefaultFormValuesFromPmisSpec(equipmentDto.FormSchema!, item.ThongSoKyThuat);
-                        if (defaultFormValues != null)
-                        {
-                            await _equipmentRepository.SetFormValuesIfEmptyAsync(equipmentIdForDefaults, defaultFormValues);
-                        }
-                    }
-                }
+                // KHÔNG ghi thông số PMIS vào EQUIPMENTS.FormValues: FORM_VALUES chỉ chứa dữ liệu do người dùng nhập/duyệt. Thông số PMIS nằm riêng ở
+                // EQUIPMENT_PMIS_SPEC (hiển thị ở khung "So sánh với PMIS"). Trước đây đồng bộ tự điền FORM_VALUES từ PMIS khi còn rỗng khiến cột
+                // "Hệ thống số hóa" luôn trùng PMIS và không phân biệt được với dữ liệu người dùng nhập. Biểu mẫu (template) vẫn được tự tạo nếu loại thiết
+                // bị chưa có (EnsureAutoFormTemplateAsync) và không bao giờ sửa biểu mẫu đã có.
 
                 // Thiết bị MỚI tạo: nhận lại các tài liệu đã lưu tạm cho Trạm/Đường dây khi thiết bị chưa tồn tại (DEVICE_CODE khớp).
                 // Job danh sách tài liệu chỉ lấy phần mới nên không còn tự sửa owner như khi mỗi chu kỳ đẩy lại mọi tài liệu. Lỗi ở đây chỉ log.
@@ -705,41 +693,6 @@ public class InternalPmisSyncController : ControllerBase
             }
 
             return fields.Count > 0 ? JsonSerializer.Serialize(fields) : null;
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// Dựng EQUIPMENTS.FormValues mặc định từ thongSoKyThuat PMIS, khớp đúng từng field trong formSchema
-    /// theo CÙNG logic khoá đang dùng để đọc lại giá trị (EavSchemaHelper.ResolveSchemaFieldName —
-    /// name → key → id → fieldName) — field tự sinh bởi BuildAutoFormFieldsFromPmisSpec có name rỗng nên
-    /// khoá thật là "id" ngẫu nhiên, không phải mã PMIS; nếu tự đoán sai khoá thì FE sẽ không hiển thị
-    /// được giá trị vừa ghi. Tra giá trị PMIS theo pmisFieldName (ưu tiên) hoặc khoá đã resolve (fallback).
-    /// </summary>
-    private static string? BuildDefaultFormValuesFromPmisSpec(string formSchemaJson, string thongSoKyThuatJson)
-    {
-        try
-        {
-            using var pmisDoc = JsonDocument.Parse(thongSoKyThuatJson);
-            if (pmisDoc.RootElement.ValueKind != JsonValueKind.Object) return null;
-
-            var formValues = new Dictionary<string, object?>();
-            foreach (var field in EavSchemaHelper.EnumerateSchemaFields(formSchemaJson))
-            {
-                var localKey = EavSchemaHelper.ResolveSchemaFieldName(field);
-                if (string.IsNullOrWhiteSpace(localKey)) continue;
-
-                var pmisKey = EavSchemaHelper.ReadSchemaString(field, "pmisFieldName", "PmisFieldName") ?? localKey;
-                if (!EavSchemaHelper.TryGetPropertyIgnoreCase(pmisDoc.RootElement, pmisKey, out var pmisValue)) continue;
-                if (pmisValue.ValueKind == JsonValueKind.Null) continue;
-
-                formValues[localKey] = pmisValue.ValueKind == JsonValueKind.String ? pmisValue.GetString() : pmisValue.ToString();
-            }
-
-            return formValues.Count > 0 ? JsonSerializer.Serialize(formValues) : null;
         }
         catch (JsonException)
         {
