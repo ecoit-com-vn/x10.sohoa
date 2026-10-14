@@ -418,9 +418,28 @@ public class PmisClient : IPmisClient
             probe.HeadHex = Convert.ToHexString(bytes.AsSpan(0, Math.Min(16, bytes.Length)));
 
             var headChars = Math.Clamp(req.HeadChars, 50, 4000);
-            var text = System.Text.Encoding.UTF8.GetString(bytes, 0, Math.Min(bytes.Length, headChars * 4));
+            string text;
+            if (req.HeadOffset > 0)
+            {
+                // Đọc đoạn giữa phản hồi dài: giải mã toàn bộ phần đã đọc (tối đa ProbeMaxBodyBytes) rồi cắt theo ký tự.
+                var full = System.Text.Encoding.UTF8.GetString(bytes);
+                probe.BodyChars = full.Length;
+                text = req.HeadOffset >= full.Length ? string.Empty : full.Substring(req.HeadOffset, Math.Min(headChars, full.Length - req.HeadOffset));
+            }
+            else
+            {
+                text = System.Text.Encoding.UTF8.GetString(bytes, 0, Math.Min(bytes.Length, headChars * 4));
+                probe.BodyChars = bytes.Length <= headChars * 4 ? text.Length : System.Text.Encoding.UTF8.GetCharCount(bytes);
+            }
             var isPrintable = text.All(c => !char.IsControl(c) || c is '\r' or '\n' or '\t');
-            probe.HeadText = isPrintable ? (text.Length > headChars ? text[..headChars] : text) : null;
+            // Đoạn giữa (HeadOffset>0) luôn trả về — ký tự điều khiển thay bằng khoảng trắng thay vì null (null trông như phản hồi rỗng).
+            if (req.HeadOffset > 0 && !isPrintable)
+                text = new string(text.Select(c => !char.IsControl(c) || c is '\r' or '\n' or '\t' ? c : ' ').ToArray());
+            probe.HeadText = req.HeadOffset > 0 || isPrintable ? (text.Length > headChars ? text[..headChars] : text) : null;
+            // Nhận dạng định dạng luôn dựa trên ĐẦU body (không phải đoạn đang đọc): cùng 1 phản hồi phải cho cùng kết quả ở mọi HeadOffset.
+            var detectText = req.HeadOffset > 0
+                ? System.Text.Encoding.UTF8.GetString(bytes, 0, Math.Min(bytes.Length, headChars * 4))
+                : text;
 
             // Nhận dạng định dạng: nhị phân theo magic bytes, JSON (kèm dò chuỗi dài giống base64), hay base64 thuần.
             if (bytes.Length >= 4 && bytes[0] == 0x25 && bytes[1] == 0x50 && bytes[2] == 0x44 && bytes[3] == 0x46) probe.DetectedFormat = "PDF (nhị phân)";
@@ -451,7 +470,7 @@ public class PmisClient : IPmisClient
                 }
                 catch { /* không phải JSON hợp lệ — giữ HeadText */ }
             }
-            else if (bytes.Length > 0 && System.Text.RegularExpressions.Regex.IsMatch(text, "^[A-Za-z0-9+/=\\r\\n]+$")) probe.DetectedFormat = "Có vẻ là base64 thuần";
+            else if (bytes.Length > 0 && System.Text.RegularExpressions.Regex.IsMatch(detectText, "^[A-Za-z0-9+/=\\r\\n]+$")) probe.DetectedFormat = "Có vẻ là base64 thuần";
             else probe.DetectedFormat = bytes.Length == 0 ? "Rỗng" : "Không xác định";
         }
         catch (Exception ex)
