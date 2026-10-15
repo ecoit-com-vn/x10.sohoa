@@ -106,7 +106,8 @@ export class EcoInputSelectComponent
     }
 
     return control.value
-      .map((c: any) => this.options.find((o: any) => o.id == c).name)
+      .map((c: any) => this.options.find((o: any) => o.id == c)?.name)
+      .filter((name: any) => !!name)
       .join(', ')
   }
 
