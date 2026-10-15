@@ -27,6 +27,8 @@ const NO_ACTION_PREFIX = 'No action for';
 
 /** Thời gian chờ tối thiểu khi quét — không được đặt dưới 120 giây (docs/WEB_PROTOCOL.md §7). */
 const MIN_SCAN_TIMEOUT_MS = 120_000;
+/** Thời gian chờ mặc định khi quét: 30 phút (1,800,000 ms) để hỗ trợ quét tập tài liệu dày nhiều trang. */
+const DEFAULT_SCAN_TIMEOUT_MS = 1_800_000;
 
 @Injectable({
   providedIn: 'root',
@@ -45,7 +47,7 @@ export class EcoScannerService {
     const format = options?.format ?? 'pdf';
     const mode = options?.mode ?? 's';
     const wsUrl = options?.wsUrl ?? this.config.ecoScannerWsUrl ?? 'ws://127.0.0.1:8282';
-    const timeoutMs = Math.max(options?.timeoutMs ?? MIN_SCAN_TIMEOUT_MS, MIN_SCAN_TIMEOUT_MS);
+    const timeoutMs = Math.max(options?.timeoutMs ?? DEFAULT_SCAN_TIMEOUT_MS, MIN_SCAN_TIMEOUT_MS);
     const debug = this.config.ecoScannerDebug ?? !this.config.production;
 
     this.cancelRequested = false;
@@ -243,7 +245,9 @@ export class EcoScannerService {
 
       const timeoutId = setTimeout(() => {
         if (!scanDone && files.length === 0) {
-          fail(socket, 'Hết thời gian chờ quét (120s). Vui lòng thử lại.', true);
+          const minutes = Math.round(timeoutMs / 60_000);
+          const timeText = minutes >= 1 ? `${minutes} phút` : `${Math.round(timeoutMs / 1000)}s`;
+          fail(socket, `Hết thời gian chờ quét (${timeText}). Vui lòng thử lại.`, true);
         }
       }, timeoutMs);
 

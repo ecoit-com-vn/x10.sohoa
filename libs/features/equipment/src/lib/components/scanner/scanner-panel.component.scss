@@ -18,12 +18,29 @@
   display: flex;
   align-items: center;
   gap: 6px;
+
+  &.status-error {
+    color: #dc2626;
+    font-weight: 500;
+  }
 }
 
 .scanner-hint {
   margin: 0;
   font-size: 0.8rem;
   color: #64748b;
+}
+
+.staged-hint {
+  background: #eff6ff;
+  border-left: 3px solid #3b82f6;
+  padding: 8px 12px;
+  border-radius: 4px;
+  color: #1e40af;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.825rem;
 }
 
 .scanner-waiting {
@@ -36,7 +53,7 @@
 .scanner-preview {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  height: 280px;
+  height: 340px;
   overflow: hidden;
   background: #fafafa;
 
@@ -48,84 +65,176 @@
     object-fit: contain;
   }
 }
-.scanner-controls{
-    display:flex;
-    flex-direction:column;
-    gap:18px;
+
+.scanner-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.scanner-filename-input{
-    width:100%;
+.scanner-filename-input {
+  width: 100%;
 }
 
-.input-label{
-    font-size:15px;
-    font-weight:600;
-    margin-bottom:6px;
+.input-label {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
 }
 
-.filename-box{
+.filename-box {
+  display: flex;
+  align-items: center;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0 14px;
+  height: 40px;
+  transition: 0.2s;
+  background: #fff;
 
-    display:flex;
-    align-items:center;
+  &:focus-within {
+    border-color: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+  }
 
-    border:1px solid #d1d5db;
-    border-radius:8px;
+  i {
+    color: #6b7280;
+    font-size: 18px;
+    margin-right: 10px;
+  }
 
-    padding:0 14px;
+  input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 15px;
+    background: transparent;
+  }
 
-    height:40px;
-
-    transition:.2s;
-    background:#fff;
+  span {
+    color: #9ca3af;
+    font-weight: 600;
+  }
 }
 
-.filename-box:focus-within{
-    border-color:#16a34a;
-    box-shadow:0 0 0 3px rgba(22,163,74,.15);
+.scanner-filename-input small {
+  display: block;
+  margin-top: 6px;
+  color: #6b7280;
+  font-size: 13px;
 }
 
-.filename-box i{
-
-    color:#6b7280;
-    font-size:18px;
-    margin-right:10px;
-
+.scanner-actions-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 
-.filename-box input{
-
-    flex:1;
-
-    border:none;
-    outline:none;
-
-    font-size:15px;
-
-    background:transparent;
-
+.scan-btn {
+  width: max-content;
 }
 
-.filename-box span{
-
-    color:#9ca3af;
-    font-weight:600;
-
+/* Staged Panel sau khi quét ít nhất 1 đợt */
+.scanner-staged-panel {
+  width: 100%;
 }
 
-.scanner-filename-input small{
-
-    display:block;
-    margin-top:6px;
-
-    color:#6b7280;
-    font-size:13px;
-
+.staged-card {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.scan-btn{
+.staged-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
 
-    width:max-content;
-    align-self:flex-start;
+.staged-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
+.staged-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: #fee2e2;
+  color: #dc2626;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+
+.staged-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.staged-title {
+  font-weight: 600;
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.staged-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.badge-pages {
+  background: #dbeafe;
+  color: #1e40af;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-size {
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.staged-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-scan-more {
+  border-color: #0284c7 !important;
+  color: #0284c7 !important;
+
+  &:hover {
+    background: #f0f9ff !important;
+  }
+}
+
+.btn-reset {
+  border-color: #94a3b8 !important;
+  color: #64748b !important;
+
+  &:hover {
+    background: #fef2f2 !important;
+    color: #dc2626 !important;
+    border-color: #fca5a5 !important;
+  }
 }
