@@ -807,6 +807,15 @@ export class UserManagement implements OnInit {
     return this.selectedRoleIds().includes(roleId);
   }
 
+  // Click trên label/checkbox đã tự xử lý qua (change) của input, bỏ qua để tránh gọi toggleRole trùng lặp
+  // (label[for] sinh thêm 1 click "ảo" trên input, cộng với click gốc trên label, nổi bọt lên div 2 lần).
+  onRoleCardClick(event: MouseEvent, roleId: number): void {
+    if (this.savingRoles()) return;
+    const target = event.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'LABEL') return;
+    this.toggleRole(roleId);
+  }
+
   toggleRole(roleId: number) {
     this.selectedRoleIds.update(prev => {
       const idx = prev.indexOf(roleId);
