@@ -122,8 +122,41 @@ export class SignalRService {
     if (!this.hubConnection || this.listenersRegistered) return;
     this.listenersRegistered = true;
 
-    this.hubConnection.on('ReceiveNotification', (severity: string, summary: string, detail: string) => {
-      this.receiveMessage(severity, summary, detail);
+    this.hubConnection.on('ReceiveNotification', (...args: any[]) => {
+      const firstArg = args[0];
+      const rawText = typeof firstArg === 'string'
+        ? firstArg
+        : (typeof firstArg === 'object' ? (firstArg?.message || firstArg?.detail || '') : '');
+
+      // Bỏ qua các thông báo đồng bộ ngầm từ worker nền (ví dụ: "Equipment ... synced successfully.")
+      if (typeof rawText === 'string' && /synced successfully/i.test(rawText)) {
+        return;
+      }
+
+      let severity = 'info';
+      let summary = 'Thông báo';
+      let detail = '';
+
+      if (args.length === 1) {
+        if (typeof firstArg === 'string') {
+          detail = firstArg;
+        } else if (firstArg && typeof firstArg === 'object') {
+          severity = firstArg.severity || 'info';
+          summary = firstArg.summary || firstArg.title || 'Thông báo';
+          detail = firstArg.detail || firstArg.message || firstArg.body || '';
+        }
+      } else if (args.length === 2) {
+        summary = args[0] || 'Thông báo';
+        detail = args[1] || '';
+      } else if (args.length >= 3) {
+        severity = args[0] || 'info';
+        summary = args[1] || 'Thông báo';
+        detail = args[2] || '';
+      }
+
+      if (summary?.trim() || detail?.trim()) {
+        this.receiveMessage(severity, summary, detail);
+      }
     });
 
     this.hubConnection.on('ReceiveMessage', (message: string) => {
