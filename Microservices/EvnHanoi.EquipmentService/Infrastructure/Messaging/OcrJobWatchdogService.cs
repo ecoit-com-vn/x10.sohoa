@@ -1,6 +1,7 @@
 using EvnHanoi.EquipmentService.Core.DTOs;
 using EvnHanoi.EquipmentService.Core.Entities;
 using EvnHanoi.EquipmentService.Core.Interfaces;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -20,22 +21,29 @@ namespace EvnHanoi.EquipmentService.Infrastructure.Messaging;
 public class OcrJobWatchdogService : BackgroundService
 {
     private static readonly TimeSpan ScanInterval = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan StaleThreshold = TimeSpan.FromMinutes(30);
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<OcrJobWatchdogService> _logger;
 
-    public OcrJobWatchdogService(IServiceScopeFactory scopeFactory, ILogger<OcrJobWatchdogService> logger)
+    // Job ĐÃ được worker nhận (có tiến độ) mà đứng yên quá ngưỡng này = nghi worker treo/crash. Cấu hình Ocr:StartedStaleMinutes (mặc định 30).
+    private readonly TimeSpan _startedThreshold;
+    // Job CHƯA được worker nhận (còn xếp hàng RabbitMQ): chờ lâu là bình thường khi hàng dài — chỉ coi là mất message sau ngưỡng dài này.
+    // Cấu hình Ocr:QueuedStaleHours (mặc định 24).
+    private readonly TimeSpan _queuedThreshold;
+
+    public OcrJobWatchdogService(IServiceScopeFactory scopeFactory, ILogger<OcrJobWatchdogService> logger, IConfiguration configuration)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _startedThreshold = TimeSpan.FromMinutes(Math.Max(5, configuration.GetValue("Ocr:StartedStaleMinutes", 30)));
+        _queuedThreshold = TimeSpan.FromHours(Math.Max(1, configuration.GetValue("Ocr:QueuedStaleHours", 24)));
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation(
-            "OcrJobWatchdogService bắt đầu quét mỗi {IntervalMinutes} phút, ngưỡng treo {ThresholdMinutes} phút.",
-            ScanInterval.TotalMinutes, StaleThreshold.TotalMinutes);
+            "OcrJobWatchdogService bắt đầu quét mỗi {IntervalMinutes} phút, ngưỡng treo (đã chạy) {StartedMinutes} phút, ngưỡng chờ hàng đợi {QueuedHours} giờ.",
+            ScanInterval.TotalMinutes, _startedThreshold.TotalMinutes, _queuedThreshold.TotalHours);
 
         using var timer = new PeriodicTimer(ScanInterval);
         do
@@ -58,16 +66,19 @@ public class OcrJobWatchdogService : BackgroundService
         var repository = scope.ServiceProvider.GetRequiredService<IDocumentDigitizationRepository>();
         var digitizationService = scope.ServiceProvider.GetRequiredService<IDocumentDigitizationService>();
 
-        var staleJobs = (await repository.GetStaleJobsAsync(StaleThreshold)).ToList();
+        var staleJobs = (await repository.GetStaleJobsAsync(_startedThreshold, _queuedThreshold)).ToList();
         if (staleJobs.Count == 0)
             return;
 
         foreach (var job in staleJobs)
         {
             var lastActivity = job.ModifiedDate ?? job.CreatedDate;
+            var queued = string.Equals(job.Status, "Pending", StringComparison.OrdinalIgnoreCase)
+                         || (job.Action?.EndsWith(".process.task", StringComparison.OrdinalIgnoreCase) ?? false);
+            var thresholdText = queued ? $"{(int)_queuedThreshold.TotalHours} giờ" : $"{(int)_startedThreshold.TotalMinutes} phút";
             _logger.LogWarning(
-                "Job OCR/bóc tách version {VersionId} đứng yên ở '{Status}' từ {LastActivity} (quá {ThresholdMinutes} phút) — đánh dấu Failed.",
-                job.DocumentVersionId, job.Status, lastActivity, StaleThreshold.TotalMinutes);
+                "Job OCR/bóc tách version {VersionId} đứng yên ở '{Status}' ({Kind}) từ {LastActivity} (quá {Threshold}) — đánh dấu Failed.",
+                job.DocumentVersionId, job.Status, queued ? "chờ hàng đợi" : "đã chạy", lastActivity, thresholdText);
 
             // Tái dùng đúng HandleProgressMessageAsync (đã xử lý action "*.process.failed" ở Phase 1.3)
             // để cập nhật Status=Failed + ErrorMessage + push SignalR — không lặp lại logic.
@@ -76,9 +87,10 @@ public class OcrJobWatchdogService : BackgroundService
             {
                 FileId = job.DocumentVersionId,
                 Action = action,
-                ErrorMessage =
-                    $"Job vượt quá thời gian xử lý cho phép (>{(int)StaleThreshold.TotalMinutes} phút không cập nhật) " +
-                    "— có khả năng worker bị treo hoặc mất kết nối."
+                ErrorMessage = queued
+                    ? $"Job chờ trong hàng đợi quá {thresholdText} chưa được xử lý — có thể message đã mất, hãy chạy lại."
+                    : $"Job vượt quá thời gian xử lý cho phép (>{thresholdText} không cập nhật) " +
+                      "— có khả năng worker bị treo hoặc mất kết nối."
             });
         }
 

@@ -110,7 +110,9 @@ namespace EvnHanoi.DigitizationService.Workers
                 // prefetch 2 (hạ từ 4) khớp ConsumerDispatchConcurrency=2. Mỗi tài liệu OCR chiếm
                 // GPU rất lâu (tài liệu thật 96–744 vùng chữ/trang, ~4,4 crop/giây) nên giữ nhiều
                 // message unacked chỉ làm chúng chờ tới lúc vượt timeout, không giúp nhanh hơn.
-                await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 2, global: false, cancellationToken: stoppingToken);
+                // Số tài liệu song song: Ocr:PrefetchCount (xem OcrWorkerSettings) — cùng giá trị với ConsumerDispatchConcurrency ở Program.cs.
+                var prefetchCount = OcrWorkerSettings.GetPrefetchCount(_configuration);
+                await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: prefetchCount, global: false, cancellationToken: stoppingToken);
 
                 var consumer = new AsyncEventingBasicConsumer(_channel);
                 consumer.ReceivedAsync += async (model, ea) =>
