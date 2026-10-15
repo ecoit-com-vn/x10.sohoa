@@ -3,7 +3,6 @@ import { EcoPaginatorComponent, WfBreadcrumbComponent } from '@sohoa.frontend/sh
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer } from '@angular/platform-browser';
-import { ToastModule } from 'primeng/toast';
 import { SelectModule } from 'primeng/select';
 import { DialogModule } from 'primeng/dialog';
 import { DatePickerModule } from 'primeng/datepicker';
@@ -20,8 +19,7 @@ import { LookupTrackingService } from '../../data-access/lookup-tracking.service
 @Component({
   selector: 'app-substation-search',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, SelectModule, DialogModule, DatePickerModule, WfBreadcrumbComponent, EcoPaginatorComponent],
-  providers: [MessageService],
+  imports: [CommonModule, FormsModule, SelectModule, DialogModule, DatePickerModule, WfBreadcrumbComponent, EcoPaginatorComponent],
   templateUrl: './substation-search.component.html',
   styleUrl: './substation-search.component.scss'
 })

@@ -40,10 +40,15 @@ export class NotificationBellComponent implements OnInit {
     }
 
     this.signalRService.notifications$.subscribe(notif => {
+      const summary = notif.summary?.trim() ?? '';
+      const detail = notif.detail?.trim() ?? '';
+      if (!summary && !detail) return;
+      if (/synced successfully/i.test(detail)) return;
+
       this.messageService.add({
-        severity: notif.severity,
-        summary: notif.summary,
-        detail: notif.detail,
+        severity: notif.severity || 'info',
+        summary: summary || 'Thông báo',
+        detail: detail,
         life: 5000
       });
     });
@@ -74,12 +79,16 @@ export class NotificationBellComponent implements OnInit {
         isRead: false
       }]);
 
-      this.messageService.add({
-        severity: 'info',
-        summary: evt.title,
-        detail: evt.body ?? '',
-        life: 5000
-      });
+      const title = evt.title?.trim() ?? '';
+      const body = evt.body?.trim() ?? '';
+      if (title || body) {
+        this.messageService.add({
+          severity: 'info',
+          summary: title || 'Thông báo',
+          detail: body,
+          life: 5000
+        });
+      }
     });
   }
 
