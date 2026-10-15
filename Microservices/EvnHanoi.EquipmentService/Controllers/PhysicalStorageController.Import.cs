@@ -69,6 +69,80 @@ public partial class PhysicalStorageController
         var floorIdByShelfAndName = new Dictionary<(long ShelfId, string Name), long>();
 
         static string NormalizeName(string? name) => (name ?? string.Empty).Trim().ToUpperInvariant();
+        static int ParsePriority(string? text) => int.TryParse(text, out var p) && p > 0 ? (p > 999_999_999 ? 999_999_999 : p) : 1;
+
+        // Bộ đệm sequence để sinh mã nhanh cho import số lượng lớn (tránh truy vấn lại DB hàng nghìn lần)
+        var nextShelfSeqByUnit = new Dictionary<long, (string Prefix, int NextSeq)>();
+        async Task<string?> GetNextShelfCodeAsync(long uId)
+        {
+            if (!nextShelfSeqByUnit.TryGetValue(uId, out var seqInfo))
+            {
+                var initialCode = await _repository.GenerateNextShelfCodeAsync(uId);
+                if (initialCode == null) return null;
+                var uCode = await _repository.GetUnitCodeAsync(uId);
+                var prefix = $"{uCode?.Trim()}_KE";
+                if (initialCode.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+                    int.TryParse(initialCode.Substring(prefix.Length), out var seq))
+                {
+                    seqInfo = (prefix, seq);
+                }
+                else
+                {
+                    return initialCode;
+                }
+            }
+            var code = $"{seqInfo.Prefix}{seqInfo.NextSeq}";
+            nextShelfSeqByUnit[uId] = (seqInfo.Prefix, seqInfo.NextSeq + 1);
+            return code;
+        }
+
+        var nextFloorSeqByUnit = new Dictionary<long, (string Prefix, int NextSeq)>();
+        async Task<string?> GetNextFloorCodeAsync(long uId)
+        {
+            if (!nextFloorSeqByUnit.TryGetValue(uId, out var seqInfo))
+            {
+                var initialCode = await _repository.GenerateNextFloorCodeAsync(uId);
+                if (initialCode == null) return null;
+                var uCode = await _repository.GetUnitCodeAsync(uId);
+                var prefix = $"{uCode?.Trim()}_TANG";
+                if (initialCode.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+                    int.TryParse(initialCode.Substring(prefix.Length), out var seq))
+                {
+                    seqInfo = (prefix, seq);
+                }
+                else
+                {
+                    return initialCode;
+                }
+            }
+            var code = $"{seqInfo.Prefix}{seqInfo.NextSeq}";
+            nextFloorSeqByUnit[uId] = (seqInfo.Prefix, seqInfo.NextSeq + 1);
+            return code;
+        }
+
+        var nextBoxSeqByUnit = new Dictionary<long, (string Prefix, int NextSeq)>();
+        async Task<string?> GetNextBoxCodeAsync(long uId)
+        {
+            if (!nextBoxSeqByUnit.TryGetValue(uId, out var seqInfo))
+            {
+                var initialCode = await _repository.GenerateNextBoxCodeAsync(uId);
+                if (initialCode == null) return null;
+                var uCode = await _repository.GetUnitCodeAsync(uId);
+                var prefix = $"{uCode?.Trim()}_HOP";
+                if (initialCode.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+                    int.TryParse(initialCode.Substring(prefix.Length), out var seq))
+                {
+                    seqInfo = (prefix, seq);
+                }
+                else
+                {
+                    return initialCode;
+                }
+            }
+            var code = $"{seqInfo.Prefix}{seqInfo.NextSeq}";
+            nextBoxSeqByUnit[uId] = (seqInfo.Prefix, seqInfo.NextSeq + 1);
+            return code;
+        }
 
         // ── Sheet Kệ ──
         var shelfSheet = workbook.Worksheets.TryGetWorksheet(ImportSheetShelf, out var wsShelf) ? wsShelf : null;
@@ -96,25 +170,32 @@ public partial class PhysicalStorageController
                     continue;
                 }
 
-                var code = await _repository.GenerateNextShelfCodeAsync(unitId!.Value);
+                var code = await GetNextShelfCodeAsync(unitId!.Value);
                 if (code == null)
                 {
                     result.Errors.Add(new PhysicalStorageImportErrorDto { Sheet = ImportSheetShelf, Row = row.RowNumber(), Reason = "Không thể sinh mã kệ cho đơn vị này." });
                     continue;
                 }
 
-                var shelf = new PhysicalShelf
+                try
                 {
-                    UnitId = unitId.Value,
-                    Code = code,
-                    Name = name,
-                    Description = string.IsNullOrWhiteSpace(description) ? null : description,
-                    Priority = int.TryParse(priorityText, out var p) && p > 0 ? p : 1,
-                    CreatedBy = userName
-                };
-                var shelfId = await _repository.CreateShelfAsync(shelf);
-                shelfIdByUnitAndName[(unitId.Value, NormalizeName(name))] = shelfId;
-                result.ShelvesCreated++;
+                    var shelf = new PhysicalShelf
+                    {
+                        UnitId = unitId.Value,
+                        Code = code,
+                        Name = name,
+                        Description = string.IsNullOrWhiteSpace(description) ? null : description,
+                        Priority = ParsePriority(priorityText),
+                        CreatedBy = userName
+                    };
+                    var shelfId = await _repository.CreateShelfAsync(shelf);
+                    shelfIdByUnitAndName[(unitId.Value, NormalizeName(name))] = shelfId;
+                    result.ShelvesCreated++;
+                }
+                catch (Exception ex)
+                {
+                    result.Errors.Add(new PhysicalStorageImportErrorDto { Sheet = ImportSheetShelf, Row = row.RowNumber(), Reason = $"Lỗi khi lưu kệ: {ex.Message}" });
+                }
             }
         }
 
@@ -158,25 +239,32 @@ public partial class PhysicalStorageController
                     shelfIdByUnitAndName[shelfKey] = shelfId;
                 }
 
-                var code = await _repository.GenerateNextFloorCodeAsync(unitId.Value);
+                var code = await GetNextFloorCodeAsync(unitId.Value);
                 if (code == null)
                 {
                     result.Errors.Add(new PhysicalStorageImportErrorDto { Sheet = ImportSheetFloor, Row = row.RowNumber(), Reason = "Không thể sinh mã tầng cho đơn vị này." });
                     continue;
                 }
 
-                var floor = new PhysicalFloor
+                try
                 {
-                    ShelfId = shelfId,
-                    Code = code,
-                    Name = name,
-                    Description = string.IsNullOrWhiteSpace(description) ? null : description,
-                    Priority = int.TryParse(priorityText, out var p) && p > 0 ? p : 1,
-                    CreatedBy = userName
-                };
-                var floorId = await _repository.CreateFloorAsync(floor);
-                floorIdByShelfAndName[(shelfId, NormalizeName(name))] = floorId;
-                result.FloorsCreated++;
+                    var floor = new PhysicalFloor
+                    {
+                        ShelfId = shelfId,
+                        Code = code,
+                        Name = name,
+                        Description = string.IsNullOrWhiteSpace(description) ? null : description,
+                        Priority = ParsePriority(priorityText),
+                        CreatedBy = userName
+                    };
+                    var floorId = await _repository.CreateFloorAsync(floor);
+                    floorIdByShelfAndName[(shelfId, NormalizeName(name))] = floorId;
+                    result.FloorsCreated++;
+                }
+                catch (Exception ex)
+                {
+                    result.Errors.Add(new PhysicalStorageImportErrorDto { Sheet = ImportSheetFloor, Row = row.RowNumber(), Reason = $"Lỗi khi lưu tầng: {ex.Message}" });
+                }
             }
         }
 
@@ -235,24 +323,31 @@ public partial class PhysicalStorageController
                     floorIdByShelfAndName[floorKey] = floorId;
                 }
 
-                var code = await _repository.GenerateNextBoxCodeAsync(unitId.Value);
+                var code = await GetNextBoxCodeAsync(unitId.Value);
                 if (code == null)
                 {
                     result.Errors.Add(new PhysicalStorageImportErrorDto { Sheet = ImportSheetBox, Row = row.RowNumber(), Reason = "Không thể sinh mã hộp cho đơn vị này." });
                     continue;
                 }
 
-                var box = new PhysicalBox
+                try
                 {
-                    FloorId = floorId,
-                    Code = code,
-                    Name = name,
-                    Description = string.IsNullOrWhiteSpace(description) ? null : description,
-                    Priority = int.TryParse(priorityText, out var p) && p > 0 ? p : 1,
-                    CreatedBy = userName
-                };
-                await _repository.CreateBoxAsync(box);
-                result.BoxesCreated++;
+                    var box = new PhysicalBox
+                    {
+                        FloorId = floorId,
+                        Code = code,
+                        Name = name,
+                        Description = string.IsNullOrWhiteSpace(description) ? null : description,
+                        Priority = ParsePriority(priorityText),
+                        CreatedBy = userName
+                    };
+                    await _repository.CreateBoxAsync(box);
+                    result.BoxesCreated++;
+                }
+                catch (Exception ex)
+                {
+                    result.Errors.Add(new PhysicalStorageImportErrorDto { Sheet = ImportSheetBox, Row = row.RowNumber(), Reason = $"Lỗi khi lưu hộp: {ex.Message}" });
+                }
             }
         }
 
