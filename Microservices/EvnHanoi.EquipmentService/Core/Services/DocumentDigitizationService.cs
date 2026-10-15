@@ -424,12 +424,10 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             ExtractionScope = ExtractionScopeValues.Normalize(request.ExtractionScope)
         };
 
-        await _messageProducer.PublishToExchangeAsync(message, DigitizationExchange, OcrTaskRoutingKey);
-
-        progress.Status = "Running";
-        progress.ModifiedBy = userId;
-        progress.ModifiedDate = DateTime.UtcNow;
-        await _repository.UpdateProgressAsync(progress);
+        // Job được tạo "Pending" (đang chờ trong hàng đợi) và GIỮ nguyên sau khi publish — KHÔNG ghi lại bản `progress` cũ trong bộ nhớ sau publish:
+        // worker có thể đã gửi tiến độ (Running/OcrCompleted…) trước đó, ghi lại sẽ đè mất. HandleProgressMessageAsync đặt "Running" khi nhận tiến độ
+        // OCR đầu tiên. (Trước đây đặt Running ngay khi gửi khiến job xếp hàng lâu bị watchdog đánh Lỗi nhầm.)
+        await PublishOcrTaskOrFailAsync(progress, message, userId);
         NotifyProgressInBackground(dossierId, progress);
 
         _logger.LogInformation(
@@ -437,6 +435,27 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             request.DocumentVersionId, request.DocumentId, request.FormId);
 
         return MapProgress(progress);
+    }
+
+    /// <summary>Publish OCR task; nếu publish THẤT BẠI (broker lỗi/mất kết nối) thì đánh job Failed ngay (kèm lý do) rồi ném lại lỗi — nếu để Pending, job
+    /// sẽ chặn chạy lại (guard "đang xử lý") tới hết ngưỡng chờ hàng đợi 24 giờ của watchdog.</summary>
+    private async Task PublishOcrTaskOrFailAsync(DocumentOcrProgress progress, OcrTaskPublishMessage message, string userId)
+    {
+        try
+        {
+            await _messageProducer.PublishToExchangeAsync(message, DigitizationExchange, OcrTaskRoutingKey);
+        }
+        catch (Exception ex)
+        {
+            progress.Status = "Failed";
+            progress.Action = "ocr.process.failed";
+            progress.ErrorMessage = $"Không gửi được tác vụ OCR vào hàng đợi: {ex.Message}";
+            progress.ModifiedBy = userId;
+            progress.ModifiedDate = DateTime.UtcNow;
+            try { await _repository.UpdateProgressAsync(progress); }
+            catch (Exception updateEx) { _logger.LogError(updateEx, "Không ghi được trạng thái Failed sau lỗi publish OCR task version {VersionId}.", progress.DocumentVersionId); }
+            throw;
+        }
     }
 
     public async Task HandleProgressMessageAsync(DigitizationProgressMessage message)
@@ -465,6 +484,8 @@ public class DocumentDigitizationService : IDocumentDigitizationService
         progress.CurrentPage = message.CurrentPage;
         progress.TotalPages = message.TotalPages;
         progress.Progress = message.Progress;
+        // Worker đã nhận và xử lý tiếp (kể cả job từng bị watchdog đánh Failed vì chờ hàng đợi) → xoá thông báo lỗi cũ.
+        progress.ErrorMessage = null;
 
         if (message.Action.Contains("ocr.process.progress", StringComparison.OrdinalIgnoreCase))
         {
@@ -501,9 +522,9 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             progress.Action = message.Action;
             progress.Phase = "extraction";
             progress.Progress = 100;
-            progress.Status = message.Status.Equals("Success", StringComparison.OrdinalIgnoreCase)
-                ? "Completed"
-                : "Failed";
+            var extractionSucceeded = message.Status.Equals("Success", StringComparison.OrdinalIgnoreCase);
+            progress.Status = extractionSucceeded ? "Completed" : "Failed";
+            if (extractionSucceeded) progress.ErrorMessage = null; // xoá thông báo lỗi cũ (vd. watchdog đánh Failed lúc còn xếp hàng)
             progress.ModifiedDate = DateTime.UtcNow;
             await _repository.UpdateProgressAsync(progress);
         }
@@ -1010,12 +1031,10 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             EquipmentId = equipmentId
         };
 
-        await _messageProducer.PublishToExchangeAsync(message, DigitizationExchange, OcrTaskRoutingKey);
-
-        progress.Status = "Running";
-        progress.ModifiedBy = userId;
-        progress.ModifiedDate = DateTime.UtcNow;
-        await _repository.UpdateProgressAsync(progress);
+        // Job được tạo "Pending" (đang chờ trong hàng đợi) và GIỮ nguyên sau khi publish — KHÔNG ghi lại bản `progress` cũ trong bộ nhớ sau publish:
+        // worker có thể đã gửi tiến độ (Running/OcrCompleted…) trước đó, ghi lại sẽ đè mất. HandleProgressMessageAsync đặt "Running" khi nhận tiến độ
+        // OCR đầu tiên. (Trước đây đặt Running ngay khi gửi khiến job xếp hàng lâu bị watchdog đánh Lỗi nhầm.)
+        await PublishOcrTaskOrFailAsync(progress, message, userId);
 
         return MapProgress(progress);
     }

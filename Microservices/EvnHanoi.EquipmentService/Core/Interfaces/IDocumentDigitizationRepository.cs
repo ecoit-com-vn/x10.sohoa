@@ -18,9 +18,10 @@ public interface IDocumentDigitizationRepository
     Task<(IEnumerable<OcrJobListItemDto> items, int totalCount)> GetJobsPagedAsync(OcrJobListFilter filter);
 
     /// <summary>
-    /// Job đang Pending/Running/Extracting nhưng không cập nhật (ModifiedDate, hoặc CreatedDate nếu
-    /// chưa từng cập nhật) trong khoảng <paramref name="staleThreshold"/> — dùng cho watchdog phát
-    /// hiện job bị treo (worker crash/hang giữa chừng, message đã mất khỏi RabbitMQ).
+    /// Job đang Pending/Running/Extracting nhưng đứng yên quá lâu (ModifiedDate, hoặc CreatedDate nếu chưa từng cập nhật) — dùng cho watchdog phát hiện job
+    /// bị treo (worker crash/hang giữa chừng, message đã mất khỏi RabbitMQ). Tách 2 loại: job ĐÃ được worker nhận (có tiến độ) dùng
+    /// <paramref name="startedThreshold"/>; job CHƯA được nhận (còn xếp hàng: Status=Pending hoặc Action kết thúc ".process.task", cả OCR lẫn bóc tách)
+    /// dùng <paramref name="queuedThreshold"/> dài hơn. Quy tắc "xếp hàng" lặp lại ở OcrJobWatchdogService (chọn thông báo) — sửa cả hai nơi cùng lúc.
     /// </summary>
-    Task<IEnumerable<DocumentOcrProgress>> GetStaleJobsAsync(TimeSpan staleThreshold);
+    Task<IEnumerable<DocumentOcrProgress>> GetStaleJobsAsync(TimeSpan startedThreshold, TimeSpan queuedThreshold);
 }
