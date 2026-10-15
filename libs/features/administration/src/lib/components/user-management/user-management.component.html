@@ -446,9 +446,9 @@
           <div class="permissions-grid"
             style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
             <div *ngFor="let r of systemRoles()" class="permission-checkbox-item" style="cursor: pointer;"
-              (click)="!savingRoles() && toggleRole(r.id)">
+              (click)="onRoleCardClick($event, r.id)">
               <input type="checkbox" [id]="'role_' + r.id" [checked]="isRoleChecked(r.id)"
-                (click)="$event.stopPropagation(); toggleRole(r.id)" [disabled]="savingRoles()" class="perm-checkbox" />
+                (change)="toggleRole(r.id)" (click)="$event.stopPropagation()" [disabled]="savingRoles()" class="perm-checkbox" />
               <div class="perm-label-wrap">
                 <label [for]="'role_' + r.id" class="perm-name" style="cursor: pointer;">{{ r.name }}</label>
                 <span class="perm-desc"><code>{{ r.code }}</code> - {{ r.description }}</span>
