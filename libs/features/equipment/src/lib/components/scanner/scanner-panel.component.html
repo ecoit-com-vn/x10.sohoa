@@ -1,60 +1,123 @@
 <div class="scanner-panel">
-  <div class="scanner-controls">
-
+  <!-- 1. Khi chưa có file quét nào -->
+  <div class="scanner-controls" *ngIf="!currentFile()">
     <div class="scanner-filename-input">
+      <p class="input-label">
+        Tên file lưu sau khi quét
+      </p>
 
-        <p class="input-label">
-            Tên file lưu sau khi quét
-        </p>
-
-        <div class="filename-box">
-
-            <i class="pi pi-file"></i>
-
-            <input
-                id="scan-filename"
-                type="text"
-                [(ngModel)]="fileName"
-                placeholder="VD: VanBanTrinhDuyet_So1"
-                [disabled]="scanning()"
-            />
-
-            <span>.pdf</span>
-
-        </div>
-
-        <small>Không cần nhập phần mở rộng (.pdf)</small>
-
+      <div class="filename-box">
+        <i class="pi pi-file"></i>
+        <input
+          id="scan-filename"
+          type="text"
+          [(ngModel)]="fileName"
+          placeholder="VD: VanBanTrinhDuyet_So1"
+          [disabled]="scanning()"
+        />
+        <span>.pdf</span>
+      </div>
+      <small>Không cần nhập phần mở rộng (.pdf)</small>
     </div>
 
-    <button
+    <div class="scanner-actions-row">
+      <button
         type="button"
         class="btn-green btn-small scan-btn"
         [disabled]="disabled() || scanning()"
         (click)="startScan()"
-    >
-        <i class="pi"
-            [ngClass]="scanning() ? 'pi-spin pi-spinner' : 'pi-print'">
-        </i>
-
+      >
+        <i class="pi" [ngClass]="scanning() ? 'pi-spin pi-spinner' : 'pi-print'"></i>
         {{ scanning() ? 'Đang quét...' : 'Quét tài liệu (PDF)' }}
+      </button>
 
-    </button>
+      <button
+        type="button"
+        class="btn-outlined btn-small"
+        *ngIf="scanning()"
+        (click)="cancelScan()"
+      >
+        <i class="pi pi-times"></i> Hủy quét
+      </button>
+    </div>
+  </div>
 
-</div>
+  <!-- 2. Khi đã quét được ít nhất 1 đợt (cho phép Lưu hoặc Quét tiếp để ghép thêm trang) -->
+  <div class="scanner-staged-panel" *ngIf="currentFile()">
+    <div class="staged-card">
+      <div class="staged-header">
+        <div class="staged-info">
+          <div class="staged-icon">
+            <i class="pi pi-file-pdf"></i>
+          </div>
+          <div class="staged-details">
+            <div class="staged-title">{{ currentFile()?.name }}</div>
+            <div class="staged-meta">
+              <span class="badge-pages"><i class="pi pi-book"></i> {{ pageCount() }} trang</span>
+              <span class="badge-size"><i class="pi pi-database"></i> {{ formatFileSize(currentFile()?.size || 0) }}</span>
+            </div>
+          </div>
+        </div>
 
-  <p class="scanner-status">
-    <i class="pi pi-info-circle"></i>
+        <div class="staged-actions">
+          <!-- Nút lưu & tải lên -->
+          <button
+            type="button"
+            class="btn-green btn-small btn-save-scan"
+            [disabled]="scanning() || merging()"
+            (click)="saveDocument()"
+            title="Lưu tài liệu với các trang hiện có"
+          >
+            <i class="pi pi-check"></i> Lưu tài liệu ({{ pageCount() }} trang)
+          </button>
+
+          <!-- Nút quét tiếp / ghép thêm trang -->
+          <button
+            type="button"
+            class="btn-outlined btn-small btn-scan-more"
+            [disabled]="scanning() || merging()"
+            (click)="scanMore()"
+            title="Quét thêm các trang tiếp theo vào tài liệu này (ví dụ sau khi gỡ kẹt giấy)"
+          >
+            <i class="pi" [ngClass]="scanning() || merging() ? 'pi-spin pi-spinner' : 'pi-plus-circle'"></i>
+            {{ scanning() ? 'Đang quét thêm...' : (merging() ? 'Đang ghép trang...' : 'Quét tiếp / Ghép thêm trang') }}
+          </button>
+
+          <!-- Nút hủy / quét lại từ đầu -->
+          <button
+            type="button"
+            class="btn-outlined btn-small btn-reset"
+            [disabled]="scanning() || merging()"
+            (click)="resetScanner()"
+            title="Hủy tài liệu hiện tại và quét lại từ đầu"
+          >
+            <i class="pi pi-refresh"></i> Quét lại từ đầu
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="scanner-status" [class.status-error]="isErrorStatus()">
+    <i class="pi" [ngClass]="isErrorStatus() ? 'pi-exclamation-triangle' : 'pi-info-circle'"></i>
     {{ statusMessage() }}
   </p>
-  <p class="scanner-hint" *ngIf="!scanning()">
+
+  <p class="scanner-hint" *ngIf="!scanning() && !currentFile()">
     Sau khi bấm quét, cửa sổ <strong>EcoScanner</strong> sẽ mở — chọn máy scan và bấm <strong>Quét</strong> (không bấm Hủy).
   </p>
-  <p class="scanner-hint scanner-waiting" *ngIf="scanning()">
-    <i class="pi pi-spin pi-spinner"></i>
-    Đang chờ bạn quét trên cửa sổ <strong>EcoScanner</strong>. Không đóng popup web trong lúc này.
+
+  <p class="scanner-hint staged-hint" *ngIf="currentFile() && !scanning() && !merging()">
+    <i class="pi pi-lightbulb"></i> Mẹo: Nếu tập tài liệu bị kẹt giấy hoặc máy scan dừng giữa chừng, bạn chỉ cần gỡ kẹt giấy, cho các trang còn lại vào máy và bấm <strong>"Quét tiếp / Ghép thêm trang"</strong> để nối tiếp vào file này.
   </p>
 
+  <p class="scanner-hint scanner-waiting" *ngIf="scanning() || merging()">
+    <i class="pi pi-spin pi-spinner"></i>
+    <span *ngIf="scanning()">Đang chờ bạn quét trên cửa sổ <strong>EcoScanner</strong>. Không đóng popup web trong lúc này.</span>
+    <span *ngIf="merging()">Đang tự động ghép nối các trang mới vào file PDF...</span>
+  </p>
+
+  <!-- Khung xem trước PDF -->
   <div class="scanner-preview" *ngIf="previewUrl()">
     <iframe *ngIf="previewKind() === 'pdf'" [src]="safePreviewUrl()" title="Xem trước PDF quét"></iframe>
     <img *ngIf="previewKind() === 'image'" [src]="previewUrl()" alt="Xem trước ảnh quét" />
