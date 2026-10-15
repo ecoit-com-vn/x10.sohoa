@@ -19,12 +19,12 @@ public class NotificationDispatcher
     public async Task SendNotificationAsync(string message)
     {
         _logger.LogInformation("Sending notification: {Message}", message);
-        await _hubContext.Clients.All.SendAsync("ReceiveNotification", message);
+        await _hubContext.Clients.All.SendAsync("ReceiveNotification", "info", "Thông báo", message);
     }
 
     public async Task SendNotificationToUserAsync(string userId, string message)
     {
         _logger.LogInformation("Sending notification to user {UserId}: {Message}", userId, message);
-        await _hubContext.Clients.User(userId).SendAsync("ReceiveNotification", message);
+        await _hubContext.Clients.User(userId).SendAsync("ReceiveNotification", "info", "Thông báo", message);
     }
 }
