@@ -18,4 +18,9 @@ public interface IEquipmentPmisSpecRepository
     /// vài chục dòng là đủ phủ.
     /// </summary>
     Task<IEnumerable<(string? FormValues, string? FieldLabels)>> GetRecentFormValuesByEquipmentTypeAsync(Guid equipmentTypeId, int maxRows);
+
+    /// <summary>Lấy FormValues PMIS của nhiều thiết bị cùng lúc — dùng để tính cột "Đối chiếu PMIS" ở
+    /// danh sách thiết bị (1 query/trang thay vì N). Thiết bị chưa từng đồng bộ không xuất hiện trong kết
+    /// quả (không có dòng EQUIPMENT_PMIS_SPEC).</summary>
+    Task<IReadOnlyDictionary<Guid, string?>> GetFormValuesByEquipmentIdsAsync(IEnumerable<Guid> equipmentIds);
 }

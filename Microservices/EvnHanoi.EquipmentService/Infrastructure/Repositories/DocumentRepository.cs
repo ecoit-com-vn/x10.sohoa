@@ -1365,6 +1365,23 @@ public class DocumentRepository : IDocumentRepository
         }
     }
 
+    public async Task<IReadOnlyDictionary<Guid, int>> GetDocumentCountsByTypeForDossierAsync(Guid dossierId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        var rows = await _connection.QueryAsync<(string DocumentTypeId, int Count)>(@"
+            SELECT DOCUMENT_TYPE_ID AS DocumentTypeId, COUNT(1) AS Count
+            FROM DOCUMENTS
+            WHERE DOSSIER_ID = :DossierId
+              AND IS_DELETED = 0
+              AND DOCUMENT_TYPE_ID IS NOT NULL
+            GROUP BY DOCUMENT_TYPE_ID",
+            new { DossierId = dossierId.ToString() });
+
+        return rows.ToDictionary(r => Guid.Parse(r.DocumentTypeId), r => r.Count);
+    }
+
     private static DocumentListItemDto MapDossierDocumentListRow(DossierDocumentListRow row)
     {
         var item = new DocumentListItemDto

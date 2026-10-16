@@ -127,6 +127,9 @@ public interface IDossierDocumentService
     /// Không có liên kết cấu hình → trả danh sách rỗng (không fallback tất cả loại văn bản).
     /// </summary>
     Task<IReadOnlyList<DocumentType>> GetDocumentTypesForDossierAsync(Guid dossierId);
+
+    /// <summary>Số tài liệu theo từng loại văn bản — badge số lượng trên cây thư mục tab Tài liệu.</summary>
+    Task<IReadOnlyDictionary<Guid, int>> GetDocumentCountsByTypeAsync(Guid dossierId);
 }
 
 public class DossierDocumentService : IDossierDocumentService
@@ -988,6 +991,11 @@ public class DossierDocumentService : IDossierDocumentService
 
     private static string? Truncate(string? value, int maxLength) =>
         string.IsNullOrEmpty(value) || value.Length <= maxLength ? value : value[..maxLength];
+
+    public Task<IReadOnlyDictionary<Guid, int>> GetDocumentCountsByTypeAsync(Guid dossierId)
+    {
+        return _documentRepository.GetDocumentCountsByTypeForDossierAsync(dossierId);
+    }
 
     public async Task<IReadOnlyList<DocumentType>> GetDocumentTypesForDossierAsync(Guid dossierId)
     {

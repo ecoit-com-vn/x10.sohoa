@@ -63,7 +63,6 @@ public class EquipmentIndexWorker : BackgroundService
                         if (response.IsValidResponse)
                         {
                             _logger.LogInformation("Successfully indexed equipment {EquipmentId} to Elasticsearch.", equipment.Id);
-                            await _notificationDispatcher.SendNotificationAsync($"Equipment {equipment.Name} synced successfully.");
                             
                             // Acknowledge message
                             await _channel.BasicAckAsync(ea.DeliveryTag, false);

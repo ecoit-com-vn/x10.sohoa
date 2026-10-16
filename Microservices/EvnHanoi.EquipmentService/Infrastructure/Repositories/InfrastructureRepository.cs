@@ -262,6 +262,35 @@ public class InfrastructureRepository : IInfrastructureRepository
                                AND c.{nameof(Infrastructure.IsDeleted)} = 0) AS {nameof(Infrastructure.ChildLineCount)},"
             : string.Empty;
 
+        // Hồ sơ gắn với Trạm/Đường dây này: qua cột đơn InfrastructureId CŨ (dữ liệu cũ) HOẶC qua bảng
+        // n-n DOSSIER_INFRASTRUCTURE (hồ sơ tạo mới) — khớp đúng cách DossierRepository đang lọc hồ sơ
+        // theo hạ tầng (xem GetPagedAsync ở đó). Subquery tương quan nhưng chỉ chạy cho đúng số dòng của
+        // 1 trang (OFFSET/FETCH bên dưới), không phải toàn bảng, nên không lặp lại vấn đề hiệu năng đã
+        // gặp với EQUIPMENTS (bảng hàng trăm nghìn dòng) — DOSSIERS/DOCUMENTS của 1 Trạm/Đường dây nhỏ
+        // hơn nhiều so với toàn bộ EQUIPMENTS.
+        const string dossierAndDocumentCountSelect = $@"
+                           (SELECT COUNT(DISTINCT d.ID)
+                              FROM DOSSIERS d
+                             WHERE d.IsDeleted = 0
+                               AND (
+                                 d.InfrastructureId = i.{nameof(Infrastructure.Id)}
+                                 OR EXISTS (
+                                   SELECT 1 FROM DOSSIER_INFRASTRUCTURE di
+                                   WHERE di.DossierId = d.ID AND di.InfrastructureId = i.{nameof(Infrastructure.Id)}
+                                 )
+                               )) AS {nameof(Infrastructure.DossierCount)},
+                           (SELECT COUNT(1)
+                              FROM DOCUMENTS doc
+                              INNER JOIN DOSSIERS d2 ON d2.ID = doc.DOSSIER_ID AND d2.IsDeleted = 0
+                             WHERE doc.IS_DELETED = 0
+                               AND (
+                                 d2.InfrastructureId = i.{nameof(Infrastructure.Id)}
+                                 OR EXISTS (
+                                   SELECT 1 FROM DOSSIER_INFRASTRUCTURE di2
+                                   WHERE di2.DossierId = d2.ID AND di2.InfrastructureId = i.{nameof(Infrastructure.Id)}
+                                 )
+                               )) AS {nameof(Infrastructure.DocumentCount)},";
+
         var selectSql = $@"SELECT i.{nameof(Infrastructure.Id)},
                            i.{nameof(Infrastructure.Code)},
                            i.{nameof(Infrastructure.Name)},
@@ -285,6 +314,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                            i.LAST_SYNCED_FROM_PMIS_AT as {nameof(Infrastructure.LastSyncedFromPmisAt)},
                            i.CMIS_CODE as {nameof(Infrastructure.CmisCode)},
                            {childLineCountSelect}
+                           {dossierAndDocumentCountSelect}
                            u.Id AS OrgId,
                            u.Code AS OrgCode,
                            u.Name AS OrgName
@@ -342,6 +372,27 @@ public class InfrastructureRepository : IInfrastructureRepository
                                FROM INFRASTRUCTURE c
                               WHERE c.PARENT_ID = i.{nameof(Infrastructure.Id)}
                                 AND c.{nameof(Infrastructure.IsDeleted)} = 0) AS {nameof(Infrastructure.ChildLineCount)},
+                            (SELECT COUNT(DISTINCT d.ID)
+                               FROM DOSSIERS d
+                              WHERE d.IsDeleted = 0
+                                AND (
+                                  d.InfrastructureId = i.{nameof(Infrastructure.Id)}
+                                  OR EXISTS (
+                                    SELECT 1 FROM DOSSIER_INFRASTRUCTURE di
+                                    WHERE di.DossierId = d.ID AND di.InfrastructureId = i.{nameof(Infrastructure.Id)}
+                                  )
+                                )) AS {nameof(Infrastructure.DossierCount)},
+                            (SELECT COUNT(1)
+                               FROM DOCUMENTS doc
+                               INNER JOIN DOSSIERS d2 ON d2.ID = doc.DOSSIER_ID AND d2.IsDeleted = 0
+                              WHERE doc.IS_DELETED = 0
+                                AND (
+                                  d2.InfrastructureId = i.{nameof(Infrastructure.Id)}
+                                  OR EXISTS (
+                                    SELECT 1 FROM DOSSIER_INFRASTRUCTURE di2
+                                    WHERE di2.DossierId = d2.ID AND di2.InfrastructureId = i.{nameof(Infrastructure.Id)}
+                                  )
+                                )) AS {nameof(Infrastructure.DocumentCount)},
                             u.Id AS OrgId,
                             u.Code AS OrgCode,
                             u.Name AS OrgName

@@ -48,6 +48,11 @@ public class Infrastructure
     // mở rộng ở màn Danh mục đường dây MÀ KHÔNG CẦN tải trước danh sách con (xem GetChildLinesAsync).
     public int ChildLineCount { get; set; }
 
+    // Cột "Số hồ sơ"/"Số tài liệu" ở màn Danh mục Trạm biến áp/Đường dây — số hồ sơ gắn trực tiếp với
+    // Trạm/Đường dây này (qua DOSSIER_INFRASTRUCTURE) và tổng số tài liệu thuộc các hồ sơ đó.
+    public int DossierCount { get; set; }
+    public int DocumentCount { get; set; }
+
     // Audit fields
     public string? CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
