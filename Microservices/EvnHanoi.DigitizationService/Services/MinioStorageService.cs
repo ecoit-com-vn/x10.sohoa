@@ -121,16 +121,59 @@ namespace EvnHanoi.DigitizationService.Services
 
         private async Task<Stream> DownloadObjectCoreAsync(string bucketName, string objectName)
         {
-            var memoryStream = new MemoryStream();
-            var getObjectArgs = new GetObjectArgs()
-                .WithBucket(bucketName)
-                .WithObject(objectName)
-                .WithCallbackStream(stream =>
-                {
-                    stream.CopyTo(memoryStream);
-                });
+            // Hỏi kích thước object trước rồi tải vào MemoryStream có mảng ĐÚNG cỡ (publiclyVisible → GetBuffer() trả đúng mảng đó). MemoryStream() rỗng tự nhân
+            // đôi dung lượng khi lớn lên (file 186 MB tạm thời cần ~512 MB + bản cũ) — gây OutOfMemory với file lớn. Không lấy được kích thước thì quay về cách cũ.
+            MemoryStream memoryStream;
+            long objectSize = 0;
+            try
+            {
+                var stat = await _minioClient.StatObjectAsync(new StatObjectArgs().WithBucket(bucketName).WithObject(objectName));
+                objectSize = stat.Size;
+            }
+            catch (ObjectNotFoundException)
+            {
+                throw; // để DownloadFileAsync thử lại khoá gốc / báo lỗi như trước
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Không lấy được kích thước object {Bucket}/{ObjectName} — tải bằng bộ đệm tự giãn.", bucketName, objectName);
+            }
 
-            await _minioClient.GetObjectAsync(getObjectArgs);
+            if (objectSize > 0 && objectSize <= int.MaxValue - 64)
+            {
+                var buffer = new byte[objectSize];
+                memoryStream = new MemoryStream(buffer, 0, buffer.Length, writable: true, publiclyVisible: true);
+                memoryStream.SetLength(0); // bắt đầu ghi từ đầu; dung lượng cố định = kích thước object
+            }
+            else
+            {
+                memoryStream = new MemoryStream();
+            }
+
+            async Task DownloadIntoAsync(MemoryStream target)
+            {
+                var getObjectArgs = new GetObjectArgs()
+                    .WithBucket(bucketName)
+                    .WithObject(objectName)
+                    .WithCallbackStream(stream =>
+                    {
+                        stream.CopyTo(target);
+                    });
+
+                await _minioClient.GetObjectAsync(getObjectArgs);
+            }
+
+            try
+            {
+                await DownloadIntoAsync(memoryStream);
+            }
+            catch (NotSupportedException) when (objectSize > 0)
+            {
+                // Object đổi kích thước giữa lúc hỏi và lúc tải (ghi đè) → vượt dung lượng đã cấp: tải lại bằng bộ đệm tự giãn như cũ.
+                memoryStream.Dispose();
+                memoryStream = new MemoryStream();
+                await DownloadIntoAsync(memoryStream);
+            }
             memoryStream.Position = 0;
             return memoryStream;
         }
