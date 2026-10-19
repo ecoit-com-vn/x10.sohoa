@@ -28,7 +28,8 @@ public class OcrJobWatchdogService : BackgroundService
     // Job ĐÃ được worker nhận (có tiến độ) mà đứng yên quá ngưỡng này = nghi worker treo/crash. Cấu hình Ocr:StartedStaleMinutes (mặc định 30).
     private readonly TimeSpan _startedThreshold;
     // Job CHƯA được worker nhận (còn xếp hàng RabbitMQ): chờ lâu là bình thường khi hàng dài — chỉ coi là mất message sau ngưỡng dài này.
-    // Cấu hình Ocr:QueuedStaleHours (mặc định 24).
+    // Cấu hình Ocr:QueuedStaleHours: 0 (mặc định) = KHÔNG BAO GIỜ đánh Lỗi job còn xếp hàng (hàng đợi dài vài ngày vẫn chờ bình thường; job mất message
+    // thì người dùng chạy lại thủ công). Đặt > 0 để bật lại ngưỡng "nghi mất message" theo số giờ.
     private readonly TimeSpan _queuedThreshold;
 
     public OcrJobWatchdogService(IServiceScopeFactory scopeFactory, ILogger<OcrJobWatchdogService> logger, IConfiguration configuration)
@@ -36,13 +37,13 @@ public class OcrJobWatchdogService : BackgroundService
         _scopeFactory = scopeFactory;
         _logger = logger;
         _startedThreshold = TimeSpan.FromMinutes(Math.Max(5, configuration.GetValue("Ocr:StartedStaleMinutes", 30)));
-        _queuedThreshold = TimeSpan.FromHours(Math.Max(1, configuration.GetValue("Ocr:QueuedStaleHours", 24)));
+        _queuedThreshold = TimeSpan.FromHours(Math.Max(0, configuration.GetValue("Ocr:QueuedStaleHours", 0)));
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation(
-            "OcrJobWatchdogService bắt đầu quét mỗi {IntervalMinutes} phút, ngưỡng treo (đã chạy) {StartedMinutes} phút, ngưỡng chờ hàng đợi {QueuedHours} giờ.",
+            "OcrJobWatchdogService bắt đầu quét mỗi {IntervalMinutes} phút, ngưỡng treo (đã chạy) {StartedMinutes} phút, ngưỡng chờ hàng đợi {QueuedHours} giờ (0 = tắt).",
             ScanInterval.TotalMinutes, _startedThreshold.TotalMinutes, _queuedThreshold.TotalHours);
 
         using var timer = new PeriodicTimer(ScanInterval);

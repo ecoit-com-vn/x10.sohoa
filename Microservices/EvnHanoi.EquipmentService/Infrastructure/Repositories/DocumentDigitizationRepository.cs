@@ -341,14 +341,16 @@ public class DocumentDigitizationRepository : IDocumentDigitizationRepository
             WHERE IS_DELETED = 0
               AND STATUS IN ('Pending', 'Running', 'Extracting')
               AND (
-                    ((STATUS = 'Pending' OR ACTION LIKE '%.process.task')
+                    (:QueuedEnabled = 1 AND (STATUS = 'Pending' OR ACTION LIKE '%.process.task')
                        AND COALESCE(MODIFIED_DATE, CREATED_DATE) < :QueuedCutoff)
                  OR (STATUS <> 'Pending' AND (ACTION IS NULL OR ACTION NOT LIKE '%.process.task')
                        AND COALESCE(MODIFIED_DATE, CREATED_DATE) < :StartedCutoff)
                   )";
         return await _connection.QueryAsync<DocumentOcrProgress>(sql, new
         {
-            QueuedCutoff = now - queuedThreshold,
+            // queuedThreshold <= 0 = tắt kiểm tra job xếp hàng (không bao giờ coi là mất message); QueuedCutoff chỉ để đủ tham số.
+            QueuedEnabled = queuedThreshold > TimeSpan.Zero ? 1 : 0,
+            QueuedCutoff = queuedThreshold > TimeSpan.Zero ? now - queuedThreshold : now,
             StartedCutoff = now - startedThreshold
         });
     }
