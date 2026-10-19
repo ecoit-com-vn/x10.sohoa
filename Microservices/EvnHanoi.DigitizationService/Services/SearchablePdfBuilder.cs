@@ -20,6 +20,10 @@ public interface ISearchablePdfBuilder : IDisposable
 
     void MarkAsSearchable(PdfDocument document);
 
+    /// <summary>Giải phóng ảnh (bản đã giải mã + luồng JPEG) của các trang đã thêm. CHỈ gọi sau khi document chứa các trang đó đã Save xong
+    /// (ảnh phải sống tới lúc Save — xem AddPage). Dùng khi dựng PDF theo từng lô trang để RAM không tăng theo số trang.</summary>
+    void ReleasePageResources();
+
     bool IsAlreadySearchable(byte[] pdfBytes);
 }
 
@@ -116,6 +120,11 @@ public class SearchablePdfBuilder : ISearchablePdfBuilder
 
     public bool IsAlreadySearchable(byte[] pdfBytes)
     {
+        // Quét byte tìm tên khoá marker trước (không cấp phát): PdfReader.Open(InformationOnly) vẫn nạp cả file vào bộ nhớ (đo được +1,2 GB heap với file
+        // 583 MB) nên chỉ gọi khi marker có thể có trong file. Tên khoá nằm trong từ điển Info không nén nên luôn xuất hiện ở dạng "/EvnOcrVersion".
+        if (pdfBytes.AsSpan().IndexOf("/EvnOcrVersion"u8) < 0)
+            return false;
+
         using var reader = PdfReader.Open(new MemoryStream(pdfBytes), PdfDocumentOpenMode.InformationOnly);
         return reader.Info.Elements.ContainsKey(SearchableMarkerKey);
     }
@@ -129,6 +138,15 @@ public class SearchablePdfBuilder : ISearchablePdfBuilder
             _fontCache[key] = font;
         }
         return font;
+    }
+
+    public void ReleasePageResources()
+    {
+        foreach (var resource in _pageResources)
+        {
+            resource.Dispose();
+        }
+        _pageResources.Clear();
     }
 
     public void Dispose()

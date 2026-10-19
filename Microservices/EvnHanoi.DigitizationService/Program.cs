@@ -48,8 +48,8 @@ var rabbitFactory = new ConnectionFactory
     // Hạ 4 -> 2: nghẽn thật của luồng OCR là GPU của ocr_vl_server (đo được ~4,4 crop/giây, GPU
     // 86–100%), không phải service này. Đẩy nhiều tài liệu song song KHÔNG tăng thông lượng mà chỉ
     // làm mỗi trang chờ lâu hơn, vượt timeout phía client rồi bị retry — vòng xoáy tự làm nặng
-    // thêm. Với 2, mỗi instance xử lý tối đa 2 tài liệu cùng lúc.
-    ConsumerDispatchConcurrency = 2
+    // thêm. Mặc định 2 (cấu hình Ocr:PrefetchCount): mỗi instance xử lý tối đa từng ấy tài liệu cùng lúc.
+    ConsumerDispatchConcurrency = EvnHanoi.DigitizationService.Workers.OcrWorkerSettings.GetPrefetchCount(builder.Configuration)
 };
 var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
 builder.Services.AddSingleton<IConnection>(rabbitConnection);

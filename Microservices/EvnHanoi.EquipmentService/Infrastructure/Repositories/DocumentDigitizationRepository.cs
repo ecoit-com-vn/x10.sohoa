@@ -324,10 +324,12 @@ public class DocumentDigitizationRepository : IDocumentDigitizationRepository
         return (items, totalCount);
     }
 
-    public async Task<IEnumerable<DocumentOcrProgress>> GetStaleJobsAsync(TimeSpan staleThreshold)
+    public async Task<IEnumerable<DocumentOcrProgress>> GetStaleJobsAsync(TimeSpan startedThreshold, TimeSpan queuedThreshold)
     {
         EnsureOpen();
-        var cutoff = DateTime.UtcNow - staleThreshold;
+        var now = DateTime.UtcNow;
+        // "Đang xếp hàng" = chưa có tiến độ từ worker: Status=Pending hoặc Action vẫn là message gửi đi (".process.task"). Hai loại dùng ngưỡng khác nhau
+        // để job chờ lâu trong RabbitMQ (hàng đợi dài) không bị đánh Lỗi nhầm như job đã chạy rồi đứng yên.
         const string sql = @"
             SELECT ID, DOCUMENT_ID AS DocumentId, DOCUMENT_VERSION_ID AS DocumentVersionId,
                    ACTION, PHASE, CURRENT_PAGE AS CurrentPage, TOTAL_PAGES AS TotalPages,
@@ -338,8 +340,19 @@ public class DocumentDigitizationRepository : IDocumentDigitizationRepository
             FROM DOCUMENT_OCR_PROGRESS
             WHERE IS_DELETED = 0
               AND STATUS IN ('Pending', 'Running', 'Extracting')
-              AND COALESCE(MODIFIED_DATE, CREATED_DATE) < :Cutoff";
-        return await _connection.QueryAsync<DocumentOcrProgress>(sql, new { Cutoff = cutoff });
+              AND (
+                    (:QueuedEnabled = 1 AND (STATUS = 'Pending' OR ACTION LIKE '%.process.task')
+                       AND COALESCE(MODIFIED_DATE, CREATED_DATE) < :QueuedCutoff)
+                 OR (STATUS <> 'Pending' AND (ACTION IS NULL OR ACTION NOT LIKE '%.process.task')
+                       AND COALESCE(MODIFIED_DATE, CREATED_DATE) < :StartedCutoff)
+                  )";
+        return await _connection.QueryAsync<DocumentOcrProgress>(sql, new
+        {
+            // queuedThreshold <= 0 = tắt kiểm tra job xếp hàng (không bao giờ coi là mất message); QueuedCutoff chỉ để đủ tham số.
+            QueuedEnabled = queuedThreshold > TimeSpan.Zero ? 1 : 0,
+            QueuedCutoff = queuedThreshold > TimeSpan.Zero ? now - queuedThreshold : now,
+            StartedCutoff = now - startedThreshold
+        });
     }
 
     private void EnsureOpen() => _connection.EnsureOpen();

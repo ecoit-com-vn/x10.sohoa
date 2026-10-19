@@ -110,7 +110,9 @@ namespace EvnHanoi.DigitizationService.Workers
                 // prefetch 2 (hạ từ 4) khớp ConsumerDispatchConcurrency=2. Mỗi tài liệu OCR chiếm
                 // GPU rất lâu (tài liệu thật 96–744 vùng chữ/trang, ~4,4 crop/giây) nên giữ nhiều
                 // message unacked chỉ làm chúng chờ tới lúc vượt timeout, không giúp nhanh hơn.
-                await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 2, global: false, cancellationToken: stoppingToken);
+                // Số tài liệu song song: Ocr:PrefetchCount (xem OcrWorkerSettings) — cùng giá trị với ConsumerDispatchConcurrency ở Program.cs.
+                var prefetchCount = OcrWorkerSettings.GetPrefetchCount(_configuration);
+                await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: prefetchCount, global: false, cancellationToken: stoppingToken);
 
                 var consumer = new AsyncEventingBasicConsumer(_channel);
                 consumer.ReceivedAsync += async (model, ea) =>
@@ -119,6 +121,7 @@ namespace EvnHanoi.DigitizationService.Workers
                     var messageText = Encoding.UTF8.GetString(body);
                     //_logger.LogInformation("Nhận yêu cầu OCR: {Message}", messageText);
 
+                    var largeJob = false;
                     try
                     {
                         var taskMsg = JsonSerializer.Deserialize<OcrTaskMessage>(messageText, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
@@ -247,11 +250,16 @@ namespace EvnHanoi.DigitizationService.Workers
 
                             // 1. Tải file PDF từ MinIO
                             _logger.LogInformation("Tải file {FilePath} từ bucket {BucketName}", taskMsg.FilePath, taskMsg.BucketName);
-                            using var fileStream = await minioService.DownloadFileAsync(taskMsg.BucketName, taskMsg.FilePath);
+                            byte[] pdfBytes = await DownloadPdfBytesAsync(minioService, taskMsg.BucketName, taskMsg.FilePath, stoppingToken);
+                            LogMemory("sau khi tải file", taskMsg.FileId, 0, pdfBytes.Length);
 
-                            using var msPdf = new MemoryStream();
-                            await fileStream.CopyToAsync(msPdf, stoppingToken);
-                            byte[] pdfBytes = msPdf.ToArray();
+                            // Ngưỡng an toàn (Ocr:MaxFileSizeMB, mặc định 250): file quá lớn báo lỗi rõ ràng ngay, không thử lại (thử lại chỉ làm hết RAM lặp lại).
+                            var maxFileMb = _configuration.GetValue("Ocr:MaxFileSizeMB", 250);
+                            if (maxFileMb > 0 && pdfBytes.LongLength > maxFileMb * 1024L * 1024L)
+                            {
+                                throw new NonRetryableOcrException(
+                                    $"File quá lớn ({pdfBytes.LongLength / 1048576} MB > giới hạn {maxFileMb} MB) — hãy tách thành các file nhỏ hơn rồi tải lại.");
+                            }
 
                             // Lớp phòng thủ: ảnh đáng lẽ đã được chuyển thành PDF lúc upload. File không phải PDF
                             // (ảnh upload từ trước khi có tính năng, hoặc đường upload bỏ sót) → báo lỗi rõ ràng và
@@ -278,6 +286,15 @@ namespace EvnHanoi.DigitizationService.Workers
                             int pageCount = PDFtoImage.Conversion.GetPageCount(pdfBytes);
                             _logger.LogInformation("PDF có {PageCount} trang. Bắt đầu xử lý từng trang.", pageCount);
 
+                            var maxPages = _configuration.GetValue("Ocr:MaxPages", 600);
+                            if (maxPages > 0 && pageCount > maxPages)
+                            {
+                                throw new NonRetryableOcrException(
+                                    $"Tài liệu có {pageCount} trang, vượt giới hạn {maxPages} trang — hãy tách thành các file nhỏ hơn rồi tải lại.");
+                            }
+                            // Đánh dấu job lớn để dọn bộ nhớ (nén vùng đối tượng lớn) ở cuối — xem khối finally bên dưới.
+                            largeJob = pdfBytes.Length >= 20 * 1024 * 1024 || pageCount >= 60;
+
                             using var pdfDocument = UglyToad.PdfPig.PdfDocument.Open(pdfBytes);
 
                             // Timeout thực tế do AddStandardResilienceHandler kiểm soát (xem Program.cs, cấu hình qua AIModelServers:OcrPage*)
@@ -289,7 +306,13 @@ namespace EvnHanoi.DigitizationService.Workers
                             llmClient.Timeout = TimeSpan.FromMinutes(5);
 
                             // Tạo PDF 2 lớp output
-                            using var outPdfDoc = new PdfDocument();
+                            // PDF 2 lớp dựng THEO LÔ TRANG (Ocr:PdfChunkPages, mặc định 10; 0 = một PdfDocument như cũ): PdfSharpCore giữ ảnh ĐÃ GIẢI MÃ của mọi
+                            // trang (khoảng 14 MB/trang A4, hàng chục MB/trang khổ lớn) cho tới khi Save → RAM tăng theo số trang. Mỗi lô đủ số trang được lưu ra file
+                            // tạm rồi giải phóng ảnh, cuối cùng ghép các lô (chỉ nạp byte JPEG nén). Tài liệu ≤ 1 lô đi đúng đường cũ.
+                            var pdfChunkPages = _configuration.GetValue("Ocr:PdfChunkPages", 10);
+                            using var chunkFiles = new TempFileList();
+                            var outPdfDoc = new PdfDocument();
+                            int pagesInChunk = 0;
                             int totalBoxesDrawn = 0;
 
                             for (int i = 0; i < pageCount; i++)
@@ -396,7 +419,20 @@ namespace EvnHanoi.DigitizationService.Workers
                                 // 4. Tạo trang PDF 2 lớp: text ẩn (vẽ trước) + ảnh gốc (phủ lên sau) —
                                 // xem SearchablePdfBuilder.AddPage cho lý do vẽ theo thứ tự này và vì
                                 // sao tài nguyên ảnh không được dispose ngay trong vòng lặp này.
-                                totalBoxesDrawn += pdfBuilder.AddPage(outPdfDoc, pageImageBytes, ocrResults);
+                                // Ảnh gửi OCR giữ nguyên chất lượng; ảnh NHÚNG vào PDF được nén lại (Ocr:PdfJpegQuality, mặc định 80) để các trang giữ trong RAM
+                                // tới khi ghi xong nhẹ hơn nhiều (PDF kết quả cũng nhỏ hơn).
+                                byte[] pdfPageImage = RecompressJpegForPdf(pageImageBytes, i + 1);
+                                totalBoxesDrawn += pdfBuilder.AddPage(outPdfDoc, pdfPageImage, ocrResults);
+                                pagesInChunk++;
+                                if (pdfChunkPages > 0 && pagesInChunk >= pdfChunkPages && i + 1 < pageCount)
+                                {
+                                    SaveChunkAndRelease(outPdfDoc, pdfBuilder, chunkFiles);
+                                    outPdfDoc.Dispose();
+                                    outPdfDoc = new PdfDocument();
+                                    pagesInChunk = 0;
+                                }
+                                if ((i + 1) % 25 == 0 || i + 1 == pageCount)
+                                    LogMemory($"sau trang {i + 1}/{pageCount} (ảnh nhúng {pdfPageImage.Length / 1024} KB, ảnh OCR {pageImageBytes.Length / 1024} KB)", taskMsg.FileId, i + 1, pdfBytes.Length);
 
                                 // 4b. Sinh file JSON gốc cho page
                                 string baseFilePath = taskMsg.FilePath;
@@ -452,16 +488,30 @@ namespace EvnHanoi.DigitizationService.Workers
                                 throw new InvalidOperationException(
                                     $"Không vẽ được text trên bất kỳ trang nào trong {pageCount} trang — huỷ tạo PDF 2 lớp để không ghi đè mất bản gốc trên MinIO (FileId={taskMsg.FileId}).");
                             }
+                            if (chunkFiles.Paths.Count > 0)
+                            {
+                                // Lô cuối (chưa đủ số trang) cũng lưu ra file rồi ghép tất cả theo thứ tự trang.
+                                SaveChunkAndRelease(outPdfDoc, pdfBuilder, chunkFiles);
+                                outPdfDoc.Dispose();
+                                outPdfDoc = MergeChunks(chunkFiles);
+                                chunkFiles.Dispose(); // bản ghép đã nằm trong bộ nhớ → xoá file lô ngay để file tạm không gấp đôi dung lượng đĩa
+                                LogMemory($"sau khi ghép {chunkFiles.Paths.Count} lô", taskMsg.FileId, pageCount, pdfBytes.Length);
+                            }
                             pdfBuilder.MarkAsSearchable(outPdfDoc);
 
                             // 5. Upload PDF 2 lớp lên MinIO (ghi đè file gốc)
                             string outFileName = taskMsg.FilePath;
-                            using var finalPdfStream = new MemoryStream();
+                            // Ghi ra FILE TẠM (tự xoá khi đóng) thay vì MemoryStream: bộ đệm Save tự nhân đôi dung lượng là đỉnh RAM lớn nhất của job. Không tạo
+                            // được file tạm (thư mục chỉ đọc/đầy) thì quay về MemoryStream như cũ.
+                            using var finalPdfStream = CreateTempOutputStream(taskMsg.FileId);
+                            LogMemory("trước khi ghi PDF 2 lớp", taskMsg.FileId, pageCount, pdfBytes.Length);
                             outPdfDoc.Save(finalPdfStream, false);
                             finalPdfStream.Position = 0;
+                            LogMemory($"sau khi ghi PDF 2 lớp ({finalPdfStream.Length / 1048576} MB, {(finalPdfStream is FileStream ? "file tạm" : "bộ nhớ")})", taskMsg.FileId, pageCount, pdfBytes.Length);
 
                             _logger.LogInformation("Đang upload (ghi đè) PDF 2 lớp {FileName} lên MinIO", outFileName);
                             await minioService.UploadFileAsync(taskMsg.BucketName, outFileName, finalPdfStream, "application/pdf");
+                            outPdfDoc.Dispose(); // không còn `using var` (outPdfDoc được thay theo lô) — giải phóng ngay sau khi upload
 
                             // 6. Publish ExtractionTaskMessage → ExtractionWorker
                             await PublishExtractionAndAckAsync(outFileName);
@@ -496,6 +546,11 @@ namespace EvnHanoi.DigitizationService.Workers
                             }
                         }
                     }
+                    finally
+                    {
+                        // Job lớn (file ≥ 20 MB hoặc ≥ 60 trang) để lại nhiều mảng lớn ở vùng LOH: nén + thu gom ngay để trả bộ nhớ trước khi nhận job kế tiếp.
+                        if (largeJob) ReleaseLargeObjectMemory();
+                    }
                 };
 
                 await _channel.BasicConsumeAsync(queue: queueName, autoAck: false, consumer: consumer, cancellationToken: stoppingToken);
@@ -515,6 +570,126 @@ namespace EvnHanoi.DigitizationService.Workers
         {
             if (_channel is not null) await _channel.CloseAsync(cancellationToken: cancellationToken);
             await base.StopAsync(cancellationToken);
+        }
+
+        /// <summary>Tải PDF về đúng 1 bản byte[]: MinioStorageService trả MemoryStream có mảng đúng cỡ nên dùng thẳng mảng đó (không sao chép);
+        /// các trường hợp khác đọc vào mảng đúng cỡ (hoặc MemoryStream nếu không biết kích thước).</summary>
+        private static async Task<byte[]> DownloadPdfBytesAsync(IMinioStorageService minioService, string bucket, string path, CancellationToken cancellationToken)
+        {
+            using var fileStream = await minioService.DownloadFileAsync(bucket, path);
+            if (fileStream is MemoryStream ms && ms.TryGetBuffer(out var segment)
+                && segment.Array != null && segment.Offset == 0 && segment.Array.Length == ms.Length)
+            {
+                return segment.Array;
+            }
+            if (fileStream.CanSeek && fileStream.Length > 0)
+            {
+                var exact = new byte[fileStream.Length];
+                await fileStream.ReadExactlyAsync(exact, cancellationToken);
+                return exact;
+            }
+            using var copy = new MemoryStream();
+            await fileStream.CopyToAsync(copy, cancellationToken);
+            return copy.ToArray();
+        }
+
+        /// <summary>Nén lại JPEG để nhúng vào PDF (ImageSharp). Quality ≤ 0 hoặc ≥ 100 = giữ nguyên; lỗi hoặc không nhỏ hơn → giữ ảnh gốc.</summary>
+        private byte[] RecompressJpegForPdf(byte[] jpegBytes, int pageNumber)
+        {
+            var quality = _configuration.GetValue("Ocr:PdfJpegQuality", 80);
+            if (quality <= 0 || quality >= 100) return jpegBytes;
+            try
+            {
+                using var image = SixLabors.ImageSharp.Image.Load<SixLabors.ImageSharp.PixelFormats.Rgb24>(jpegBytes);
+                using var output = new MemoryStream();
+                SixLabors.ImageSharp.ImageExtensions.SaveAsJpeg(image, output, new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder { Quality = quality });
+                return output.Length < jpegBytes.Length ? output.ToArray() : jpegBytes;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Không nén lại được ảnh trang {Page} — dùng ảnh gốc.", pageNumber);
+                return jpegBytes;
+            }
+        }
+
+        /// <summary>Luồng đích cho PDF 2 lớp: file tạm tự xoá khi đóng; không tạo được thì dùng MemoryStream (hành vi cũ).</summary>
+        private Stream CreateTempOutputStream(Guid fileId)
+        {
+            try
+            {
+                var path = Path.Combine(Path.GetTempPath(), $"ocr-{fileId:N}-{Guid.NewGuid():N}.pdf");
+                return new FileStream(path, FileMode.Create, FileAccess.ReadWrite, FileShare.None, 81920, FileOptions.DeleteOnClose);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Không tạo được file tạm cho PDF 2 lớp (file {FileId}) — ghi vào bộ nhớ.", fileId);
+                return new MemoryStream();
+            }
+        }
+
+        /// <summary>Ghi log mức dùng bộ nhớ (heap .NET + working set) để theo dõi đỉnh RAM của job lớn.</summary>
+        private void LogMemory(string stage, Guid fileId, int page, long pdfBytes)
+        {
+            try
+            {
+                var heapMb = GC.GetTotalMemory(false) / 1048576;
+                using var process = System.Diagnostics.Process.GetCurrentProcess();
+                var workingSetMb = process.WorkingSet64 / 1048576;
+                _logger.LogInformation(
+                    "Bộ nhớ OCR [{Stage}] file {FileId}: heap .NET {HeapMb} MB, working set {WorkingSetMb} MB (PDF nguồn {PdfMb} MB).",
+                    stage, fileId, heapMb, workingSetMb, pdfBytes / 1048576);
+            }
+            catch { /* log chẩn đoán — không được làm hỏng job */ }
+        }
+
+        private static void ReleaseLargeObjectMemory()
+        {
+            System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+        }
+
+        /// <summary>Danh sách file tạm của các lô trang — tự xoá khi Dispose (kể cả khi job lỗi giữa chừng).</summary>
+        private sealed class TempFileList : IDisposable
+        {
+            public List<string> Paths { get; } = new();
+
+            public void Dispose()
+            {
+                foreach (var path in Paths)
+                {
+                    try { File.Delete(path); } catch { /* file tạm — dọn nỗ lực tối đa */ }
+                }
+                Paths.Clear();
+            }
+        }
+
+        /// <summary>Lưu lô trang hiện tại ra file tạm rồi giải phóng ảnh đã giải mã của các trang trong lô (an toàn sau Save — xem AddPage).</summary>
+        private static void SaveChunkAndRelease(PdfDocument chunk, ISearchablePdfBuilder pdfBuilder, TempFileList chunkFiles)
+        {
+            var path = Path.Combine(Path.GetTempPath(), $"ocr-chunk-{Guid.NewGuid():N}.pdf");
+            using (var fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, 81920))
+            {
+                chunk.Save(fs, false);
+            }
+            chunkFiles.Paths.Add(path);
+            pdfBuilder.ReleasePageResources();
+        }
+
+        /// <summary>Ghép các lô (đã lưu) thành một PdfDocument: nhập trang (chỉ byte JPEG nén, không giải mã lại) theo thứ tự.</summary>
+        private static PdfDocument MergeChunks(TempFileList chunkFiles)
+        {
+            var merged = new PdfDocument();
+            foreach (var path in chunkFiles.Paths)
+            {
+                using var source = PdfSharpCore.Pdf.IO.PdfReader.Open(path, PdfSharpCore.Pdf.IO.PdfDocumentOpenMode.Import);
+                foreach (PdfSharpCore.Pdf.PdfPage page in source.Pages)
+                {
+                    merged.AddPage(page);
+                }
+            }
+            return merged;
         }
 
         private const int MaxRetries = 3;
@@ -552,7 +727,9 @@ namespace EvnHanoi.DigitizationService.Workers
             CancellationToken cancellationToken)
         {
             var retryCount = GetRetryCount(ea.BasicProperties?.Headers) + 1;
-            var isFinalAttempt = retryCount > MaxRetries || ex is NonRetryableOcrException;
+            var isOutOfMemory = ex is OutOfMemoryException || ex.InnerException is OutOfMemoryException;
+            // Hết bộ nhớ: thử lại cùng một file chắc chắn lặp lại (và chiếm GPU/RAM vô ích) → đi thẳng DLQ như lỗi dữ liệu đầu vào.
+            var isFinalAttempt = retryCount > MaxRetries || ex is NonRetryableOcrException || isOutOfMemory;
             var targetRoutingKey = isFinalAttempt
                 ? DigitizationTopicTopology.OcrTaskDeadLetterRoutingKey
                 : DigitizationTopicTopology.OcrTaskRoutingKey;
@@ -577,7 +754,12 @@ namespace EvnHanoi.DigitizationService.Workers
                 return;
             }
 
-            if (ex is NonRetryableOcrException)
+            if (isOutOfMemory)
+            {
+                _logger.LogError(ex, "OCR task hết bộ nhớ (OutOfMemoryException) — không thử lại, đã chuyển sang hàng đợi lỗi {DlqQueue}.",
+                    DigitizationTopicTopology.OcrTaskDeadLetterQueue);
+            }
+            else if (ex is NonRetryableOcrException)
             {
                 _logger.LogError(
                     "OCR task lỗi dữ liệu đầu vào (không thể retry) — đã chuyển thẳng sang hàng đợi lỗi {DlqQueue}: {Reason}",
@@ -602,7 +784,9 @@ namespace EvnHanoi.DigitizationService.Workers
                     CurrentPage = 0,
                     TotalPages = 0,
                     Progress = 0,
-                    ErrorMessage = ex.Message
+                    ErrorMessage = isOutOfMemory
+                        ? "Hết bộ nhớ khi xử lý tài liệu (file hoặc số trang quá lớn) — hãy tách thành các file nhỏ hơn rồi tải lại, hoặc tăng bộ nhớ cho DigitizationService."
+                        : ex.Message
                 };
                 // Thử lại có backoff — đây là tín hiệu duy nhất để EquipmentService đánh Failed ngay lập
                 // tức; nếu vẫn thất bại sau cùng, watchdog (dựa trên ModifiedDate, độc lập RabbitMQ) sẽ
