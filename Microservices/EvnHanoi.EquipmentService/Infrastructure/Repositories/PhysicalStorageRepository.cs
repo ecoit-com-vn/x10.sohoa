@@ -360,4 +360,24 @@ public class PhysicalStorageRepository : IPhysicalStorageRepository
               FETCH FIRST 1 ROW ONLY",
             new { ShelfId = shelfId, Name = name });
     }
+
+    public async Task<long?> FindBoxIdByFloorAndNameAsync(long floorId, string name)
+    {
+        return await _connection.QuerySingleOrDefaultAsync<long?>(
+            @"SELECT Id FROM PHYSICAL_BOX
+              WHERE FloorId = :FloorId AND NVL(IS_DELETED, 0) = 0
+                AND UPPER(TRIM(Name)) = UPPER(TRIM(:Name))
+              FETCH FIRST 1 ROW ONLY",
+            new { FloorId = floorId, Name = name });
+    }
+
+    public async Task<HashSet<string>> GetBoxNamesByFloorIdAsync(long floorId)
+    {
+        var names = await _connection.QueryAsync<string>(
+            @"SELECT UPPER(TRIM(Name)) FROM PHYSICAL_BOX
+              WHERE FloorId = :FloorId AND NVL(IS_DELETED, 0) = 0 AND Name IS NOT NULL",
+            new { FloorId = floorId });
+        return new HashSet<string>(names.Where(n => !string.IsNullOrWhiteSpace(n)), StringComparer.OrdinalIgnoreCase);
+    }
 }
+
