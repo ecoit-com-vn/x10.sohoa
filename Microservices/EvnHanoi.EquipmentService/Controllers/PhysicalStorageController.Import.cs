@@ -65,8 +65,18 @@ public partial class PhysicalStorageController
 
         // (UnitId, Tên kệ viết hoa) -> ShelfId — gồm cả kệ đã có sẵn (tra khi cần) và kệ vừa tạo trong sheet Kệ.
         var shelfIdByUnitAndName = new Dictionary<(long UnitId, string Name), long>();
+        // Đánh dấu các Kệ vừa được tạo trong file import (để phân biệt trùng lặp trong cùng file)
+        var createdShelfKeys = new HashSet<(long UnitId, string Name)>();
+
         // (ShelfId, Tên tầng viết hoa) -> FloorId — gồm cả tầng đã có sẵn và tầng vừa tạo trong sheet Tầng.
         var floorIdByShelfAndName = new Dictionary<(long ShelfId, string Name), long>();
+        // Đánh dấu các Tầng vừa được tạo trong file import
+        var createdFloorKeys = new HashSet<(long ShelfId, string Name)>();
+
+        // Cache danh sách tên hộp đã có trong DB theo FloorId để tra cứu O(1)
+        var existingBoxNamesByFloor = new Dictionary<long, HashSet<string>>();
+        // Đánh dấu các Hộp vừa được tạo trong file import: (FloorId, Tên hộp viết hoa)
+        var createdBoxKeys = new HashSet<(long FloorId, string Name)>();
 
         static string NormalizeName(string? name) => (name ?? string.Empty).Trim().ToUpperInvariant();
         static int ParsePriority(string? text) => int.TryParse(text, out var p) && p > 0 ? (p > 999_999_999 ? 999_999_999 : p) : 1;
@@ -170,7 +180,30 @@ public partial class PhysicalStorageController
                     continue;
                 }
 
-                var code = await GetNextShelfCodeAsync(unitId!.Value);
+                var shelfKey = (unitId!.Value, NormalizeName(name));
+                if (createdShelfKeys.Contains(shelfKey))
+                {
+                    result.Errors.Add(new PhysicalStorageImportErrorDto { Sheet = ImportSheetShelf, Row = row.RowNumber(), Reason = $"Kệ '{name}' bị trùng lặp trong file import (đơn vị '{unitCode}')." });
+                    continue;
+                }
+
+                if (!shelfIdByUnitAndName.TryGetValue(shelfKey, out var existingShelfId))
+                {
+                    var found = await _repository.FindShelfIdByUnitAndNameAsync(unitId.Value, name);
+                    if (found != null)
+                    {
+                        existingShelfId = found.Value;
+                        shelfIdByUnitAndName[shelfKey] = existingShelfId;
+                    }
+                }
+
+                if (existingShelfId > 0)
+                {
+                    result.Errors.Add(new PhysicalStorageImportErrorDto { Sheet = ImportSheetShelf, Row = row.RowNumber(), Reason = $"Kệ '{name}' đã tồn tại trong đơn vị '{unitCode}'." });
+                    continue;
+                }
+
+                var code = await GetNextShelfCodeAsync(unitId.Value);
                 if (code == null)
                 {
                     result.Errors.Add(new PhysicalStorageImportErrorDto { Sheet = ImportSheetShelf, Row = row.RowNumber(), Reason = "Không thể sinh mã kệ cho đơn vị này." });
@@ -189,7 +222,8 @@ public partial class PhysicalStorageController
                         CreatedBy = userName
                     };
                     var shelfId = await _repository.CreateShelfAsync(shelf);
-                    shelfIdByUnitAndName[(unitId.Value, NormalizeName(name))] = shelfId;
+                    shelfIdByUnitAndName[shelfKey] = shelfId;
+                    createdShelfKeys.Add(shelfKey);
                     result.ShelvesCreated++;
                 }
                 catch (Exception ex)
@@ -239,6 +273,29 @@ public partial class PhysicalStorageController
                     shelfIdByUnitAndName[shelfKey] = shelfId;
                 }
 
+                var floorKey = (shelfId, NormalizeName(name));
+                if (createdFloorKeys.Contains(floorKey))
+                {
+                    result.Errors.Add(new PhysicalStorageImportErrorDto { Sheet = ImportSheetFloor, Row = row.RowNumber(), Reason = $"Tầng '{name}' bị trùng lặp trong file import (Kệ '{shelfName}')." });
+                    continue;
+                }
+
+                if (!floorIdByShelfAndName.TryGetValue(floorKey, out var existingFloorId))
+                {
+                    var found = await _repository.FindFloorIdByShelfAndNameAsync(shelfId, name);
+                    if (found != null)
+                    {
+                        existingFloorId = found.Value;
+                        floorIdByShelfAndName[floorKey] = existingFloorId;
+                    }
+                }
+
+                if (existingFloorId > 0)
+                {
+                    result.Errors.Add(new PhysicalStorageImportErrorDto { Sheet = ImportSheetFloor, Row = row.RowNumber(), Reason = $"Tầng '{name}' đã tồn tại trong Kệ '{shelfName}'." });
+                    continue;
+                }
+
                 var code = await GetNextFloorCodeAsync(unitId.Value);
                 if (code == null)
                 {
@@ -258,7 +315,8 @@ public partial class PhysicalStorageController
                         CreatedBy = userName
                     };
                     var floorId = await _repository.CreateFloorAsync(floor);
-                    floorIdByShelfAndName[(shelfId, NormalizeName(name))] = floorId;
+                    floorIdByShelfAndName[floorKey] = floorId;
+                    createdFloorKeys.Add(floorKey);
                     result.FloorsCreated++;
                 }
                 catch (Exception ex)
@@ -323,6 +381,25 @@ public partial class PhysicalStorageController
                     floorIdByShelfAndName[floorKey] = floorId;
                 }
 
+                var boxKey = (floorId, NormalizeName(name));
+                if (createdBoxKeys.Contains(boxKey))
+                {
+                    result.Errors.Add(new PhysicalStorageImportErrorDto { Sheet = ImportSheetBox, Row = row.RowNumber(), Reason = $"Hộp '{name}' bị trùng lặp trong file import (Tầng '{floorName}', Kệ '{shelfName}')." });
+                    continue;
+                }
+
+                if (!existingBoxNamesByFloor.TryGetValue(floorId, out var existingBoxNames))
+                {
+                    existingBoxNames = await _repository.GetBoxNamesByFloorIdAsync(floorId);
+                    existingBoxNamesByFloor[floorId] = existingBoxNames;
+                }
+
+                if (existingBoxNames.Contains(NormalizeName(name)))
+                {
+                    result.Errors.Add(new PhysicalStorageImportErrorDto { Sheet = ImportSheetBox, Row = row.RowNumber(), Reason = $"Hộp '{name}' đã tồn tại trong Tầng '{floorName}' (Kệ '{shelfName}')." });
+                    continue;
+                }
+
                 var code = await GetNextBoxCodeAsync(unitId.Value);
                 if (code == null)
                 {
@@ -342,6 +419,8 @@ public partial class PhysicalStorageController
                         CreatedBy = userName
                     };
                     await _repository.CreateBoxAsync(box);
+                    createdBoxKeys.Add(boxKey);
+                    existingBoxNames.Add(NormalizeName(name));
                     result.BoxesCreated++;
                 }
                 catch (Exception ex)
@@ -386,8 +465,9 @@ public partial class PhysicalStorageController
         string[][] ruleRows =
         {
             new[] { "Mã đơn vị", "Có (cả 3 sheet)", "Mã đơn vị quản lý (cột Code trong Cơ cấu tổ chức), phải là đơn vị bạn có quyền quản lý." },
-            new[] { "Tên kệ", "Có (sheet Tầng, Hộp)", "Phải khớp đúng Tên 1 Kệ đã có sẵn, HOẶC 1 dòng ở sheet 'Kệ' trong CÙNG file này (không phân biệt hoa/thường, khoảng trắng đầu/cuối)." },
-            new[] { "Tên tầng", "Có (sheet Hộp)", "Phải khớp đúng Tên 1 Tầng đã có sẵn thuộc đúng Kệ ở trên, HOẶC 1 dòng ở sheet 'Tầng' trong CÙNG file này." },
+            new[] { "Tên kệ", "Có (cả 3 sheet)", "Không được trùng tên trong cùng đơn vị (kể cả trong file lẫn CSDL). Ở sheet Tầng, Hộp phải khớp đúng Tên 1 Kệ đã có sẵn, HOẶC 1 dòng ở sheet 'Kệ' trong CÙNG file này (không phân biệt hoa/thường, khoảng trắng đầu/cuối)." },
+            new[] { "Tên tầng", "Có (sheet Tầng, Hộp)", "Không được trùng tên trong cùng Kệ (kể cả trong file lẫn CSDL). Ở sheet Hộp phải khớp đúng Tên 1 Tầng đã có sẵn thuộc đúng Kệ ở trên, HOẶC 1 dòng ở sheet 'Tầng' trong CÙNG file này." },
+            new[] { "Tên hộp", "Có (sheet Hộp)", "Không được trùng tên trong cùng Tầng (kể cả trong file lẫn CSDL)." },
             new[] { "Ưu tiên", "Không", "Số nguyên dương, số nhỏ hơn ưu tiên cao hơn. Bỏ trống thì mặc định là 1." },
             new[] { "Mã (Kệ/Tầng/Hộp)", "Tự sinh", "Hệ thống tự sinh theo quy tắc {Mã đơn vị}_KE/TANG/HOP{Số thứ tự}, không nhập trong file import." },
             new[] { "Thứ tự import", "Bắt buộc theo đúng thứ tự", "Phải nhập lần lượt sheet 'Kệ' trước, 'Tầng' sau, 'Hộp' sau cùng — vì Tầng cần Kệ đã tồn tại, Hộp cần Tầng đã tồn tại." }
