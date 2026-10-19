@@ -486,6 +486,20 @@ export class DossierDirectUploadDialogComponent implements OnInit {
 
 
 
+    // Tự động nạp file đang có trong scannerPanel vào hàng đợi upload nếu người dùng chưa bấm lưu thủ công
+
+    if (this.isScanMode && this.scannerPanel?.currentFile()) {
+
+      const scannedFile = this.scannerPanel.currentFile()!;
+
+      this.uploadZone?.ingestFile(scannedFile, UPLOAD_SOURCE.SCAN);
+
+      this.scannerPanel.resetScanner();
+
+    }
+
+
+
     const hasQueued = this.uploadZone?.hasQueuedUploads() ?? false;
 
     if (!hasQueued && this.uploadedFiles().length === 0) {

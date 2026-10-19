@@ -75,7 +75,7 @@
   </div>
 
   <!-- Empty State -->
-  <p class="empty-state" *ngIf="getUploadItems().length === 0 && !isUploading()">
+  <p class="empty-state" *ngIf="!hideDropZone() && getUploadItems().length === 0 && !isUploading()">
     Chưa có tệp nào được tải lên
   </p>
 </div>
