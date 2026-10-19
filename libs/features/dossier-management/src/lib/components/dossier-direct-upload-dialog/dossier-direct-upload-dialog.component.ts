@@ -486,12 +486,19 @@ export class DossierDirectUploadDialogComponent implements OnInit {
 
 
 
-    // File vừa quét nằm trong panel quét (xem trước) cho tới khi bấm "Lưu tài liệu" mới được đưa vào hàng đợi upload.
-    // Người dùng bấm "Xong" luôn mà chưa bấm "Lưu tài liệu" → trước đây không có gì trong hàng đợi nên dialog đóng im lặng,
-    // không gọi API nào. Tự lưu file đang chờ vào hàng đợi (saveDocument phát fileReady → onScannedFile → ingestFile đồng bộ).
+    // Tự động nạp file đang có trong scannerPanel vào hàng đợi upload nếu người dùng chưa bấm lưu thủ công
+
     if (this.isScanMode && this.scannerPanel?.currentFile()) {
-      this.scannerPanel.saveDocument();
+
+      const scannedFile = this.scannerPanel.currentFile()!;
+
+      this.uploadZone?.ingestFile(scannedFile, UPLOAD_SOURCE.SCAN);
+
+      this.scannerPanel.resetScanner();
+
     }
+
+
 
     const hasQueued = this.uploadZone?.hasQueuedUploads() ?? false;
 
