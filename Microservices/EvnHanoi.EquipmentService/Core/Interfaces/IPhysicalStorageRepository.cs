@@ -39,4 +39,7 @@ public interface IPhysicalStorageRepository
     // nhập không biết trước Mã của 1 Kệ/Tầng vừa được tạo trong cùng file import).
     Task<long?> FindShelfIdByUnitAndNameAsync(long unitId, string name);
     Task<long?> FindFloorIdByShelfAndNameAsync(long shelfId, string name);
+    Task<long?> FindBoxIdByFloorAndNameAsync(long floorId, string name);
+    Task<HashSet<string>> GetBoxNamesByFloorIdAsync(long floorId);
 }
+
