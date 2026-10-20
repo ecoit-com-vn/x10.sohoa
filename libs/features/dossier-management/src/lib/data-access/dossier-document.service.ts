@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams, HttpErrorResponse, HttpContext } from '@angular/common/http';
-import { Observable, firstValueFrom, map, catchError, throwError, of } from 'rxjs';
+import { Observable, firstValueFrom, map, catchError, throwError, of, take } from 'rxjs';
 import { APP_CONFIG, SUPPRESS_HTTP_ERROR_TOAST } from '@sohoa.frontend/shared/core';
 import { DossierReportContext } from './dossier-report-context.service';
 import {
@@ -326,6 +326,10 @@ export class DossierDocumentService {
     );
   }
 
+  abortChunkedUpload(dossierId: string, uploadId: string): Observable<void> {
+    return this.http.delete<void>(`${this.dossierBase(dossierId)}/upload/chunked/${uploadId}/abort`);
+  }
+
   async getPreviewBlobUrl(dossierId: string, versionId: string, lookupMode = false): Promise<string> {
     const tokenResponse = await firstValueFrom(this.getDownloadToken(dossierId, versionId, lookupMode));
     if (!tokenResponse?.token) {
@@ -401,51 +405,69 @@ export class DossierDocumentService {
     onProgress?: (progress: UploadProgress) => void,
     equipmentIds?: string[]
   ): Promise<FileUploadResponse> {
-    const initResponse = await firstValueFrom(
-      this.initiateChunkedUpload(dossierId, file.name, file.size)
-    );
-
-    const uploadSessionId = initResponse.uploadId;
-    const chunkSize = initResponse.chunkSize;
-    const totalChunks = initResponse.totalChunks;
-    const parts: Array<{ chunkNumber: number; eTag: string }> = [];
-    let uploadedBytes = 0;
-
-    for (let i = 1; i <= totalChunks; i++) {
-      const start = (i - 1) * chunkSize;
-      const end = Math.min(start + chunkSize, file.size);
-      const chunk = file.slice(start, end);
-      const chunkArrayBuffer = await this.fileToArrayBuffer(chunk);
-
-      const response = await firstValueFrom(
-        this.uploadChunk(dossierId, uploadSessionId, i, chunkArrayBuffer)
+    let uploadSessionId: string | null = null;
+    try {
+      const initResponse = await firstValueFrom(
+        this.initiateChunkedUpload(dossierId, file.name, file.size)
       );
 
-      parts.push({ chunkNumber: i, eTag: response.eTag });
-      uploadedBytes += chunk.size;
+      uploadSessionId = initResponse.uploadId;
+      const chunkSize = initResponse.chunkSize;
+      const totalChunks = initResponse.totalChunks;
+      const parts: Array<{ chunkNumber: number; eTag: string }> = [];
+      let uploadedBytes = 0;
+
+      for (let i = 1; i <= totalChunks; i++) {
+        const start = (i - 1) * chunkSize;
+        const end = Math.min(start + chunkSize, file.size);
+        const chunk = file.slice(start, end);
+        const chunkArrayBuffer = await this.fileToArrayBuffer(chunk);
+
+        const response = await firstValueFrom(
+          this.uploadChunk(dossierId, uploadSessionId, i, chunkArrayBuffer)
+        );
+
+        parts.push({ chunkNumber: i, eTag: response.eTag });
+        uploadedBytes += chunk.size;
+
+        onProgress?.({
+          uploadId: uploadSessionId,
+          progress: Math.min(99, Math.round((uploadedBytes / file.size) * 100)),
+          uploadedBytes,
+          totalBytes: file.size,
+          status: 'uploading',
+        });
+      }
 
       onProgress?.({
         uploadId: uploadSessionId,
-        progress: Math.round((uploadedBytes / file.size) * 100),
-        uploadedBytes,
+        progress: 99,
+        uploadedBytes: file.size,
         totalBytes: file.size,
         status: 'uploading',
       });
+
+      const result = await firstValueFrom(
+        this.completeChunkedUpload(dossierId, uploadSessionId, parts, documentTypeId, equipmentIds)
+      );
+
+      onProgress?.({
+        uploadId: uploadSessionId,
+        progress: 100,
+        uploadedBytes: file.size,
+        totalBytes: file.size,
+        status: 'completed',
+      });
+
+      return result;
+    } catch (error) {
+      if (uploadSessionId) {
+        this.abortChunkedUpload(dossierId, uploadSessionId).pipe(take(1)).subscribe({
+          error: (abortErr) => console.warn('Failed to abort chunked upload session:', abortErr),
+        });
+      }
+      throw error;
     }
-
-    const result = await firstValueFrom(
-      this.completeChunkedUpload(dossierId, uploadSessionId, parts, documentTypeId, equipmentIds)
-    );
-
-    onProgress?.({
-      uploadId: uploadSessionId,
-      progress: 100,
-      uploadedBytes: file.size,
-      totalBytes: file.size,
-      status: 'completed',
-    });
-
-    return result;
   }
 
   private fileToArrayBuffer(file: Blob): Promise<ArrayBuffer> {
