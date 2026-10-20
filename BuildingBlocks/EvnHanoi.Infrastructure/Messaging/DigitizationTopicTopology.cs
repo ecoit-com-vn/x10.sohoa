@@ -12,6 +12,14 @@ public static class DigitizationTopicTopology
     public const string OcrTaskQueue = "ocr_task_queue";
     public const string OcrTaskRoutingKey = "ocr.process.task";
 
+    /// <summary>
+    /// Luồng riêng cho tài liệu LỚN (nhiều trang/dung lượng lớn) — tách khỏi <see cref="OcrTaskQueue"/> để một tài liệu hàng trăm trang
+    /// không chiếm hết chỗ xử lý và chặn các tài liệu nhỏ phía sau. Là queue MỚI (không đổi argument của <see cref="OcrTaskQueue"/> đang chạy).
+    /// Publisher vẫn gửi mọi tác vụ vào <see cref="OcrTaskRoutingKey"/>; OcrWorker của luồng nhỏ tự chuyển tài liệu lớn sang đây sau khi biết số trang.
+    /// </summary>
+    public const string OcrTaskLargeQueue = "ocr_task_queue_large";
+    public const string OcrTaskLargeRoutingKey = "ocr.process.task.large";
+
     public const string ExtractionTaskQueue = "extraction_task_queue";
     public const string ExtractionTaskRoutingKey = "extraction.process.task";
 
@@ -45,6 +53,7 @@ public static class DigitizationTopicTopology
             cancellationToken: cancellationToken);
 
         await DeclareAndBindAsync(channel, OcrTaskQueue, OcrTaskRoutingKey, cancellationToken);
+        await DeclareAndBindAsync(channel, OcrTaskLargeQueue, OcrTaskLargeRoutingKey, cancellationToken);
         await DeclareAndBindAsync(channel, ExtractionTaskQueue, ExtractionTaskRoutingKey, cancellationToken);
         await DeclareAndBindAsync(channel, OcrTaskDeadLetterQueue, OcrTaskDeadLetterRoutingKey, cancellationToken);
         await DeclareAndBindAsync(channel, ExtractionTaskDeadLetterQueue, ExtractionTaskDeadLetterRoutingKey, cancellationToken);

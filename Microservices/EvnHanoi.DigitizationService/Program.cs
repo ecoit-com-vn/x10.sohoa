@@ -42,14 +42,10 @@ var rabbitFactory = new ConnectionFactory
     UserName = builder.Configuration["RabbitMQ:Username"] ?? "guest",
     Password = builder.Configuration["RabbitMQ:Password"] ?? "guest",
     Port = int.TryParse(builder.Configuration["RabbitMQ:Port"], out var port) ? port : 5672,
-    // Cho phép OcrWorker/ExtractionWorker xử lý nhiều message song song — 1 message treo/chậm
-    // không còn chặn toàn bộ các message khác phía sau trong cùng queue.
-    //
-    // Hạ 4 -> 2: nghẽn thật của luồng OCR là GPU của ocr_vl_server (đo được ~4,4 crop/giây, GPU
-    // 86–100%), không phải service này. Đẩy nhiều tài liệu song song KHÔNG tăng thông lượng mà chỉ
-    // làm mỗi trang chờ lâu hơn, vượt timeout phía client rồi bị retry — vòng xoáy tự làm nặng
-    // thêm. Mặc định 2 (cấu hình Ocr:PrefetchCount): mỗi instance xử lý tối đa từng ấy tài liệu cùng lúc.
-    ConsumerDispatchConcurrency = EvnHanoi.DigitizationService.Workers.OcrWorkerSettings.GetPrefetchCount(builder.Configuration)
+    // Mức xử lý đồng thời MẶC ĐỊNH của channel trên kết nối này. Các OcrWorker (luồng nhỏ/lớn) đặt riêng theo từng channel (Ocr:PrefetchCount /
+    // Ocr:LargePrefetchCount) nên giá trị này chỉ còn áp cho ExtractionWorker: Extraction:DispatchConcurrency (mặc định 2 = số slot LLM).
+    // Cố ý TÁCH khỏi cấu hình OCR: trước đây chỉnh Ocr:PrefetchCount cũng âm thầm đổi mức song song gọi LLM trên cùng GPU.
+    ConsumerDispatchConcurrency = EvnHanoi.DigitizationService.Workers.OcrWorkerSettings.GetExtractionDispatchConcurrency(builder.Configuration)
 };
 var rabbitConnection = await rabbitFactory.CreateConnectionAsync();
 builder.Services.AddSingleton<IConnection>(rabbitConnection);
@@ -132,7 +128,11 @@ builder.Services.AddHttpClient("LlmClient", client =>
     options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
 });
 
-builder.Services.AddHostedService<OcrWorker>();
+// Hai luồng OCR độc lập (queue + channel + số chỗ song song riêng): file nhỏ không bị chặn bởi file lớn. Xem OcrWorkerSettings.
+builder.Services.AddSingleton<IHostedService>(sp => ActivatorUtilities.CreateInstance<OcrWorker>(
+    sp, EvnHanoi.DigitizationService.Workers.OcrLane.Standard(sp.GetRequiredService<IConfiguration>())));
+builder.Services.AddSingleton<IHostedService>(sp => ActivatorUtilities.CreateInstance<OcrWorker>(
+    sp, EvnHanoi.DigitizationService.Workers.OcrLane.Large(sp.GetRequiredService<IConfiguration>())));
 builder.Services.AddHostedService<ExtractionWorker>();
 
 builder.Services.AddPermissionDiscovery("DigitizationService");
