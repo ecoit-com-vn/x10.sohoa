@@ -58,6 +58,12 @@ public class DocumentCompressionService : IDocumentCompressionService
     public static bool IsConvertibleImageFileName(string? fileName) =>
         !string.IsNullOrEmpty(fileName) && ImageExtensions.Contains(Path.GetExtension(fileName));
 
+    /// <summary>
+    /// Giới hạn dung lượng tối đa để nén/rasterize đồng bộ trong request upload (50 MB).
+    /// File lớn hơn ngưỡng này sẽ được lưu nguyên gốc để tránh OutOfMemoryException và HTTP timeout.
+    /// </summary>
+    public const long MaxSynchronousCompressionSizeBytes = 52_428_800; // 50 MB
+
     private readonly ILogger<DocumentCompressionService> _logger;
 
     public DocumentCompressionService(ILogger<DocumentCompressionService> logger)
@@ -75,16 +81,36 @@ public class DocumentCompressionService : IDocumentCompressionService
         if (inputStream.CanSeek)
             inputStream.Seek(0, SeekOrigin.Begin);
 
+        var extension = Path.GetExtension(fileName);
+        var isPdf = IsPdf(extension, mimeType);
+        var isImage = !isPdf && IsImage(extension, mimeType);
+
+        // Với file lớn (>50MB), kiểm tra chữ ký đầu file thay vì đọc toàn bộ vào MemoryStream
+        if (inputStream.CanSeek && inputStream.Length > MaxSynchronousCompressionSizeBytes)
+        {
+            var header = new byte[16];
+            var headerRead = await inputStream.ReadAsync(header.AsMemory(0, header.Length), cancellationToken);
+            inputStream.Seek(0, SeekOrigin.Begin);
+
+            var looksLikeImg = LooksLikeImage(header[..headerRead]);
+
+            // Nếu không phải là ảnh cần chuyển đổi sang PDF, bỏ qua nén đồng bộ để tránh tràn RAM và timeout cho file lớn
+            if (!looksLikeImg || options?.ConvertImageToPdf != true)
+            {
+                _logger.LogInformation(
+                    "Bỏ qua nén đồng bộ tài liệu lớn {FileName} ({SizeMB:F1} MB > {MaxMB} MB).",
+                    fileName, inputStream.Length / (1024.0 * 1024.0), MaxSynchronousCompressionSizeBytes / (1024 * 1024));
+
+                return Unchanged(inputStream, fileName, mimeType);
+            }
+        }
+
         using var buffer = new MemoryStream();
         await inputStream.CopyToAsync(buffer, cancellationToken);
         var originalBytes = buffer.ToArray();
 
         if (inputStream.CanSeek)
             inputStream.Seek(0, SeekOrigin.Begin);
-
-        var extension = Path.GetExtension(fileName);
-        var isPdf = IsPdf(extension, mimeType);
-        var isImage = !isPdf && IsImage(extension, mimeType);
 
         // Luồng chunked đã đổi tên file thành .pdf từ lúc Initiate (object key chốt trước khi chuyển đổi)
         // → đuôi/MIME không còn đáng tin; khi bật chuyển đổi, nhận diện ảnh theo chữ ký byte thật.
@@ -229,6 +255,16 @@ public class DocumentCompressionService : IDocumentCompressionService
             FileName = fileName,
             MimeType = mimeType,
             Size = originalBytes.LongLength,
+            WasCompressed = false
+        };
+
+    private static DocumentCompressionResult Unchanged(Stream stream, string fileName, string mimeType) =>
+        new()
+        {
+            Stream = stream,
+            FileName = fileName,
+            MimeType = mimeType,
+            Size = stream.Length,
             WasCompressed = false
         };
 

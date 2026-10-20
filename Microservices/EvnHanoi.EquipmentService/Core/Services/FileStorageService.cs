@@ -300,28 +300,73 @@ public class FileStorageService : IFileStorageService
         try
         {
             var bucket = ResolveBucket(bucketName);
-            var memStream = new MemoryStream();
 
-            // KHÔNG ghim versionId khi đọc: mỗi DocumentVersion đã có object key riêng (xem
-            // BuildDocumentObjectKey/BuildDossierObjectKey — key luôn chứa Guid.NewGuid()), nên đọc
-            // "bản mới nhất tại key" là đúng ngữ nghĩa và không mất lịch sử version nào. Trước đây
-            // ghim theo DOCUMENT_VERSIONS.MINIO_VERSION_ID (chụp lúc upload) khiến file sau khi
-            // OcrWorker ghi đè PDF 2 lớp lên cùng key vẫn trả về bản gốc trước OCR vĩnh viễn —
-            // đúng triệu chứng "PDF tải về không có lớp text". versionId chỉ còn dùng để log.
-            var getArgs = new GetObjectArgs()
+            // Kiểm tra kích thước object để quyết định stream bộ nhớ hay file tạm trên đĩa
+            var statArgs = new StatObjectArgs()
                 .WithBucket(bucket)
                 .WithObject(filePath);
+            var stat = await _minioClient.StatObjectAsync(statArgs, cancellationToken);
 
-            getArgs = getArgs.WithCallbackStream(stream =>
+            // Nếu file > 20MB, ghi ra file tạm trên đĩa để tránh OutOfMemoryException trong LOH
+            if (stat.Size > 20 * 1024 * 1024)
             {
-                stream.CopyTo(memStream);
-            });
+                var tempFilePath = Path.Combine(Path.GetTempPath(), $"minio_dl_{Guid.NewGuid():N}.tmp");
+                var fileStream = new FileStream(
+                    tempFilePath,
+                    FileMode.Create,
+                    FileAccess.ReadWrite,
+                    FileShare.None,
+                    bufferSize: 81920,
+                    FileOptions.Asynchronous | FileOptions.DeleteOnClose);
 
-            await _minioClient.GetObjectAsync(getArgs, cancellationToken);
-            memStream.Seek(0, SeekOrigin.Begin);
+                try
+                {
+                    var getArgs = new GetObjectArgs()
+                        .WithBucket(bucket)
+                        .WithObject(filePath);
 
-            _logger.LogInformation("Downloaded file from MinIO: {Bucket}/{ObjectKey} (Version: {Version})", bucket, filePath, versionId);
-            return memStream;
+                    getArgs = getArgs.WithCallbackStream(stream =>
+                    {
+                        stream.CopyTo(fileStream);
+                    });
+
+                    await _minioClient.GetObjectAsync(getArgs, cancellationToken);
+                    fileStream.Seek(0, SeekOrigin.Begin);
+
+                    _logger.LogInformation("Downloaded large file from MinIO to temp file: {Bucket}/{ObjectKey} (Size: {Size} bytes, Version: {Version})", bucket, filePath, stat.Size, versionId);
+                    return fileStream;
+                }
+                catch
+                {
+                    await fileStream.DisposeAsync();
+                    throw;
+                }
+            }
+            else
+            {
+                var memStream = new MemoryStream();
+
+                // KHÔNG ghim versionId khi đọc: mỗi DocumentVersion đã có object key riêng (xem
+                // BuildDocumentObjectKey/BuildDossierObjectKey — key luôn chứa Guid.NewGuid()), nên đọc
+                // "bản mới nhất tại key" là đúng ngữ nghĩa và không mất lịch sử version nào. Trước đây
+                // ghim theo DOCUMENT_VERSIONS.MINIO_VERSION_ID (chụp lúc upload) khiến file sau khi
+                // OcrWorker ghi đè PDF 2 lớp lên cùng key vẫn trả về bản gốc trước OCR vĩnh viễn —
+                // đúng triệu chứng "PDF tải về không có lớp text". versionId chỉ còn dùng để log.
+                var getArgs = new GetObjectArgs()
+                    .WithBucket(bucket)
+                    .WithObject(filePath);
+
+                getArgs = getArgs.WithCallbackStream(stream =>
+                {
+                    stream.CopyTo(memStream);
+                });
+
+                await _minioClient.GetObjectAsync(getArgs, cancellationToken);
+                memStream.Seek(0, SeekOrigin.Begin);
+
+                _logger.LogInformation("Downloaded file from MinIO: {Bucket}/{ObjectKey} (Version: {Version})", bucket, filePath, versionId);
+                return memStream;
+            }
         }
         catch (Exception ex)
         {
@@ -495,35 +540,54 @@ public class FileStorageService : IFileStorageService
     {
         await EnsureBucketAsync(destinationBucket, cancellationToken);
 
-        await using var mergedStream = new MemoryStream();
-        for (var chunkNumber = 1; chunkNumber <= totalChunks; chunkNumber++)
+        var tempFilePath = Path.Combine(Path.GetTempPath(), $"minio_merge_{uploadId}_{Guid.NewGuid():N}.tmp");
+        try
         {
-            var chunkObjectKey = BuildChunkObjectKey(unitCode, uploadId, chunkNumber);
-            await using var chunkStream = await DownloadFileAsync(chunkObjectKey, _sessionBucket, null, cancellationToken);
-            await chunkStream.CopyToAsync(mergedStream, cancellationToken);
+            await using (var fileStream = new FileStream(
+                tempFilePath,
+                FileMode.Create,
+                FileAccess.ReadWrite,
+                FileShare.None,
+                bufferSize: 81920,
+                FileOptions.Asynchronous))
+            {
+                for (var chunkNumber = 1; chunkNumber <= totalChunks; chunkNumber++)
+                {
+                    var chunkObjectKey = BuildChunkObjectKey(unitCode, uploadId, chunkNumber);
+                    await using var chunkStream = await DownloadFileAsync(chunkObjectKey, _sessionBucket, null, cancellationToken);
+                    await chunkStream.CopyToAsync(fileStream, cancellationToken);
+                }
+
+                fileStream.Position = 0;
+
+                var putArgs = new PutObjectArgs()
+                    .WithBucket(destinationBucket)
+                    .WithObject(destinationObjectKey)
+                    .WithStreamData(fileStream)
+                    .WithObjectSize(fileStream.Length)
+                    .WithContentType("application/octet-stream");
+
+                await _minioClient.PutObjectAsync(putArgs, cancellationToken);
+
+                var statArgs = new StatObjectArgs()
+                    .WithBucket(destinationBucket)
+                    .WithObject(destinationObjectKey);
+                var stat = await _minioClient.StatObjectAsync(statArgs, cancellationToken);
+
+                _logger.LogInformation(
+                    "Merged {TotalChunks} upload chunks session {UploadId} -> {Bucket}/{ObjectKey} ({Size} bytes, Version: {Version})",
+                    totalChunks, uploadId, destinationBucket, destinationObjectKey, fileStream.Length, stat.VersionId);
+
+                return (fileStream.Length, stat.VersionId ?? "");
+            }
         }
-
-        mergedStream.Position = 0;
-
-        var putArgs = new PutObjectArgs()
-            .WithBucket(destinationBucket)
-            .WithObject(destinationObjectKey)
-            .WithStreamData(mergedStream)
-            .WithObjectSize(mergedStream.Length)
-            .WithContentType("application/octet-stream");
-
-        await _minioClient.PutObjectAsync(putArgs, cancellationToken);
-
-        var statArgs = new StatObjectArgs()
-            .WithBucket(destinationBucket)
-            .WithObject(destinationObjectKey);
-        var stat = await _minioClient.StatObjectAsync(statArgs, cancellationToken);
-
-        _logger.LogInformation(
-            "Merged {TotalChunks} upload chunks session {UploadId} -> {Bucket}/{ObjectKey} ({Size} bytes, Version: {Version})",
-            totalChunks, uploadId, destinationBucket, destinationObjectKey, mergedStream.Length, stat.VersionId);
-
-        return (mergedStream.Length, stat.VersionId ?? "");
+        finally
+        {
+            if (File.Exists(tempFilePath))
+            {
+                try { File.Delete(tempFilePath); } catch { /* ignore */ }
+            }
+        }
     }
 
     public async Task<string> CopyFileAsync(
