@@ -137,6 +137,13 @@ public class DocumentVersionDto
     public bool IsDeleted { get; set; }
 }
 
+/// <summary>Số trang + dung lượng của một phiên bản tài liệu — gợi ý chọn luồng OCR nhỏ/lớn (truy vấn khoá chính, không JOIN).</summary>
+public class DocumentVersionSizeHint
+{
+    public int PageCount { get; set; }
+    public long FileSize { get; set; }
+}
+
 // ===== FILTER / QUERY =====
 
 /// <summary>

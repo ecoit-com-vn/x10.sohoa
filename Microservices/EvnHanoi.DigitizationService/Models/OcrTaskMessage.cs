@@ -29,5 +29,9 @@ namespace EvnHanoi.DigitizationService.Models
         /// hiện tại không set field này nên hành vi giữ nguyên không đổi.
         /// </summary>
         public string? OcrModuleJobId { get; set; }
+
+        /// <summary>Gợi ý số trang / dung lượng do publisher gửi kèm (có thể thiếu hoặc lệch) — dùng chọn luồng OCR nhỏ/lớn trước khi tải file.</summary>
+        public int? PageCount { get; set; }
+        public long? FileSizeBytes { get; set; }
     }
 }
