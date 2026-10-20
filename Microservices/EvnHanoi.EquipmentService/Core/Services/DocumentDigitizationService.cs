@@ -441,6 +441,21 @@ public class DocumentDigitizationService : IDocumentDigitizationService
     /// sẽ chặn chạy lại (guard "đang xử lý") tới hết ngưỡng chờ hàng đợi 24 giờ của watchdog.</summary>
     private async Task PublishOcrTaskOrFailAsync(DocumentOcrProgress progress, OcrTaskPublishMessage message, string userId)
     {
+        // Gợi ý kích thước cho OcrWorker (chọn luồng nhỏ/lớn trước khi tải file). Lỗi ở đây KHÔNG được chặn việc gửi task.
+        try
+        {
+            var versionInfo = await _documentRepository.GetDocumentVersionSizeHintAsync(message.FileId);
+            if (versionInfo != null)
+            {
+                message.PageCount = versionInfo.PageCount > 0 ? versionInfo.PageCount : null;
+                message.FileSizeBytes = versionInfo.FileSize > 0 ? versionInfo.FileSize : null;
+            }
+        }
+        catch (Exception hintEx)
+        {
+            _logger.LogWarning(hintEx, "Không lấy được số trang/dung lượng làm gợi ý chọn luồng OCR cho version {VersionId}.", message.FileId);
+        }
+
         try
         {
             await _messageProducer.PublishToExchangeAsync(message, DigitizationExchange, OcrTaskRoutingKey);

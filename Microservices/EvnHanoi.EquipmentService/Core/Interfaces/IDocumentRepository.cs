@@ -36,6 +36,8 @@ public interface IDocumentRepository
     Task<Guid> CreateDocumentVersionAsync(DocumentVersion version);
     Task<IEnumerable<DocumentVersionDto>> GetDocumentVersionsAsync(Guid documentId);
     Task<DocumentVersionDto?> GetDocumentVersionByIdAsync(Guid versionId);
+    /// <summary>Số trang + dung lượng của phiên bản (truy vấn nhẹ theo khoá chính) — gợi ý chọn luồng OCR nhỏ/lớn.</summary>
+    Task<DocumentVersionSizeHint?> GetDocumentVersionSizeHintAsync(Guid versionId);
 
     // Digital signature (ký số) history — bảng DOCUMENT_SIGN_HISTORY (Migration0050)
     Task<Guid> CreateDocumentSignHistoryAsync(DocumentSignHistory history);

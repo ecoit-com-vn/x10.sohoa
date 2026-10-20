@@ -1094,6 +1094,19 @@ public class DocumentRepository : IDocumentRepository
         return await _connection.QuerySingleOrDefaultAsync<DocumentVersionDto>(sql, new { Id = versionId.ToString() });
     }
 
+    public async Task<DocumentVersionSizeHint?> GetDocumentVersionSizeHintAsync(Guid versionId)
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+
+        const string sql = @"
+            SELECT NVL(PAGE_COUNT, 0) AS PageCount, NVL(FILE_SIZE, 0) AS FileSize
+            FROM DOCUMENT_VERSIONS
+            WHERE ID = :Id AND IS_DELETED = 0";
+
+        return await _connection.QuerySingleOrDefaultAsync<DocumentVersionSizeHint>(sql, new { Id = versionId.ToString() });
+    }
+
     // ===== UPLOAD SESSION OPERATIONS =====
 
     public async Task<Guid> CreateUploadSessionAsync(UploadSession session)
