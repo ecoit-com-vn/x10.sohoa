@@ -313,11 +313,13 @@ public class FileUploadService : IFileUploadService
             ValidateDossierMimeType(ResolveMimeType(fileName));
 
             var maxFileSize = _config.GetValue<long>("FileUpload:MaxFileSizeBytes");
+            if (maxFileSize <= 0) maxFileSize = 536_870_912L;
             if (fileSize > maxFileSize)
                 throw new InvalidOperationException($"File quá lớn. Tối đa {maxFileSize / (1024 * 1024)} MB");
 
             // ===== CALCULATE CHUNKS =====
             var chunkSize = _config.GetValue<int>("FileUpload:ChunkSizeBytes");
+            if (chunkSize <= 0) chunkSize = 10_485_760;
             var totalChunks = (int)Math.Ceiling((double)fileSize / chunkSize);
 
             // ===== CREATE UPLOAD SESSION =====
@@ -636,10 +638,12 @@ public class FileUploadService : IFileUploadService
             throw new ArgumentException("Tên file không được để trống");
 
         var maxFileSize = _config.GetValue<long>("FileUpload:MaxFileSizeBytes");
+        if (maxFileSize <= 0) maxFileSize = 536_870_912L;
         if (fileSize > maxFileSize)
             throw new InvalidOperationException($"File quá lớn. Tối đa {maxFileSize / (1024 * 1024)} MB");
 
         var chunkSize = _config.GetValue<int>("FileUpload:ChunkSizeBytes");
+        if (chunkSize <= 0) chunkSize = 10_485_760;
         var totalChunks = (int)Math.Ceiling((double)fileSize / chunkSize);
         var uploadId = Guid.NewGuid().ToString("N");
         var storedFileName = ResolveStoredFileName(fileName, isDossierFlow: true);
@@ -1137,10 +1141,15 @@ public class FileUploadService : IFileUploadService
 
     private void ValidateMagicBytes(Stream fileStream, string mimeType, bool allowImageSignatures = false)
     {
-        using var memStream = new MemoryStream();
-        fileStream.CopyTo(memStream);
-        memStream.Seek(0, SeekOrigin.Begin);
+        if (fileStream.CanSeek)
+            fileStream.Seek(0, SeekOrigin.Begin);
 
+        var header = new byte[512];
+        var read = fileStream.Read(header, 0, header.Length);
+        if (fileStream.CanSeek)
+            fileStream.Seek(0, SeekOrigin.Begin);
+
+        using var memStream = new MemoryStream(header, 0, read);
         var ok = _mimeTypeValidator.ValidateMagicBytes(memStream, mimeType);
 
         // Chunked hồ sơ: tên file đã được đổi .pdf (ảnh sẽ chuyển PDF) nên MIME suy từ tên là PDF, nhưng bytes
@@ -1157,6 +1166,7 @@ public class FileUploadService : IFileUploadService
         if (!ok)
             throw new ArgumentException("File bị nghi ngờ - chữ ký file không khớp với loại file");
 
-        fileStream.Seek(0, SeekOrigin.Begin);
+        if (fileStream.CanSeek)
+            fileStream.Seek(0, SeekOrigin.Begin);
     }
 }

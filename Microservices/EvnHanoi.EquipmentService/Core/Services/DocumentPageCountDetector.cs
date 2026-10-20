@@ -32,15 +32,28 @@ public static class DocumentPageCountDetector
             if (content.CanSeek)
                 content.Seek(0, SeekOrigin.Begin);
 
-            // Copy sang MemoryStream để PdfPig không ảnh hưởng stream gốc.
-            using var buffer = new MemoryStream();
-            content.CopyTo(buffer);
-            buffer.Position = 0;
-            if (buffer.Length == 0)
-                return 0;
+            Stream readableStream = content;
+            MemoryStream? copyBuffer = null;
+            if (!content.CanSeek)
+            {
+                copyBuffer = new MemoryStream();
+                content.CopyTo(copyBuffer);
+                copyBuffer.Position = 0;
+                readableStream = copyBuffer;
+            }
 
-            using var document = PdfDocument.Open(buffer);
-            return Math.Max(0, document.NumberOfPages);
+            try
+            {
+                if (readableStream.Length == 0)
+                    return 0;
+
+                using var document = PdfDocument.Open(readableStream);
+                return Math.Max(0, document.NumberOfPages);
+            }
+            finally
+            {
+                copyBuffer?.Dispose();
+            }
         }
         catch
         {
