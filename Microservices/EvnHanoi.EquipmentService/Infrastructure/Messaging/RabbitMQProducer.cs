@@ -49,7 +49,11 @@ public class RabbitMQProducer : IMessageProducer
             exchange: exchangeName,
             routingKey: routingKey,
             mandatory: false,
-            basicProperties: new BasicProperties(),
+            // Chỉ exchange số hoá (tác vụ OCR/bóc tách) cần persistent: queue đã durable nhưng message không persistent thì mất khi RabbitMQ restart
+            // → job kẹt "Pending" vĩnh viễn. Các exchange khác (reindex văn bản, đồng bộ PMIS...) giữ hành vi cũ để không thêm ghi đĩa cho thông điệp tần suất cao.
+            basicProperties: string.Equals(exchangeName, DigitizationTopicTopology.ExchangeName, StringComparison.OrdinalIgnoreCase)
+                ? new BasicProperties { Persistent = true, ContentType = "application/json" }
+                : new BasicProperties(),
             body: body);
     }
 }

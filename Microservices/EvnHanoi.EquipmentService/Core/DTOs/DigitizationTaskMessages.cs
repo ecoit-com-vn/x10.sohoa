@@ -39,6 +39,9 @@ public class OcrTaskPublishMessage
     public Guid? EquipmentId { get; set; }
     /// <summary>Phạm vi trang bóc tách — xem <see cref="ExtractionScopeValues"/>.</summary>
     public string ExtractionScope { get; set; } = ExtractionScopeValues.Default;
+    /// <summary>GỢI Ý số trang / dung lượng (từ DB) để OcrWorker chọn luồng nhỏ/lớn TRƯỚC khi tải file. Có thể thiếu hoặc lệch — worker vẫn kiểm tra lại sau khi tải.</summary>
+    public int? PageCount { get; set; }
+    public long? FileSizeBytes { get; set; }
 }
 
 public class DigitizationExtractionForm

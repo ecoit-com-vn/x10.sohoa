@@ -72,6 +72,7 @@ namespace EvnHanoi.DigitizationService.Workers
         private readonly IConfiguration _configuration;
         private readonly IServiceProvider _serviceProvider;
         private readonly IConnection _connection;
+        private readonly OcrLane _lane;
         private IChannel? _channel;
         private readonly string _ocrVlServerUrl;
         private readonly string _llmServerUrl;
@@ -80,8 +81,10 @@ namespace EvnHanoi.DigitizationService.Workers
             ILogger<OcrWorker> logger,
             IConfiguration configuration,
             IServiceProvider serviceProvider,
-            IConnection connection)
+            IConnection connection,
+            OcrLane lane)
         {
+            _lane = lane;
             _logger = logger;
             _configuration = configuration;
             _serviceProvider = serviceProvider;
@@ -94,24 +97,30 @@ namespace EvnHanoi.DigitizationService.Workers
         {
             try
             {
-                _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
+                // Số message xử lý đồng thời của channel này = prefetch của luồng (theo từng channel, không dùng chung cho cả kết nối —
+                // nếu không ExtractionWorker trên cùng kết nối cũng bị đổi mức song song khi chỉnh số chỗ của OCR).
+                _channel = await _connection.CreateChannelAsync(
+                    new CreateChannelOptions(
+                        publisherConfirmationsEnabled: false,
+                        publisherConfirmationTrackingEnabled: false,
+                        consumerDispatchConcurrency: _lane.PrefetchCount),
+                    cancellationToken: stoppingToken);
 
                 var exchangeName = "digitization.topic";
-                var queueName = "ocr_task_queue";
-                var routingKey = "ocr.process.task";
+                // Mỗi luồng (nhỏ/lớn) là một instance OcrWorker riêng, có channel + queue + prefetch riêng.
+                var queueName = _lane.QueueName;
+                var routingKey = _lane.RoutingKey;
 
                 await _channel.ExchangeDeclareAsync(exchange: exchangeName, type: ExchangeType.Topic, durable: true, autoDelete: false, arguments: null, cancellationToken: stoppingToken);
                 await _channel.QueueDeclareAsync(queue: queueName, durable: true, exclusive: false, autoDelete: false, arguments: null, cancellationToken: stoppingToken);
                 await _channel.QueueBindAsync(queue: queueName, exchange: exchangeName, routingKey: routingKey, cancellationToken: stoppingToken);
 
-                // Giới hạn số message xử lý đồng thời/1 kết nối bằng đúng ConsumerDispatchConcurrency
-                // (xem Program.cs) — để RabbitMQ không dồn quá nhiều message chưa ack cho worker.
-                //
-                // prefetch 2 (hạ từ 4) khớp ConsumerDispatchConcurrency=2. Mỗi tài liệu OCR chiếm
-                // GPU rất lâu (tài liệu thật 96–744 vùng chữ/trang, ~4,4 crop/giây) nên giữ nhiều
-                // message unacked chỉ làm chúng chờ tới lúc vượt timeout, không giúp nhanh hơn.
-                // Số tài liệu song song: Ocr:PrefetchCount (xem OcrWorkerSettings) — cùng giá trị với ConsumerDispatchConcurrency ở Program.cs.
-                var prefetchCount = OcrWorkerSettings.GetPrefetchCount(_configuration);
+                // Giới hạn số message chưa ack của luồng này bằng đúng prefetch của luồng (= consumerDispatchConcurrency của channel ở trên)
+                // — để RabbitMQ không dồn quá nhiều message cho worker. Mỗi tài liệu OCR chiếm GPU rất lâu (tài liệu thật 96–744 vùng
+                // chữ/trang) nên giữ nhiều message unacked chỉ làm chúng chờ tới lúc vượt timeout, không giúp nhanh hơn.
+                // Số tài liệu song song: Ocr:PrefetchCount (nhỏ) / Ocr:LargePrefetchCount (lớn) — xem OcrWorkerSettings.
+                var prefetchCount = _lane.PrefetchCount;
+                _logger.LogInformation("OcrWorker luồng {Lane}: queue {Queue}, xử lý song song tối đa {Prefetch} tài liệu.", _lane.Name, queueName, prefetchCount);
                 await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: prefetchCount, global: false, cancellationToken: stoppingToken);
 
                 var consumer = new AsyncEventingBasicConsumer(_channel);
@@ -120,6 +129,14 @@ namespace EvnHanoi.DigitizationService.Workers
                     var body = ea.Body.ToArray();
                     var messageText = Encoding.UTF8.GetString(body);
                     //_logger.LogInformation("Nhận yêu cầu OCR: {Message}", messageText);
+
+                    // Chế độ xả: luồng lớn bị tắt (Ocr:LargeLaneEnabled=false) → trả message về queue chính cho luồng nhỏ xử lý, KHÔNG OCR.
+                    // Dùng trước khi rollback image (bản cũ không đọc queue lớn) hoặc khi luồng lớn có sự cố.
+                    if (_lane.IsLarge && !OcrWorkerSettings.IsLargeLaneEnabled(_configuration))
+                    {
+                        await DrainToStandardLaneAsync(ea, body, stoppingToken);
+                        return;
+                    }
 
                     var largeJob = false;
                     try
@@ -248,6 +265,17 @@ namespace EvnHanoi.DigitizationService.Workers
                                 _logger.LogInformation("Task yêu cầu OCR + Extraction.");
                             }
 
+                            // Tách luồng THEO GỢI Ý của publisher (số trang/dung lượng trong DB) — chuyển sang luồng lớn TRƯỚC khi tải file nên không tốn băng thông/RAM.
+                            // Gợi ý có thể thiếu hoặc lệch → vẫn có kiểm tra lại sau khi tải (bên dưới).
+                            if (!_lane.IsLarge && OcrWorkerSettings.IsLargeLaneEnabled(_configuration)
+                                && (taskMsg.PageCount.HasValue || taskMsg.FileSizeBytes.HasValue)
+                                && OcrWorkerSettings.IsLargeJob(_configuration, taskMsg.PageCount ?? 0, taskMsg.FileSizeBytes ?? 0))
+                            {
+                                if (await TryRedirectToLargeLaneAsync(
+                                        ea, body, taskMsg.FileId, taskMsg.PageCount ?? 0, taskMsg.FileSizeBytes ?? 0, "gợi ý của publisher, trước khi tải file", stoppingToken))
+                                    return;
+                            }
+
                             // 1. Tải file PDF từ MinIO
                             _logger.LogInformation("Tải file {FilePath} từ bucket {BucketName}", taskMsg.FilePath, taskMsg.BucketName);
                             byte[] pdfBytes = await DownloadPdfBytesAsync(minioService, taskMsg.BucketName, taskMsg.FilePath, stoppingToken);
@@ -294,6 +322,17 @@ namespace EvnHanoi.DigitizationService.Workers
                             }
                             // Đánh dấu job lớn để dọn bộ nhớ (nén vùng đối tượng lớn) ở cuối — xem khối finally bên dưới.
                             largeJob = pdfBytes.Length >= 20 * 1024 * 1024 || pageCount >= 60;
+
+                            // Tách luồng (kiểm tra lại sau khi tải — gợi ý của publisher có thể thiếu/lệch): tài liệu lớn được chuyển sang luồng lớn ngay tại đây,
+                            // trước khi tốn GPU, để không chiếm chỗ của tài liệu nhỏ. Cố ý KHÔNG đặt largeJob = true cho nhánh này: việc đó ép 2 lần GC nén
+                            // toàn bộ làm khựng cả luồng nhỏ; mảng PDF vừa tải sẽ được GC thường thu hồi.
+                            if (!_lane.IsLarge && OcrWorkerSettings.IsLargeLaneEnabled(_configuration)
+                                && OcrWorkerSettings.IsLargeJob(_configuration, pageCount, pdfBytes.LongLength))
+                            {
+                                if (await TryRedirectToLargeLaneAsync(
+                                        ea, body, taskMsg.FileId, pageCount, pdfBytes.LongLength, "kiểm tra sau khi tải file", stoppingToken))
+                                    return;
+                            }
 
                             using var pdfDocument = UglyToad.PdfPig.PdfDocument.Open(pdfBytes);
 
@@ -732,7 +771,7 @@ namespace EvnHanoi.DigitizationService.Workers
             var isFinalAttempt = retryCount > MaxRetries || ex is NonRetryableOcrException || isOutOfMemory;
             var targetRoutingKey = isFinalAttempt
                 ? DigitizationTopicTopology.OcrTaskDeadLetterRoutingKey
-                : DigitizationTopicTopology.OcrTaskRoutingKey;
+                : _lane.RoutingKey; // thử lại ở đúng luồng đang xử lý (luồng lớn thử lại ở luồng lớn)
 
             // Publish/republish TRƯỚC, chỉ ack message gốc SAU KHI thành công — nếu đảo ngược thứ tự,
             // ack thất bại-republish sẽ làm mất message vĩnh viễn (đã ack nhưng bản republish chưa vào queue).
@@ -796,12 +835,83 @@ namespace EvnHanoi.DigitizationService.Workers
             }
         }
 
+        /// <summary>
+        /// Chuyển một tác vụ sang luồng lớn: publish TRƯỚC, ack message gốc SAU (giữ x-retry-count; job vẫn "Pending", EquipmentService không biết gì).
+        /// Trả true nếu đã bàn giao (caller dừng xử lý); false nếu publish lỗi → caller xử lý ngay tại luồng nhỏ để không mất tác vụ.
+        /// </summary>
+        private async Task<bool> TryRedirectToLargeLaneAsync(
+            BasicDeliverEventArgs ea, byte[] body, Guid fileId, int pageCount, long fileBytes, string reason, CancellationToken cancellationToken)
+        {
+            var published = await RepublishRawAsync(
+                body, DigitizationTopicTopology.OcrTaskLargeRoutingKey, GetRetryCount(ea.BasicProperties?.Headers), cancellationToken);
+            if (!published)
+            {
+                _logger.LogWarning(
+                    "Không chuyển được tài liệu {FileId} sang luồng lớn ({Reason}) — xử lý ngay tại luồng nhỏ để không mất tác vụ.", fileId, reason);
+                return false;
+            }
+
+            _logger.LogInformation(
+                "Tài liệu {FileId} ({PageCount} trang / {SizeMb} MB) — chuyển sang luồng lớn {Queue} [{Reason}].",
+                fileId, pageCount, fileBytes / 1048576, DigitizationTopicTopology.OcrTaskLargeQueue, reason);
+            await AckAfterHandoffAsync(ea, cancellationToken);
+            return true;
+        }
+
+        /// <summary>Ack message gốc SAU KHI đã bàn giao bản sao sang queue khác. Lỗi ack chỉ được ghi log và KHÔNG ném ra: nếu ném, handler chung sẽ publish
+        /// thêm một bản retry (HandleTaskFailureAsync) trong khi RabbitMQ cũng giao lại message gốc → nhân bản tác vụ. (Giao lại ít nhất một lần là bản chất của AMQP;
+        /// phía OCR có dấu /EvnOcrVersion chống dựng PDF 2 lớp lần hai.)</summary>
+        private async Task AckAfterHandoffAsync(BasicDeliverEventArgs ea, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _channel!.BasicAckAsync(ea.DeliveryTag, false, cancellationToken);
+            }
+            catch (Exception ackEx)
+            {
+                _logger.LogWarning(ackEx,
+                    "Ack message OCR thất bại sau khi đã bàn giao sang queue khác — message gốc sẽ được RabbitMQ giao lại (bản bàn giao vẫn nằm trong queue đích).");
+            }
+        }
+
+        /// <summary>Xả một message của luồng lớn về queue chính (giữ x-retry-count). Mọi lỗi đều được bắt tại đây (handler này chạy ngoài try/catch chung).
+        /// Lỗi publish → nack requeue sau một nhịp nghỉ để tránh vòng lặp nóng.</summary>
+        private async Task DrainToStandardLaneAsync(BasicDeliverEventArgs ea, byte[] body, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var moved = await RepublishRawAsync(
+                    body, DigitizationTopicTopology.OcrTaskRoutingKey, GetRetryCount(ea.BasicProperties?.Headers), cancellationToken);
+                if (moved)
+                {
+                    _logger.LogInformation("Luồng lớn đang TẮT (Ocr:LargeLaneEnabled=false) — đã trả tác vụ về {Queue}.", DigitizationTopicTopology.OcrTaskQueue);
+                    await AckAfterHandoffAsync(ea, cancellationToken);
+                    return;
+                }
+
+                _logger.LogWarning("Không xả được tác vụ về {Queue} — trả lại luồng lớn (nack requeue) sau 2 giây.", DigitizationTopicTopology.OcrTaskQueue);
+                await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+                await _channel!.BasicNackAsync(ea.DeliveryTag, false, true, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Đang tắt service — message chưa ack sẽ được RabbitMQ giao lại khi channel đóng.
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Xả tác vụ OCR khỏi luồng lớn thất bại — message chưa ack sẽ được RabbitMQ giao lại khi channel đóng.");
+            }
+        }
+
         private async Task<bool> RepublishRawAsync(byte[] body, string routingKey, int retryCount, CancellationToken cancellationToken)
         {
             try
             {
                 var props = new BasicProperties
                 {
+                    // Persistent: message gửi lại/chuyển luồng/DLQ phải sống sót khi RabbitMQ restart (queue đã durable).
+                    Persistent = true,
+                    ContentType = "application/json",
                     Headers = new Dictionary<string, object?> { ["x-retry-count"] = retryCount }
                 };
                 await _channel!.BasicPublishAsync(
