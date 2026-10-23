@@ -32,7 +32,8 @@ public static class SerilogSetupHelper
                 // (retainedFileCountLimit ở trên) = tối đa ~1.5GB/service thay vì không giới hạn.
                 fileSizeLimitBytes: 50 * 1024 * 1024,
                 rollOnFileSizeLimit: true)
-            .WriteTo.Elasticsearch(new Serilog.Sinks.Elasticsearch.ElasticsearchSinkOptions(new Uri(context.Configuration["Elasticsearch:Uri"] ?? "http://localhost:9200"))
+            // Các service khác (và overlay production) chỉ đặt Elasticsearch:Url — fallback sang Url để log không âm thầm ghi về localhost:9200 và mất (đã xảy ra trên PRO: không có chỉ mục app_logs-*).
+            .WriteTo.Elasticsearch(new Serilog.Sinks.Elasticsearch.ElasticsearchSinkOptions(new Uri(context.Configuration["Elasticsearch:Uri"] ?? context.Configuration["Elasticsearch:Url"] ?? "http://localhost:9200"))
             {
                 AutoRegisterTemplate = true,
                 IndexFormat = "app_logs-{0:yyyy.MM.dd}",
