@@ -43,7 +43,7 @@ var rabbitFactory = new ConnectionFactory
     Password = builder.Configuration["RabbitMQ:Password"] ?? "guest",
     Port = int.TryParse(builder.Configuration["RabbitMQ:Port"], out var port) ? port : 5672,
     // Mức xử lý đồng thời MẶC ĐỊNH của channel trên kết nối này. Các OcrWorker (luồng nhỏ/lớn) đặt riêng theo từng channel (Ocr:PrefetchCount /
-    // Ocr:LargePrefetchCount) nên giá trị này chỉ còn áp cho ExtractionWorker: Extraction:DispatchConcurrency (mặc định 2 = số slot LLM).
+    // Ocr:LargePrefetchCount) nên giá trị này chỉ còn áp cho ExtractionWorker: Extraction:DispatchConcurrency (mặc định 1; LLM có 2 slot).
     // Cố ý TÁCH khỏi cấu hình OCR: trước đây chỉnh Ocr:PrefetchCount cũng âm thầm đổi mức song song gọi LLM trên cùng GPU.
     ConsumerDispatchConcurrency = EvnHanoi.DigitizationService.Workers.OcrWorkerSettings.GetExtractionDispatchConcurrency(builder.Configuration)
 };

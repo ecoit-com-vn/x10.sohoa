@@ -18,7 +18,7 @@ public sealed record OcrLane(string Name, string QueueName, string RoutingKey, u
 
 /// <summary>Cấu hình số tài liệu OCR xử lý song song mỗi instance, tách theo luồng.
 /// <list type="bullet">
-/// <item><c>Ocr:PrefetchCount</c> (mặc định 2) — số tài liệu NHỎ chạy cùng lúc.</item>
+/// <item><c>Ocr:PrefetchCount</c> (mặc định 1) — số tài liệu NHỎ chạy cùng lúc.</item>
 /// <item><c>Ocr:LargePrefetchCount</c> (mặc định 1) — số tài liệu LỚN chạy cùng lúc.</item>
 /// <item><c>Ocr:LargeLaneEnabled</c> (mặc định true) — false: tắt tách luồng, luồng lớn xả message về queue chính.</item>
 /// <item><c>Ocr:LargeJobPages</c> (mặc định 30) / <c>Ocr:LargeJobSizeMB</c> (mặc định 20) — ngưỡng coi là tài liệu lớn (đạt MỘT trong hai); 0 = tắt tiêu chí đó.</item>
@@ -29,8 +29,9 @@ public sealed record OcrLane(string Name, string QueueName, string RoutingKey, u
 /// quá 2 slot không nhanh thêm — GPU khác (A100 dùng chung với LLM/STT) cần đo lại.</summary>
 public static class OcrWorkerSettings
 {
-    public const int DefaultPrefetchCount = 2;
+    public const int DefaultPrefetchCount = 1; // mặc định an toàn: PRO từng hết RAM khi 2 tài liệu lớn chạy song song; nâng bằng env khi đã theo dõi RAM
     public const int DefaultLargePrefetchCount = 1;
+    public const int DefaultExtractionDispatchConcurrency = 1; // khớp mức hiệu dụng hiện tại trên PRO; LLM có 2 slot, nâng bằng env khi cần
     public const int DefaultLargeJobPages = 30;
     public const int DefaultLargeJobSizeMb = 20;
 
@@ -38,9 +39,9 @@ public static class OcrWorkerSettings
         (ushort)Math.Clamp(configuration.GetValue("Ocr:PrefetchCount", DefaultPrefetchCount), 1, 16);
 
     /// <summary>Mức xử lý đồng thời mặc định của kết nối RabbitMQ — hiện chỉ <c>ExtractionWorker</c> kế thừa (các OcrWorker đặt riêng theo channel).
-    /// Cấu hình <c>Extraction:DispatchConcurrency</c> (mặc định 2 = số slot của LLM server), TÁCH khỏi <c>Ocr:PrefetchCount</c> để chỉnh OCR không làm đổi tải lên LLM.</summary>
+    /// Cấu hình <c>Extraction:DispatchConcurrency</c> (mặc định 1; LLM server có 2 slot), TÁCH khỏi <c>Ocr:PrefetchCount</c> để chỉnh OCR không làm đổi tải lên LLM.</summary>
     public static ushort GetExtractionDispatchConcurrency(IConfiguration configuration) =>
-        (ushort)Math.Clamp(configuration.GetValue("Extraction:DispatchConcurrency", 2), 1, 16);
+        (ushort)Math.Clamp(configuration.GetValue("Extraction:DispatchConcurrency", DefaultExtractionDispatchConcurrency), 1, 16);
 
     public static ushort GetLargePrefetchCount(IConfiguration configuration) =>
         (ushort)Math.Clamp(configuration.GetValue("Ocr:LargePrefetchCount", DefaultLargePrefetchCount), 1, 16);
