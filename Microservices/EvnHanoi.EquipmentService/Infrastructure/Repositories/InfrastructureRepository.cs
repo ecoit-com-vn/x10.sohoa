@@ -268,10 +268,13 @@ public class InfrastructureRepository : IInfrastructureRepository
         // 1 trang (OFFSET/FETCH bên dưới), không phải toàn bảng, nên không lặp lại vấn đề hiệu năng đã
         // gặp với EQUIPMENTS (bảng hàng trăm nghìn dòng) — DOSSIERS/DOCUMENTS của 1 Trạm/Đường dây nhỏ
         // hơn nhiều so với toàn bộ EQUIPMENTS.
-        const string dossierAndDocumentCountSelect = $@"
+        // Chỉ tính hồ sơ ĐÃ XUẤT BẢN (PublishStatusId = Published) — hồ sơ "Chờ xuất bản"/"Đã hủy xuất
+        // bản" không được tính vào 2 cột này theo yêu cầu nghiệp vụ.
+        var dossierAndDocumentCountSelect = $@"
                            (SELECT COUNT(DISTINCT d.ID)
                               FROM DOSSIERS d
                              WHERE d.IsDeleted = 0
+                               AND d.PUBLISHSTATUSID = {EvnHanoi.EquipmentService.Core.Entities.DossierPublishStatusConstants.Published}
                                AND (
                                  d.InfrastructureId = i.{nameof(Infrastructure.Id)}
                                  OR EXISTS (
@@ -282,6 +285,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                            (SELECT COUNT(1)
                               FROM DOCUMENTS doc
                               INNER JOIN DOSSIERS d2 ON d2.ID = doc.DOSSIER_ID AND d2.IsDeleted = 0
+                                AND d2.PUBLISHSTATUSID = {EvnHanoi.EquipmentService.Core.Entities.DossierPublishStatusConstants.Published}
                              WHERE doc.IS_DELETED = 0
                                AND (
                                  d2.InfrastructureId = i.{nameof(Infrastructure.Id)}
@@ -375,6 +379,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                             (SELECT COUNT(DISTINCT d.ID)
                                FROM DOSSIERS d
                               WHERE d.IsDeleted = 0
+                                AND d.PUBLISHSTATUSID = {EvnHanoi.EquipmentService.Core.Entities.DossierPublishStatusConstants.Published}
                                 AND (
                                   d.InfrastructureId = i.{nameof(Infrastructure.Id)}
                                   OR EXISTS (
@@ -385,6 +390,7 @@ public class InfrastructureRepository : IInfrastructureRepository
                             (SELECT COUNT(1)
                                FROM DOCUMENTS doc
                                INNER JOIN DOSSIERS d2 ON d2.ID = doc.DOSSIER_ID AND d2.IsDeleted = 0
+                                 AND d2.PUBLISHSTATUSID = {EvnHanoi.EquipmentService.Core.Entities.DossierPublishStatusConstants.Published}
                               WHERE doc.IS_DELETED = 0
                                 AND (
                                   d2.InfrastructureId = i.{nameof(Infrastructure.Id)}
