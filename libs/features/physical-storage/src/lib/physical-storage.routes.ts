@@ -6,16 +6,16 @@ export const PHYSICAL_STORAGE_ROUTES: Route[] = [
   {
     path: '',
     component: PhysicalDossierWarehouseComponent,
-    data: { title: 'Kho hồ sơ kỹ thuật' }
+    data: { title: 'Kho lưu trữ vật lý' }
   },
   {
     path: 'warehouse',
     component: PhysicalDossierWarehouseComponent,
-    data: { title: 'Kho hồ sơ kỹ thuật' }
+    data: { title: 'Kho lưu trữ vật lý' }
   },
   {
     path: 'management',
     component: PhysicalStorageComponent,
-    data: { title: 'Quản lý kho vật lý' }
+    data: { title: 'Cấu hình kho lưu trữ vật lý' }
   }
 ];
