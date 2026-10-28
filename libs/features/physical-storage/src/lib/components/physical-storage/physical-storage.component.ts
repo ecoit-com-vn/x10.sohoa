@@ -9,6 +9,7 @@ import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { WfBreadcrumbComponent, DeleteConfirmDialogComponent, EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
 import { AuthService } from '@sohoa.frontend/shared/core';
 import { MessageService, ConfirmationService } from 'primeng/api';
@@ -23,6 +24,7 @@ import { forkJoin, of, finalize, catchError } from 'rxjs';
   standalone: true,
   imports: [
     CommonModule,
+    RouterModule,
     TableModule,
     TabsModule,
     ButtonModule,

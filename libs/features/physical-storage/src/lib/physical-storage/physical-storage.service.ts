@@ -153,6 +153,46 @@ export class PhysicalStorageService {
     formData.append('file', file);
     return this.api.post<PhysicalStorageImportResultDto>(`${this.base}/import`, formData);
   }
+
+  // ─────────────────── KHO HỒ SƠ THEO CÂY VẬT LÝ ───────────────────
+  getPhysicalStorageTree(unitId?: number | null): Observable<any[]> {
+    return this.api.get<any[]>('/api/v1/dossiers/physical-storage/tree', {
+      params: this.unitParams(unitId)
+    });
+  }
+
+  getDossiersByPhysicalStorage(query: {
+    shelfId?: number | null;
+    floorId?: number | null;
+    boxId?: number | null;
+    unitId?: number | null;
+    keyword?: string | null;
+    dossierTypeId?: string | null;
+    statusId?: number | null;
+    page?: number;
+    pageSize?: number;
+  }): Observable<{ items: any[]; totalCount: number; page: number; pageSize: number }> {
+    const params: Record<string, string | number> = {
+      page: query.page ?? 1,
+      pageSize: query.pageSize ?? 10
+    };
+    if (query.shelfId) params['shelfId'] = query.shelfId;
+    if (query.floorId) params['floorId'] = query.floorId;
+    if (query.boxId) params['boxId'] = query.boxId;
+    if (query.unitId) params['unitId'] = query.unitId;
+    if (query.keyword?.trim()) params['keyword'] = query.keyword.trim();
+    if (query.dossierTypeId) params['dossierTypeId'] = query.dossierTypeId;
+    if (query.statusId) params['statusId'] = query.statusId;
+
+    return this.api.get<{ items: any[]; totalCount: number; page: number; pageSize: number }>(
+      '/api/v1/dossiers/by-physical-storage',
+      { params }
+    );
+  }
+
+  getDossierTypes(): Observable<any[]> {
+    return this.api.get<any[]>('/api/v1/dossiers/dossier-type/lookup');
+  }
 }
 
 export interface PhysicalStorageImportErrorDto {
