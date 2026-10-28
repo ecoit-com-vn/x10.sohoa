@@ -25,6 +25,7 @@ export class DocumentManagementService {
   private buildDocumentListParams(filter: DocumentFilter): Record<string, string> {
     const params: Record<string, string> = {};
     if (filter.folderId) params['folderId'] = filter.folderId;
+    if (filter.unitId != null && filter.unitId !== undefined) params['unitId'] = filter.unitId.toString();
     if (filter.keyword) params['keyword'] = filter.keyword;
     if (filter.createdBy) params['creator'] = filter.createdBy;
     if (filter.startDate) params['startDate'] = filter.startDate;
@@ -38,8 +39,16 @@ export class DocumentManagementService {
 
   // ===== FOLDER OPERATIONS =====
 
-  getFolderTree(): Observable<FolderNode[]> {
-    return this.api.get<FolderNode[]>(`${this.base}/folders/tree`);
+  getFolderTree(unitId?: number | null): Observable<FolderNode[]> {
+    const params: Record<string, string> = {};
+    if (unitId != null && unitId !== undefined) {
+      params['unitId'] = unitId.toString();
+    }
+    return this.api.get<FolderNode[]>(`${this.base}/folders/tree`, { params });
+  }
+
+  getOrganizationUnits(): Observable<any[]> {
+    return this.api.get<any[]>('/api/v1/organization-units/lookup');
   }
 
   getFolderById(id: string): Observable<FolderNode> {

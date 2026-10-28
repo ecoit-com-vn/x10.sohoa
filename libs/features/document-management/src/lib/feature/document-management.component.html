@@ -146,6 +146,25 @@
         </div>
       </div>
 
+      <!-- Unit filter dropdown for leaders / ETC / cross-unit filtering -->
+      <div style="margin-bottom: 10px;">
+        <label style="font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px; display: block;">
+          <i class="pi pi-building" style="margin-right: 4px;"></i> Đơn vị quản lý
+        </label>
+        <p-select
+          [options]="organizationUnits()"
+          [ngModel]="selectedUnitId()"
+          (ngModelChange)="onUnitChange($event)"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="-- Chọn đơn vị --"
+          [filter]="true"
+          filterPlaceholder="Tìm đơn vị..."
+          [showClear]="true"
+          [style]="{ width: '100%', height: '34px', 'font-size': '0.85rem' }"
+        />
+      </div>
+
       <div style="margin-bottom: 12px">
         <input
           type="text"
