@@ -467,23 +467,60 @@ public class DocumentRepository : IDocumentRepository
             aliasedWhereClause += " AND d.CREATED_DATE <= :EndDate";
         }
 
+        if (filter.UnitId.HasValue && filter.UnitId.Value > 0)
+        {
+            whereClause += @" AND (
+                EXISTS (SELECT 1 FROM FOLDERS f WHERE f.ID = DOCUMENTS.FOLDER_ID AND f.UNIT_ID = :UnitId)
+                OR (DOCUMENTS.FOLDER_ID IS NULL AND EXISTS (
+                    SELECT 1 FROM APP_USER u 
+                    WHERE (LOWER(u.Id) = LOWER(DOCUMENTS.CREATED_BY) 
+                           OR LOWER(u.UserName) = LOWER(DOCUMENTS.CREATED_BY)
+                           OR LOWER(u.UserName) = LOWER(DOCUMENTS.CREATOR_NAME))
+                      AND u.OrganizationUnitId = :UnitId
+                ))
+            )";
+            aliasedWhereClause += @" AND (
+                EXISTS (SELECT 1 FROM FOLDERS f WHERE f.ID = d.FOLDER_ID AND f.UNIT_ID = :UnitId)
+                OR (d.FOLDER_ID IS NULL AND EXISTS (
+                    SELECT 1 FROM APP_USER u 
+                    WHERE (LOWER(u.Id) = LOWER(d.CREATED_BY) 
+                           OR LOWER(u.UserName) = LOWER(d.CREATED_BY)
+                           OR LOWER(u.UserName) = LOWER(d.CREATOR_NAME))
+                      AND u.OrganizationUnitId = :UnitId
+                ))
+            )";
+        }
+
+        var parameters = new DynamicParameters();
+        if (folderId.HasValue)
+        {
+            parameters.Add("FolderId", folderId.Value.ToString());
+        }
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+        {
+            parameters.Add("Keyword", $"%{filter.Keyword.Trim().ToLower()}%");
+        }
+        if (!string.IsNullOrWhiteSpace(filter.CreatedBy))
+        {
+            parameters.Add("CreatedBy", $"%{filter.CreatedBy.Trim().ToLower()}%");
+        }
+        if (filter.StartDate.HasValue)
+        {
+            parameters.Add("StartDate", filter.StartDate.Value);
+        }
+        if (filter.EndDate.HasValue)
+        {
+            var endOfDayVal = filter.EndDate.Value.Date.AddDays(1).AddTicks(-1);
+            parameters.Add("EndDate", endOfDayVal);
+        }
+        if (filter.UnitId.HasValue && filter.UnitId.Value > 0)
+        {
+            parameters.Add("UnitId", filter.UnitId.Value);
+        }
+
         // Count total
         var countSql = $"SELECT COUNT(*) FROM DOCUMENTS WHERE {whereClause}";
-        var keywordParam = !string.IsNullOrWhiteSpace(filter.Keyword) ? $"%{filter.Keyword.Trim().ToLower()}%" : null;
-        var creatorParam = !string.IsNullOrWhiteSpace(filter.CreatedBy) ? $"%{filter.CreatedBy.Trim().ToLower()}%" : null;
-        var endOfDayVal = filter.EndDate.HasValue ? filter.EndDate.Value.Date.AddDays(1).AddTicks(-1) : (DateTime?)null;
-
-        var totalCount = await _connection.ExecuteScalarAsync<int>(
-            countSql,
-            new
-            {
-                FolderId = folderId?.ToString(),
-                Keyword = keywordParam,
-                CreatedBy = creatorParam,
-                StartDate = filter.StartDate,
-                EndDate = endOfDayVal
-            }
-        );
+        var totalCount = await _connection.ExecuteScalarAsync<int>(countSql, parameters);
 
         // Get paged data (join phiên bản mới nhất để lấy FILE_SIZE, MIME_TYPE)
         var offset = (filter.Page - 1) * filter.PageSize;
@@ -539,18 +576,13 @@ public class DocumentRepository : IDocumentRepository
             OFFSET :Offset ROWS
             FETCH NEXT :PageSize ROWS ONLY";
 
+        var listParameters = new DynamicParameters(parameters);
+        listParameters.Add("Offset", offset);
+        listParameters.Add("PageSize", filter.PageSize);
+
         var items = await _connection.QueryAsync<DocumentListItemDto>(
             listSql,
-            new
-            {
-                FolderId = folderId?.ToString(),
-                Keyword = keywordParam,
-                CreatedBy = creatorParam,
-                StartDate = filter.StartDate,
-                EndDate = endOfDayVal,
-                Offset = offset,
-                PageSize = filter.PageSize
-            }
+            listParameters
         );
 
         return (items, totalCount);
