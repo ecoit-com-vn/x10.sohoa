@@ -7,7 +7,15 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { ToastModule } from 'primeng/toast';
 import { DialogModule } from 'primeng/dialog';
+import { SelectModule } from 'primeng/select';
 import { MessageService } from 'primeng/api';
+
+const LEVEL_ICONS: { [level: string]: string } = {
+  root: 'pi-sitemap',
+  shelf: 'pi-server',
+  floor: 'pi-bars',
+  box: 'pi-box'
+};
 
 interface StorageTreeNode {
   id: string;
@@ -31,7 +39,8 @@ interface StorageTreeNode {
     RouterModule,
     WfBreadcrumbComponent,
     ToastModule,
-    DialogModule
+    DialogModule,
+    SelectModule
   ],
   providers: [MessageService],
   templateUrl: './physical-dossier-warehouse.component.html',
@@ -42,6 +51,8 @@ export class PhysicalDossierWarehouseComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
   private readonly messageService = inject(MessageService);
+
+  levelIcons = LEVEL_ICONS;
 
   // Tree & State
   treeData = signal<StorageTreeNode[]>([]);
@@ -79,6 +90,9 @@ export class PhysicalDossierWarehouseComponent implements OnInit {
       .map(r => filterNode(r))
       .filter((r): r is StorageTreeNode => r !== null);
   });
+
+  /** Các Kệ dưới node gốc "Toàn bộ kho lưu trữ" (node gốc được vẽ riêng kèm nút Mở hết/Thu gọn). */
+  shelfNodes = computed(() => this.filteredTreeData()[0]?.children ?? []);
 
   // Units
   organizationUnits = signal<any[]>([]);
@@ -199,7 +213,9 @@ export class PhysicalDossierWarehouseComponent implements OnInit {
     });
 
     this.treeData.set([rootNode]);
-    // Mặc định mở node root và kệ đầu tiên
+    // Tải lại (nút Làm mới / đổi đơn vị) thì giữ nguyên các nhánh đang mở
+    if (this.expandedNodes().size > 1) return;
+    // Lần đầu: mở node root và kệ đầu tiên
     const newExpanded = new Set<string>(['root']);
     if (rootNode.children.length > 0) {
       newExpanded.add(rootNode.children[0].id);
@@ -231,6 +247,15 @@ export class PhysicalDossierWarehouseComponent implements OnInit {
     this.breadcrumbPath.set(path);
     this.page.set(1);
     this.loadDossiers();
+  }
+
+  /** Click 1 node: chọn để lọc hồ sơ và mở nhánh con; click lại node đang chọn thì mở/đóng nhánh
+   *  (không đóng nhánh ngay lần click chọn đầu tiên, vd sau khi vừa "Mở hết"). */
+  onNodeClick(node: StorageTreeNode, path: StorageTreeNode[], event: Event): void {
+    if (node.children?.length && (this.selectedNode()?.id === node.id || !this.isExpanded(node.id))) {
+      this.toggleNode(node.id, event);
+    }
+    this.selectNode(node, path);
   }
 
   selectRoot(): void {
@@ -318,6 +343,7 @@ export class PhysicalDossierWarehouseComponent implements OnInit {
     this.currentUnitId.set(unitId);
     this.selectedNode.set(null);
     this.breadcrumbPath.set([]);
+    this.expandedNodes.set(new Set(['root']));
     this.page.set(1);
     this.loadTree();
   }
