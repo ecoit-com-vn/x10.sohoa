@@ -49,18 +49,18 @@ public partial class DocumentController : ControllerBase
     // ===== FOLDER ENDPOINTS =====
 
     /// <summary>
-    /// Lấy cây thư mục của unit hiện tại (dùng chọn tài liệu từ kho khi gắn vào hồ sơ).
-    /// Bypass quyền DOCUMENT_* — vẫn giới hạn theo unit_id trong JWT.
+    /// Lấy cây thư mục của đơn vị (mặc định lấy theo unit_id của người dùng nếu không truyền unitId).
+    /// Bypass quyền DOCUMENT_* — vẫn giới hạn theo unit_id trong JWT khi không chỉ định unitId.
     /// </summary>
     [HttpGet("folders/tree")]
     [BypassDynamicPermission]
-    public async Task<IActionResult> GetFolderTree()
+    public async Task<IActionResult> GetFolderTree([FromQuery] long? unitId = null)
     {
-        var unitId = GetUserUnitId();
-        if (unitId == 0)
+        var targetUnitId = (unitId.HasValue && unitId.Value > 0) ? unitId.Value : GetUserUnitId();
+        if (targetUnitId == 0)
             return Unauthorized("Không thể xác định đơn vị của người dùng");
 
-        var tree = await _documentService.GetFolderTreeByUnitAsync(unitId);
+        var tree = await _documentService.GetFolderTreeByUnitAsync(targetUnitId);
         return Ok(tree);
     }
 
@@ -188,6 +188,7 @@ public partial class DocumentController : ControllerBase
         [FromQuery] DateTime? endDate,
         [FromQuery] string? sortField,
         [FromQuery] string? sortOrder,
+        [FromQuery] long? unitId = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
@@ -200,6 +201,7 @@ public partial class DocumentController : ControllerBase
             EndDate = endDate,
             SortField = sortField,
             SortOrder = sortOrder,
+            UnitId = unitId,
             Page = page,
             PageSize = pageSize
         };
