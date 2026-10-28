@@ -17,6 +17,11 @@ namespace EvnHanoi.DigitizationService.Models
         public Guid? EquipmentId { get; set; }
 
         /// <summary>
+        /// Bắt buộc bóc tách lại từ LLM, bỏ qua ResultCache.
+        /// </summary>
+        public bool ForceReExtract { get; set; } = false;
+
+        /// <summary>
         /// Phạm vi trang cần bóc tách (xem <see cref="ExtractionScopes"/>). Rỗng = bóc tách mọi
         /// trang, giữ nguyên hành vi cũ. Bước OCR không bị ảnh hưởng, luôn chạy đủ trang.
         /// </summary>

@@ -37,6 +37,8 @@ public class OcrTaskPublishMessage
     /// <summary>Snapshot đầy đủ EAV FormSchema JSON để worker/LLM tham chiếu.</summary>
     public string? FormSchemaJson { get; set; }
     public Guid? EquipmentId { get; set; }
+    /// <summary>Bắt buộc bóc tách lại từ LLM, bỏ qua ResultCache.</summary>
+    public bool ForceReExtract { get; set; } = false;
     /// <summary>Phạm vi trang bóc tách — xem <see cref="ExtractionScopeValues"/>.</summary>
     public string ExtractionScope { get; set; } = ExtractionScopeValues.Default;
     /// <summary>GỢI Ý số trang / dung lượng (từ DB) để OcrWorker chọn luồng nhỏ/lớn TRƯỚC khi tải file. Có thể thiếu hoặc lệch — worker vẫn kiểm tra lại sau khi tải.</summary>
@@ -66,6 +68,8 @@ public class ExtractionTaskPublishMessage
     public DigitizationExtractionForm? Form { get; set; }
     public string? FormSchemaJson { get; set; }
     public Guid? EquipmentId { get; set; }
+    /// <summary>Bắt buộc bóc tách lại từ LLM, bỏ qua ResultCache.</summary>
+    public bool ForceReExtract { get; set; } = false;
     /// <summary>Phạm vi trang bóc tách — xem <see cref="ExtractionScopeValues"/>.</summary>
     public string ExtractionScope { get; set; } = ExtractionScopeValues.Default;
 }
@@ -122,6 +126,8 @@ public class SubmitDossierDocumentDigitizationRequest
     /// Chỉ giới hạn bước bóc tách, không ảnh hưởng bước OCR.
     /// </summary>
     public string? ExtractionScope { get; set; }
+    /// <summary>Bắt buộc bóc tách lại từ LLM, bỏ qua ResultCache.</summary>
+    public bool ForceReExtract { get; set; } = false;
 }
 
 public class SubmitDocumentDigitizationRequest
@@ -142,6 +148,8 @@ public class SubmitDocumentDigitizationRequest
     /// Chỉ giới hạn bước bóc tách, không ảnh hưởng bước OCR.
     /// </summary>
     public string? ExtractionScope { get; set; }
+    /// <summary>Bắt buộc bóc tách lại từ LLM, bỏ qua ResultCache.</summary>
+    public bool ForceReExtract { get; set; } = false;
 }
 
 public class DocumentOcrProgressDto

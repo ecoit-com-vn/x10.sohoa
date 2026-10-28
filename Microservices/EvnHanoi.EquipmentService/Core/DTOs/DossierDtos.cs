@@ -88,6 +88,31 @@ public class DossierListItemDto
     public int? PublishStatusId { get; set; }
     public string? PublishStatusCode { get; set; }
     public string? PublishStatusName { get; set; }
+
+    // Thông tin vị trí lưu trữ vật lý
+    public long? ShelfId { get; set; }
+    public string? ShelfName { get; set; }
+    public string? ShelfCode { get; set; }
+    public long? FloorId { get; set; }
+    public string? FloorName { get; set; }
+    public string? FloorCode { get; set; }
+    public long? BoxId { get; set; }
+    public string? BoxName { get; set; }
+    public string? BoxCode { get; set; }
+}
+
+/// <summary>Bộ lọc hồ sơ theo vị trí kho vật lý (Kệ => Tầng => Hộp).</summary>
+public class DossierPhysicalStorageQueryDto
+{
+    public long? ShelfId { get; set; }
+    public long? FloorId { get; set; }
+    public long? BoxId { get; set; }
+    public long? UnitId { get; set; }
+    public string? Keyword { get; set; }
+    public Guid? DossierTypeId { get; set; }
+    public int? StatusId { get; set; }
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 10;
 }
 
 /// <summary>Lookup nhóm hồ sơ (DOSSIER_GROUPS).</summary>

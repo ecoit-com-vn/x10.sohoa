@@ -342,6 +342,12 @@ public class DossierService : IDossierService
             keyword, infrastructureId, dossierTypeId, unitId, page, pageSize);
     }
 
+    public async Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetPagedByPhysicalStorageAsync(DossierPhysicalStorageQueryDto query)
+    {
+        var rawResult = await _dossierRepository.GetPagedByPhysicalStorageAsync(query);
+        return await PopulateListInfrastructuresAsync(rawResult);
+    }
+
     public Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupInfrastructuresAsync(
         DossierByEquipmentFilterDto filter,
         bool isAdmin,
@@ -1538,21 +1544,13 @@ public class DossierService : IDossierService
     }
 
     /// <summary>
-    /// Chỉ lưu kệ/tầng/hộp khi đã chọn đến hộp; ngược lại clear cả 3.
+    /// Lưu vị trí lưu trữ vật lý (Kệ/Tầng/Hộp). Hỗ trợ lưu ở cấp Kệ, Tầng hoặc Hộp.
     /// </summary>
     private static void ApplyPhysicalStorage(Dossier dossier, long? shelfId, long? floorId, long? boxId)
     {
-        if (boxId is null or <= 0)
-        {
-            dossier.ShelfId = null;
-            dossier.FloorId = null;
-            dossier.BoxId = null;
-            return;
-        }
-
         dossier.ShelfId = shelfId is > 0 ? shelfId : null;
         dossier.FloorId = floorId is > 0 ? floorId : null;
-        dossier.BoxId = boxId;
+        dossier.BoxId = boxId is > 0 ? boxId : null;
     }
 }
 

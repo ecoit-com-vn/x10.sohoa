@@ -97,7 +97,8 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             FormName = formContext.FormName,
             FormSchemaJson = formContext.FormSchemaJson,
             // Phạm vi trang bóc tách do người dùng chọn ở dialog upload; bỏ trống = AllPages.
-            ExtractionScope = request.ExtractionScope
+            ExtractionScope = request.ExtractionScope,
+            ForceReExtract = request.ForceReExtract
         }, userId, dossierId);
     }
 
@@ -186,7 +187,8 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             BucketName = _fileStorageService.DossierBucketName,
             ExtractPrompt = formContext.ExtractPrompt,
             Form = form,
-            FormSchemaJson = formContext.FormSchemaJson
+            FormSchemaJson = formContext.FormSchemaJson,
+            ForceReExtract = true
         };
 
         await _messageProducer.PublishToExchangeAsync(message, DigitizationExchange, ExtractionTaskRoutingKey);
@@ -421,7 +423,8 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             ExtractPrompt = request.ExtractPrompt,
             Form = form,
             FormSchemaJson = request.FormSchemaJson,
-            ExtractionScope = ExtractionScopeValues.Normalize(request.ExtractionScope)
+            ExtractionScope = ExtractionScopeValues.Normalize(request.ExtractionScope),
+            ForceReExtract = request.ForceReExtract
         };
 
         // Job được tạo "Pending" (đang chờ trong hàng đợi) và GIỮ nguyên sau khi publish — KHÔNG ghi lại bản `progress` cũ trong bộ nhớ sau publish:
@@ -1137,7 +1140,8 @@ public class DocumentDigitizationService : IDocumentDigitizationService
             ExtractPrompt = template.ExtractionProcess ?? "Hãy đọc văn bản và trích xuất thông tin dưới dạng JSON.",
             Form = form,
             FormSchemaJson = template.FormSchema,
-            EquipmentId = equipmentId
+            EquipmentId = equipmentId,
+            ForceReExtract = true
         };
 
         await _messageProducer.PublishToExchangeAsync(message, DigitizationExchange, ExtractionTaskRoutingKey);
