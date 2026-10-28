@@ -75,6 +75,7 @@ export interface DocumentVersion {
 
 export interface DocumentFilter {
   folderId?: string | null;
+  unitId?: number | null;
   keyword?: string;
   createdBy?: string;
   startDate?: string;
