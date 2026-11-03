@@ -236,12 +236,14 @@ export class DossierDocumentService {
   copyFromPmis(
     dossierId: string,
     pmisDocumentIds: string[],
-    documentTypeId: string
+    documentTypeId: string,
+    equipmentIds?: string[]
   ): Observable<MoveFromFolderResponse> {
     const context = new HttpContext().set(SUPPRESS_HTTP_ERROR_TOAST, true);
     return this.http.post<MoveFromFolderResponse>(`${this.dossierBase(dossierId)}/copy-from-pmis`, {
       pmisDocumentIds,
       documentTypeId,
+      equipmentIds: equipmentIds?.length ? equipmentIds : undefined,
     }, { context }).pipe(
       map((res) => ({
         ...res,

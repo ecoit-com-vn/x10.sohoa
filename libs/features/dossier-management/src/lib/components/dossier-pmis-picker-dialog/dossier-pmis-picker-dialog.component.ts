@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
+import { MultiSelectModule } from 'primeng/multiselect';
 import { MessageService } from 'primeng/api';
 import { finalize } from 'rxjs';
 import {
@@ -11,7 +12,13 @@ import {
   PmisDocumentItem,
   convertPmisFlatToTree,
 } from '@sohoa.frontend/features/document-management';
-import { DossierDocumentService, DocumentTypeLookupItem } from '../../data-access/dossier-document.service';
+import {
+  DossierDocumentService,
+  DocumentTypeLookupItem,
+  DigitizationExtractionScope,
+} from '../../data-access/dossier-document.service';
+import { DossierManagementService } from '../../data-access/dossier-management.service';
+import { OcrMode } from '../../utils/dossier-digitization.util';
 import { formatDocumentDate, formatDocumentFileSize } from '../../utils/document-display.util';
 
 type PickerPhase = 'pick' | 'configure';
@@ -33,13 +40,14 @@ const NODE_ICONS: { [key: string]: string } = {
 @Component({
   selector: 'app-dossier-pmis-picker-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogModule, ButtonModule],
+  imports: [CommonModule, FormsModule, DialogModule, ButtonModule, MultiSelectModule],
   templateUrl: './dossier-pmis-picker-dialog.component.html',
   styleUrl: '../dossier-folder-picker-dialog/dossier-folder-picker-dialog.component.scss',
 })
 export class DossierPmisPickerDialogComponent {
   private catalogService = inject(PmisDocumentCatalogService);
   private dossierDocumentService = inject(DossierDocumentService);
+  private dossierManagementService = inject(DossierManagementService);
   private messageService = inject(MessageService);
 
   @Input({ required: true }) dossierId!: string;
@@ -51,6 +59,7 @@ export class DossierPmisPickerDialogComponent {
   @Input() visible = false;
   @Output() visibleChange = new EventEmitter<boolean>();
   @Output() documentsAdded = new EventEmitter<void>();
+  @Output() digitizationStarted = new EventEmitter<void>();
 
   nodeIcons = NODE_ICONS;
 
@@ -128,11 +137,30 @@ export class DossierPmisPickerDialogComponent {
   loadingDocTypes = signal(false);
   selectedDocumentTypeId = signal('');
 
+  /** Thiết bị để phân loại tài liệu — cùng khuôn với DossierFolderPickerDialogComponent: lazy load +
+   * virtual scroll, chỉ chọn được thiết bị thuộc Trạm/đường dây đã gắn với hồ sơ này. */
+  equipmentOptions = signal<({ id: string; code: string; name: string } | undefined)[]>([]);
+  equipmentTotalCount = signal(0);
+  loadingEquipments = signal(false);
+  selectedEquipmentIds = signal<string[]>([]);
+  private readonly EQUIPMENT_PAGE_SIZE = 50;
+  private equipmentLoadedPages = new Set<number>();
+  private equipmentFilterKeyword = '';
+
+  ocrMode: OcrMode = 'OcrAndExtract';
+  extractionScope: DigitizationExtractionScope = 'FirstAndLastPage';
+
   totalPages = computed(() => {
     const total = this.totalDocuments();
     const size = this.pageSize();
     return total > 0 ? Math.ceil(total / size) : 0;
   });
+
+  selectedDocumentType = computed(() =>
+    this.documentTypes().find((t) => t.id === this.selectedDocumentTypeId()) ?? null
+  );
+
+  hasDocumentTypeForm = computed(() => !!this.selectedDocumentType()?.formId);
 
   formatSize = formatDocumentFileSize;
   formatDate = formatDocumentDate;
@@ -146,7 +174,73 @@ export class DossierPmisPickerDialogComponent {
     this.selectedNode.set(null);
     this.documents.set([]);
     this.totalDocuments.set(0);
+    this.selectedEquipmentIds.set([]);
+    this.ocrMode = 'OcrAndExtract';
+    this.extractionScope = 'FirstAndLastPage';
     this.loadTree();
+    this.loadEquipments();
+  }
+
+  private loadEquipments(): void {
+    this.equipmentOptions.set([]);
+    this.equipmentTotalCount.set(0);
+    this.equipmentLoadedPages.clear();
+    this.equipmentFilterKeyword = '';
+    if (!this.infrastructureIds()?.length) {
+      return;
+    }
+    this.fetchEquipmentPage(1);
+  }
+
+  private fetchEquipmentPage(page: number): void {
+    if (!this.infrastructureIds()?.length || this.equipmentLoadedPages.has(page)) return;
+    this.equipmentLoadedPages.add(page);
+    this.loadingEquipments.set(true);
+    this.dossierManagementService
+      .getEquipmentLookup({
+        infrastructureIds: this.infrastructureIds(),
+        keyword: this.equipmentFilterKeyword || undefined,
+        page,
+        pageSize: this.EQUIPMENT_PAGE_SIZE,
+      })
+      .pipe(finalize(() => this.loadingEquipments.set(false)))
+      .subscribe({
+        next: (res: any) => {
+          const items = (res?.items ?? []).map((eq: any) => ({ id: eq.id, code: eq.code, name: eq.name }));
+          const total = res?.totalCount ?? items.length;
+          const next = this.equipmentOptions().length === total
+            ? this.equipmentOptions().slice()
+            : new Array(total);
+          const offset = (page - 1) * this.EQUIPMENT_PAGE_SIZE;
+          for (let i = 0; i < items.length; i++) {
+            next[offset + i] = items[i];
+          }
+          this.equipmentTotalCount.set(total);
+          this.equipmentOptions.set(next);
+        },
+        error: () => {
+          this.equipmentLoadedPages.delete(page);
+        },
+      });
+  }
+
+  /** Cuộn tới vùng [first, last) chưa tải — tải (các) trang tương ứng. */
+  onEquipmentLazyLoad(event: { first: number; last: number }): void {
+    const firstPage = Math.floor(event.first / this.EQUIPMENT_PAGE_SIZE) + 1;
+    const lastPage = Math.floor(Math.max(event.last - 1, 0) / this.EQUIPMENT_PAGE_SIZE) + 1;
+    this.fetchEquipmentPage(firstPage);
+    if (lastPage !== firstPage) {
+      this.fetchEquipmentPage(lastPage);
+    }
+  }
+
+  /** Gõ tìm kiếm trong select — gọi lại API theo từ khoá thay vì lọc client-side trên dữ liệu đã tải. */
+  onEquipmentFilter(event: { filter: string }): void {
+    this.equipmentFilterKeyword = event.filter?.trim() ?? '';
+    this.equipmentOptions.set([]);
+    this.equipmentTotalCount.set(0);
+    this.equipmentLoadedPages.clear();
+    this.fetchEquipmentPage(1);
   }
 
   close(): void {
@@ -293,14 +387,20 @@ export class DossierPmisPickerDialogComponent {
       return;
     }
 
+    if (this.ocrMode !== 'none' && !this.hasDocumentTypeForm()) {
+      this.messageService.add({ severity: 'warn', summary: 'Thiếu form EAV', detail: 'Loại văn bản chưa gắn biểu mẫu — không thể bóc tách' });
+      return;
+    }
+
     this.copying.set(true);
     this.dossierDocumentService
-      .copyFromPmis(this.dossierId, ids, documentTypeId)
+      .copyFromPmis(this.dossierId, ids, documentTypeId, this.selectedEquipmentIds())
       .pipe(finalize(() => this.copying.set(false)))
       .subscribe({
         next: (res) => {
           this.messageService.add({ severity: 'success', summary: 'Thành công', detail: `Đã thêm ${res.movedCount} tài liệu từ kho PMIS vào hồ sơ` });
           this.documentsAdded.emit();
+          this.submitOcrForCopied(res.movedDocuments ?? []);
           this.selectedDocIds.set(new Set());
           this.visibleChange.emit(false);
         },
@@ -308,6 +408,31 @@ export class DossierPmisPickerDialogComponent {
           this.messageService.add({ severity: 'error', summary: 'Lỗi', detail: err?.error?.message || 'Không thể thêm tài liệu vào hồ sơ' });
         },
       });
+  }
+
+  private submitOcrForCopied(items: Array<{ versionId: string; name: string }>): void {
+    if (this.ocrMode === 'none' || items.length === 0) return;
+
+    let started = false;
+    for (const item of items) {
+      this.dossierDocumentService
+        .submitDigitization(this.dossierId, item.versionId, {
+          processOption: this.ocrMode,
+          extractionScope: this.extractionScope,
+        })
+        .subscribe({
+          next: () => {
+            if (!started) {
+              started = true;
+              this.digitizationStarted.emit();
+            }
+            this.messageService.add({ severity: 'info', summary: 'OCR', detail: `Đã gửi xử lý OCR cho "${item.name}"` });
+          },
+          error: (err) => {
+            this.messageService.add({ severity: 'error', summary: 'Lỗi OCR', detail: `${item.name}: ${err?.error?.message || 'Không thể gửi OCR'}` });
+          },
+        });
+    }
   }
 
   trackByNodeId(_index: number, node: PmisCatalogNode): string {
