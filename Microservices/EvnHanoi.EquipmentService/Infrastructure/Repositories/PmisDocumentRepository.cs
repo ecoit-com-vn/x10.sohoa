@@ -570,12 +570,17 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         var totalCount = await _connection.ExecuteScalarAsync<int>(
             $"SELECT COUNT(1) FROM PMIS_DOCUMENT {whereSql}", parameters);
 
+        // ORDER BY SyncedAt DESC, Id — SyncedAt một mình không đảm bảo thứ tự ổn định: nhiều tài liệu
+        // PMIS cùng 1 đợt đồng bộ có cùng giá trị SyncedAt, nên OFFSET/FETCH có thể trả về thứ tự khác
+        // nhau giữa các lần gọi (Oracle không giữ thứ tự ổn định cho các dòng bằng nhau theo key sắp xếp)
+        // — khiến "dòng 1/2/..." người dùng thấy ở lần tải trang trước có thể không còn khớp với dữ liệu
+        // ở lần tải sau, dễ gây nhầm lẫn khi chọn nhầm tài liệu. Thêm Id làm khoá phụ để thứ tự luôn nhất quán.
         var rows = await _connection.QueryAsync<PmisDocumentRow>(
             $@"SELECT Id, PmisDocumentCode, OwnerType, OwnerId, DocumentName, DocumentType, ObjectKey, FileSize, SyncedAt, CreatedBy,
                      FILE_STATUS AS FileStatus, FILE_LAST_ERROR AS FileLastError
                FROM PMIS_DOCUMENT
                {whereSql}
-               ORDER BY SyncedAt DESC
+               ORDER BY SyncedAt DESC, Id
                OFFSET :Skip ROWS FETCH NEXT :Take ROWS ONLY", parameters);
 
         return (rows.Select(ToDetail), totalCount);
