@@ -24,9 +24,11 @@ import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
 import { DatePickerModule } from 'primeng/datepicker';
 import { PaginatorModule } from 'primeng/paginator';
+import { SelectModule } from 'primeng/select';
 import { FileUploadZoneComponent, FileDownloadService, ScannerPanelComponent, UPLOAD_SOURCE, extractApiErrorMessage } from '@sohoa.frontend/features/equipment';
 import { finalize, lastValueFrom } from 'rxjs';
 import { HttpResponse } from '@angular/common/http';
+import { AuthService } from '@sohoa.frontend/shared/core';
 import { DocumentManagementService } from '../data-access/document-management.service';
 import {
   FolderNode,
@@ -65,6 +67,7 @@ type FolderUploadMode = 'web' | 'scan';
     WfBreadcrumbComponent,
     DeleteConfirmDialogComponent,
     DatePickerModule,
+    SelectModule,
   ],
   templateUrl: './document-management.component.html',
   styleUrl: './document-management.component.css',
@@ -74,6 +77,11 @@ export class DocumentManagementComponent implements OnInit {
   private messageService = inject(MessageService);
   private fileDownloadService = inject(FileDownloadService);
   private sanitizer = inject(DomSanitizer);
+  private authService = inject(AuthService);
+
+  // ===== BỘ LỌC ĐƠN VỊ (CHO LÃNH ĐẠO / CÁC ĐƠN VỊ NHƯ ETC) =====
+  organizationUnits = signal<{ label: string; value: number }[]>([]);
+  selectedUnitId = signal<number | null>(null);
 
   @ViewChild('folderNameInput') folderNameInput?: ElementRef<HTMLInputElement>;
   @ViewChild('uploadZone') uploadZone?: FileUploadZoneComponent;
@@ -372,7 +380,41 @@ export class DocumentManagementComponent implements OnInit {
   });
 
   ngOnInit() {
+    this.loadOrganizationUnits();
+  }
+
+  private loadOrganizationUnits() {
+    this.documentService.getOrganizationUnits().subscribe({
+      next: (units) => {
+        const options = (units || []).map((u: any) => ({
+          label: u.name || u.label || u.code || '',
+          value: Number(u.id ?? u.value),
+        }));
+        this.organizationUnits.set(options);
+
+        // Mặc định chọn đơn vị của user đang đăng nhập
+        const userUnitId = this.authService.getUserUnitId();
+        if (userUnitId && options.some((o) => o.value === Number(userUnitId))) {
+          this.selectedUnitId.set(Number(userUnitId));
+        }
+
+        this.loadFolderTree();
+        this.loadDocuments();
+      },
+      error: () => {
+        this.loadFolderTree();
+        this.loadDocuments();
+      },
+    });
+  }
+
+  onUnitChange(unitId: number | null) {
+    this.selectedUnitId.set(unitId);
+    this.selectedFolder.set(null);
+    this.first.set(0);
+    this.folderFirst.set(0);
     this.loadFolderTree();
+    this.loadDocuments();
   }
 
   private selectDefaultFolder(flatList: FolderNode[]) {
@@ -386,7 +428,7 @@ export class DocumentManagementComponent implements OnInit {
 
   private loadFolderTree() {
     this.loadingTree.set(true);
-    this.documentService.getFolderTree().subscribe({
+    this.documentService.getFolderTree(this.selectedUnitId()).subscribe({
       next: (folders) => {
         // Keep flat list for breadcrumb calculation
         this.flatFolderList.set(folders);
@@ -835,6 +877,7 @@ export class DocumentManagementComponent implements OnInit {
     this.loadingDocuments.set(true);
     const filter: DocumentFilter = {
       folderId: this.selectedFolder()?.id,
+      unitId: this.selectedUnitId() || undefined,
       keyword: this.appliedKeyword() ? this.appliedKeyword() : undefined,
       createdBy: this.appliedCreator() ? this.appliedCreator() : undefined,
       startDate: this.appliedStartDate() ? this.appliedStartDate() : undefined,

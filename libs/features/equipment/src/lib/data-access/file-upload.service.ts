@@ -14,17 +14,35 @@ export function extractApiErrorMessage(error: unknown, fallback = 'Upload tài l
   if (!error) return fallback;
 
   if (error instanceof HttpErrorResponse) {
+    if (error.status === 413) {
+      return 'Dung lượng tệp vượt quá giới hạn của máy chủ (413 Payload Too Large)';
+    }
+    if (error.status === 504) {
+      return 'Quá thời gian xử lý tải lên (504 Gateway Timeout). Vui lòng thử lại';
+    }
+    if (error.status === 502) {
+      return 'Máy chủ dịch vụ tạm thời không phản hồi (502 Bad Gateway)';
+    }
     const body = error.error;
-    if (typeof body === 'string' && body.trim()) return body.trim();
+    if (typeof body === 'string' && body.trim() && !body.trim().startsWith('<')) return body.trim();
     if (body && typeof body === 'object' && typeof body.message === 'string' && body.message.trim()) {
       return body.message.trim();
     }
   }
 
   if (typeof error === 'object' && error !== null) {
-    const err = error as { error?: ApiErrorBody | string; message?: string };
+    const err = error as { error?: ApiErrorBody | string; message?: string; status?: number };
+    if (err.status === 413) {
+      return 'Dung lượng tệp vượt quá giới hạn của máy chủ (413 Payload Too Large)';
+    }
+    if (err.status === 504) {
+      return 'Quá thời gian xử lý tải lên (504 Gateway Timeout). Vui lòng thử lại';
+    }
+    if (err.status === 502) {
+      return 'Máy chủ dịch vụ tạm thời không phản hồi (502 Bad Gateway)';
+    }
     const body = err.error;
-    if (typeof body === 'string' && body.trim()) return body.trim();
+    if (typeof body === 'string' && body.trim() && !body.trim().startsWith('<')) return body.trim();
     if (body && typeof body === 'object' && typeof body.message === 'string' && body.message.trim()) {
       return body.message.trim();
     }

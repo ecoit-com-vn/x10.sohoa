@@ -1,0 +1,378 @@
+<p-toast></p-toast>
+
+<div class="wf-page physical-warehouse-page">
+  <div class="list-toolbar standard-page-toolbar">
+    <div class="toolbar-left">
+      <wf-breadcrumb />
+    </div>
+    <div class="toolbar-right" style="display: flex; align-items: center; gap: 8px">
+      <a routerLink="/physical-storage/management" class="btn-outlined btn-small" title="Cấu hình danh mục Kệ, Tầng, Hộp">
+        <i class="pi pi-cog"></i> Cấu hình kho lưu trữ
+      </a>
+      <button type="button" class="btn-outlined btn-small" (click)="loadTree()" [disabled]="loading() || loadingTree()">
+        <i class="pi" [ngClass]="loading() || loadingTree() ? 'pi-spin pi-spinner' : 'pi-refresh'"></i> Làm mới
+      </button>
+    </div>
+  </div>
+
+  <div class="document-layout">
+    <!-- LEFT CARD: cây Kệ -> Tầng -> Hộp (cùng khuôn với Kho tài liệu PMIS) -->
+    <div class="wf-card document-folder-panel">
+      <div class="warehouse-tree-header">
+        <i class="pi pi-fw pi-warehouse" style="font-size: 1.1rem"></i>
+        <strong style="font-size: 0.95rem">KHO LƯU TRỮ VẬT LÝ</strong>
+      </div>
+
+      <div class="tree-filter-item" *ngIf="organizationUnits().length > 1">
+        <label>Đơn vị quản lý</label>
+        <p-select
+          [options]="organizationUnits()"
+          [ngModel]="currentUnitId()"
+          (ngModelChange)="onUnitChange($event ?? null)"
+          optionLabel="name"
+          optionValue="id"
+          [filter]="true"
+          filterBy="name"
+          [showClear]="true"
+          placeholder="-- Tất cả đơn vị --"
+          appendTo="body"
+          styleClass="w-full"
+        ></p-select>
+      </div>
+
+      <div class="tree-filter-item">
+        <div class="input-icon">
+          <i class="pi pi-search"></i>
+          <input
+            type="text"
+            class="wf-input"
+            placeholder="Tìm Kệ, Tầng hoặc Hộp..."
+            [ngModel]="treeSearchKeyword()"
+            (ngModelChange)="onTreeSearchChange($event)"
+          />
+        </div>
+      </div>
+
+      <div *ngIf="loadingTree()" class="tree-loading">
+        <i class="pi pi-spin pi-spinner"></i> Đang tải cây kho lưu trữ...
+      </div>
+
+      <ng-container *ngIf="!loadingTree()">
+        <!-- Node gốc "Toàn bộ kho lưu trữ" + nút Mở hết / Thu gọn -->
+        <div class="folder-row">
+          <button
+            type="button"
+            class="folder-tree-btn root-node"
+            [class.active]="selectedNode() === null"
+            (click)="selectRoot()"
+            title="Toàn bộ kho lưu trữ"
+          >
+            <i class="pi pi-sitemap"></i>
+            <span class="folder-name-text">Toàn bộ kho lưu trữ</span>
+          </button>
+          <div class="tree-tools">
+            <button type="button" class="tree-tool-btn" title="Mở hết" (click)="expandAll()">
+              <i class="pi pi-angle-double-down"></i>
+            </button>
+            <button type="button" class="tree-tool-btn" title="Thu gọn" (click)="collapseAll()">
+              <i class="pi pi-angle-double-up"></i>
+            </button>
+          </div>
+        </div>
+
+        <div *ngIf="shelfNodes().length > 0" class="folder-children-wrapper root-children">
+          <ng-container *ngTemplateOutlet="storageNodeTpl; context: { $implicit: shelfNodes(), parentChain: [] }"></ng-container>
+        </div>
+        <div *ngIf="shelfNodes().length === 0" class="tree-empty">
+          {{ treeSearchKeyword() ? 'Không tìm thấy Kệ, Tầng hoặc Hộp phù hợp.' : 'Chưa có dữ liệu.' }}
+        </div>
+      </ng-container>
+
+      <ng-template #storageNodeTpl let-nodes let-parentChain="parentChain">
+        <div *ngFor="let node of nodes; first as isFirst; last as isLast" [class.first-node]="isFirst" [class.last-node]="isLast">
+          <div class="folder-row">
+            <div class="connector-space">
+              <div class="connector-line"></div>
+            </div>
+
+            <button
+              type="button"
+              class="folder-tree-btn"
+              [class.active]="selectedNode()?.id === node.id"
+              [title]="node.code ? node.name + ' (' + node.code + ')' : node.name"
+              (click)="onNodeClick(node, parentChain.concat([node]), $event)"
+            >
+              <i class="pi" [ngClass]="levelIcons[node.level]"></i>
+              <span class="folder-name-text">{{ node.name }}</span>
+              <span *ngIf="node.code && node.level === 'shelf'" class="node-code-tag">{{ node.code }}</span>
+            </button>
+          </div>
+
+          <div *ngIf="isExpanded(node.id) && node.children && node.children.length > 0" class="folder-children-wrapper">
+            <ng-container
+              *ngTemplateOutlet="storageNodeTpl; context: { $implicit: node.children, parentChain: parentChain.concat([node]) }"
+            ></ng-container>
+          </div>
+        </div>
+      </ng-template>
+    </div>
+
+    <!-- RIGHT CARD: danh sách hồ sơ tại vị trí đang chọn -->
+    <div class="wf-card document-right-panel">
+      <div class="location-header">
+        <div class="location-breadcrumb">
+          <span class="location-label">Vị trí:</span>
+          <ng-container *ngIf="breadcrumbPath().length > 0; else rootBreadcrumb">
+            <span *ngFor="let node of breadcrumbPath(); let isLast = last" style="display: flex; align-items: center; gap: 4px">
+              <span [style.font-weight]="isLast ? 'bold' : 'normal'" [style.color]="isLast ? '#3b82f6' : '#6b7280'" style="font-size: 0.9rem">
+                {{ node.name }}
+              </span>
+              <span *ngIf="!isLast" class="breadcrumb-separator">/</span>
+            </span>
+          </ng-container>
+          <ng-template #rootBreadcrumb>
+            <span class="location-current">Toàn bộ kho lưu trữ</span>
+          </ng-template>
+        </div>
+        <span class="location-count" *ngIf="!loading()">Tổng: <b>{{ totalCount() }}</b> hồ sơ</span>
+      </div>
+
+      <div class="grid-filter-bar">
+        <div class="filter-item">
+          <label>Từ khóa</label>
+          <div class="input-icon">
+            <i class="pi pi-search"></i>
+            <input
+              type="text"
+              class="wf-input"
+              placeholder="Mã hồ sơ, tiêu đề, thiết bị..."
+              [ngModel]="keyword()"
+              (ngModelChange)="keyword.set($event)"
+              (keyup.enter)="onSearch()"
+            />
+          </div>
+        </div>
+
+        <div class="filter-item">
+          <label>Loại hồ sơ</label>
+          <select
+            class="wf-select"
+            [ngModel]="selectedDossierTypeId()"
+            (ngModelChange)="selectedDossierTypeId.set($event); onSearch()"
+          >
+            <option [ngValue]="null">-- Tất cả loại hồ sơ --</option>
+            <option *ngFor="let dt of dossierTypes()" [ngValue]="dt.id">
+              {{ dt.name }}
+            </option>
+          </select>
+        </div>
+
+        <div class="filter-item">
+          <label>Trạng thái</label>
+          <select
+            class="wf-select"
+            [ngModel]="selectedStatusId()"
+            (ngModelChange)="selectedStatusId.set($event); onSearch()"
+          >
+            <option [ngValue]="null">-- Tất cả trạng thái --</option>
+            <option [ngValue]="2">Hoàn thành / Đã lưu kho</option>
+            <option [ngValue]="3">Chờ duyệt</option>
+            <option [ngValue]="4">Đang xử lý</option>
+            <option [ngValue]="1">Bản nháp</option>
+          </select>
+        </div>
+
+        <div class="filter-buttons">
+          <button type="button" class="btn-outlined btn-small" (click)="onResetFilters()">
+            <i class="pi pi-refresh"></i> Làm mới
+          </button>
+          <button type="button" class="btn-save btn-small" (click)="onSearch()">
+            <i class="pi pi-check"></i> Áp dụng
+          </button>
+        </div>
+      </div>
+
+      <!-- TABLE WRAPPER DANH SÁCH HỒ SƠ -->
+      <div class="wf-table-wrap" [class.loading]="loading()">
+        <table class="wf-table">
+          <thead>
+            <tr>
+              <th class="col-stt">STT</th>
+              <th>Mã hồ sơ</th>
+              <th>Tiêu đề hồ sơ kỹ thuật</th>
+              <th style="width: 110px">Loại hồ sơ</th>
+              <th style="width: 170px">Công trình / Thiết bị</th>
+              <th style="width: 170px">Vị trí kho vật lý</th>
+              <th style="width: 90px; text-align: center">Số tài liệu</th>
+              <th style="width: 110px; text-align: center">Trạng thái</th>
+              <th class="col-hd">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="loading()">
+              <td colspan="9" class="empty-row">
+                <i class="pi pi-spin pi-spinner" style="font-size: 1.5rem; color: #3b82f6"></i>
+                <div style="margin-top: 8px">Đang tải danh sách hồ sơ...</div>
+              </td>
+            </tr>
+
+            <tr *ngIf="!loading() && dossiers().length === 0">
+              <td colspan="9" class="empty-row">
+                <i class="pi pi-inbox" style="font-size: 2rem; color: #94a3b8; display: block; margin-bottom: 8px"></i>
+                Không tìm thấy hồ sơ nào tại vị trí này.
+              </td>
+            </tr>
+
+            <tr *ngFor="let item of dossiers(); let i = index" [hidden]="loading()" class="folder-row-table">
+              <td class="col-stt text-muted">{{ (page() - 1) * pageSize() + i + 1 }}</td>
+              <td>
+                <span class="dossier-code-link" (click)="openDetail(item)">
+                  {{ item.dossierCode || item.code || '—' }}
+                </span>
+              </td>
+              <td>
+                <div class="table-item-name-container">
+                  <i class="pi pi-folder table-item-icon" style="color: #3b82f6"></i>
+                  <span class="dossier-title-text" (click)="openDetail(item)">
+                    {{ item.dossierTitle || item.name || 'Hồ sơ chưa đặt tên' }}
+                  </span>
+                </div>
+              </td>
+              <td>{{ item.dossierTypeName || '—' }}</td>
+              <td>
+                <div class="infra-cell">
+                  <div class="infra-main">{{ item.infrastructureName || '—' }}</div>
+                  <div class="infra-sub" *ngIf="item.infrastructureCode">({{ item.infrastructureCode }})</div>
+                </div>
+              </td>
+              <td>
+                <span class="storage-location-tag" [title]="formatStorageLocation(item)">
+                  <i class="pi pi-box text-amber" style="font-size: 0.8rem"></i>
+                  <span>{{ formatStorageLocation(item) }}</span>
+                </span>
+              </td>
+              <td style="text-align: center">
+                <span class="doc-count-badge">{{ item.documentCount }} file</span>
+              </td>
+              <td style="text-align: center">
+                <span class="status-badge" [ngClass]="getStatusBadgeClass(item.statusId)">
+                  {{ item.statusName || (item.statusId === 2 ? 'Đã lưu kho' : 'Bản nháp') }}
+                </span>
+              </td>
+              <td class="col-hd">
+                <div class="action-buttons-group">
+                  <button
+                    type="button"
+                    class="btn-outlined btn-small"
+                    title="Xem nhanh chi tiết"
+                    (click)="openDetail(item)"
+                  >
+                    <i class="pi pi-eye"></i>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-outlined btn-small"
+                    title="Mở hồ sơ đầy đủ"
+                    (click)="openFullDossier(item.id)"
+                  >
+                    <i class="pi pi-external-link"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- FOOTER PAGINATOR (Chuẩn PMIS) -->
+      <div class="table-footer-paginator" *ngIf="totalCount() > 0">
+        <span class="record-count">
+          Tổng số: <b>{{ totalCount() }}</b> hồ sơ
+        </span>
+        <div class="table-footer-paginator__actions">
+          <button
+            type="button"
+            class="btn-outlined btn-small"
+            [disabled]="page() <= 1"
+            (click)="goToPage(page() - 1)"
+          >
+            <i class="pi pi-chevron-left"></i>
+          </button>
+          <span style="font-size: 0.85rem">Trang {{ page() }} / {{ totalPages() }}</span>
+          <button
+            type="button"
+            class="btn-outlined btn-small"
+            [disabled]="page() >= totalPages()"
+            (click)="goToPage(page() + 1)"
+          >
+            <i class="pi pi-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL XEM NHANH CHI TIẾT HỒ SƠ -->
+<p-dialog
+  header="Chi tiết hồ sơ & vị trí lưu trữ"
+  [visible]="detailModalVisible()"
+  (visibleChange)="closeDetail()"
+  [modal]="true"
+  [style]="{ width: '600px' }"
+  [draggable]="false"
+>
+  <div *ngIf="selectedDossier()" class="detail-dialog-content">
+    <div class="detail-info-grid">
+      <div class="detail-field">
+        <label>Mã hồ sơ</label>
+        <span class="detail-value text-bold text-accent">{{ selectedDossier().dossierCode || '—' }}</span>
+      </div>
+      <div class="detail-field">
+        <label>Trạng thái</label>
+        <span class="status-badge" [ngClass]="getStatusBadgeClass(selectedDossier().statusId)">
+          {{ selectedDossier().statusName || '—' }}
+        </span>
+      </div>
+      <div class="detail-field span-2">
+        <label>Tiêu đề hồ sơ</label>
+        <span class="detail-value">{{ selectedDossier().dossierTitle || selectedDossier().name || '—' }}</span>
+      </div>
+      <div class="detail-field">
+        <label>Loại hồ sơ</label>
+        <span class="detail-value">{{ selectedDossier().dossierTypeName || '—' }}</span>
+      </div>
+      <div class="detail-field">
+        <label>Công trình / Trạm</label>
+        <span class="detail-value">{{ selectedDossier().infrastructureName || '—' }}</span>
+      </div>
+    </div>
+
+    <div class="detail-storage-box">
+      <div class="storage-box-title">
+        <i class="pi pi-map-marker text-accent"></i> Vị trí lưu trữ vật lý
+      </div>
+      <div class="storage-box-grid">
+        <div class="storage-item">
+          <small>Kệ lưu trữ</small>
+          <strong>{{ selectedDossier().shelfName || '—' }}</strong>
+        </div>
+        <div class="storage-item">
+          <small>Tầng kệ</small>
+          <strong>{{ selectedDossier().floorName || '—' }}</strong>
+        </div>
+        <div class="storage-item">
+          <small>Hộp hồ sơ</small>
+          <strong class="text-accent">{{ selectedDossier().boxName || '—' }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-actions">
+      <button type="button" class="btn-cancel" (click)="closeDetail()"><i class="pi pi-times"></i> Đóng</button>
+      <button type="button" class="btn-save" (click)="openFullDossier(selectedDossier().id)">
+        <i class="pi pi-external-link"></i> Mở xem toàn bộ hồ sơ
+      </button>
+    </div>
+  </div>
+</p-dialog>
