@@ -50,6 +50,16 @@ public class PmisDocumentCatalogController : ControllerBase
     private string UserId => User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value ?? "system";
     private string? UserFullName => User.FindFirst("full_name")?.Value ?? User.FindFirst(ClaimTypes.Name)?.Value;
 
+    /// <summary>4 ô thống kê "đồng bộ PMIS" ở Dashboard — xem PmisSyncSummaryDto. Toàn hệ thống, không lọc
+    /// theo đơn vị đăng nhập (cùng cách các ô tổng quan khác ở Dashboard hiển thị).</summary>
+    [HttpGet("sync-summary")]
+    [BypassDynamicPermission]
+    public async Task<IActionResult> GetSyncSummary()
+    {
+        var summary = await _pmisDocumentRepository.GetPmisSyncSummaryAsync();
+        return Ok(summary);
+    }
+
     /// <summary>Cấp gốc của cây (chỉ danh sách Đơn vị) — FE chỉ gọi API này khi người dùng mở node gốc
     /// mặc định, không tải kèm Trạm/Đường dây/Thiết bị.</summary>
     [HttpGet("catalog/units")]

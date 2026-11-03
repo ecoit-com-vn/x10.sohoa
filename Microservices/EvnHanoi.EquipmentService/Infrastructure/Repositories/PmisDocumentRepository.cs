@@ -375,6 +375,21 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         return id;
     }
 
+    public async Task<PmisSyncSummaryDto> GetPmisSyncSummaryAsync()
+    {
+        EnsureOpen();
+
+        var row = await _connection.QuerySingleAsync<PmisSyncSummaryDto>(@"
+            SELECT
+                (SELECT COUNT(1) FROM INFRASTRUCTURE WHERE INFRA_TYPE_ID = 1 AND PMIS_CODE IS NOT NULL AND IsDeleted = 0) AS SubstationCount,
+                (SELECT COUNT(1) FROM INFRASTRUCTURE WHERE INFRA_TYPE_ID = 2 AND PMIS_CODE IS NOT NULL AND IsDeleted = 0) AS LineCount,
+                (SELECT COUNT(1) FROM EQUIPMENTS WHERE PMIS_CODE IS NOT NULL AND IsDeleted = 0) AS EquipmentCount,
+                (SELECT COUNT(1) FROM PMIS_DOCUMENT WHERE IsDeleted = 0) AS DocumentCount
+            FROM DUAL");
+
+        return row;
+    }
+
     private const string UnassignedUnitNodeId = "unit_unassigned";
 
     public async Task<IReadOnlyList<PmisDocumentCatalogNodeDto>> GetCatalogUnitsAsync(IEnumerable<long>? allowedUnitIds)
