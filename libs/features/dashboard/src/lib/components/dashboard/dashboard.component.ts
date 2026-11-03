@@ -89,6 +89,12 @@ export class DashboardComponent implements OnInit {
   searchCount = 0;
   downloadCount = 0;
 
+  // 4 ô thống kê "đồng bộ PMIS" — tổng toàn hệ thống, không có mốc "tháng trước" nên không có trend.
+  substationPmisCount = 0;
+  linePmisCount = 0;
+  equipmentPmisCount = 0;
+  documentPmisCount = 0;
+
   // % tăng/giảm thật so với tháng trước cho từng chỉ số
   dossierTrend: TrendInfo = NEUTRAL_TREND;
   documentTrend: TrendInfo = NEUTRAL_TREND;
@@ -143,6 +149,25 @@ export class DashboardComponent implements OnInit {
     this.loadUsageCounters();
     this.loadRecentActivities();
     this.loadMonthlyTrends();
+    this.loadPmisSyncSummary();
+  }
+
+  /** 4 ô "đồng bộ PMIS" — xem PmisSyncSummaryDto (backend EquipmentService). */
+  private loadPmisSyncSummary() {
+    this.http
+      .get<{ substationCount: number; lineCount: number; equipmentCount: number; documentCount: number }>(
+        `${this.config.apiGatewayUrl}/api/v1/pmis-documents/sync-summary`,
+        { context: this.createSuppressToastContext() }
+      )
+      .pipe(catchError(() => of(null)))
+      .subscribe((res) => {
+        if (!res) return;
+        this.substationPmisCount = res.substationCount || 0;
+        this.linePmisCount = res.lineCount || 0;
+        this.equipmentPmisCount = res.equipmentCount || 0;
+        this.documentPmisCount = res.documentCount || 0;
+        this.cdr.markForCheck();
+      });
   }
 
   onRecentDossiersPageChange(page: number): void {
