@@ -1,11 +1,10 @@
-import { Component, OnInit, computed, signal, effect, inject } from '@angular/core';
+import { Component, OnInit, computed, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
-import { WfBreadcrumbComponent, EcoPaginatorComponent } from '@sohoa.frontend/shared/layout';
+import { WfBreadcrumbComponent } from '@sohoa.frontend/shared/layout';
 import { EquipmentService } from '../../data-access/equipment.service';
-import { DossierManagementService } from '@sohoa.frontend/features/dossier-management';
 import { EquipmentDocumentsComponent } from '../equipment-documents/equipment-documents.component';
 
 /**
@@ -21,7 +20,6 @@ import { EquipmentDocumentsComponent } from '../equipment-documents/equipment-do
     CommonModule,
     ToastModule,
     WfBreadcrumbComponent,
-    EcoPaginatorComponent,
     EquipmentDocumentsComponent
   ],
   providers: [MessageService],
@@ -32,10 +30,9 @@ export class EquipmentSearchDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private equipmentService = inject(EquipmentService);
-  private dossierService = inject(DossierManagementService);
   private messageService = inject(MessageService);
 
-  activeTab = signal<'info' | 'profileDocs' | 'related'>('info');
+  activeTab = signal<'info' | 'profileDocs'>('info');
 
   isLoadingDetail = signal<boolean>(true);
   currentItem = signal<any>({});
@@ -49,31 +46,10 @@ export class EquipmentSearchDetailComponent implements OnInit {
   eavFields = signal<any[]>([]);
   formValuesObj = signal<any>({});
 
-  // Hồ sơ liên quan
-  dossierItems = signal<any[]>([]);
-  dossierTotalCount = signal<number>(0);
-  dossierPage = signal<number>(1);
-  dossierPageSize = signal<number>(10);
-  dossierColumns = signal<any[]>([]);
-  isLoadingDossiers = signal<boolean>(false);
-
   private searchContext: 'substation' | 'dossier' = 'dossier';
   private substationId: string | null = null;
   private dossierId: string | null = null;
   private equipmentId: string | null = null;
-
-  constructor() {
-    // Tải hồ sơ liên quan khi mở tab hoặc đổi trang, chỉ khi đã có thiết bị.
-    effect(() => {
-      const tab = this.activeTab();
-      this.dossierPage();
-      this.dossierPageSize();
-      const item = this.currentItem();
-      if (tab === 'related' && item?.id) {
-        this.loadDossiers();
-      }
-    });
-  }
 
   ngOnInit(): void {
     this.substationId = this.route.snapshot.paramMap.get('substationId');
@@ -183,59 +159,6 @@ export class EquipmentSearchDetailComponent implements OnInit {
   reloadDetail(id: string | null | undefined): void {
     if (!id) return;
     this.loadDetail(id);
-  }
-
-  loadDossiers(): void {
-    const item = this.currentItem();
-    if (!item?.id) return;
-
-    this.isLoadingDossiers.set(true);
-    this.dossierService.getDossiersByEquipment(item.id, this.dossierPage(), this.dossierPageSize()).subscribe({
-      next: (res) => {
-        if (res) {
-          this.dossierItems.set(res.items || []);
-          this.dossierTotalCount.set(res.totalCount || 0);
-          this.dossierColumns.set(res.columns || []);
-        }
-        this.isLoadingDossiers.set(false);
-      },
-      error: () => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: 'Không thể tải danh sách hồ sơ liên quan'
-        });
-        this.isLoadingDossiers.set(false);
-      }
-    });
-  }
-
-  onRelatedDossierPageChange(event: { page: number; rows: number }): void {
-    this.dossierPage.set(event.page + 1);
-    this.dossierPageSize.set(event.rows);
-  }
-
-  getDossierCatalogValue(item: any, column: any): string {
-    const columnCode = String(column?.code ?? '').trim().toUpperCase();
-    if (columnCode === 'CODE') {
-      const dossierCode = item?.dossierCode ?? item?.DossierCode;
-      if (dossierCode != null && String(dossierCode).trim() !== '') {
-        return String(dossierCode);
-      }
-    }
-
-    const catalogData = item?.catalogData ?? item?.CatalogData ?? {};
-    const value = catalogData[column?.key] ?? catalogData[column?.code];
-    return value != null && String(value).trim() !== '' ? String(value) : '---';
-  }
-
-  viewDossierDetail(dossier: any): void {
-    const id = dossier?.id ?? dossier?.Id;
-    if (!id) return;
-    const serialized = this.router.serializeUrl(
-      this.router.createUrlTree(['/search/dossier-by-equipment', id])
-    );
-    window.open(`/#${serialized}`, '_blank');
   }
 
   /** Khóa lưu giá trị EAV: ưu tiên name, fallback id để tránh trùng khi name rỗng */
