@@ -225,7 +225,8 @@ namespace EvnHanoi.DigitizationService.Workers
                                     EquipmentId = taskMsg.EquipmentId,
                                     // Chuyển tiếp phạm vi trang người dùng chọn lúc upload — OCR ở trên
                                     // đã chạy đủ trang, chỉ bước bóc tách mới bị giới hạn.
-                                    ExtractionScope = taskMsg.ExtractionScope
+                                    ExtractionScope = taskMsg.ExtractionScope,
+                                    ForceReExtract = taskMsg.ForceReExtract
                                 };
                                 // Tín hiệu bàn giao sang ExtractionWorker — mất là job "xong OCR nhưng
                                 // không bao giờ vào Extraction" âm thầm, nên thử lại có backoff trước
@@ -254,7 +255,8 @@ namespace EvnHanoi.DigitizationService.Workers
                                     Form = taskMsg.Form,
                                     FormSchemaJson = taskMsg.FormSchemaJson,
                                     EquipmentId = taskMsg.EquipmentId,
-                                    ExtractionScope = taskMsg.ExtractionScope
+                                    ExtractionScope = taskMsg.ExtractionScope,
+                                    ForceReExtract = taskMsg.ForceReExtract
                                 };
                                 await publisher.PublishMessageAsync(extractMsg, "digitization.topic", "extraction.process.task");
                                 await _channel.BasicAckAsync(ea.DeliveryTag, false);

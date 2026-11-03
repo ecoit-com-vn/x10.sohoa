@@ -43,19 +43,21 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
         }
 
         public Task OnWorkflowStartedAsync(string entityId, Guid instanceId) =>
-            SyncAsync(entityId, instanceId, StatusPendingApproval);
+            SyncAsync(entityId, instanceId, StatusPendingApproval, notify: true);
 
-        public Task OnWorkflowCompletedAsync(string entityId, Guid instanceId) => SyncAsync(entityId, instanceId);
+        public Task OnWorkflowCompletedAsync(string entityId, Guid instanceId) => 
+            SyncAsync(entityId, instanceId, notify: false);
 
-        public Task OnWorkflowRejectedAsync(string entityId, Guid instanceId) => SyncAsync(entityId, instanceId);
+        public Task OnWorkflowRejectedAsync(string entityId, Guid instanceId) => 
+            SyncAsync(entityId, instanceId, notify: true);
 
         public Task OnWorkflowStateChangedAsync(string entityId, Guid instanceId, string statusName) =>
-            SyncAsync(entityId, instanceId);
+            SyncAsync(entityId, instanceId, notify: true);
 
         /// <summary>
         /// Đọc instance + history hiện tại, suy ra DossierStatus và đẩy về EquipmentService.
         /// </summary>
-        private async Task SyncAsync(string entityId, Guid instanceId, int? dossierStatusOverride = null)
+        private async Task SyncAsync(string entityId, Guid instanceId, int? dossierStatusOverride = null, bool notify = true)
         {
             if (!Guid.TryParse(entityId, out _)) return;
 
@@ -88,21 +90,39 @@ namespace EvnHanoi.WorkflowService.Infrastructure.Services
 
             var isRunning = string.Equals(instance.Status, "Running", StringComparison.OrdinalIgnoreCase);
 
-            if (isRunning && currentAssignees.Count > 0)
+            if (notify && isRunning && currentAssignees.Count > 0)
             {
                 try
                 {
-                    await _messageProducer.PublishToExchangeAsync(
-                        new EvnHanoi.Infrastructure.Messaging.DossierMovedEvent
-                        {
-                            DossierId = entityId,
-                            InstanceId = instanceId,
-                            StepName = instance.CurrentNodeName,
-                            RecipientUserIds = currentAssignees,
-                            Timestamp = DateTime.UtcNow
-                        },
-                        EvnHanoi.Infrastructure.Messaging.NotificationTopicTopology.ExchangeName,
-                        EvnHanoi.Infrastructure.Messaging.NotificationTopicTopology.DossierMovedRoutingKey);
+                    // Lấy người vừa thực hiện hành động chuyển bước/nộp hồ sơ từ history gần nhất để loại trừ
+                    var histories = await _workflowRepository.GetHistoryByInstanceIdAsync(instanceId);
+                    var latestHistory = histories?.OrderByDescending(h => h.ActionDate).FirstOrDefault();
+                    var actorUserId = latestHistory?.ActionByUserId;
+
+                    // Chỉ gửi thông báo đến người xử lý ở bước tiếp theo, loại trừ người vừa thao tác
+                    var targetRecipients = currentAssignees;
+                    if (!string.IsNullOrEmpty(actorUserId))
+                    {
+                        targetRecipients = currentAssignees
+                            .Where(userId => !string.Equals(userId, actorUserId, StringComparison.OrdinalIgnoreCase))
+                            .ToList();
+                    }
+
+                    if (targetRecipients.Count > 0)
+                    {
+                        await _messageProducer.PublishToExchangeAsync(
+                            new EvnHanoi.Infrastructure.Messaging.DossierMovedEvent
+                            {
+                                DossierId = entityId,
+                                InstanceId = instanceId,
+                                StepName = instance.CurrentNodeName,
+                                ActorUserId = actorUserId,
+                                RecipientUserIds = targetRecipients,
+                                Timestamp = DateTime.UtcNow
+                            },
+                            EvnHanoi.Infrastructure.Messaging.NotificationTopicTopology.ExchangeName,
+                            EvnHanoi.Infrastructure.Messaging.NotificationTopicTopology.DossierMovedRoutingKey);
+                    }
                 }
                 catch (Exception ex)
                 {

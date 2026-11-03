@@ -158,6 +158,7 @@ public class DocumentFilterDto
     public DateTime? EndDate { get; set; }
     public string? SortField { get; set; } = "createdDate";
     public string? SortOrder { get; set; } = "desc";
+    public long? UnitId { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
 }

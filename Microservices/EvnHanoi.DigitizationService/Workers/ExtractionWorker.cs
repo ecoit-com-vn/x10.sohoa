@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using EvnHanoi.DigitizationService.Models;
 using EvnHanoi.DigitizationService.Repositories;
 using EvnHanoi.DigitizationService.Services;
+using EvnHanoi.DigitizationService.Core.Services;
 using EvnHanoi.DigitizationService.Helpers;
 using EvnHanoi.Infrastructure.Messaging;
 using Minio.Exceptions;
@@ -222,6 +223,29 @@ namespace EvnHanoi.DigitizationService.Workers
                                 return;
                             }
 
+                            // 2c. Trích xuất siêu dữ liệu Chữ ký số điện tử (nếu có)
+                            PdfSignatureInfo? digitalSigInfo = null;
+                            if (taskMsg.FilePath.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+                            {
+                                try
+                                {
+                                    using var pdfStream = await minioService.DownloadFileAsync(taskMsg.BucketName, taskMsg.FilePath);
+                                    using var msSig = new MemoryStream();
+                                    await pdfStream.CopyToAsync(msSig, stoppingToken);
+                                    digitalSigInfo = DigitalSignatureMetadataReader.Extract(msSig.ToArray());
+                                    if (digitalSigInfo.HasSignature)
+                                    {
+                                        _logger.LogInformation(
+                                            "Phát hiện chữ ký số điện tử trong PDF (FileId={FileId}): Người ký={Signer}, Đơn vị={Org}, Ngày={Date}, Số={Num}",
+                                            taskMsg.FileId, digitalSigInfo.SignerName, digitalSigInfo.Organization, digitalSigInfo.SigningDate, digitalSigInfo.DocumentNumber);
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogWarning(ex, "Không thể đọc metadata chữ ký số cho file {FilePath}", taskMsg.FilePath);
+                                }
+                            }
+
                             // 3. Chuẩn bị LLM Client
                             var httpClient = httpClientFactory.CreateClient("LlmClient");
                             httpClient.BaseAddress = new Uri(_llmServerUrl);
@@ -309,6 +333,15 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
                                 userPrompt = "[CÁC TRƯỜNG CẦN TRÍCH XUẤT]:\nTrích xuất tất cả các thông tin quan trọng có trong văn bản.";
                             }
 
+                            if (digitalSigInfo is { HasSignature: true })
+                            {
+                                userPrompt += $@"
+
+[THÔNG TIN CHỮ KÝ SỐ ĐIỆN TỬ ĐÃ XÁC THỰC MẬT MÃ TỪ VĂN BẢN GỐC]:
+{digitalSigInfo.RawSummary}
+* HƯỚNG DẪN ƯU TIÊN: Nếu trong các trường cần trích xuất có trường về Số văn bản, Ký hiệu, Ngày ban hành, Ngày ký, hoặc Người ký/Đơn vị ban hành, hãy ƯU TIÊN lấy các giá trị xác thực từ thông tin chữ ký số trên để điền vào trường tương ứng.";
+                            }
+
                             // 5. Gửi từng trang lên LLM
                             var tasks = new List<Task<PageResult>>();
                             List<PageResult> finalResults = new List<PageResult>();
@@ -367,21 +400,28 @@ Trước khi xuất câu trả lời cuối cùng, tự rà soát: (a) mỗi gi�
                                                 _configuration.GetValue("Extraction:ModelId", "unspecified") ?? "unspecified",
                                                 systemPrompt, userPrompt, pageText,
                                                 llmTemperature, llmTopK, llmSeed, disableThinking, maxTokens);
-                                            try
+                                            if (taskMsg.ForceReExtract)
                                             {
-                                                using var cached = await minioService.DownloadFileAsync(taskMsg.BucketName, cacheObjectKey);
-                                                using var cachedReader = new StreamReader(cached, Encoding.UTF8);
-                                                var cachedNode = JsonNode.Parse(await cachedReader.ReadToEndAsync());
-                                                if (cachedNode is JsonObject)
-                                                {
-                                                    _logger.LogInformation("[CACHE] Trang {Page}: dùng kết quả đã bóc tách ({Key}).", pageNum, cacheObjectKey);
-                                                    return new PageResult(pageNum, cachedNode, null, null, "cache");
-                                                }
+                                                _logger.LogInformation("[CACHE] Bỏ qua ResultCache cho trang {Page} do cờ ForceReExtract=true.", pageNum);
                                             }
-                                            catch (Exception cacheEx)
+                                            else
                                             {
-                                                if (!IsObjectNotFound(cacheEx))
-                                                    _logger.LogWarning(cacheEx, "[CACHE] Không đọc được cache trang {Page}; bóc tách bình thường.", pageNum);
+                                                try
+                                                {
+                                                    using var cached = await minioService.DownloadFileAsync(taskMsg.BucketName, cacheObjectKey);
+                                                    using var cachedReader = new StreamReader(cached, Encoding.UTF8);
+                                                    var cachedNode = JsonNode.Parse(await cachedReader.ReadToEndAsync());
+                                                    if (cachedNode is JsonObject)
+                                                    {
+                                                        _logger.LogInformation("[CACHE] Trang {Page}: dùng kết quả đã bóc tách ({Key}).", pageNum, cacheObjectKey);
+                                                        return new PageResult(pageNum, cachedNode, null, null, "cache");
+                                                    }
+                                                }
+                                                catch (Exception cacheEx)
+                                                {
+                                                    if (!IsObjectNotFound(cacheEx))
+                                                        _logger.LogWarning(cacheEx, "[CACHE] Không đọc được cache trang {Page}; bóc tách bình thường.", pageNum);
+                                                }
                                             }
                                         }
 

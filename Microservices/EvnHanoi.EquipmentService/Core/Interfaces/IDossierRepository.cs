@@ -24,6 +24,8 @@ public interface IDossierRepository
         int page,
         int pageSize);
 
+    Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetPagedByPhysicalStorageAsync(DossierPhysicalStorageQueryDto query);
+
     Task<IEnumerable<Guid>> GetListDocumentIdsAsync(
         string? keyword,
         Guid? infrastructureId,

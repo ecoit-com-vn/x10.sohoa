@@ -16,6 +16,11 @@ namespace EvnHanoi.DigitizationService.Models
         /// </summary>
         public string ExtractionScope { get; set; } = ExtractionScopes.Default;
 
+        /// <summary>
+        /// Bắt buộc bóc tách lại từ LLM, bỏ qua ResultCache.
+        /// </summary>
+        public bool ForceReExtract { get; set; } = false;
+
         /// <summary>Danh sách các form cần bóc tách. Mỗi form tương ứng với một đối tượng được bóc tách từ PDF.
         /// </summary>
         public ExtractionForm Form { get; set; }

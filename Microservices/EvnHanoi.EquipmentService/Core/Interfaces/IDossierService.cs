@@ -43,6 +43,8 @@ public interface IDossierService
         int page,
         int pageSize);
 
+    Task<(IEnumerable<DossierListItemDto> Items, int TotalCount)> GetPagedByPhysicalStorageAsync(DossierPhysicalStorageQueryDto query);
+
     Task<IEnumerable<DossierByEquipmentLookupItemDto>> GetEquipmentLookupInfrastructuresAsync(
         DossierByEquipmentFilterDto filter,
         bool isAdmin,

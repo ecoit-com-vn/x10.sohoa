@@ -25,6 +25,11 @@ internal static class PdfTextLayerDetector
     {
         try
         {
+            // Kiểm tra dấu hiệu chữ ký số điện tử: nếu file có ký số (AcroForm/Widget/ByteRange),
+            // bắt buộc bảo toàn nguyên gốc, không rasterize/nén thô để tránh mất con dấu và thông tin ký số.
+            if (HasDigitalSignature(pdfBytes))
+                return Classification.BornDigital;
+
             using var document = UglyToad.PdfPig.PdfDocument.Open(pdfBytes);
             if (document.NumberOfPages == 0)
                 return Classification.Unknown;
@@ -53,5 +58,21 @@ internal static class PdfTextLayerDetector
         {
             return Classification.Unknown;
         }
+    }
+
+    /// <summary>
+    /// Nhận diện chữ ký số điện tử trong cấu trúc PDF (ISO 32000-1).
+    /// Chữ ký số trong PDF chứa từ điển /Type /Sig hoặc /FT /Sig và mảng băm /ByteRange.
+    /// </summary>
+    internal static bool HasDigitalSignature(byte[] pdfBytes)
+    {
+        if (pdfBytes == null || pdfBytes.Length < 100) return false;
+        var span = pdfBytes.AsSpan();
+        bool hasSigType = span.IndexOf("/Type /Sig"u8) >= 0 || 
+                          span.IndexOf("/Type/Sig"u8) >= 0 || 
+                          span.IndexOf("/FT /Sig"u8) >= 0 || 
+                          span.IndexOf("/FT/Sig"u8) >= 0;
+        bool hasByteRange = span.IndexOf("/ByteRange"u8) >= 0;
+        return hasSigType && hasByteRange;
     }
 }
