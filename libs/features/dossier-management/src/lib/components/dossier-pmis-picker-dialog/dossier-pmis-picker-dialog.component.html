@@ -136,7 +136,7 @@
   <ng-template #configureTpl>
     <div class="configure-steps">
       <section class="configure-step">
-        <h4 class="step-title">Loại văn bản <span class="required">*</span></h4>
+        <h4 class="step-title">Bước 1 — Loại văn bản <span class="required">*</span></h4>
         <select
           class="wf-select w-full"
           [ngModel]="selectedDocumentTypeId()"
@@ -149,6 +149,96 @@
           </option>
         </select>
         <p class="step-note" *ngIf="loadingDocTypes()"><i class="pi pi-spin pi-spinner"></i> Đang tải danh mục...</p>
+        <p class="step-note" *ngIf="selectedDocumentType()?.formName">
+          Form EAV: {{ selectedDocumentType()?.formName }}
+        </p>
+      </section>
+
+      <section class="configure-step" *ngIf="infrastructureIds().length > 0">
+        <h4 class="step-title">Thiết bị liên quan</h4>
+        <p-multiSelect
+          [options]="equipmentOptions()"
+          [ngModel]="selectedEquipmentIds()"
+          (ngModelChange)="selectedEquipmentIds.set($event)"
+          optionLabel="name"
+          optionValue="id"
+          [filter]="true"
+          filterBy="name,code"
+          (onFilter)="onEquipmentFilter($event)"
+          [lazy]="true"
+          [virtualScroll]="true"
+          [virtualScrollItemSize]="36"
+          (onLazyLoad)="onEquipmentLazyLoad($event)"
+          display="comma"
+          [maxSelectedLabels]="2"
+          selectedItemsLabel="{0} thiết bị đã chọn"
+          placeholder="-- Không gắn thiết bị --"
+          [loading]="loadingEquipments()"
+          [disabled]="copying()"
+          appendTo="body"
+          styleClass="w-full"
+        >
+          <ng-template #item let-item>
+            <ng-container *ngIf="item">
+              <span>{{ item.name }}</span>
+              <small *ngIf="item.code"> ({{ item.code }})</small>
+            </ng-container>
+          </ng-template>
+          <ng-template #loader>
+            <div class="equipment-option-loading-row">
+              <i class="pi pi-spin pi-spinner"></i>
+            </div>
+          </ng-template>
+        </p-multiSelect>
+        <p class="step-note">Chỉ chọn được thiết bị thuộc Trạm/đường dây đã chọn của hồ sơ này. 1 tài liệu có thể gắn nhiều thiết bị.</p>
+      </section>
+
+      <section class="configure-step">
+        <h4 class="step-title">Bước 2 — Xử lý OCR &amp; bóc tách</h4>
+        <div class="ocr-options">
+          <label class="ocr-option">
+            <input type="radio" name="pmisOcrMode" value="OcrAndExtract" [(ngModel)]="ocrMode" />
+            <span>OCR + bóc tách dữ liệu</span>
+          </label>
+          <label class="ocr-option">
+            <input type="radio" name="pmisOcrMode" value="none" [(ngModel)]="ocrMode" />
+            <span>Không xử lý OCR</span>
+          </label>
+          <label class="ocr-option">
+            <input type="radio" name="pmisOcrMode" value="ExtractOnly" [(ngModel)]="ocrMode" />
+            <span>Chỉ bóc tách dữ liệu (PDF đã có lớp text)</span>
+          </label>
+        </div>
+
+        <div class="ocr-scope" *ngIf="ocrMode !== 'none'">
+          <p class="step-note scope-title">Phạm vi bóc tách</p>
+          <div class="ocr-options">
+            <label class="ocr-option">
+              <input type="radio" name="pmisExtractionScope" value="FirstPage" [(ngModel)]="extractionScope" />
+              <span>Bóc tách trang đầu</span>
+            </label>
+            <label class="ocr-option">
+              <input type="radio" name="pmisExtractionScope" value="LastPage" [(ngModel)]="extractionScope" />
+              <span>Bóc tách trang cuối</span>
+            </label>
+            <label class="ocr-option">
+              <input type="radio" name="pmisExtractionScope" value="FirstAndLastPage" [(ngModel)]="extractionScope" />
+              <span>Bóc tách trang đầu + cuối</span>
+            </label>
+            <label class="ocr-option">
+              <input type="radio" name="pmisExtractionScope" value="AllPages" [(ngModel)]="extractionScope" />
+              <span>Bóc tách tất cả các trang</span>
+            </label>
+          </div>
+          <p class="step-note scope-hint">
+            Chỉ giới hạn bước bóc tách. Bước OCR vẫn nhận dạng toàn bộ trang nên PDF 2 lớp và tìm
+            kiếm toàn văn không bị thiếu.
+          </p>
+        </div>
+
+        <p class="step-note ocr-warn" *ngIf="selectedDocumentTypeId() && !hasDocumentTypeForm()">
+          Loại văn bản chưa gắn biểu mẫu EAV — không thể bóc tách.
+        </p>
         <p class="step-note">Sẽ thêm {{ selectedCount() }} tài liệu đã chọn từ kho PMIS vào hồ sơ (tài liệu gốc trong kho PMIS vẫn giữ nguyên).</p>
       </section>
     </div>
