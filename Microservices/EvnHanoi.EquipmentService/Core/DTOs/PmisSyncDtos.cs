@@ -426,3 +426,17 @@ public class DocumentCountByInfrastructure
     public string PmisCode { get; set; } = string.Empty;
     public int DocumentCount { get; set; }
 }
+
+/// <summary>4 ô thống kê "đồng bộ PMIS" ở Dashboard — GET api/v1/pmis-documents/sync-summary. Đếm toàn hệ
+/// thống (không lọc theo đơn vị đăng nhập), cùng tinh thần các ô tổng quan khác ở Dashboard.</summary>
+public class PmisSyncSummaryDto
+{
+    /// <summary>INFRASTRUCTURE.InfraTypeId = 1, PmisCode IS NOT NULL, IsDeleted = 0.</summary>
+    public int SubstationCount { get; set; }
+    /// <summary>INFRASTRUCTURE.InfraTypeId = 2, PmisCode IS NOT NULL, IsDeleted = 0.</summary>
+    public int LineCount { get; set; }
+    /// <summary>EQUIPMENTS.PmisCode IS NOT NULL, IsDeleted = 0.</summary>
+    public int EquipmentCount { get; set; }
+    /// <summary>Số dòng PMIS_DOCUMENT chưa xoá — tài liệu thật đã đồng bộ từ PMIS (API 8/9).</summary>
+    public int DocumentCount { get; set; }
+}

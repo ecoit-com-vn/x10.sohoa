@@ -107,4 +107,8 @@ public interface IPmisDocumentRepository
     /// <summary>Nút "Upload tài liệu" thủ công khi đồng bộ tự động lỗi — tự sinh PmisDocumentCode dạng
     /// "MANUAL_{guid}" (không trùng mã PMIS thật, vẫn thoả UNIQUE) để phân biệt CreatedBy khác 'PMIS_SYNC'.</summary>
     Task<Guid> InsertManualAsync(string ownerType, Guid ownerId, string documentName, string? documentType, string objectKey, long fileSize, string uploadedBy);
+
+    /// <summary>4 ô thống kê "đồng bộ PMIS" ở Dashboard (xem PmisSyncSummaryDto) — toàn hệ thống, không
+    /// lọc theo đơn vị đăng nhập.</summary>
+    Task<PmisSyncSummaryDto> GetPmisSyncSummaryAsync();
 }
