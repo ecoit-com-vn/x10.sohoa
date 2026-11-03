@@ -229,16 +229,20 @@ export class DossierDocumentService {
     );
   }
 
-  /** "Chọn từ kho PMIS" — COPY (giữ nguyên tài liệu gốc trong kho PMIS), khác moveFromFolder (MOVE). */
+  /** "Chọn từ kho PMIS" — COPY (giữ nguyên tài liệu gốc trong kho PMIS), khác moveFromFolder (MOVE).
+   *  Toast lỗi chung (interceptor) bị tắt vì component gọi hàm này đã tự hiển thị đúng message lỗi cụ
+   *  thể từ backend (vd. "Tài liệu '...' không thuộc Trạm/Đường dây/Thiết bị...") — tránh hiện thêm 1
+   *  toast "Không có quyền" chung chung, lặp/gây hiểu nhầm là 2 lỗi khác nhau. */
   copyFromPmis(
     dossierId: string,
     pmisDocumentIds: string[],
     documentTypeId: string
   ): Observable<MoveFromFolderResponse> {
+    const context = new HttpContext().set(SUPPRESS_HTTP_ERROR_TOAST, true);
     return this.http.post<MoveFromFolderResponse>(`${this.dossierBase(dossierId)}/copy-from-pmis`, {
       pmisDocumentIds,
       documentTypeId,
-    }).pipe(
+    }, { context }).pipe(
       map((res) => ({
         ...res,
         movedDocuments: normalizeMovedDocuments(res.movedDocuments ?? res),
