@@ -64,6 +64,49 @@
     </div>
   </div>
 
+  <!-- Grid metric cards: đồng bộ PMIS -->
+  <div class="metric-grid mb-4">
+    <div class="metric-card card-purple">
+      <div class="metric-icon-wrap">
+        <i class="pi pi-building"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Tổng Trạm biến áp đồng bộ PMIS</span>
+        <h3 class="metric-val">{{ substationPmisCount | number }}</h3>
+      </div>
+    </div>
+
+    <div class="metric-card card-teal">
+      <div class="metric-icon-wrap">
+        <i class="pi pi-share-alt"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Tổng Đường dây đồng bộ PMIS</span>
+        <h3 class="metric-val">{{ linePmisCount | number }}</h3>
+      </div>
+    </div>
+
+    <div class="metric-card card-amber">
+      <div class="metric-icon-wrap">
+        <i class="pi pi-cog"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Tổng thiết bị đồng bộ PMIS</span>
+        <h3 class="metric-val">{{ equipmentPmisCount | number }}</h3>
+      </div>
+    </div>
+
+    <div class="metric-card card-pink">
+      <div class="metric-icon-wrap">
+        <i class="pi pi-file"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Tổng tài liệu đồng bộ từ PMIS</span>
+        <h3 class="metric-val">{{ documentPmisCount | number }}</h3>
+      </div>
+    </div>
+  </div>
+
   <!-- Section Biểu đồ và thông số -->
   <div class="dashboard-section-grid mb-4">
     <!-- Cột trái: Biểu đồ Tiến độ số hóa 7 ngày qua -->

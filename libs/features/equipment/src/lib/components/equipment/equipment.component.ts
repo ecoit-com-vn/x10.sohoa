@@ -18,7 +18,6 @@ import { AuthService } from '@sohoa.frontend/shared/core';
 import { EquipmentService, PmisSpecDiffResponse } from '../../data-access/equipment.service';
 import { FormTemplateService } from '../../data-access/form-template.service';
 import {
-  DossierManagementService,
   buildPmisDiffRows,
   parseFormSchemaFields,
   parsePmisFormValues,
@@ -52,7 +51,6 @@ import { EavFormService } from '../../../../../../shared/core/src/lib/services/e
 export class EquipmentComponent implements OnInit {
   public equipmentService = inject(EquipmentService);
   public formTemplateService = inject(FormTemplateService);
-  public dossierService = inject(DossierManagementService);
   public authService = inject(AuthService);
   private eavFormService = inject(EavFormService);
   public messageService = inject(MessageService);
@@ -109,7 +107,7 @@ export class EquipmentComponent implements OnInit {
   }
 
   // Tab and Detail View States
-  activeTab = signal<'info' | 'related' | 'profileDocs'>('info');
+  activeTab = signal<'info' | 'profileDocs'>('info');
   searchReadOnly = signal<boolean>(false);
   dossierLookupMode = signal<boolean>(false);
   lookupDossierId = signal<string | null>(null);
@@ -175,14 +173,6 @@ export class EquipmentComponent implements OnInit {
   isLoadingTemplate = signal<boolean>(false);
   isSavingFormValues = signal<boolean>(false);
   isExportingTechnicalSpecs = signal<boolean>(false);
-
-  // Dossiers Tab States
-  public dossierItems = signal<any[]>([]);
-  public dossierTotalCount = signal<number>(0);
-  public dossierPage = signal<number>(1);
-  public dossierPageSize = signal<number>(10);
-  public dossierColumns = signal<any[]>([]);
-  public isLoadingDossiers = signal<boolean>(false);
 
   // Lists from lookup
   organizationUnits = signal<any[]>([]);
@@ -463,17 +453,6 @@ export class EquipmentComponent implements OnInit {
       this.pageSize();
       if (this.currentView() === 'list') {
         this.loadItems();
-      }
-    });
-
-    // Load hồ sơ liên quan chỉ khi mở tab related.
-    effect(() => {
-      const tab = this.activeTab();
-      const page = this.dossierPage();
-      const pageSize = this.dossierPageSize();
-      const item = this.currentItem();
-      if (tab === 'related' && item?.id) {
-        this.loadDossiers();
       }
     });
 
@@ -1449,31 +1428,6 @@ export class EquipmentComponent implements OnInit {
       });
   }
 
-  loadDossiers() {
-    const item = this.currentItem();
-    if (!item?.id) return;
-
-    this.isLoadingDossiers.set(true);
-    this.dossierService.getDossiersByEquipment(item.id, this.dossierPage(), this.dossierPageSize()).subscribe({
-      next: (res) => {
-        if (res) {
-          this.dossierItems.set(res.items || []);
-          this.dossierTotalCount.set(res.totalCount || 0);
-          this.dossierColumns.set(res.columns || []);
-        }
-        this.isLoadingDossiers.set(false);
-      },
-      error: () => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Lỗi',
-          detail: 'Không thể tải danh sách hồ sơ liên quan'
-        });
-        this.isLoadingDossiers.set(false);
-      }
-    });
-  }
-
   onSaveFormValues() {
     const item = this.currentItem();
     if (!item?.id) return;
@@ -1565,24 +1519,6 @@ export class EquipmentComponent implements OnInit {
       stored = `${y}-${m}-${dd}`;
     }
     this.formValuesObj.update(current => ({ ...current, [key]: stored }));
-  }
-
-  viewDossierDetail(dossier: any) {
-    const id = dossier?.id ?? dossier?.Id;
-    if (!id) return;
-    const serialized = this.router.serializeUrl(
-      this.router.createUrlTree(['/search/dossier-by-equipment', id])
-    );
-    window.open(`/#${serialized}`, '_blank');
-  }
-
-  onDossierPageChange(page: number) {
-    this.dossierPage.set(page);
-  }
-
-  onRelatedDossierPageChange(event: { page: number; rows: number }) {
-    this.dossierPage.set(event.page + 1);
-    this.dossierPageSize.set(event.rows);
   }
 
   // --- View Doc Helpers ---
