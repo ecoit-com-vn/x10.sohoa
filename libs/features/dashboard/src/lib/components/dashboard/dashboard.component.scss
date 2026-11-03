@@ -40,7 +40,11 @@
     .card-orange { border-left-color: #FF6B00; }
     .card-green { border-left-color: #22c55e; }
     .card-indigo { border-left-color: #6366f1; }
-    
+    .card-purple { border-left-color: #a855f7; }
+    .card-teal { border-left-color: #14b8a6; }
+    .card-amber { border-left-color: #f59e0b; }
+    .card-pink { border-left-color: #ec4899; }
+
     .metric-icon-wrap {
       width: 44px;
       height: 44px;
@@ -55,7 +59,11 @@
     .card-orange .metric-icon-wrap { background: #fff7ed; color: #FF6B00; }
     .card-green .metric-icon-wrap { background: #f0fdf4; color: #22c55e; }
     .card-indigo .metric-icon-wrap { background: #eef2ff; color: #6366f1; }
-    
+    .card-purple .metric-icon-wrap { background: #faf5ff; color: #a855f7; }
+    .card-teal .metric-icon-wrap { background: #f0fdfa; color: #14b8a6; }
+    .card-amber .metric-icon-wrap { background: #fffbeb; color: #f59e0b; }
+    .card-pink .metric-icon-wrap { background: #fdf2f8; color: #ec4899; }
+
     .metric-info {
       display: flex;
       flex-direction: column;
