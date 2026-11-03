@@ -31,6 +31,7 @@ public class CopyDocumentsFromPmisRequest
 {
     public List<Guid> PmisDocumentIds { get; set; } = new();
     public Guid DocumentTypeId { get; set; }
+    public List<Guid>? EquipmentIds { get; set; }
 }
 
 public class DossierDocumentSnapshotItemDto

@@ -544,6 +544,9 @@ public class DossierDocumentService : IDossierDocumentService
                 uploadSource: 6, // 6 = Kho PMIS
                 userId, userUnitId, creatorName, cancellationToken);
 
+            if (request.EquipmentIds is { Count: > 0 })
+                await _documentRepository.SetDocumentEquipmentsAsync(result.DocumentId, request.EquipmentIds);
+
             copiedItems.Add(new MovedDossierDocumentDto
             {
                 DocumentId = result.DocumentId,
