@@ -9,6 +9,7 @@ import {
   DeleteConfirmDialogComponent,
   WfBreadcrumbComponent,
 } from '@sohoa.frontend/shared/layout';
+import { AuthService } from '@sohoa.frontend/shared/core';
 import { UserGuide, UserGuideService } from '../../services/user-guide.service';
 
 const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'];
@@ -63,6 +64,7 @@ const STATIC_GUIDES: UserGuideRow[] = [
 export class UserGuideManagementComponent implements OnInit {
   private userGuideService = inject(UserGuideService);
   private messageService = inject(MessageService);
+  public authService = inject(AuthService);
 
   guides = signal<UserGuide[]>([]);
   loading = signal<boolean>(false);
@@ -120,6 +122,9 @@ export class UserGuideManagementComponent implements OnInit {
   }
 
   onAddNew(): void {
+    if (!this.authService.hasPermission('USER_GUIDE_CREATE')) {
+      return;
+    }
     this.isEdit.set(false);
     this.currentGuide.set({ roleName: '' });
     this.selectedFile.set(null);
@@ -130,6 +135,9 @@ export class UserGuideManagementComponent implements OnInit {
   }
 
   onEdit(guide: UserGuide): void {
+    if (!this.authService.hasPermission('USER_GUIDE_EDIT')) {
+      return;
+    }
     this.isEdit.set(true);
     this.currentGuide.set({ id: guide.id, roleName: guide.roleName });
     this.selectedFile.set(null);
@@ -245,6 +253,9 @@ export class UserGuideManagementComponent implements OnInit {
   }
 
   onDelete(guide: UserGuide): void {
+    if (!this.authService.hasPermission('USER_GUIDE_DELETE')) {
+      return;
+    }
     this.deleteTarget.set(guide);
     this.showDeleteConfirm.set(true);
   }

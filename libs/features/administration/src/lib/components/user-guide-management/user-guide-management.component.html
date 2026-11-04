@@ -6,7 +6,7 @@
       <wf-breadcrumb [customItems]="[{ label: 'Quản trị hệ thống' }, { label: 'Quản lý hướng dẫn sử dụng', url: '/administration/user-guide' }]" />
     </div>
     <div class="toolbar-right">
-      <button type="button" class="btn-green" (click)="onAddNew()">
+      <button *ngIf="authService.hasPermission('USER_GUIDE_CREATE')" type="button" class="btn-green" (click)="onAddNew()">
         <i class="pi pi-plus"></i> Thêm mới
       </button>
     </div>
@@ -50,10 +50,10 @@
                   <i class="pi" [ngClass]="downloadingId() === guide.id ? 'pi-spin pi-spinner' : 'pi-download'"></i>
                 </button>
                 <ng-container *ngIf="!guide.isStatic">
-                  <button type="button" class="act-btn act-edit" title="Chỉnh sửa" (click)="onEdit(guide)">
+                  <button *ngIf="authService.hasPermission('USER_GUIDE_EDIT')" type="button" class="act-btn act-edit" title="Chỉnh sửa" (click)="onEdit(guide)">
                     <i class="pi pi-pencil"></i>
                   </button>
-                  <button type="button" class="act-btn act-delete" title="Xóa" (click)="onDelete(guide)">
+                  <button *ngIf="authService.hasPermission('USER_GUIDE_DELETE')" type="button" class="act-btn act-delete" title="Xóa" (click)="onDelete(guide)">
                     <i class="pi pi-trash"></i>
                   </button>
                 </ng-container>

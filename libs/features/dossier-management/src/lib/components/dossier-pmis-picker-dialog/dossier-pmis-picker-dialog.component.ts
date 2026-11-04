@@ -56,6 +56,16 @@ export class DossierPmisPickerDialogComponent {
    * thuộc, nên nếu Trạm/Thiết bị hồ sơ đến muộn hơn cây (dossier còn đang tải) thì computed sẽ không
    * bao giờ tính lại — cây sẽ kẹt ở kết quả rỗng/sai của lần tính đầu tiên. */
   infrastructureIds = input<string[]>([]);
+  /** Loại văn bản đang chọn ở cây thư mục phía ngoài (tab cha) — thay cho select "Bước 1" cũ, giống hệt
+   * DossierFolderPickerDialogComponent.documentTypeId. Dùng setter ghi vào signal riêng vì computed()
+   * không theo dõi được @Input property thuần. */
+  private readonly documentTypeIdSignal = signal<string | null>(null);
+  @Input() set documentTypeId(value: string | null) {
+    this.documentTypeIdSignal.set(value);
+  }
+  get documentTypeId(): string | null {
+    return this.documentTypeIdSignal();
+  }
   @Input() visible = false;
   @Output() visibleChange = new EventEmitter<boolean>();
   @Output() documentsAdded = new EventEmitter<void>();
@@ -135,7 +145,7 @@ export class DossierPmisPickerDialogComponent {
 
   documentTypes = signal<DocumentTypeLookupItem[]>([]);
   loadingDocTypes = signal(false);
-  selectedDocumentTypeId = signal('');
+  readonly selectedDocumentTypeId = computed(() => this.documentTypeIdSignal() ?? '');
 
   /** Thiết bị để phân loại tài liệu — cùng khuôn với DossierFolderPickerDialogComponent: lazy load +
    * virtual scroll, chỉ chọn được thiết bị thuộc Trạm/đường dây đã gắn với hồ sơ này. */
@@ -170,7 +180,6 @@ export class DossierPmisPickerDialogComponent {
     this.selectedDocIds.set(new Set());
     this.docSearch.set('');
     this.page.set(1);
-    this.selectedDocumentTypeId.set('');
     this.selectedNode.set(null);
     this.documents.set([]);
     this.totalDocuments.set(0);
