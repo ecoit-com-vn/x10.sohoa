@@ -518,9 +518,16 @@ public class DossierDocumentService : IDossierDocumentService
 
             // Kiểm tra bắt buộc phía server — KHÔNG chỉ dựa vào việc FE ẩn sẵn các nhánh không khớp:
             // tài liệu PMIS chỉ được chọn nếu thuộc đúng Trạm/Đường dây/Thiết bị đã gắn với hồ sơ này.
+            // Thiết bị: đối chiếu allowedEquipmentIds (DOSSIER_EQUIPMENTS cũ, hồ sơ nào còn dùng) HOẶC suy
+            // ra qua Trạm/Đường dây cha của thiết bị (EQUIPMENTS.INFRASTRUCTURE_ID) — dossier mới không còn
+            // gắn trực tiếp Thiết bị (xem comment directlyAllowedIds ở DossierPmisPickerDialogComponent),
+            // chỉ còn infrastructureIds, nên chỉ check allowedEquipmentIds sẽ luôn fail với dossier mới.
             var isAllowed = pmisDoc.OwnerType == "INFRASTRUCTURE"
                 ? allowedInfrastructureIds.Contains(pmisDoc.OwnerId)
-                : pmisDoc.OwnerType == "EQUIPMENT" && allowedEquipmentIds.Contains(pmisDoc.OwnerId);
+                : pmisDoc.OwnerType == "EQUIPMENT" && (
+                    allowedEquipmentIds.Contains(pmisDoc.OwnerId)
+                    || (await _pmisDocumentRepository.GetEquipmentInfrastructureIdAsync(pmisDoc.OwnerId)) is { } equipmentInfraId
+                        && allowedInfrastructureIds.Contains(equipmentInfraId));
             if (!isAllowed)
                 throw new UnauthorizedAccessException(
                     $"Tài liệu '{pmisDoc.DocumentName}' không thuộc Trạm/Đường dây/Thiết bị đã gắn với hồ sơ này.");

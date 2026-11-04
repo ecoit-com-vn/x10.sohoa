@@ -97,6 +97,12 @@ public interface IPmisDocumentRepository
     /// liệu/cho upload, null nếu không tìm thấy hoặc chưa gán đơn vị.</summary>
     Task<long?> GetOwnerUnitIdAsync(string ownerType, Guid ownerId);
 
+    /// <summary>Trạm/Đường dây (INFRASTRUCTURE_ID) chứa 1 Thiết bị — dùng để kiểm tra 1 tài liệu PMIS gắn
+    /// Thiết bị có thuộc phạm vi Trạm/Đường dây đã gắn với hồ sơ hay không (xem CopyFromPmisAsync), vì
+    /// dossier không còn lưu danh sách Thiết bị riêng (DOSSIER_EQUIPMENTS) cho mọi hồ sơ mới. Null nếu
+    /// không tìm thấy thiết bị hoặc đã xoá mềm.</summary>
+    Task<Guid?> GetEquipmentInfrastructureIdAsync(Guid equipmentId);
+
     /// <summary>Toàn bộ Trạm/Đường dây đã có tài liệu PMIS (không lọc theo 1 Đơn vị cụ thể) - dùng cho ô
     /// tìm kiếm phía trên cây, kèm UnitNodeId/UnitName để FE tự mở đúng nhánh cây chứa nó.
     /// <paramref name="allowedUnitIds"/> cùng quy ước với GetCatalogUnitsAsync — có giá trị thì cũng loại

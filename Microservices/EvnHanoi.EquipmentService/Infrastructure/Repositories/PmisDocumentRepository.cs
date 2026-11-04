@@ -616,6 +616,15 @@ public class PmisDocumentRepository : IPmisDocumentRepository
         return await _connection.QuerySingleOrDefaultAsync<long?>(sql, new { OwnerId = ownerId.ToString() });
     }
 
+    public async Task<Guid?> GetEquipmentInfrastructureIdAsync(Guid equipmentId)
+    {
+        EnsureOpen();
+        var raw = await _connection.QuerySingleOrDefaultAsync<string?>(
+            "SELECT INFRASTRUCTURE_ID FROM EQUIPMENTS WHERE Id = :Id AND IsDeleted = 0",
+            new { Id = equipmentId.ToString() });
+        return Guid.TryParse(raw, out var id) ? id : null;
+    }
+
     public async Task<IReadOnlyList<PmisInfrastructureLookupDto>> SearchInfrastructuresAsync(IEnumerable<long>? allowedUnitIds)
     {
         EnsureOpen();
